@@ -13,6 +13,7 @@ interface DataLineProps {
   toPos: { x: number; y: number };
   onLineClick: (connectionId: string, e: React.MouseEvent) => void;
   isDraggingEndpoint?: boolean;
+  dimmed?: boolean;
 }
 
 export default function DataLine({
@@ -30,6 +31,7 @@ export default function DataLine({
   toPos,
   onLineClick,
   isDraggingEndpoint,
+  dimmed,
 }: DataLineProps) {
   const dotFill =
     color === "#10b981"
@@ -59,11 +61,11 @@ export default function DataLine({
         stroke={color}
         strokeWidth={isDraggingEndpoint ? "1.5" : isHovered ? "3" : "1.5"}
         className="transition-all"
-        opacity={isDraggingEndpoint ? 0.25 : isHovered ? 1 : 0.7}
+        opacity={dimmed ? 0.1 : isDraggingEndpoint ? 0.25 : isHovered ? 1 : 0.7}
         strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
       />
       {/* Animated dot */}
-      {isLive && !hideDot && !isDraggingEndpoint && (
+      {isLive && !hideDot && !isDraggingEndpoint && !dimmed && (
         <circle
           r={isHovered ? "6" : "4"}
           fill={dotFill}

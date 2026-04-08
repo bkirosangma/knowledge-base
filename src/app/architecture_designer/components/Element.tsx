@@ -20,6 +20,7 @@ interface ElementProps {
   onMouseLeave?: () => void;
   onResize?: (id: string, width: number, height: number) => void;
   measuredHeight?: number;
+  dimmed?: boolean;
 }
 
 export default function Element({
@@ -40,6 +41,7 @@ export default function Element({
   onMouseLeave,
   onResize,
   measuredHeight,
+  dimmed,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const minH = w === 110 || w === 130 ? 60 : 70;
@@ -69,13 +71,14 @@ export default function Element({
   return (
     <div
       ref={ref}
-      className={`absolute bg-white rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border border-slate-200 flex flex-col items-center justify-center text-center p-3 z-10 select-none ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : "cursor-grab"}`}
+      className={`absolute bg-white rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border border-slate-200 flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : "cursor-grab"}`}
       style={{
         left: x,
         top: y,
         transform: "translate(-50%, -50%)",
         width: `${w}px`,
         minHeight: `${minH}px`,
+        opacity: dimmed ? 0.2 : 1,
       }}
       onMouseDown={(e) => {
         e.preventDefault();

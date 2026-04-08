@@ -409,21 +409,26 @@ export default function ThanosArchitecture() {
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ zIndex: 5 }}
             >
-              {lines.map((line) => (
-                <DataLine
-                  key={line.id}
-                  {...line}
-                  isLive={isLive}
-                  isHovered={hoveredLine?.id === line.id}
-                  isDraggingEndpoint={draggingEndpoint?.connectionId === line.id}
-                  onHoverStart={(id, label, x, y) => setHoveredLine({ id, label, x, y })}
-                  onHoverMove={(id, x, y) =>
-                    setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev))
-                  }
-                  onHoverEnd={() => setHoveredLine(null)}
-                  onLineClick={handleLineClick}
-                />
-              ))}
+              {lines.map((line) => {
+                const isBeingDragged = draggingEndpoint?.connectionId === line.id;
+                const dimmed = !!draggingEndpoint && !isBeingDragged;
+                return (
+                  <DataLine
+                    key={line.id}
+                    {...line}
+                    isLive={isLive}
+                    isHovered={hoveredLine?.id === line.id}
+                    isDraggingEndpoint={isBeingDragged}
+                    dimmed={dimmed}
+                    onHoverStart={(id, label, x, y) => setHoveredLine({ id, label, x, y })}
+                    onHoverMove={(id, x, y) =>
+                      setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev))
+                    }
+                    onHoverEnd={() => setHoveredLine(null)}
+                    onLineClick={handleLineClick}
+                  />
+                );
+              })}
               {/* Ghost line while dragging an endpoint */}
               {ghostLine && (
                 <g>
@@ -463,6 +468,20 @@ export default function ThanosArchitecture() {
               const anchors = getAnchors(node.x, node.y, dims.w, dims.h);
               const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id;
 
+              // During endpoint drag: the fixed-end node and the hovered node are active
+              let dimmed = false;
+              let showAnchors = hoveredNodeId === node.id;
+              if (draggingEndpoint) {
+                const dragConn = connections.find((c) => c.id === draggingEndpoint.connectionId);
+                const fixedNodeId = dragConn
+                  ? (draggingEndpoint.end === "from" ? dragConn.to : dragConn.from)
+                  : null;
+                const isFixedEnd = node.id === fixedNodeId;
+                const isHoveredTarget = hoveredNodeId === node.id;
+                dimmed = !isFixedEnd && !isHoveredTarget;
+                showAnchors = isHoveredTarget;
+              }
+
               return (
                 <Element
                   key={node.id}
@@ -470,13 +489,14 @@ export default function ThanosArchitecture() {
                   showLabels={showLabels}
                   onDragStart={handleDragStart}
                   isDragging={draggingId === node.id}
-                  showAnchors={!!draggingEndpoint || hoveredNodeId === node.id}
+                  showAnchors={showAnchors}
                   highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
                   anchors={anchors}
                   measuredHeight={dims.h}
                   onResize={handleElementResize}
                   onMouseEnter={() => setHoveredNodeId(node.id)}
                   onMouseLeave={() => setHoveredNodeId(null)}
+                  dimmed={dimmed}
                 />
               );
             })}
