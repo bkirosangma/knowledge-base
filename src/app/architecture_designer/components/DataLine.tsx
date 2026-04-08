@@ -57,8 +57,10 @@ export default function DataLine({
         d={path}
         fill="none"
         stroke={color}
-        strokeWidth={isHovered || isDraggingEndpoint ? "3" : "1.5"}
-        className={`transition-all ${isHovered || isDraggingEndpoint ? "opacity-100" : "opacity-70"}`}
+        strokeWidth={isDraggingEndpoint ? "1.5" : isHovered ? "3" : "1.5"}
+        className="transition-all"
+        opacity={isDraggingEndpoint ? 0.25 : isHovered ? 1 : 0.7}
+        strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
       />
       {/* Animated dot */}
       {isLive && !hideDot && !isDraggingEndpoint && (
@@ -72,25 +74,29 @@ export default function DataLine({
           </animateMotion>
         </circle>
       )}
-      {/* Visible endpoint dots */}
-      <circle
-        cx={fromPos.x}
-        cy={fromPos.y}
-        r={isHovered || isDraggingEndpoint ? 6 : 4}
-        fill={isHovered || isDraggingEndpoint ? color : "transparent"}
-        stroke={isHovered || isDraggingEndpoint ? "white" : "transparent"}
-        strokeWidth={1.5}
-        style={{ pointerEvents: "none" }}
-      />
-      <circle
-        cx={toPos.x}
-        cy={toPos.y}
-        r={isHovered || isDraggingEndpoint ? 6 : 4}
-        fill={isHovered || isDraggingEndpoint ? color : "transparent"}
-        stroke={isHovered || isDraggingEndpoint ? "white" : "transparent"}
-        strokeWidth={1.5}
-        style={{ pointerEvents: "none" }}
-      />
+      {/* Visible endpoint dots (hidden during drag — ghost line shows its own) */}
+      {!isDraggingEndpoint && (
+        <>
+          <circle
+            cx={fromPos.x}
+            cy={fromPos.y}
+            r={isHovered ? 6 : 4}
+            fill={isHovered ? color : "transparent"}
+            stroke={isHovered ? "white" : "transparent"}
+            strokeWidth={1.5}
+            style={{ pointerEvents: "none" }}
+          />
+          <circle
+            cx={toPos.x}
+            cy={toPos.y}
+            r={isHovered ? 6 : 4}
+            fill={isHovered ? color : "transparent"}
+            stroke={isHovered ? "white" : "transparent"}
+            strokeWidth={1.5}
+            style={{ pointerEvents: "none" }}
+          />
+        </>
+      )}
     </g>
   );
 }

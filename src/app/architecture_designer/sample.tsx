@@ -305,41 +305,50 @@ export default function ThanosArchitecture() {
     const fromDims = getNodeDimensions(fromNode);
     const toDims = getNodeDimensions(toNode);
 
-    let fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
-    let toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
+    const fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
+    const toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
 
-    let usedFromAnchor = conn.fromAnchor;
-    let usedToAnchor = conn.toAnchor;
-    let effectiveFromId = conn.from;
-    let effectiveToId = conn.to;
-
-    // Override if this line's endpoint is being dragged
-    if (draggingEndpoint?.connectionId === conn.id) {
-      const dragPos = draggingEndpoint.snappedAnchor
-        ? { x: draggingEndpoint.snappedAnchor.x, y: draggingEndpoint.snappedAnchor.y }
-        : draggingEndpoint.currentPos;
-      if (draggingEndpoint.end === "from") {
-        fromPos = dragPos;
-        usedFromAnchor = draggingEndpoint.snappedAnchor?.anchorId ?? conn.fromAnchor;
-        if (draggingEndpoint.snappedAnchor) effectiveFromId = draggingEndpoint.snappedAnchor.nodeId;
-      } else {
-        toPos = dragPos;
-        usedToAnchor = draggingEndpoint.snappedAnchor?.anchorId ?? conn.toAnchor;
-        if (draggingEndpoint.snappedAnchor) effectiveToId = draggingEndpoint.snappedAnchor.nodeId;
-      }
-    }
-
-    const obstacles = buildObstacles(allNodeRects, [effectiveFromId, effectiveToId]);
+    const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
 
     return {
       id: conn.id,
-      path: computeOrthogonalPath(fromPos, toPos, usedFromAnchor, usedToAnchor, obstacles),
+      path: computeOrthogonalPath(fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles),
       color: conn.color,
       label: conn.label,
       fromPos,
       toPos,
     };
   });
+
+  // Ghost line: straight line from the fixed endpoint to the cursor/snap point
+  let ghostLine: { path: string; color: string; fromPos: { x: number; y: number }; toPos: { x: number; y: number } } | null = null;
+  if (draggingEndpoint) {
+    const conn = connections.find((c) => c.id === draggingEndpoint.connectionId);
+    if (conn) {
+      const fromNode = nodeMap[conn.from];
+      const toNode = nodeMap[conn.to];
+      const fromDims = getNodeDimensions(fromNode);
+      const toDims = getNodeDimensions(toNode);
+
+      const fixedPos = draggingEndpoint.end === "from"
+        ? getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h)
+        : getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
+
+      const dragPos = draggingEndpoint.snappedAnchor
+        ? { x: draggingEndpoint.snappedAnchor.x, y: draggingEndpoint.snappedAnchor.y }
+        : draggingEndpoint.currentPos;
+
+      const gFrom = draggingEndpoint.end === "from" ? dragPos : fixedPos;
+      const gTo = draggingEndpoint.end === "from" ? fixedPos : dragPos;
+
+      ghostLine = {
+        path: `M ${gFrom.x} ${gFrom.y} L ${gTo.x} ${gTo.y}`,
+        color: conn.color,
+        fromPos: gFrom,
+        toPos: gTo,
+      };
+    }
+  }
 
   const regions = [
     { id: "l1", title: "USER VISUALIZATION & QUERY ENTRY", top: 20, height: 110, bg: "bg-[#eff3f9]", border: "border-[#cdd6e4]" },
@@ -415,6 +424,37 @@ export default function ThanosArchitecture() {
                   onLineClick={handleLineClick}
                 />
               ))}
+              {/* Ghost line while dragging an endpoint */}
+              {ghostLine && (
+                <g>
+                  <line
+                    x1={ghostLine.fromPos.x}
+                    y1={ghostLine.fromPos.y}
+                    x2={ghostLine.toPos.x}
+                    y2={ghostLine.toPos.y}
+                    stroke={ghostLine.color}
+                    strokeWidth="2"
+                    strokeDasharray="6 4"
+                    opacity="0.7"
+                  />
+                  <circle
+                    cx={ghostLine.toPos.x}
+                    cy={ghostLine.toPos.y}
+                    r={draggingEndpoint?.snappedAnchor ? 6 : 5}
+                    fill={draggingEndpoint?.snappedAnchor ? ghostLine.color : "white"}
+                    stroke={ghostLine.color}
+                    strokeWidth={2}
+                  />
+                  <circle
+                    cx={ghostLine.fromPos.x}
+                    cy={ghostLine.fromPos.y}
+                    r={draggingEndpoint?.snappedAnchor ? 6 : 5}
+                    fill={draggingEndpoint?.snappedAnchor ? ghostLine.color : "white"}
+                    stroke={ghostLine.color}
+                    strokeWidth={2}
+                  />
+                </g>
+              )}
             </svg>
 
             {/* Render Nodes */}
