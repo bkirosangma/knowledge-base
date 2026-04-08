@@ -1,12 +1,12 @@
 import { useRef, useEffect } from "react";
-import { type LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 
 interface ElementProps {
   id: string;
   label: string;
   sub?: string;
-  icon?: LucideIcon;
+  icon?: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   x: number;
   y: number;
   w?: number;

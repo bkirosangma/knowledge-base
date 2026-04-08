@@ -11,7 +11,7 @@ interface DataLineProps {
   onHoverEnd: () => void;
   fromPos: { x: number; y: number };
   toPos: { x: number; y: number };
-  onEndpointDragStart: (connectionId: string, end: "from" | "to", e: React.MouseEvent) => void;
+  onLineClick: (connectionId: string, e: React.MouseEvent) => void;
   isDraggingEndpoint?: boolean;
 }
 
@@ -28,7 +28,7 @@ export default function DataLine({
   label,
   fromPos,
   toPos,
-  onEndpointDragStart,
+  onLineClick,
   isDraggingEndpoint,
 }: DataLineProps) {
   const dotFill =
@@ -44,8 +44,12 @@ export default function DataLine({
       onMouseEnter={(e) => onHoverStart(id, label, e.clientX, e.clientY)}
       onMouseMove={(e) => onHoverMove(id, e.clientX, e.clientY)}
       onMouseLeave={onHoverEnd}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        onLineClick(id, e);
+      }}
     >
-      {/* Wide invisible hit area for hover */}
+      {/* Wide invisible hit area for hover + click */}
       <path d={path} fill="none" stroke="transparent" strokeWidth="20" />
       {/* Visible line */}
       <path
@@ -68,7 +72,7 @@ export default function DataLine({
           </animateMotion>
         </circle>
       )}
-      {/* Draggable endpoint: FROM */}
+      {/* Visible endpoint dots */}
       <circle
         cx={fromPos.x}
         cy={fromPos.y}
@@ -76,13 +80,8 @@ export default function DataLine({
         fill={isHovered || isDraggingEndpoint ? color : "transparent"}
         stroke={isHovered || isDraggingEndpoint ? "white" : "transparent"}
         strokeWidth={1.5}
-        style={{ cursor: "crosshair", pointerEvents: "auto" }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onEndpointDragStart(id, "from", e);
-        }}
+        style={{ pointerEvents: "none" }}
       />
-      {/* Draggable endpoint: TO */}
       <circle
         cx={toPos.x}
         cy={toPos.y}
@@ -90,11 +89,7 @@ export default function DataLine({
         fill={isHovered || isDraggingEndpoint ? color : "transparent"}
         stroke={isHovered || isDraggingEndpoint ? "white" : "transparent"}
         strokeWidth={1.5}
-        style={{ cursor: "crosshair", pointerEvents: "auto" }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onEndpointDragStart(id, "to", e);
-        }}
+        style={{ pointerEvents: "none" }}
       />
     </g>
   );

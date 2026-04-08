@@ -14,10 +14,10 @@ import DataLine from "./components/DataLine";
 import {
   type AnchorId,
   getAnchorPosition,
-  getAnchorDirection,
   getAnchors,
   findNearestAnchor,
 } from "./utils/anchors";
+import { computeOrthogonalPath, buildObstacles } from "./utils/orthogonalRouter";
 
 interface NodeData {
   id: string;
@@ -95,28 +95,6 @@ function getNodeHeight(w: number): number {
   return w === 110 || w === 130 ? 60 : 70;
 }
 
-function computePath(
-  fromPos: { x: number; y: number },
-  toPos: { x: number; y: number },
-  fromAnchor: AnchorId,
-  toAnchor: AnchorId
-): string {
-  const fromDir = getAnchorDirection(fromAnchor);
-  const toDir = getAnchorDirection(toAnchor);
-
-  const dx = Math.abs(toPos.x - fromPos.x);
-  const dy = Math.abs(toPos.y - fromPos.y);
-  const dist = Math.max(dx, dy, 60);
-  const cpLen = Math.min(dist * 0.45, 150);
-
-  const cp1x = fromPos.x + fromDir.dx * cpLen;
-  const cp1y = fromPos.y + fromDir.dy * cpLen;
-  const cp2x = toPos.x + toDir.dx * cpLen;
-  const cp2y = toPos.y + toDir.dy * cpLen;
-
-  return `M ${fromPos.x} ${fromPos.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toPos.x} ${toPos.y}`;
-}
-
 export default function ThanosArchitecture() {
   const [isLive, setIsLive] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
@@ -140,6 +118,8 @@ export default function ThanosArchitecture() {
       x: number;
       y: number;
     } | null;
+    originalNodeId: string;
+    originalAnchor: AnchorId;
   } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
 
@@ -203,23 +183,44 @@ export default function ThanosArchitecture() {
     };
   }, [draggingId]);
 
-  // --- Endpoint dragging ---
-  const handleEndpointDragStart = useCallback(
-    (connectionId: string, end: "from" | "to", e: React.MouseEvent) => {
+  // --- Line click → drag nearest endpoint ---
+  const handleLineClick = useCallback(
+    (connectionId: string, e: React.MouseEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left + canvas.scrollLeft;
+      const my = e.clientY - rect.top + canvas.scrollTop;
+
+      const conn = connections.find((c) => c.id === connectionId);
+      if (!conn) return;
+
+      const fromNode = nodes.find((n) => n.id === conn.from);
+      const toNode = nodes.find((n) => n.id === conn.to);
+      if (!fromNode || !toNode) return;
+
+      const fromDims = getNodeDimensions(fromNode);
+      const toDims = getNodeDimensions(toNode);
+      const fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
+      const toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
+
+      const distFrom = Math.hypot(mx - fromPos.x, my - fromPos.y);
+      const distTo = Math.hypot(mx - toPos.x, my - toPos.y);
+
+      const end = distFrom <= distTo ? "from" : "to";
+      const originalNodeId = end === "from" ? conn.from : conn.to;
+      const originalAnchor = end === "from" ? conn.fromAnchor : conn.toAnchor;
+
       setDraggingEndpoint({
         connectionId,
         end,
-        currentPos: {
-          x: e.clientX - rect.left + canvas.scrollLeft,
-          y: e.clientY - rect.top + canvas.scrollTop,
-        },
+        currentPos: { x: mx, y: my },
         snappedAnchor: null,
+        originalNodeId,
+        originalAnchor,
       });
     },
-    []
+    [connections, nodes, getNodeDimensions]
   );
 
   useEffect(() => {
@@ -259,26 +260,24 @@ export default function ThanosArchitecture() {
 
     const handleMouseUp = () => {
       setDraggingEndpoint((prev) => {
-        if (prev?.snappedAnchor) {
-          setConnections((conns) =>
-            conns.map((c) => {
-              if (c.id !== prev.connectionId) return c;
-              if (prev.end === "from") {
-                return {
-                  ...c,
-                  from: prev.snappedAnchor!.nodeId,
-                  fromAnchor: prev.snappedAnchor!.anchorId,
-                };
-              } else {
-                return {
-                  ...c,
-                  to: prev.snappedAnchor!.nodeId,
-                  toAnchor: prev.snappedAnchor!.anchorId,
-                };
-              }
-            })
-          );
-        }
+        if (!prev) return null;
+
+        const target = prev.snappedAnchor ?? {
+          nodeId: prev.originalNodeId,
+          anchorId: prev.originalAnchor,
+        };
+
+        setConnections((conns) =>
+          conns.map((c) => {
+            if (c.id !== prev.connectionId) return c;
+            if (prev.end === "from") {
+              return { ...c, from: target.nodeId, fromAnchor: target.anchorId };
+            } else {
+              return { ...c, to: target.nodeId, toAnchor: target.anchorId };
+            }
+          })
+        );
+
         return null;
       });
     };
@@ -294,21 +293,25 @@ export default function ThanosArchitecture() {
   // --- Compute lines from connections + node positions ---
   const nodeMap = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
+  // Build node dimensions list for obstacle computation
+  const allNodeRects = nodes.map((n) => {
+    const dims = getNodeDimensions(n);
+    return { id: n.id, x: n.x, y: n.y, w: dims.w, h: dims.h };
+  });
+
   const lines = connections.map((conn) => {
     const fromNode = nodeMap[conn.from];
     const toNode = nodeMap[conn.to];
     const fromDims = getNodeDimensions(fromNode);
     const toDims = getNodeDimensions(toNode);
-    const fromH = fromDims.h;
-    const fromW = fromDims.w;
-    const toH = toDims.h;
-    const toW = toDims.w;
 
-    let fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromW, fromH);
-    let toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toW, toH);
+    let fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
+    let toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
 
     let usedFromAnchor = conn.fromAnchor;
     let usedToAnchor = conn.toAnchor;
+    let effectiveFromId = conn.from;
+    let effectiveToId = conn.to;
 
     // Override if this line's endpoint is being dragged
     if (draggingEndpoint?.connectionId === conn.id) {
@@ -318,15 +321,19 @@ export default function ThanosArchitecture() {
       if (draggingEndpoint.end === "from") {
         fromPos = dragPos;
         usedFromAnchor = draggingEndpoint.snappedAnchor?.anchorId ?? conn.fromAnchor;
+        if (draggingEndpoint.snappedAnchor) effectiveFromId = draggingEndpoint.snappedAnchor.nodeId;
       } else {
         toPos = dragPos;
         usedToAnchor = draggingEndpoint.snappedAnchor?.anchorId ?? conn.toAnchor;
+        if (draggingEndpoint.snappedAnchor) effectiveToId = draggingEndpoint.snappedAnchor.nodeId;
       }
     }
 
+    const obstacles = buildObstacles(allNodeRects, [effectiveFromId, effectiveToId]);
+
     return {
       id: conn.id,
-      path: computePath(fromPos, toPos, usedFromAnchor, usedToAnchor),
+      path: computeOrthogonalPath(fromPos, toPos, usedFromAnchor, usedToAnchor, obstacles),
       color: conn.color,
       label: conn.label,
       fromPos,
@@ -405,7 +412,7 @@ export default function ThanosArchitecture() {
                     setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev))
                   }
                   onHoverEnd={() => setHoveredLine(null)}
-                  onEndpointDragStart={handleEndpointDragStart}
+                  onLineClick={handleLineClick}
                 />
               ))}
             </svg>
