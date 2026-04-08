@@ -107,6 +107,7 @@ export default function ThanosArchitecture() {
   const [nodes, setNodes] = useState(initialNodes);
   const [connections, setConnections] = useState(initialConnections);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [elementDragPos, setElementDragPos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [draggingEndpoint, setDraggingEndpoint] = useState<{
     connectionId: string;
@@ -156,6 +157,7 @@ export default function ThanosArchitecture() {
       y: e.clientY - rect.top - node.y + canvas.scrollTop,
     };
     setDraggingId(id);
+    setElementDragPos({ x: node.x, y: node.y });
   }, [nodes, draggingEndpoint]);
 
   useEffect(() => {
@@ -167,13 +169,20 @@ export default function ThanosArchitecture() {
       const rect = canvas.getBoundingClientRect();
       const newX = e.clientX - rect.left - dragOffset.current.x + canvas.scrollLeft;
       const newY = e.clientY - rect.top - dragOffset.current.y + canvas.scrollTop;
-
-      setNodes((prev) =>
-        prev.map((n) => (n.id === draggingId ? { ...n, x: newX, y: newY } : n))
-      );
+      setElementDragPos({ x: newX, y: newY });
     };
 
-    const handleMouseUp = () => setDraggingId(null);
+    const handleMouseUp = () => {
+      setElementDragPos((pos) => {
+        if (pos) {
+          setNodes((prev) =>
+            prev.map((n) => (n.id === draggingId ? { ...n, x: pos.x, y: pos.y } : n))
+          );
+        }
+        return null;
+      });
+      setDraggingId(null);
+    };
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
@@ -411,7 +420,7 @@ export default function ThanosArchitecture() {
             >
               {lines.map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = !!draggingEndpoint && !isBeingDragged;
+                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId;
                 return (
                   <DataLine
                     key={line.id}
@@ -464,6 +473,7 @@ export default function ThanosArchitecture() {
 
             {/* Render Nodes */}
             {nodes.map((node) => {
+              const isThisDragged = draggingId === node.id;
               const dims = getNodeDimensions(node);
               const anchors = getAnchors(node.x, node.y, dims.w, dims.h);
               const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id;
@@ -482,22 +492,46 @@ export default function ThanosArchitecture() {
                 showAnchors = isHoveredTarget;
               }
 
+              // During element drag: dim everything except the dragged element, hide anchors
+              if (draggingId) {
+                showAnchors = false;
+                if (!isThisDragged) dimmed = true;
+              }
+
               return (
-                <Element
-                  key={node.id}
-                  {...node}
-                  showLabels={showLabels}
-                  onDragStart={handleDragStart}
-                  isDragging={draggingId === node.id}
-                  showAnchors={showAnchors}
-                  highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
-                  anchors={anchors}
-                  measuredHeight={dims.h}
-                  onResize={handleElementResize}
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
-                  dimmed={dimmed}
-                />
+                <React.Fragment key={node.id}>
+                  {/* Ghost element at original position while dragging */}
+                  {isThisDragged && elementDragPos && (
+                    <Element
+                      id={`${node.id}-ghost`}
+                      label={node.label}
+                      sub={node.sub}
+                      icon={node.icon}
+                      x={node.x}
+                      y={node.y}
+                      w={node.w}
+                      showLabels={showLabels}
+                      dimmed
+                      measuredHeight={dims.h}
+                    />
+                  )}
+                  <Element
+                    {...node}
+                    x={isThisDragged && elementDragPos ? elementDragPos.x : node.x}
+                    y={isThisDragged && elementDragPos ? elementDragPos.y : node.y}
+                    showLabels={showLabels}
+                    onDragStart={handleDragStart}
+                    isDragging={isThisDragged}
+                    showAnchors={showAnchors}
+                    highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
+                    anchors={anchors}
+                    measuredHeight={dims.h}
+                    onResize={handleElementResize}
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
+                    dimmed={dimmed}
+                  />
+                </React.Fragment>
               );
             })}
           </div>

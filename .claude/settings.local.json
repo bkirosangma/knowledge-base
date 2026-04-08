@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --no-turbopack --import-alias \"@/*\" --use-npm)",
       "Bash(npm run:*)",
-      "Bash(curl -s http://localhost:3000/architecture_designer)"
+      "Bash(curl -s http://localhost:3000/architecture_designer)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/architecture_designer)"
     ]
   }
 }
