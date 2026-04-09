@@ -98,6 +98,26 @@ export default function ArchitectureDesigner() {
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const hasScrolledToCenter = useRef(false);
 
+  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
+        e.preventDefault();
+      }
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("wheel", onWheel);
+    };
+  }, []);
+
   // Clamp scroll bounds
   useEffect(() => {
     const el = canvasRef.current;
