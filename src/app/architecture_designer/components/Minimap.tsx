@@ -22,6 +22,9 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
   const prevScaleRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isDraggingIndicator, setIsDraggingIndicator] = useState(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const didDragRef = useRef(false);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [, setScrollTick] = useState(0);
   const zoom = zoomRef.current;
@@ -69,37 +72,100 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
   const indicatorW = (vpWidth / zoom) * scale;
   const indicatorH = (vpHeight / zoom) * scale;
 
-  const handleMinimapClick = useCallback(
+  /** Convert a client (screen) position to minimap-local coords, accounting for CSS scale */
+  const toMinimapCoords = useCallback((clientX: number, clientY: number) => {
+    const el = minimapRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    const cssScale = rect.width / miniW;
+    return {
+      x: (clientX - rect.left) / cssScale,
+      y: (clientY - rect.top) / cssScale,
+    };
+  }, [miniW]);
+
+  /** Set viewport scroll from a minimap-local position (top-left of indicator) */
+  const scrollToMinimapPos = useCallback((mx: number, my: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const z = zoomRef.current;
+    // mx/my is the desired indicator top-left in minimap coords
+    // Convert to world coords then to scroll position
+    viewport.scrollLeft = (mx / scale) * z + VIEWPORT_PADDING;
+    viewport.scrollTop = (my / scale) * z + VIEWPORT_PADDING;
+  }, [scale, zoomRef, viewportRef]);
+
+  const handleMinimapMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      const el = minimapRef.current;
-      const viewport = viewportRef.current;
-      if (!el || !viewport) return;
+      e.preventDefault();
+      const { x: mx, y: my } = toMinimapCoords(e.clientX, e.clientY);
 
-      const rect = el.getBoundingClientRect();
-      // Account for CSS transform scale — getBoundingClientRect returns scaled size
-      const cssScale = rect.width / miniW;
-      const clickX = (e.clientX - rect.left) / cssScale;
-      const clickY = (e.clientY - rect.top) / cssScale;
+      // Check if click is inside the indicator
+      const insideIndicator =
+        mx >= indicatorLeft && mx <= indicatorLeft + indicatorW &&
+        my >= indicatorTop && my <= indicatorTop + indicatorH;
 
-      // Convert minimap click to world coords, center viewport there
-      const worldX = clickX / scale + world.x;
-      const worldY = clickY / scale + world.y;
+      if (insideIndicator) {
+        // Drag from current position, preserving click offset within indicator
+        dragOffsetRef.current = { x: mx - indicatorLeft, y: my - indicatorTop };
+      } else {
+        // Center viewport on click point, then start drag from center of indicator
+        const viewport = viewportRef.current;
+        if (viewport) {
+          const z = zoomRef.current;
+          const worldX = mx / scale + world.x;
+          const worldY = my / scale + world.y;
+          viewport.scrollLeft = (worldX - world.x) * z - vpWidth / 2 + VIEWPORT_PADDING;
+          viewport.scrollTop = (worldY - world.y) * z - vpHeight / 2 + VIEWPORT_PADDING;
+        }
+        // Offset so indicator center tracks the cursor
+        dragOffsetRef.current = { x: indicatorW / 2, y: indicatorH / 2 };
+      }
 
-      const z = zoomRef.current;
-      viewport.scrollLeft = (worldX - world.x) * z - vpWidth / 2 + VIEWPORT_PADDING;
-      viewport.scrollTop = (worldY - world.y) * z - vpHeight / 2 + VIEWPORT_PADDING;
+      setIsDraggingIndicator(true);
+      didDragRef.current = false;
     },
-    [scale, miniW, world, vpWidth, vpHeight, zoomRef, viewportRef]
+    [toMinimapCoords, indicatorLeft, indicatorTop, indicatorW, indicatorH, scale, world, vpWidth, vpHeight, zoomRef, viewportRef]
   );
+
+  useEffect(() => {
+    if (!isDraggingIndicator) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      didDragRef.current = true;
+      const { x: mx, y: my } = toMinimapCoords(e.clientX, e.clientY);
+      const newLeft = mx - dragOffsetRef.current.x;
+      const newTop = my - dragOffsetRef.current.y;
+      scrollToMinimapPos(newLeft, newTop);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      setIsDraggingIndicator(false);
+      // If cursor is outside minimap when drag ends, collapse it
+      const el = minimapRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        if (!inside) setIsHovered(false);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingIndicator, toMinimapCoords, scrollToMinimapPos]);
 
   return (
     <div
       ref={minimapRef}
-      className="relative bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden origin-bottom-left"
+      className={`relative bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden origin-bottom-left ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out', transform: isHovered ? 'scale(2)' : 'scale(1)' }}
-      onClick={handleMinimapClick}
+      onMouseDown={handleMinimapMouseDown}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => { if (!isDraggingIndicator) setIsHovered(false); }}
     >
       {/* Regions */}
       {regions.map((r) =>
@@ -133,7 +199,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
         />
       ))}
 
-      {/* Viewport indicator — clamped to minimap bounds on all sides */}
+      {/* Viewport indicator — clamped to minimap bounds, draggable */}
       {(() => {
         const clampedLeft = Math.max(0, indicatorLeft);
         const clampedTop = Math.max(0, indicatorTop);
@@ -144,8 +210,8 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
         if (clampedW <= 0 || clampedH <= 0) return null;
         return (
           <div
-            className="absolute border-2 border-blue-500 rounded-sm bg-blue-500/10"
-            style={{ left: clampedLeft, top: clampedTop, width: clampedW, height: clampedH, transition: resizeTransition }}
+            className={`absolute border-2 border-blue-500 rounded-sm bg-blue-500/10 ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
+            style={{ left: clampedLeft, top: clampedTop, width: clampedW, height: clampedH, transition: resizeTransition, pointerEvents: 'none' }}
           />
         );
       })()}
