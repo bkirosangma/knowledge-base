@@ -88,8 +88,9 @@ export default function Layer({
         </>)}
       </div>
       <span
-        className="absolute font-bold text-slate-700 tracking-wider text-[11px] transition-opacity select-none"
-        style={{ left: left + 12, top: top + 12, opacity: dimmed ? 0.55 : 1 }}
+        className="absolute font-bold text-slate-700 tracking-wider text-[11px] transition-opacity select-none overflow-hidden text-ellipsis whitespace-nowrap"
+        style={{ left: left + 12, top: top + 12, width: width - 24, opacity: dimmed ? 0.55 : 1 }}
+        title={title}
         onMouseDown={(e) => {
           e.preventDefault();
           onDragStart?.(id, e);
