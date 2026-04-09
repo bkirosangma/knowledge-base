@@ -20,6 +20,35 @@ import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
 import { useZoom } from "./hooks/useZoom";
 
+const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId }: {
+  lines: { id: string; path: string; color: string }[];
+  world: { x: number; y: number; w: number; h: number };
+  isZooming: boolean;
+  draggingEndpointId: string | null;
+  draggingId: string | null;
+  draggingLayerId: string | null;
+}) {
+  return (
+    <svg
+      className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
+      style={{ zIndex: 6, left: world.x, top: world.y, width: world.w, height: world.h, willChange: 'contents' }}
+      viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
+    >
+      {lines.map((line) => {
+        const isBeingDragged = draggingEndpointId === line.id;
+        const dimmed = (!!draggingEndpointId && !isBeingDragged) || !!draggingId || !!draggingLayerId;
+        if (isBeingDragged || dimmed) return null;
+        const dotFill = line.color === "#10b981" ? "#059669" : line.color === "#64748b" ? "#475569" : "#2563eb";
+        return (
+          <circle key={line.id} r="4" fill={dotFill}>
+            <animateMotion dur="2.5s" repeatCount="indefinite" path={line.path} />
+          </circle>
+        );
+      })}
+    </svg>
+  );
+});
+
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
@@ -409,25 +438,16 @@ export default function ArchitectureDesigner() {
               )}
             </svg>
 
-            {/* Animated flow dots — isolated SVG layer to avoid repainting lines */}
+            {/* Animated flow dots — memoized to avoid restart on hover */}
             {isLive && (
-              <svg
-                className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
-                style={{ zIndex: 6, left: world.x, top: world.y, width: world.w, height: world.h, willChange: 'contents' }}
-                viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
-              >
-                {lines.map((line) => {
-                  const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                  const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId || !!draggingLayerId;
-                  if (isBeingDragged || dimmed) return null;
-                  const dotFill = line.color === "#10b981" ? "#059669" : line.color === "#64748b" ? "#475569" : "#2563eb";
-                  return (
-                    <circle key={line.id} r="4" fill={dotFill}>
-                      <animateMotion dur="2.5s" repeatCount="indefinite" path={line.path} />
-                    </circle>
-                  );
-                })}
-              </svg>
+              <FlowDots
+                lines={lines}
+                world={world}
+                isZooming={isZooming}
+                draggingEndpointId={draggingEndpoint?.connectionId ?? null}
+                draggingId={draggingId}
+                draggingLayerId={draggingLayerId}
+              />
             )}
 
             {/* Nodes */}
