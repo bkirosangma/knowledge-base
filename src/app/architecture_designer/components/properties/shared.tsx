@@ -11,6 +11,9 @@ export interface RegionBounds {
   width: number;
   top: number;
   height: number;
+  bg: string;
+  border: string;
+  textColor?: string;
 }
 
 export function Row({ label, value }: { label: string; value: string | number }) {
@@ -303,6 +306,112 @@ export function IconPickerRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+export const COLOR_SCHEMES = [
+  { name: "Default",  node: { fill: "#ffffff", border: "#e2e8f0", text: "#1e293b" }, layer: { fill: "#eff3f9", border: "#cdd6e4", text: "#334155" }, line: "#3b82f6" },
+  { name: "Ocean",    node: { fill: "#eff6ff", border: "#93c5fd", text: "#1e3a5f" }, layer: { fill: "#dbeafe", border: "#60a5fa", text: "#1e3a5f" }, line: "#2563eb" },
+  { name: "Emerald",  node: { fill: "#ecfdf5", border: "#6ee7b7", text: "#064e3b" }, layer: { fill: "#d1fae5", border: "#34d399", text: "#064e3b" }, line: "#059669" },
+  { name: "Amber",    node: { fill: "#fffbeb", border: "#fcd34d", text: "#78350f" }, layer: { fill: "#fef3c7", border: "#f59e0b", text: "#78350f" }, line: "#d97706" },
+  { name: "Rose",     node: { fill: "#fff1f2", border: "#fda4af", text: "#881337" }, layer: { fill: "#ffe4e6", border: "#fb7185", text: "#881337" }, line: "#e11d48" },
+  { name: "Slate",    node: { fill: "#f8fafc", border: "#94a3b8", text: "#0f172a" }, layer: { fill: "#f1f5f9", border: "#64748b", text: "#0f172a" }, line: "#475569" },
+] as const;
+
+export function ColorSchemeRow({
+  type,
+  currentColors,
+  onSelect,
+}: {
+  type: "node" | "layer" | "line";
+  currentColors: { fill: string; border: string; text: string } | { color: string };
+  onSelect: (scheme: typeof COLOR_SCHEMES[number]) => void;
+}) {
+  return (
+    <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
+      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Scheme</span>
+      <div className="flex items-center gap-1.5">
+        {COLOR_SCHEMES.map((scheme) => {
+          const swatchColor = type === "line" ? scheme.line : scheme[type].border;
+          const isActive = type === "line"
+            ? "color" in currentColors && currentColors.color === scheme.line
+            : "fill" in currentColors
+              && currentColors.fill === scheme[type].fill
+              && currentColors.border === scheme[type].border
+              && currentColors.text === scheme[type].text;
+          return (
+            <button
+              key={scheme.name}
+              title={scheme.name}
+              className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${isActive ? "ring-2 ring-blue-400 ring-offset-1 border-white" : "border-slate-200 hover:border-slate-400"}`}
+              style={{ backgroundColor: swatchColor }}
+              onClick={() => onSelect(scheme)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange?: (hex: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [error, setError] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const isValidHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim().toLowerCase();
+    const hex = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+    if (hex === value) { setEditing(false); setError(false); return; }
+    if (!isValidHex(hex)) { setError(true); inputRef.current?.focus(); return; }
+    onChange?.(hex);
+    setError(false);
+    setEditing(false);
+  }, [draft, value, onChange]);
+
+  const cancel = useCallback(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
+
+  return (
+    <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
+      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          className="w-6 h-6 rounded border border-slate-200 cursor-pointer p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-none"
+        />
+        {editing ? (
+          <input
+            ref={inputRef}
+            className={`text-[13px] text-slate-800 font-mono bg-slate-50 border rounded px-1.5 py-0.5 outline-none w-[80px] ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
+            value={draft}
+            onChange={(e) => { setDraft(e.target.value); setError(false); }}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") cancel(); }}
+          />
+        ) : (
+          <span
+            className="text-[13px] text-slate-600 font-mono cursor-text"
+            onDoubleClick={() => setEditing(true)}
+          >{value}</span>
+        )}
+      </div>
     </div>
   );
 }

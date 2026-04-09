@@ -1,12 +1,13 @@
 import type { NodeData } from "../../utils/types";
-import { Row, EditableRow, EditableIdRow, ExpandableListRow, type RegionBounds } from "./shared";
+import type { LayerDef } from "../../utils/types";
+import { Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, ColorSchemeRow, type RegionBounds } from "./shared";
 
 export function LayerProperties({
-  id, regions, nodes, onSelectNode, onUpdate, allLayerIds,
+  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds,
 }: {
-  id: string; regions: RegionBounds[]; nodes: NodeData[];
+  id: string; regions: RegionBounds[]; nodes: NodeData[]; layerDefs: LayerDef[];
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; title: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
   allLayerIds: string[];
 }) {
   const region = regions.find((r) => r.id === id);
@@ -28,6 +29,24 @@ export function LayerProperties({
           }}
         />
         <EditableRow label="Title" value={region.title} onCommit={(v) => { onUpdate?.(id, { title: v }); return true; }} />
+        {(() => {
+          const layerDef = layerDefs.find((l) => l.id === id);
+          const fill = layerDef?.bg ?? "#eff3f9";
+          const border = layerDef?.border ?? "#cdd6e4";
+          const text = layerDef?.textColor ?? "#334155";
+          return (
+            <>
+              <ColorSchemeRow
+                type="layer"
+                currentColors={{ fill, border, text }}
+                onSelect={(s) => onUpdate?.(id, { bg: s.layer.fill, border: s.layer.border, textColor: s.layer.text })}
+              />
+              <ColorRow label="Fill" value={fill} onChange={(v) => onUpdate?.(id, { bg: v })} />
+              <ColorRow label="Border" value={border} onChange={(v) => onUpdate?.(id, { border: v })} />
+              <ColorRow label="Text" value={text} onChange={(v) => onUpdate?.(id, { textColor: v })} />
+            </>
+          );
+        })()}
         <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
         <Row label="Position" value={`${Math.round(region.left)}, ${Math.round(region.top)}`} />
         <Row label="Size" value={`${Math.round(region.width)} × ${Math.round(region.height)}`} />

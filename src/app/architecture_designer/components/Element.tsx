@@ -22,6 +22,9 @@ interface ElementProps {
   onResize?: (id: string, width: number, height: number) => void;
   measuredHeight?: number;
   dimmed?: boolean;
+  borderColor?: string;
+  bgColor?: string;
+  textColor?: string;
 }
 
 export default function Element({
@@ -44,6 +47,9 @@ export default function Element({
   onResize,
   measuredHeight,
   dimmed,
+  borderColor,
+  bgColor,
+  textColor,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const minH = w === 110 || w === 130 ? 60 : 70;
@@ -73,7 +79,7 @@ export default function Element({
   return (
     <div
       ref={ref}
-      className={`absolute bg-white rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border border-slate-200 flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
+      className={`absolute rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
       style={{
         left: x,
         top: y,
@@ -81,6 +87,8 @@ export default function Element({
         width: `${w}px`,
         minHeight: `${minH}px`,
         opacity: dimmed ? 0.55 : 1,
+        backgroundColor: bgColor ?? "#ffffff",
+        borderColor: borderColor ?? "#e2e8f0",
       }}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -90,13 +98,15 @@ export default function Element({
       onMouseLeave={onMouseLeave}
     >
       {Icon && (
-        <Icon size={18} className="text-slate-600 mb-2" strokeWidth={1.5} />
+        <span className="mb-2" style={{ color: textColor ?? "#475569" }}>
+          <Icon size={18} strokeWidth={1.5} />
+        </span>
       )}
-      <div className="font-semibold text-[13px] text-slate-800 leading-tight">
+      <div className="font-semibold text-[13px] leading-tight" style={{ color: textColor ?? "#1e293b" }}>
         {label}
       </div>
       {showLabels && sub && (
-        <div className="text-[10.5px] text-slate-500 mt-1 font-medium tracking-tight">
+        <div className="text-[10.5px] mt-1 font-medium tracking-tight" style={{ color: textColor ? `${textColor}99` : "#64748b" }}>
           {sub}
         </div>
       )}

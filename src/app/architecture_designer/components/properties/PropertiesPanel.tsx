@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { ChevronRight } from "lucide-react";
-import type { NodeData, Connection, LineCurveAlgorithm, Selection } from "../../utils/types";
+import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection } from "../../utils/types";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
@@ -16,14 +16,15 @@ interface PropertiesPanelProps {
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
   onUpdateTitle?: (title: string) => void;
-  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }>) => void;
-  onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string }>) => void;
-  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string }>) => void;
+  layerDefs: LayerDef[];
+  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string }>) => void;
+  onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
+  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string; color: string }>) => void;
   lineCurve?: LineCurveAlgorithm;
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve }: PropertiesPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   const allNodeIds = nodes.map((n) => n.id);
@@ -64,7 +65,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} />
           )}
           {selection?.type === "layer" && (
-            <LayerProperties id={selection.id} regions={regions} nodes={nodes} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
+            <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
           )}
           {selection?.type === "line" && (
             <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} />

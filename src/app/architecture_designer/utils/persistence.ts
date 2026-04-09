@@ -21,7 +21,24 @@ function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
     y: n.y,
     w: n.w,
     layer: n.layer,
+    ...(n.borderColor ? { borderColor: n.borderColor } : {}),
+    ...(n.bgColor ? { bgColor: n.bgColor } : {}),
+    ...(n.textColor ? { textColor: n.textColor } : {}),
   }));
+}
+
+/** Migrate old Tailwind class colors (e.g. "bg-[#eff3f9]") to plain hex. */
+function migrateLayerColors(layers: LayerDef[]): LayerDef[] {
+  return layers.map((l) => ({
+    ...l,
+    bg: extractHex(l.bg),
+    border: extractHex(l.border),
+  }));
+}
+
+function extractHex(value: string): string {
+  const match = value.match(/#[0-9a-fA-F]{3,8}/);
+  return match ? match[0] : value;
 }
 
 export function loadDiagram(): {
@@ -39,7 +56,7 @@ export function loadDiagram(): {
         const data: DiagramData = JSON.parse(raw);
         return {
           title: data.title ?? (defaultData as DiagramData).title,
-          layers: data.layers,
+          layers: migrateLayerColors(data.layers),
           nodes: deserializeNodes(data.nodes),
           connections: data.connections,
           layerManualSizes: data.layerManualSizes ?? {},
@@ -64,7 +81,7 @@ export function loadDefaults(): {
   const data = defaultData as DiagramData;
   return {
     title: data.title,
-    layers: data.layers,
+    layers: migrateLayerColors(data.layers),
     nodes: deserializeNodes(data.nodes),
     connections: data.connections,
     layerManualSizes: {},

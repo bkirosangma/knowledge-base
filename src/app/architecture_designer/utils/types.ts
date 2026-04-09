@@ -10,6 +10,9 @@ export interface NodeData {
   y: number;
   w: number;
   layer: string;
+  borderColor?: string;
+  bgColor?: string;
+  textColor?: string;
 }
 
 export interface LayerDef {
@@ -17,6 +20,7 @@ export interface LayerDef {
   title: string;
   bg: string;
   border: string;
+  textColor?: string;
 }
 
 export interface Connection {
@@ -38,6 +42,9 @@ export interface SerializedNodeData {
   y: number;
   w: number;
   layer: string;
+  borderColor?: string;
+  bgColor?: string;
+  textColor?: string;
 }
 
 export type Selection =

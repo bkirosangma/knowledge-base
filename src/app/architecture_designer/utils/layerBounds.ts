@@ -10,6 +10,7 @@ export interface RegionBounds {
   title: string;
   bg: string;
   border: string;
+  textColor?: string;
   left: number;
   width: number;
   top: number;

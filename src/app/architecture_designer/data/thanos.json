@@ -1,10 +1,10 @@
 {
   "title": "Thanos Production Architecture",
   "layers": [
-    { "id": "ly-1", "title": "USER VISUALIZATION & QUERY ENTRY", "bg": "bg-[#eff3f9]", "border": "border-[#cdd6e4]" },
-    { "id": "ly-2", "title": "THANOS GLOBAL QUERY & CONTROL (CENTRAL)", "bg": "bg-[#eff3f9]", "border": "border-[#cdd6e4]" },
-    { "id": "ly-3", "title": "OBJECT STORAGE METRIC LAKE", "bg": "bg-[#eff3f9]", "border": "border-[#cdd6e4]" },
-    { "id": "ly-4", "title": "REGIONAL CLUSTERS LAYER", "bg": "bg-[#e5ecec]", "border": "border-[#cdd6e4]" }
+    { "id": "ly-1", "title": "USER VISUALIZATION & QUERY ENTRY", "bg": "#eff3f9", "border": "#cdd6e4" },
+    { "id": "ly-2", "title": "THANOS GLOBAL QUERY & CONTROL (CENTRAL)", "bg": "#eff3f9", "border": "#cdd6e4" },
+    { "id": "ly-3", "title": "OBJECT STORAGE METRIC LAKE", "bg": "#eff3f9", "border": "#cdd6e4" },
+    { "id": "ly-4", "title": "REGIONAL CLUSTERS LAYER", "bg": "#e5ecec", "border": "#cdd6e4" }
   ],
   "nodes": [
     { "id": "el-grafana", "label": "Grafana Dashboards", "icon": "Monitor", "x": 640, "y": 80, "w": 210, "layer": "ly-1" },

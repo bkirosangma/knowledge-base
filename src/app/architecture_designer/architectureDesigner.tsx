@@ -440,7 +440,7 @@ export default function ArchitectureDesigner() {
               return (
                 <React.Fragment key={r.id}>
                   {isThisLayerDragged && layerDragRawDelta && (
-                    <Layer id={`${r.id}-ghost`} title={r.title} left={r.left + layerDragRawDelta.dx} width={r.width} top={r.top + layerDragRawDelta.dy} height={r.height} bg={r.bg} border={r.border} dimmed />
+                    <Layer id={`${r.id}-ghost`} title={r.title} left={r.left + layerDragRawDelta.dx} width={r.width} top={r.top + layerDragRawDelta.dy} height={r.height} bg={r.bg} border={r.border} textColor={r.textColor} dimmed />
                   )}
                   <Layer
                     {...r}
@@ -601,6 +601,7 @@ export default function ArchitectureDesigner() {
         nodes={nodes}
         connections={connections}
         regions={regions}
+        layerDefs={layerDefs}
         onSelectLayer={(layerId) => {
           setSelection({ type: 'layer', id: layerId });
           const region = regions.find((r) => r.id === layerId);

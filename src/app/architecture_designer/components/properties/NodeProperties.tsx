@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { NodeData, Connection } from "../../utils/types";
-import { Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, KEY_COL, type RegionBounds } from "./shared";
+import { Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 
 export function NodeProperties({
   id, nodes, connections, regions, onSelectLayer, onSelectNode, onUpdate, allNodeIds,
@@ -8,7 +8,7 @@ export function NodeProperties({
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string }>) => void;
   allNodeIds: string[];
 }) {
   const node = nodes.find((n) => n.id === id);
@@ -60,6 +60,14 @@ export function NodeProperties({
             {layer?.title ?? node.layer}
           </button>
         </div>
+        <ColorSchemeRow
+          type="node"
+          currentColors={{ fill: node.bgColor ?? "#ffffff", border: node.borderColor ?? "#e2e8f0", text: node.textColor ?? "#1e293b" }}
+          onSelect={(s) => onUpdate?.(id, { bgColor: s.node.fill, borderColor: s.node.border, textColor: s.node.text })}
+        />
+        <ColorRow label="Fill" value={node.bgColor ?? "#ffffff"} onChange={(v) => onUpdate?.(id, { bgColor: v })} />
+        <ColorRow label="Border" value={node.borderColor ?? "#e2e8f0"} onChange={(v) => onUpdate?.(id, { borderColor: v })} />
+        <ColorRow label="Text" value={node.textColor ?? "#1e293b"} onChange={(v) => onUpdate?.(id, { textColor: v })} />
         <ExpandableListRow label="In" items={incomingItems} onSelect={onSelectNode} />
         <ExpandableListRow label="Out" items={outgoingItems} onSelect={onSelectNode} />
         <Row label="Position" value={`${Math.round(node.x)}, ${Math.round(node.y)}`} />

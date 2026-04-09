@@ -1,11 +1,11 @@
 import type { NodeData, Connection } from "../../utils/types";
-import { Row, EditableRow, EditableIdRow } from "./shared";
+import { Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow } from "./shared";
 
 export function LineProperties({
   id, connections, nodes, onUpdate, allConnectionIds,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string }>) => void;
   allConnectionIds: string[];
 }) {
   const conn = connections.find((c) => c.id === id);
@@ -31,7 +31,12 @@ export function LineProperties({
         <Row label="To" value={toNode?.label ?? conn.to} />
         <Row label="From Anchor" value={conn.fromAnchor} />
         <Row label="To Anchor" value={conn.toAnchor} />
-        <Row label="Color" value={conn.color} />
+        <ColorSchemeRow
+          type="line"
+          currentColors={{ color: conn.color }}
+          onSelect={(s) => onUpdate?.(id, { color: s.line })}
+        />
+        <ColorRow label="Color" value={conn.color} onChange={(v) => onUpdate?.(id, { color: v })} />
       </div>
     </div>
   );
