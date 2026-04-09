@@ -85,7 +85,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
     <div
       ref={minimapRef}
       className="relative bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden origin-bottom-left hover:scale-[2]"
-      style={{ width: miniW, height: miniH, transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out' }}
+      style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out' }}
       onClick={handleMinimapClick}
     >
       {/* Regions */}
