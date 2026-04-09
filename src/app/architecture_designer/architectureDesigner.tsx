@@ -29,7 +29,10 @@ import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useLineDrag } from "./hooks/useLineDrag";
 import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
+import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
+import { findNonOverlappingLayerPosition } from "./utils/collisionUtils";
 import { useZoom } from "./hooks/useZoom";
+import { Box } from "lucide-react";
 
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(false);
@@ -51,6 +54,7 @@ export default function ArchitectureDesigner() {
   const [selection, setSelection] = useState<Selection>(null);
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
+  const [contextMenu, setContextMenu] = useState<{ clientX: number; clientY: number; canvasX: number; canvasY: number; target: ContextMenuTarget } | null>(null);
   const [patches, setPatches] = useState<CanvasPatch[]>([
     { id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 },
   ]);
@@ -259,6 +263,7 @@ export default function ArchitectureDesigner() {
       if (e.key === "Escape") {
         cancelSelectionRect();
         setSelection(null);
+        setContextMenu(null);
       }
 
       if ((e.key === "Delete" || e.key === "Backspace") && selectionRef.current) {
@@ -366,9 +371,16 @@ export default function ArchitectureDesigner() {
       if (right > maxX) maxX = right;
       if (bottom > maxY) maxY = bottom;
     }
+    for (const r of regions) {
+      if (r.empty && r.width === 0) continue;
+      if (r.left < minX) minX = r.left;
+      if (r.top < minY) minY = r.top;
+      if (r.left + r.width > maxX) maxX = r.left + r.width;
+      if (r.top + r.height > maxY) maxY = r.top + r.height;
+    }
     if (minX === Infinity) return null;
     return { x: minX - MARGIN, y: minY - MARGIN, w: maxX - minX + MARGIN * 2, h: maxY - minY + MARGIN * 2 };
-  }, [nodes, layerShifts, getNodeDimensions]);
+  }, [nodes, regions, layerShifts, getNodeDimensions]);
 
   useEffect(() => {
     if (!contentBounds) return;
@@ -468,6 +480,66 @@ export default function ArchitectureDesigner() {
     };
   }
 
+  const handleAddElement = () => {
+    if (!contextMenu) return;
+    const cx = contextMenu.canvasX;
+    const cy = contextMenu.canvasY;
+    const newW = 210;
+    const newH = getNodeHeight(newW);
+    const halfW = newW / 2;
+    const halfH = newH / 2;
+
+    // If right-clicked inside a layer, assign the element to that layer
+    let targetLayer = "";
+    for (const r of regions) {
+      if (!r.empty && cx >= r.left && cx <= r.left + r.width && cy >= r.top && cy <= r.top + r.height) {
+        targetLayer = r.id;
+        break;
+      }
+    }
+
+    // Collision avoidance: shift down until no overlap with existing nodes
+    let placeY = cy;
+    const maxAttempts = 50;
+    for (let i = 0; i < maxAttempts; i++) {
+      const overlaps = nodes.some((n) => {
+        const dims = getNodeDimensions(n);
+        const nHalfW = dims.w / 2;
+        const nHalfH = dims.h / 2;
+        return Math.abs(cx - n.x) < halfW + nHalfW && Math.abs(placeY - n.y) < halfH + nHalfH;
+      });
+      if (!overlaps) break;
+      placeY += 20;
+    }
+
+    const newId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: cx, y: placeY, w: newW, layer: targetLayer }]);
+    setSelection({ type: "node", id: newId });
+    setContextMenu(null);
+  };
+
+  const handleAddLayer = () => {
+    if (!contextMenu) return;
+    const cx = contextMenu.canvasX;
+    const cy = contextMenu.canvasY;
+    const newW = 400;
+    const newH = 200;
+
+    // Use the same edge-snapping collision logic as layer drag clamping
+    const pos = findNonOverlappingLayerPosition(
+      { left: cx - newW / 2, top: cy - newH / 2, width: newW, height: newH },
+      regions,
+    );
+    const placeLeft = pos.left;
+    const placeTop = pos.top;
+
+    const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setLayerDefs((prev) => [...prev, { id: newId, title: "NEW LAYER", bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
+    setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: newW, top: placeTop, height: newH } }));
+    setSelection({ type: "layer", id: newId });
+    setContextMenu(null);
+  };
+
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       {/* Header */}
@@ -511,6 +583,35 @@ export default function ArchitectureDesigner() {
         className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { handleCanvasMouseDown(e); }}
+        onScroll={() => setContextMenu(null)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          const coords = toCanvasCoords(e.clientX, e.clientY);
+          const cx = coords.x;
+          const cy = coords.y;
+
+          // Detect what's under the click: element > layer > canvas
+          let target: ContextMenuTarget = { type: "canvas" };
+          for (const n of nodes) {
+            const dims = getNodeDimensions(n);
+            const halfW = dims.w / 2;
+            const halfH = dims.h / 2;
+            if (cx >= n.x - halfW && cx <= n.x + halfW && cy >= n.y - halfH && cy <= n.y + halfH) {
+              target = { type: "element", id: n.id };
+              break;
+            }
+          }
+          if (target.type === "canvas") {
+            for (const r of regions) {
+              if (!r.empty && cx >= r.left && cx <= r.left + r.width && cy >= r.top && cy <= r.top + r.height) {
+                target = { type: "layer", id: r.id };
+                break;
+              }
+            }
+          }
+
+          setContextMenu({ clientX: e.clientX, clientY: e.clientY, canvasX: cx, canvasY: cy, target });
+        }}
       >
         <div style={{
           width: VIEWPORT_PADDING * 2 + world.w * zoom,
@@ -688,6 +789,35 @@ export default function ArchitectureDesigner() {
         </div>
 
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.clientX}
+          y={contextMenu.clientY}
+          target={contextMenu.target}
+          onAddElement={handleAddElement}
+          onAddLayer={handleAddLayer}
+          onDeleteElement={(nodeId) => {
+            const nodeIdsToDelete = [nodeId];
+            setConnections((prev) => prev.filter((c) => c.from !== nodeId && c.to !== nodeId));
+            setNodes((prev) => prev.filter((n) => !nodeIdsToDelete.includes(n.id)));
+            setMeasuredSizes((prev) => { const next = { ...prev }; delete next[nodeId]; return next; });
+            setSelection(null);
+          }}
+          onDeleteLayer={(layerId) => {
+            const nodeIds = nodes.filter((n) => n.layer === layerId).map((n) => n.id);
+            const nodeSet = new Set(nodeIds);
+            setConnections((prev) => prev.filter((c) => !nodeSet.has(c.from) && !nodeSet.has(c.to)));
+            setNodes((prev) => prev.filter((n) => n.layer !== layerId));
+            setLayerDefs((prev) => prev.filter((l) => l.id !== layerId));
+            setLayerManualSizes((prev) => { const next = { ...prev }; delete next[layerId]; return next; });
+            setMeasuredSizes((prev) => { const next = { ...prev }; for (const id of nodeIds) delete next[id]; return next; });
+            setSelection(null);
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {/* Properties Panel */}
       <PropertiesPanel

@@ -1,14 +1,15 @@
 import type { ComponentType } from "react";
-import type { NodeData, Connection } from "../../utils/types";
+import type { NodeData, Connection, LayerDef } from "../../utils/types";
 import { Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 
 export function NodeProperties({
-  id, nodes, connections, regions, onSelectLayer, onSelectNode, onUpdate, allNodeIds,
+  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
+  layerDefs: LayerDef[];
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string }>) => void;
   allNodeIds: string[];
 }) {
   const node = nodes.find((n) => n.id === id);
@@ -53,12 +54,16 @@ export function NodeProperties({
         />
         <div className="flex items-center py-1.5 border-b border-slate-100">
           <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Layer</span>
-          <button
-            className="text-[13px] text-slate-800 hover:text-blue-600 transition-colors break-all min-w-0 text-left cursor-pointer"
-            onClick={() => onSelectLayer?.(node.layer)}
+          <select
+            className="text-[13px] text-slate-800 bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-blue-400 cursor-pointer min-w-0 truncate"
+            value={node.layer}
+            onChange={(e) => onUpdate?.(id, { layer: e.target.value })}
           >
-            {layer?.title ?? node.layer}
-          </button>
+            <option value="">None</option>
+            {layerDefs.map((l) => (
+              <option key={l.id} value={l.id}>{l.title}</option>
+            ))}
+          </select>
         </div>
         <ColorSchemeRow
           type="node"

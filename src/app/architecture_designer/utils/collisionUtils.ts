@@ -277,3 +277,58 @@ export function clampMultiNodeDelta(
   }
   return { dx: prevDx + vecX * lo, dy: prevDy + vecY * lo };
 }
+
+/**
+ * Find the closest non-overlapping position for a new layer.
+ * Uses the same edge-snapping approach as clampLayerDelta but without
+ * the between() constraint — considers all 4 edges of every obstacle.
+ */
+export function findNonOverlappingLayerPosition(
+  newRect: Rect,
+  obstacles: LayerBounds[],
+): { left: number; top: number } {
+  const solid = obstacles.filter((o) => !(o.empty && o.width === 0));
+  if (solid.length === 0) return { left: newRect.left, top: newRect.top };
+
+  const anyOverlap = (left: number, top: number) => {
+    const r: Rect = { left, top, width: newRect.width, height: newRect.height };
+    return solid.some((o) => rectsOverlap(r, o, LAYER_GAP));
+  };
+
+  if (!anyOverlap(newRect.left, newRect.top)) {
+    return { left: newRect.left, top: newRect.top };
+  }
+
+  // Generate candidate positions from all obstacle edges
+  const xCandidates: number[] = [newRect.left];
+  const yCandidates: number[] = [newRect.top];
+
+  for (const obs of solid) {
+    // Place to the left of obstacle
+    xCandidates.push(obs.left - LAYER_GAP - newRect.width);
+    // Place to the right of obstacle
+    xCandidates.push(obs.left + obs.width + LAYER_GAP);
+    // Place above obstacle
+    yCandidates.push(obs.top - LAYER_GAP - newRect.height);
+    // Place below obstacle
+    yCandidates.push(obs.top + obs.height + LAYER_GAP);
+  }
+
+  let bestLeft = newRect.left;
+  let bestTop = newRect.top;
+  let bestDist = Infinity;
+
+  for (const x of xCandidates) {
+    for (const y of yCandidates) {
+      if (anyOverlap(x, y)) continue;
+      const dist = (x - newRect.left) ** 2 + (y - newRect.top) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestLeft = x;
+        bestTop = y;
+      }
+    }
+  }
+
+  return { left: bestLeft, top: bestTop };
+}

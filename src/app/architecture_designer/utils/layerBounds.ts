@@ -35,6 +35,10 @@ export function computeRegions(
   return layerDefs.map((layer) => {
     const layerNodes = nodes.filter((n) => n.layer === layer.id);
     if (layerNodes.length === 0) {
+      const manual = layerManualSizes[layer.id];
+      if (manual && manual.left !== undefined && manual.top !== undefined && manual.width !== undefined && manual.height !== undefined) {
+        return { ...layer, left: manual.left, width: manual.width, top: manual.top, height: manual.height, empty: true };
+      }
       return { ...layer, left: 0, width: 0, top: 0, height: 0, empty: true };
     }
 
