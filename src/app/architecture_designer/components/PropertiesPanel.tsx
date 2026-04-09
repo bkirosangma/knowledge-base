@@ -216,7 +216,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} />
           )}
           {selection?.type === "layer" && (
-            <LayerProperties id={selection.id} regions={regions} nodes={nodes} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
+            <LayerProperties id={selection.id} regions={regions} nodes={nodes} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
           )}
           {selection?.type === "line" && (
             <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} />
@@ -294,16 +294,18 @@ function NodeProperties({
 }
 
 function LayerProperties({
-  id, regions, nodes, onUpdate, allLayerIds,
+  id, regions, nodes, onSelectNode, onUpdate, allLayerIds,
 }: {
   id: string; regions: RegionBounds[]; nodes: NodeData[];
+  onSelectNode?: (nodeId: string) => void;
   onUpdate?: (id: string, updates: Partial<{ id: string; title: string }>) => void;
   allLayerIds: string[];
 }) {
   const region = regions.find((r) => r.id === id);
   if (!region) return <p className="text-xs text-slate-400">Layer not found.</p>;
 
-  const nodeCount = nodes.filter((n) => n.layer === id).length;
+  const layerNodes = nodes.filter((n) => n.layer === id);
+  const nodeItems = layerNodes.map((n) => ({ id: n.id, name: n.label }));
 
   return (
     <div className="space-y-3">
@@ -318,7 +320,7 @@ function LayerProperties({
           }}
         />
         <EditableRow label="Title" value={region.title} onCommit={(v) => { onUpdate?.(id, { title: v }); return true; }} />
-        <Row label="Elements" value={nodeCount} />
+        <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
         <Row label="Position" value={`${Math.round(region.left)}, ${Math.round(region.top)}`} />
         <Row label="Size" value={`${Math.round(region.width)} × ${Math.round(region.height)}`} />
       </div>
