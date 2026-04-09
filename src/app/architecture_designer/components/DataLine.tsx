@@ -64,18 +64,7 @@ export default function DataLine({
         opacity={dimmed ? 0.1 : isDraggingEndpoint ? 0.25 : isHovered ? 1 : 0.7}
         strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
       />
-      {/* Animated dot */}
-      {isLive && !hideDot && !isDraggingEndpoint && !dimmed && (
-        <circle
-          r={isHovered ? "6" : "4"}
-          fill={dotFill}
-          className="transition-all"
-        >
-          <animateMotion dur="2.5s" repeatCount="indefinite">
-            <mpath href={`#${id}`} />
-          </animateMotion>
-        </circle>
-      )}
+      {/* Animated dots are rendered in a separate SVG layer for performance */}
       {/* Visible endpoint dots (hidden during drag — ghost line shows its own) */}
       {!isDraggingEndpoint && (
         <>

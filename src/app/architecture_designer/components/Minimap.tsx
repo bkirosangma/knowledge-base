@@ -23,7 +23,17 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
   const [isResizing, setIsResizing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [, setScrollTick] = useState(0);
   const zoom = zoomRef.current;
+
+  // Re-render minimap on viewport scroll (self-contained, avoids parent re-render)
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onScroll = () => setScrollTick((t) => t + 1);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [viewportRef]);
 
   if (world.w === 0 || world.h === 0) return null;
 

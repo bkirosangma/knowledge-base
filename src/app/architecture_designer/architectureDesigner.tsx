@@ -24,7 +24,6 @@ export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
-  const [, setScrollTick] = useState(0);
   const [hoveredLine, setHoveredLine] = useState<{
     id: string;
     label: string;
@@ -70,7 +69,7 @@ export default function ArchitectureDesigner() {
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const hasScrolledToCenter = useRef(false);
 
-  // Clamp scroll & re-render minimap on scroll
+  // Clamp scroll bounds
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -81,8 +80,6 @@ export default function ArchitectureDesigner() {
       const vpHeight = el.clientHeight;
 
       // Ensure the minimap viewport indicator stays at least 2px visible
-      // Indicator size in minimap px: (vpSize / zoom) * scale
-      // 2 minimap px = 2 * zoom / scale DOM scroll px
       const minimapScale = (w.w > 0 && w.h > 0)
         ? Math.min(MINIMAP_WIDTH / w.w, MINIMAP_MAX_HEIGHT / w.h)
         : 1;
@@ -97,8 +94,6 @@ export default function ArchitectureDesigner() {
       if (el.scrollLeft > maxSL) { el.scrollLeft = maxSL; }
       if (el.scrollTop < minST) { el.scrollTop = minST; }
       if (el.scrollTop > maxST) { el.scrollTop = maxST; }
-
-      setScrollTick((t) => t + 1);
     };
     el.addEventListener("scroll", onScroll, { passive: false });
     return () => el.removeEventListener("scroll", onScroll);
@@ -413,6 +408,27 @@ export default function ArchitectureDesigner() {
                 </g>
               )}
             </svg>
+
+            {/* Animated flow dots — isolated SVG layer to avoid repainting lines */}
+            {isLive && (
+              <svg
+                className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
+                style={{ zIndex: 6, left: world.x, top: world.y, width: world.w, height: world.h, willChange: 'contents' }}
+                viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
+              >
+                {lines.map((line) => {
+                  const isBeingDragged = draggingEndpoint?.connectionId === line.id;
+                  const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId || !!draggingLayerId;
+                  if (isBeingDragged || dimmed) return null;
+                  const dotFill = line.color === "#10b981" ? "#059669" : line.color === "#64748b" ? "#475569" : "#2563eb";
+                  return (
+                    <circle key={line.id} r="4" fill={dotFill}>
+                      <animateMotion dur="2.5s" repeatCount="indefinite" path={line.path} />
+                    </circle>
+                  );
+                })}
+              </svg>
+            )}
 
             {/* Nodes */}
             {displayNodes.map((node) => {
