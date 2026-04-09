@@ -10,7 +10,7 @@ interface LayerBounds {
   empty: boolean;
 }
 
-const LAYER_GAP = 10;
+export const LAYER_GAP = 10;
 
 /** Check if two rects overlap (with gap) */
 function rectsOverlap(a: LayerBounds, b: LayerBounds): boolean {

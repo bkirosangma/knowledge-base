@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData } from "../utils/types";
+import { LAYER_GAP } from "./useLayerDrag";
 
 interface RegionBounds {
   id: string;
@@ -58,26 +59,42 @@ export function useNodeDrag({
       let x = mouse.x - dragOffset.current.x;
       let y = mouse.y - dragOffset.current.y;
 
-      // Clamp within the node's layer bounds
+      // Clamp: allow layer expansion but prevent collision with other layers
       const info = dragNodeInfo.current;
       const regions = regionsRef.current;
       if (info && regions) {
         const region = regions.find((r) => r.id === info.layer);
         if (region && !region.empty) {
-          // Content area inside the layer (inside padding, below title)
-          const contentLeft = region.left + layerPadding;
-          const contentRight = region.left + region.width - layerPadding;
-          const contentTop = region.top + layerTitleOffset + layerPadding;
-          const contentBottom = region.top + region.height - layerPadding;
+          const others = regions.filter(r => r.id !== info.layer && !r.empty);
 
-          // Node center must keep its edges inside the content area
-          const minX = contentLeft + info.halfW;
-          const maxX = contentRight - info.halfW;
-          const minY = contentTop + info.halfH;
-          const maxY = contentBottom - info.halfH;
+          let maxRight = Infinity;
+          let minLeft = -Infinity;
+          let maxBottom = Infinity;
+          let minTop = -Infinity;
 
-          x = Math.max(minX, Math.min(maxX, x));
-          y = Math.max(minY, Math.min(maxY, y));
+          for (const obs of others) {
+            // Horizontal expansion limits (obstacles overlapping in Y)
+            if (obs.top < region.top + region.height && obs.top + obs.height > region.top) {
+              if (obs.left >= region.left + region.width) {
+                maxRight = Math.min(maxRight, obs.left - LAYER_GAP - layerPadding - info.halfW);
+              }
+              if (obs.left + obs.width <= region.left) {
+                minLeft = Math.max(minLeft, obs.left + obs.width + LAYER_GAP + layerPadding + info.halfW);
+              }
+            }
+            // Vertical expansion limits (obstacles overlapping in X)
+            if (obs.left < region.left + region.width && obs.left + obs.width > region.left) {
+              if (obs.top >= region.top + region.height) {
+                maxBottom = Math.min(maxBottom, obs.top - LAYER_GAP - layerPadding - info.halfH);
+              }
+              if (obs.top + obs.height <= region.top) {
+                minTop = Math.max(minTop, obs.top + obs.height + LAYER_GAP + layerTitleOffset + layerPadding + info.halfH);
+              }
+            }
+          }
+
+          x = Math.max(minLeft, Math.min(maxRight, x));
+          y = Math.max(minTop, Math.min(maxBottom, y));
         }
       }
 

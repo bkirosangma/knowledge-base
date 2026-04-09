@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+.pnp.*
+.yarn/*
+
+# build outputs
+.next/
+out/
+build/
+
+# lock files
+package-lock.json
+
+# misc
+.DS_Store
+*.pem
+.vercel
+coverage/
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

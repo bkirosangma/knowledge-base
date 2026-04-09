@@ -193,10 +193,12 @@ export default function ArchitectureDesigner() {
       const dims = getNodeDimensions(n);
       const halfW = dims.w / 2;
       const halfH = dims.h / 2;
-      if (n.x - halfW < minX) minX = n.x - halfW;
-      if (n.x + halfW > maxX) maxX = n.x + halfW;
-      if (n.y - halfH < minY) minY = n.y - halfH;
-      if (n.y + halfH > maxY) maxY = n.y + halfH;
+      const nx = (n.id === draggingId && elementDragPos) ? elementDragPos.x : n.x;
+      const ny = (n.id === draggingId && elementDragPos) ? elementDragPos.y : n.y;
+      if (nx - halfW < minX) minX = nx - halfW;
+      if (nx + halfW > maxX) maxX = nx + halfW;
+      if (ny - halfH < minY) minY = ny - halfH;
+      if (ny + halfH > maxY) maxY = ny + halfH;
     }
 
     let left = minX - LAYER_PADDING;

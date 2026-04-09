@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { ResizeEdge } from "../components/Layer";
+import { LAYER_GAP } from "./useLayerDrag";
 
 interface RegionBounds {
   id: string;
@@ -63,22 +64,30 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked }: UseLay
         const existing = prev[layerId] || {};
         const next = { ...existing };
 
+        const obstacles = getObstacles(regionsRef.current ?? [], layerId, startBounds, edge);
+
         if (edge === "right") {
-          next.width = Math.max(100, startBounds.width + delta);
+          const rawRight = startBounds.left + startBounds.width + delta;
+          const maxRight = obstacles.reduce((acc, obs) => Math.min(acc, obs.left - LAYER_GAP), rawRight);
+          next.width = Math.max(100, maxRight - startBounds.left);
         } else if (edge === "left") {
-          const newLeft = startBounds.left + delta;
-          const newWidth = startBounds.width - delta;
+          const rawLeft = startBounds.left + delta;
+          const minLeft = obstacles.reduce((acc, obs) => Math.max(acc, obs.left + obs.width + LAYER_GAP), rawLeft);
+          const newWidth = startBounds.left + startBounds.width - minLeft;
           if (newWidth >= 100) {
-            next.left = newLeft;
+            next.left = minLeft;
             next.width = newWidth;
           }
         } else if (edge === "bottom") {
-          next.height = Math.max(60, startBounds.height + delta);
+          const rawBottom = startBounds.top + startBounds.height + delta;
+          const maxBottom = obstacles.reduce((acc, obs) => Math.min(acc, obs.top - LAYER_GAP), rawBottom);
+          next.height = Math.max(60, maxBottom - startBounds.top);
         } else if (edge === "top") {
-          const newTop = startBounds.top + delta;
-          const newHeight = startBounds.height - delta;
+          const rawTop = startBounds.top + delta;
+          const minTop = obstacles.reduce((acc, obs) => Math.max(acc, obs.top + obs.height + LAYER_GAP), rawTop);
+          const newHeight = startBounds.top + startBounds.height - minTop;
           if (newHeight >= 60) {
-            next.top = newTop;
+            next.top = minTop;
             next.height = newHeight;
           }
         }
@@ -100,4 +109,28 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked }: UseLay
   }, [resizingLayer, toCanvasCoords]);
 
   return { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart };
+}
+
+function getObstacles(
+  regions: RegionBounds[],
+  layerId: string,
+  startBounds: { left: number; width: number; top: number; height: number },
+  edge: ResizeEdge,
+): RegionBounds[] {
+  return regions.filter((r) => {
+    if (r.id === layerId || r.empty) return false;
+    // Perpendicular axis overlap check
+    if (edge === "left" || edge === "right") {
+      if (!(r.top < startBounds.top + startBounds.height && r.top + r.height > startBounds.top)) return false;
+    } else {
+      if (!(r.left < startBounds.left + startBounds.width && r.left + r.width > startBounds.left)) return false;
+    }
+    // Directional filter: only include obstacles on the side the edge expands toward
+    switch (edge) {
+      case "right":  return r.left >= startBounds.left + startBounds.width;
+      case "left":   return r.left + r.width <= startBounds.left;
+      case "bottom": return r.top >= startBounds.top + startBounds.height;
+      case "top":    return r.top + r.height <= startBounds.top;
+    }
+  });
 }
