@@ -203,7 +203,7 @@ export default function ArchitectureDesigner() {
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
-  const { draggingId, elementDragPos, handleDragStart } = useNodeDrag({
+  const { draggingId, elementDragPos, elementDragRawPos, handleDragStart } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
     isBlocked: !!draggingEndpoint,
     setNodes,
@@ -495,8 +495,8 @@ export default function ArchitectureDesigner() {
 
               return (
                 <React.Fragment key={node.id}>
-                  {isThisDragged && elementDragPos && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x} y={node.y} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
+                  {isThisDragged && elementDragRawPos && (
+                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
                   )}
                   <Element
                     {...node}

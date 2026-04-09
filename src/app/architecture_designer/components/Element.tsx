@@ -80,7 +80,7 @@ export default function Element({
         transform: "translate(-50%, -50%)",
         width: `${w}px`,
         minHeight: `${minH}px`,
-        opacity: dimmed ? 0.2 : 1,
+        opacity: dimmed ? 0.55 : 1,
       }}
       onMouseDown={(e) => {
         e.preventDefault();

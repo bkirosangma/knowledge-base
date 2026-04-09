@@ -20,6 +20,7 @@ export function useNodeDrag({
 }: UseNodeDragOptions) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [elementDragPos, setElementDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [elementDragRawPos, setElementDragRawPos] = useState<{ x: number; y: number } | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const dragNodeInfo = useRef<{ layer: string; halfW: number; halfH: number } | null>(null);
   const siblingRects = useRef<Rect[]>([]);
@@ -51,6 +52,7 @@ export function useNodeDrag({
     lastValidPos.current = { x: node.x, y: displayY };
     setDraggingId(id);
     setElementDragPos({ x: node.x, y: displayY });
+    setElementDragRawPos({ x: node.x, y: displayY });
   }, [nodes, isBlocked, toCanvasCoords, layerShiftsRef, getNodeDimensions]);
 
   useEffect(() => {
@@ -60,6 +62,8 @@ export function useNodeDrag({
       const mouse = toCanvasCoords(e.clientX, e.clientY);
       let x = mouse.x - dragOffset.current.x;
       let y = mouse.y - dragOffset.current.y;
+      const rawX = x;
+      const rawY = y;
 
       // Clamp: allow layer expansion but prevent collision with other layers
       const info = dragNodeInfo.current;
@@ -108,6 +112,7 @@ export function useNodeDrag({
 
       lastValidPos.current = { x, y };
       setElementDragPos({ x, y });
+      setElementDragRawPos({ x: rawX, y: rawY });
     };
 
     const handleMouseUp = () => {
@@ -119,6 +124,7 @@ export function useNodeDrag({
         }
         return null;
       });
+      setElementDragRawPos(null);
       setDraggingId(null);
       dragNodeInfo.current = null;
       siblingRects.current = [];
@@ -132,5 +138,5 @@ export function useNodeDrag({
     };
   }, [draggingId, toCanvasCoords, setNodes, regionsRef, layerPadding, layerTitleOffset]);
 
-  return { draggingId, elementDragPos, handleDragStart };
+  return { draggingId, elementDragPos, elementDragRawPos, handleDragStart };
 }
