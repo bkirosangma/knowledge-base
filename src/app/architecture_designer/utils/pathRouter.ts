@@ -18,12 +18,12 @@ function computeStraightPath(from: Point, to: Point): string {
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 }
 
-function computeBezierPath(
+function computeBezierControlPoints(
   from: Point,
   to: Point,
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
-): string {
+): { cp1: Point; cp2: Point } {
   const fromDir = getAnchorDirection(fromAnchor);
   const toDir = getAnchorDirection(toAnchor);
 
@@ -32,12 +32,33 @@ function computeBezierPath(
   const dist = Math.sqrt(dx * dx + dy * dy);
   const ext = Math.min(dist * 0.4, 150);
 
-  const cp1x = from.x + fromDir.dx * ext;
-  const cp1y = from.y + fromDir.dy * ext;
-  const cp2x = to.x + toDir.dx * ext;
-  const cp2y = to.y + toDir.dy * ext;
+  return {
+    cp1: { x: from.x + fromDir.dx * ext, y: from.y + fromDir.dy * ext },
+    cp2: { x: to.x + toDir.dx * ext, y: to.y + toDir.dy * ext },
+  };
+}
 
-  return `M ${from.x} ${from.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${to.x} ${to.y}`;
+function computeBezierPath(
+  from: Point,
+  to: Point,
+  fromAnchor: AnchorId,
+  toAnchor: AnchorId,
+): string {
+  const { cp1, cp2 } = computeBezierControlPoints(from, to, fromAnchor, toAnchor);
+  return `M ${from.x} ${from.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${to.x} ${to.y}`;
+}
+
+function sampleCubicBezier(p0: Point, cp1: Point, cp2: Point, p3: Point, segments: number): Point[] {
+  const points: Point[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const u = 1 - t;
+    points.push({
+      x: u * u * u * p0.x + 3 * u * u * t * cp1.x + 3 * u * t * t * cp2.x + t * t * t * p3.x,
+      y: u * u * u * p0.y + 3 * u * u * t * cp1.y + 3 * u * t * t * cp2.y + t * t * t * p3.y,
+    });
+  }
+  return points;
 }
 
 export function computePath(
@@ -47,12 +68,17 @@ export function computePath(
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
   obstacles: Rect[],
-): string {
+): { path: string; points: Point[] } {
   switch (algorithm) {
     case "straight":
-      return computeStraightPath(fromPos, toPos);
-    case "bezier":
-      return computeBezierPath(fromPos, toPos, fromAnchor, toAnchor);
+      return { path: computeStraightPath(fromPos, toPos), points: [fromPos, toPos] };
+    case "bezier": {
+      const { cp1, cp2 } = computeBezierControlPoints(fromPos, toPos, fromAnchor, toAnchor);
+      return {
+        path: computeBezierPath(fromPos, toPos, fromAnchor, toAnchor),
+        points: sampleCubicBezier(fromPos, cp1, cp2, toPos, 16),
+      };
+    }
     case "orthogonal":
     default:
       return computeOrthogonalPath(fromPos, toPos, fromAnchor, toAnchor, obstacles);
