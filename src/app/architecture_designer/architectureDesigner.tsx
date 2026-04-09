@@ -17,7 +17,7 @@ import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
-import Minimap from "./components/Minimap";
+import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
 import { useZoom } from "./hooks/useZoom";
 
 export default function ArchitectureDesigner() {
@@ -80,16 +80,23 @@ export default function ArchitectureDesigner() {
       const vpWidth = el.clientWidth;
       const vpHeight = el.clientHeight;
 
-      const minSL = VIEWPORT_PADDING - vpWidth;
-      const maxSL = VIEWPORT_PADDING + w.w * z;
-      const minST = VIEWPORT_PADDING - vpHeight;
-      const maxST = VIEWPORT_PADDING + w.h * z;
+      // Ensure the minimap viewport indicator stays at least 2px visible
+      // Indicator size in minimap px: (vpSize / zoom) * scale
+      // 2 minimap px = 2 * zoom / scale DOM scroll px
+      const minimapScale = (w.w > 0 && w.h > 0)
+        ? Math.min(MINIMAP_WIDTH / w.w, MINIMAP_MAX_HEIGHT / w.h)
+        : 1;
+      const minOverlap = 2 * z / minimapScale;
 
-      let clamped = false;
-      if (el.scrollLeft < minSL) { el.scrollLeft = minSL; clamped = true; }
-      if (el.scrollLeft > maxSL) { el.scrollLeft = maxSL; clamped = true; }
-      if (el.scrollTop < minST) { el.scrollTop = minST; clamped = true; }
-      if (el.scrollTop > maxST) { el.scrollTop = maxST; clamped = true; }
+      const minSL = VIEWPORT_PADDING - vpWidth + minOverlap;
+      const maxSL = VIEWPORT_PADDING + w.w * z - minOverlap;
+      const minST = VIEWPORT_PADDING - vpHeight + minOverlap;
+      const maxST = VIEWPORT_PADDING + w.h * z - minOverlap;
+
+      if (el.scrollLeft < minSL) { el.scrollLeft = minSL; }
+      if (el.scrollLeft > maxSL) { el.scrollLeft = maxSL; }
+      if (el.scrollTop < minST) { el.scrollTop = minST; }
+      if (el.scrollTop > maxST) { el.scrollTop = maxST; }
 
       setScrollTick((t) => t + 1);
     };

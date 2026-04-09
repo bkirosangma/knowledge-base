@@ -14,13 +14,14 @@ interface MinimapProps {
   zoomRef: React.RefObject<number>;
 }
 
-const MINIMAP_WIDTH = 200;
-const MINIMAP_MAX_HEIGHT = 150;
+export const MINIMAP_WIDTH = 200;
+export const MINIMAP_MAX_HEIGHT = 150;
 
 export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }: MinimapProps) {
   const minimapRef = useRef<HTMLDivElement>(null);
   const prevScaleRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zoom = zoomRef.current;
 
@@ -84,9 +85,11 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
   return (
     <div
       ref={minimapRef}
-      className="relative bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden origin-bottom-left hover:scale-[2]"
-      style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out' }}
+      className="relative bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden origin-bottom-left"
+      style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out', transform: isHovered ? 'scale(2)' : 'scale(1)' }}
       onClick={handleMinimapClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Regions */}
       {regions.map((r) =>
