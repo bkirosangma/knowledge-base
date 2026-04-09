@@ -19,6 +19,63 @@ export interface RegionBounds {
 }
 
 /**
+ * Predict what a layer's bounds would be after adding a hypothetical new node.
+ * Mirrors the core loop of computeRegions for a single layer.
+ */
+export function predictLayerBounds(
+  layerId: string,
+  existingNodes: { id: string; x: number; y: number; w: number; layer: string }[],
+  newNodeX: number,
+  newNodeY: number,
+  newNodeHalfW: number,
+  newNodeHalfH: number,
+  getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number },
+  layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
+): { left: number; top: number; width: number; height: number } {
+  const layerNodes = existingNodes.filter((n) => n.layer === layerId);
+
+  let minX = newNodeX - newNodeHalfW;
+  let maxX = newNodeX + newNodeHalfW;
+  let minY = newNodeY - newNodeHalfH;
+  let maxY = newNodeY + newNodeHalfH;
+
+  for (const n of layerNodes) {
+    const dims = getNodeDimensions(n);
+    const halfW = dims.w / 2;
+    const halfH = dims.h / 2;
+    if (n.x - halfW < minX) minX = n.x - halfW;
+    if (n.x + halfW > maxX) maxX = n.x + halfW;
+    if (n.y - halfH < minY) minY = n.y - halfH;
+    if (n.y + halfH > maxY) maxY = n.y + halfH;
+  }
+
+  let left = minX - LAYER_PADDING;
+  let width = maxX - minX + LAYER_PADDING * 2;
+  let top = minY - LAYER_PADDING - LAYER_TITLE_OFFSET;
+  let height = maxY - minY + LAYER_PADDING * 2 + LAYER_TITLE_OFFSET;
+
+  const manual = layerManualSizes[layerId];
+  if (manual) {
+    if (manual.left !== undefined && manual.left < left) {
+      width += left - manual.left;
+      left = manual.left;
+    }
+    if (manual.width !== undefined && manual.width > width) {
+      width = manual.width;
+    }
+    if (manual.top !== undefined && manual.top < top) {
+      height += top - manual.top;
+      top = manual.top;
+    }
+    if (manual.height !== undefined && manual.height > height) {
+      height = manual.height;
+    }
+  }
+
+  return { left, top, width, height };
+}
+
+/**
  * Compute layer bounds from contained nodes, with optional manual size overrides.
  * Accounts for a node being dragged to a new position.
  */

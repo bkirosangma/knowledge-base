@@ -30,7 +30,8 @@ import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useLineDrag } from "./hooks/useLineDrag";
 import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
 import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
-import { findNonOverlappingLayerPosition } from "./utils/collisionUtils";
+import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } from "./utils/collisionUtils";
+import { predictLayerBounds } from "./utils/layerBounds";
 import { useZoom } from "./hooks/useZoom";
 import { Box } from "lucide-react";
 
@@ -498,22 +499,59 @@ export default function ArchitectureDesigner() {
       }
     }
 
-    // Collision avoidance: shift down until no overlap with existing nodes
-    let placeY = cy;
-    const maxAttempts = 50;
-    for (let i = 0; i < maxAttempts; i++) {
-      const overlaps = nodes.some((n) => {
-        const dims = getNodeDimensions(n);
-        const nHalfW = dims.w / 2;
-        const nHalfH = dims.h / 2;
-        return Math.abs(cx - n.x) < halfW + nHalfW && Math.abs(placeY - n.y) < halfH + nHalfH;
-      });
-      if (!overlaps) break;
-      placeY += 20;
+    let finalX = cx;
+    let finalY = cy;
+    if (targetLayer) {
+      // Layer collision avoidance: ensure layer expansion doesn't overlap other layers
+      // Also checks node overlap internally so the element doesn't land on existing nodes
+      const result = clampElementToAvoidLayerCollision(
+        cx, cy, halfW, halfH,
+        targetLayer, nodes, getNodeDimensions,
+        layerManualSizes, regions,
+        predictLayerBounds,
+      );
+      finalX = result.x;
+      finalY = result.y;
+      if (result.layerShift) {
+        const { dx, dy } = result.layerShift;
+        // Shift all existing nodes in the layer by the same delta
+        setNodes((prev) => prev.map((n) =>
+          n.layer === targetLayer ? { ...n, x: n.x + dx, y: n.y + dy } : n,
+        ));
+        // Also shift the new element position
+        finalX += dx;
+        finalY += dy;
+        // Update manual sizes if present
+        setLayerManualSizes((prev) => {
+          const existing = prev[targetLayer];
+          if (!existing) return prev;
+          return {
+            ...prev,
+            [targetLayer]: {
+              ...existing,
+              left: existing.left !== undefined ? existing.left + dx : undefined,
+              top: existing.top !== undefined ? existing.top + dy : undefined,
+            },
+          };
+        });
+      }
+    } else {
+      // No layer: simple collision avoidance — shift down until no overlap with existing nodes
+      const maxAttempts = 50;
+      for (let i = 0; i < maxAttempts; i++) {
+        const overlaps = nodes.some((n) => {
+          const dims = getNodeDimensions(n);
+          const nHalfW = dims.w / 2;
+          const nHalfH = dims.h / 2;
+          return Math.abs(finalX - n.x) < halfW + nHalfW && Math.abs(finalY - n.y) < halfH + nHalfH;
+        });
+        if (!overlaps) break;
+        finalY += 20;
+      }
     }
 
     const newId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: cx, y: placeY, w: newW, layer: targetLayer }]);
+    setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: finalX, y: finalY, w: newW, layer: targetLayer }]);
     setSelection({ type: "node", id: newId });
     setContextMenu(null);
   };

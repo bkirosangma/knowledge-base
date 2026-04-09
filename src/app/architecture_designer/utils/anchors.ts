@@ -1,6 +1,6 @@
 export type AnchorId =
-  | "top-left" | "top-0" | "top-1" | "top-2" | "top-right"
-  | "bottom-left" | "bottom-0" | "bottom-1" | "bottom-2" | "bottom-right"
+  | "top-0" | "top-1" | "top-2"
+  | "bottom-0" | "bottom-1" | "bottom-2"
   | "left-0" | "left-1" | "left-2"
   | "right-0" | "right-1" | "right-2";
 
@@ -10,8 +10,20 @@ export interface AnchorPoint {
   y: number;
 }
 
+/** Map removed corner anchors to their nearest side anchor */
+const CORNER_MIGRATION: Record<string, AnchorId> = {
+  "top-left": "top-0",
+  "top-right": "top-2",
+  "bottom-left": "bottom-0",
+  "bottom-right": "bottom-2",
+};
+
+export function migrateAnchorId(id: string): AnchorId {
+  return (CORNER_MIGRATION[id] ?? id) as AnchorId;
+}
+
 export function getAnchorPosition(
-  anchorId: AnchorId,
+  anchorId: AnchorId | string,
   cx: number,
   cy: number,
   w: number,
@@ -19,13 +31,9 @@ export function getAnchorPosition(
 ): { x: number; y: number } {
   const hw = w / 2;
   const hh = h / 2;
+  const id = migrateAnchorId(anchorId);
 
-  switch (anchorId) {
-    // Corners
-    case "top-left":     return { x: cx - hw, y: cy - hh };
-    case "top-right":    return { x: cx + hw, y: cy - hh };
-    case "bottom-left":  return { x: cx - hw, y: cy + hh };
-    case "bottom-right": return { x: cx + hw, y: cy + hh };
+  switch (id) {
     // Top side (25%, 50%, 75%)
     case "top-0":    return { x: cx - hw / 2, y: cy - hh };
     case "top-1":    return { x: cx,          y: cy - hh };
@@ -42,12 +50,13 @@ export function getAnchorPosition(
     case "right-0":  return { x: cx + hw, y: cy - hh / 2 };
     case "right-1":  return { x: cx + hw, y: cy };
     case "right-2":  return { x: cx + hw, y: cy + hh / 2 };
+    default:         return { x: cx, y: cy - hh }; // fallback to top-center
   }
 }
 
 const ALL_ANCHOR_IDS: AnchorId[] = [
-  "top-left", "top-0", "top-1", "top-2", "top-right",
-  "bottom-left", "bottom-0", "bottom-1", "bottom-2", "bottom-right",
+  "top-0", "top-1", "top-2",
+  "bottom-0", "bottom-1", "bottom-2",
   "left-0", "left-1", "left-2",
   "right-0", "right-1", "right-2",
 ];

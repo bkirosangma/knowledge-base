@@ -1,3 +1,5 @@
+import { LAYER_PADDING as LAYER_PADDING_IMPORTED, LAYER_TITLE_OFFSET as LAYER_TITLE_OFFSET_IMPORTED } from "./layerBounds";
+
 export const LAYER_GAP = 10;
 export const NODE_GAP = 8;
 
@@ -276,6 +278,136 @@ export function clampMultiNodeDelta(
     }
   }
   return { dx: prevDx + vecX * lo, dy: prevDy + vecY * lo };
+}
+
+/**
+ * Clamp an element's position so that the layer it belongs to
+ * does not expand into other layers.
+ *
+ * Strategy A: adjust element position to nearest valid spot.
+ * Strategy B (fallback): shift the entire layer via findNonOverlappingLayerPosition.
+ */
+export function clampElementToAvoidLayerCollision(
+  elemX: number,
+  elemY: number,
+  elemHalfW: number,
+  elemHalfH: number,
+  targetLayerId: string,
+  existingNodes: { id: string; x: number; y: number; w: number; layer: string }[],
+  getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number },
+  layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
+  allRegions: LayerBounds[],
+  predictFn: (
+    layerId: string, nodes: { id: string; x: number; y: number; w: number; layer: string }[],
+    nx: number, ny: number, nhw: number, nhh: number,
+    gnd: (node: { id: string; w: number }) => { w: number; h: number },
+    lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
+  ) => Rect,
+): { x: number; y: number; layerShift?: { dx: number; dy: number } } {
+  const obstacles = allRegions.filter((r) => r.id !== targetLayerId && !r.empty);
+
+  const boundsOverlaps = (nx: number, ny: number) => {
+    const predicted = predictFn(targetLayerId, existingNodes, nx, ny, elemHalfW, elemHalfH, getNodeDimensions, layerManualSizes);
+    return obstacles.some((o) => rectsOverlap(predicted, o, LAYER_GAP));
+  };
+
+  // Check if new element overlaps any existing node
+  const nodeOverlaps = (nx: number, ny: number) => {
+    const r: Rect = { left: nx - elemHalfW, top: ny - elemHalfH, width: elemHalfW * 2, height: elemHalfH * 2 };
+    return existingNodes.some((n) => {
+      const dims = getNodeDimensions(n);
+      const nRect: Rect = { left: n.x - dims.w / 2, top: n.y - dims.h / 2, width: dims.w, height: dims.h };
+      return rectsOverlap(r, nRect, NODE_GAP);
+    });
+  };
+
+  // Combined check: no layer collision AND no node overlap
+  const isInvalid = (nx: number, ny: number) => boundsOverlaps(nx, ny) || nodeOverlaps(nx, ny);
+
+  // Fast path — no layer collision and no node overlap
+  if (!boundsOverlaps(elemX, elemY) && !nodeOverlaps(elemX, elemY)) return { x: elemX, y: elemY };
+
+  // Strategy A: generate candidate element positions from obstacle edges
+  const xCandidates: number[] = [elemX];
+  const yCandidates: number[] = [elemY];
+
+  // Also include the current layer center as a candidate (place element inside existing bounds)
+  const currentRegion = allRegions.find((r) => r.id === targetLayerId);
+  if (currentRegion && !currentRegion.empty) {
+    xCandidates.push(currentRegion.left + currentRegion.width / 2);
+    yCandidates.push(currentRegion.top + currentRegion.height / 2);
+  }
+
+  for (const obs of obstacles) {
+    // Element X positions that would keep the predicted layer just clear of this obstacle
+    // Right side of layer must be < obs.left - LAYER_GAP → elem center at most:
+    xCandidates.push(obs.left - LAYER_GAP - LAYER_PADDING_IMPORTED - elemHalfW);
+    // Left side of layer must be > obs.left + obs.width + LAYER_GAP → elem center at least:
+    xCandidates.push(obs.left + obs.width + LAYER_GAP + LAYER_PADDING_IMPORTED + elemHalfW);
+    // Top of layer must be > obs.top + obs.height + LAYER_GAP
+    yCandidates.push(obs.top + obs.height + LAYER_GAP + LAYER_PADDING_IMPORTED + LAYER_TITLE_OFFSET_IMPORTED + elemHalfH);
+    // Bottom of layer must be < obs.top - LAYER_GAP
+    yCandidates.push(obs.top - LAYER_GAP - LAYER_PADDING_IMPORTED - elemHalfH);
+  }
+
+  // Include existing layer-node extents as candidates (to keep element within current layer bounds)
+  const layerNodes = existingNodes.filter((n) => n.layer === targetLayerId);
+  if (layerNodes.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of layerNodes) {
+      const dims = getNodeDimensions(n);
+      minX = Math.min(minX, n.x - dims.w / 2);
+      maxX = Math.max(maxX, n.x + dims.w / 2);
+      minY = Math.min(minY, n.y - dims.h / 2);
+      maxY = Math.max(maxY, n.y + dims.h / 2);
+    }
+    // Place element within existing node extents (no layer expansion)
+    xCandidates.push(minX + elemHalfW, maxX - elemHalfW);
+    yCandidates.push(minY + elemHalfH, maxY - elemHalfH);
+  }
+
+  // Include positions adjacent to existing nodes in the same layer (to avoid overlapping them)
+  for (const n of layerNodes) {
+    const dims = getNodeDimensions(n);
+    const nHalfW = dims.w / 2;
+    const nHalfH = dims.h / 2;
+    // Snap to just outside each edge of this node
+    xCandidates.push(n.x - nHalfW - NODE_GAP - elemHalfW);
+    xCandidates.push(n.x + nHalfW + NODE_GAP + elemHalfW);
+    yCandidates.push(n.y - nHalfH - NODE_GAP - elemHalfH);
+    yCandidates.push(n.y + nHalfH + NODE_GAP + elemHalfH);
+    // Also align with existing node positions (same row/column placement)
+    xCandidates.push(n.x);
+    yCandidates.push(n.y);
+  }
+
+  let bestX = elemX, bestY = elemY, bestDist = Infinity;
+  let found = false;
+
+  for (const cx of xCandidates) {
+    for (const cy of yCandidates) {
+      if (isInvalid(cx, cy)) continue;
+      const dist = (cx - elemX) ** 2 + (cy - elemY) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = cx;
+        bestY = cy;
+        found = true;
+      }
+    }
+  }
+
+  if (found) return { x: bestX, y: bestY };
+
+  // Strategy B: shift the entire layer to a non-overlapping position
+  const predicted = predictFn(targetLayerId, existingNodes, elemX, elemY, elemHalfW, elemHalfH, getNodeDimensions, layerManualSizes);
+  const newPos = findNonOverlappingLayerPosition(
+    { left: predicted.left, top: predicted.top, width: predicted.width, height: predicted.height },
+    obstacles.map((o) => ({ ...o })),
+  );
+  const dx = newPos.left - predicted.left;
+  const dy = newPos.top - predicted.top;
+  return { x: elemX + dx, y: elemY + dy, layerShift: { dx, dy } };
 }
 
 /**
