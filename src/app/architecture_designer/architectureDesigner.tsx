@@ -27,6 +27,7 @@ import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
+import { useLineDrag } from "./hooks/useLineDrag";
 import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
 import { useZoom } from "./hooks/useZoom";
 
@@ -76,6 +77,8 @@ export default function ArchitectureDesigner() {
   const layerShiftsRef = useRef<Record<string, number>>({});
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const linesForSelection = useRef<{ id: string; points: { x: number; y: number }[] }[]>([]);
   const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number; empty: boolean }[] | null>(null);
 
@@ -192,10 +195,15 @@ export default function ArchitectureDesigner() {
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
+  const { creatingLine, handleAnchorDragStart } = useLineDrag({
+    nodes, connections, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
+    isBlocked: !!draggingEndpoint,
+  });
+
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
     isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
-    isBlocked: !!draggingEndpoint,
+    isBlocked: !!draggingEndpoint || !!creatingLine,
     setNodes,
     regionsRef,
     getNodeDimensions,
@@ -206,13 +214,13 @@ export default function ArchitectureDesigner() {
 
   const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart } = useLayerResize({
     regionsRef, toCanvasCoords,
-    isBlocked: !!draggingId || !!draggingEndpoint || isMultiDrag,
+    isBlocked: !!draggingId || !!draggingEndpoint || !!creatingLine || isMultiDrag,
     initialManualSizes: defaults.current.layerManualSizes,
   });
 
   const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
     toCanvasCoords,
-    isBlocked: !!draggingEndpoint || !!draggingId || isMultiDrag,
+    isBlocked: !!draggingEndpoint || !!creatingLine || !!draggingId || isMultiDrag,
     setNodes,
     regionsRef,
     setLayerManualSizes,
@@ -240,7 +248,7 @@ export default function ArchitectureDesigner() {
 
   const { selectionRect, handleCanvasMouseDown, handleSelectionRectStart, cancelSelectionRect } = useSelectionRect({
     toCanvasCoords,
-    isBlocked: !!draggingId || !!draggingLayerId || !!draggingEndpoint || !!resizingLayer || isMultiDrag,
+    isBlocked: !!draggingId || !!draggingLayerId || !!draggingEndpoint || !!creatingLine || !!resizingLayer || isMultiDrag,
     nodes, regions, lines: linesForSelection.current, getNodeDimensions, setSelection,
     pendingSelectionRef: pendingSelection,
   });
@@ -250,6 +258,71 @@ export default function ArchitectureDesigner() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         cancelSelectionRect();
+        setSelection(null);
+      }
+
+      if ((e.key === "Delete" || e.key === "Backspace") && selectionRef.current) {
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+
+        const sel = selectionRef.current;
+        let nodeIdsToDelete: string[] = [];
+        let layerIdsToDelete: string[] = [];
+        let lineIdsToDelete: string[] = [];
+
+        switch (sel.type) {
+          case "node":
+            nodeIdsToDelete = [sel.id];
+            break;
+          case "multi-node":
+            nodeIdsToDelete = sel.ids;
+            break;
+          case "layer":
+            layerIdsToDelete = [sel.id];
+            break;
+          case "multi-layer":
+            layerIdsToDelete = sel.ids;
+            break;
+          case "line":
+            lineIdsToDelete = [sel.id];
+            break;
+          case "multi-line":
+            lineIdsToDelete = sel.ids;
+            break;
+        }
+
+        // Cascade: layers → collect their nodes
+        if (layerIdsToDelete.length > 0) {
+          const layerSet = new Set(layerIdsToDelete);
+          const nodesInLayers = nodesRef.current.filter((n) => layerSet.has(n.layer)).map((n) => n.id);
+          nodeIdsToDelete = [...new Set([...nodeIdsToDelete, ...nodesInLayers])];
+          setLayerDefs((prev) => prev.filter((l) => !layerSet.has(l.id)));
+          setLayerManualSizes((prev) => {
+            const next = { ...prev };
+            for (const id of layerIdsToDelete) delete next[id];
+            return next;
+          });
+        }
+
+        // Cascade: nodes → remove referencing connections
+        if (nodeIdsToDelete.length > 0) {
+          const nodeSet = new Set(nodeIdsToDelete);
+          setNodes((prev) => prev.filter((n) => !nodeSet.has(n.id)));
+          setConnections((prev) => prev.filter((c) => !nodeSet.has(c.from) && !nodeSet.has(c.to)));
+          setMeasuredSizes((prev) => {
+            const next = { ...prev };
+            for (const id of nodeIdsToDelete) delete next[id];
+            return next;
+          });
+        }
+
+        // Direct line deletion
+        if (lineIdsToDelete.length > 0) {
+          const lineSet = new Set(lineIdsToDelete);
+          setConnections((prev) => prev.filter((c) => !lineSet.has(c.id)));
+        }
+
         setSelection(null);
       }
     };
@@ -381,6 +454,17 @@ export default function ArchitectureDesigner() {
       ghostLine = { path: `M ${gFrom.x} ${gFrom.y} L ${gTo.x} ${gTo.y}`, color: conn.color, fromPos: gFrom, toPos: gTo };
     }
   }
+  if (creatingLine) {
+    const dragPos = creatingLine.snappedAnchor
+      ? { x: creatingLine.snappedAnchor.x, y: creatingLine.snappedAnchor.y }
+      : creatingLine.currentPos;
+    ghostLine = {
+      path: `M ${creatingLine.fromPos.x} ${creatingLine.fromPos.y} L ${dragPos.x} ${dragPos.y}`,
+      color: "#3b82f6",
+      fromPos: creatingLine.fromPos,
+      toPos: dragPos,
+    };
+  }
 
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
@@ -465,7 +549,7 @@ export default function ArchitectureDesigner() {
             >
               {lines.map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId || !!draggingLayerId || isMultiDrag;
+                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag;
                 return (
                   <DataLine
                     key={line.id}
@@ -484,13 +568,16 @@ export default function ArchitectureDesigner() {
                   />
                 );
               })}
-              {ghostLine && (
+              {ghostLine && (() => {
+                const hasSnap = !!(draggingEndpoint?.snappedAnchor || creatingLine?.snappedAnchor);
+                return (
                 <g>
                   <line x1={ghostLine.fromPos.x} y1={ghostLine.fromPos.y} x2={ghostLine.toPos.x} y2={ghostLine.toPos.y} stroke={ghostLine.color} strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
-                  <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={draggingEndpoint?.snappedAnchor ? 6 : 5} fill={draggingEndpoint?.snappedAnchor ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-                  <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={draggingEndpoint?.snappedAnchor ? 6 : 5} fill={draggingEndpoint?.snappedAnchor ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
+                  <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
+                  <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
                 </g>
-              )}
+                );
+              })()}
             </svg>
 
             {/* Animated flow dots — memoized to avoid restart on hover */}
@@ -520,7 +607,8 @@ export default function ArchitectureDesigner() {
               const isThisDragged = isThisSingleDragged || isThisMultiDragged;
               const dims = getNodeDimensions(node);
               const anchors = getAnchors(node.x, node.y, dims.w, dims.h);
-              const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id;
+              const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id
+                || creatingLine?.snappedAnchor?.nodeId === node.id;
 
               let dimmed = false;
               let showAnchors = hoveredNodeId === node.id;
@@ -529,6 +617,10 @@ export default function ArchitectureDesigner() {
                 const fixedNodeId = dragConn ? (draggingEndpoint.end === "from" ? dragConn.to : dragConn.from) : null;
                 dimmed = node.id !== fixedNodeId && hoveredNodeId !== node.id;
                 showAnchors = hoveredNodeId === node.id;
+              }
+              if (creatingLine) {
+                dimmed = node.id !== creatingLine.fromNodeId && hoveredNodeId !== node.id;
+                showAnchors = hoveredNodeId === node.id || node.id === creatingLine.fromNodeId;
               }
               if (draggingId || isMultiDrag) { showAnchors = false; if (!isThisDragged) dimmed = true; }
               const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
@@ -564,8 +656,9 @@ export default function ArchitectureDesigner() {
                     isDragging={isThisDragged}
                     isSelected={isItemSelected(selection, 'node', node.id)}
                     showAnchors={showAnchors}
-                    highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
+                    highlightedAnchor={isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null}
                     anchors={anchors}
+                    onAnchorDragStart={handleAnchorDragStart}
                     measuredHeight={dims.h}
                     onResize={handleElementResize}
                     onMouseEnter={() => setHoveredNodeId(node.id)}

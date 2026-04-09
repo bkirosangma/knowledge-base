@@ -17,6 +17,7 @@ interface ElementProps {
   showAnchors?: boolean;
   highlightedAnchor?: AnchorId | null;
   anchors?: AnchorPoint[];
+  onAnchorDragStart?: (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onResize?: (id: string, width: number, height: number) => void;
@@ -42,6 +43,7 @@ export default function Element({
   showAnchors,
   highlightedAnchor,
   anchors,
+  onAnchorDragStart,
   onMouseEnter,
   onMouseLeave,
   onResize,
@@ -122,14 +124,20 @@ export default function Element({
             className={`absolute rounded-full transition-all ${
               isHighlighted
                 ? "w-3.5 h-3.5 bg-blue-500 ring-2 ring-blue-300"
-                : "w-2 h-2 bg-slate-400 opacity-50"
+                : "w-2 h-2 bg-slate-400 opacity-50 hover:w-3 hover:h-3 hover:bg-blue-400 hover:opacity-100"
             }`}
             style={{
               left: relX,
               top: relY,
               transform: "translate(-50%, -50%)",
-              pointerEvents: "none",
+              pointerEvents: onAnchorDragStart ? "auto" : "none",
+              cursor: onAnchorDragStart ? "crosshair" : undefined,
             }}
+            onMouseDown={onAnchorDragStart ? (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onAnchorDragStart(id, anchor.id, e);
+            } : undefined}
           />
         );
       })}
