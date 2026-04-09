@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData, Selection } from "../utils/types";
-import { LAYER_GAP, clampNodePosition, clampMultiNodeDelta, type Rect, type LayerBounds } from "../utils/collisionUtils";
+import { clampNodePosition, clampMultiNodeDelta, type Rect, type LayerBounds } from "../utils/collisionUtils";
+import { LAYER_GAP } from "../utils/constants";
 import { isItemSelected } from "../utils/selectionUtils";
 
 interface UseNodeDragOptions {

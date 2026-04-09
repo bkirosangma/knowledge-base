@@ -1,6 +1,6 @@
 import type { Selection, NodeData } from "./types";
+import { rectsIntersect, lineIntersectsRect, type XYRect, type LineBounds } from "./geometry";
 
-interface Rect { x: number; y: number; w: number; h: number }
 interface RegionBounds { id: string; left: number; top: number; width: number; height: number }
 
 export function isItemSelected(selection: Selection, type: string, id: string): boolean {
@@ -101,63 +101,8 @@ export function toggleItemInSelection(
   return current;
 }
 
-function rectsIntersect(a: Rect, b: Rect): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-interface LineBounds { id: string; points: { x: number; y: number }[] }
-
-/** Check if a line segment (p1→p2) intersects an axis-aligned rectangle (Cohen–Sutherland). */
-function segmentIntersectsRect(
-  x1: number, y1: number, x2: number, y2: number,
-  rx: number, ry: number, rw: number, rh: number,
-): boolean {
-  const INSIDE = 0, LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8;
-  const code = (x: number, y: number) => {
-    let c = INSIDE;
-    if (x < rx) c |= LEFT;
-    else if (x > rx + rw) c |= RIGHT;
-    if (y < ry) c |= BOTTOM;
-    else if (y > ry + rh) c |= TOP;
-    return c;
-  };
-  let c1 = code(x1, y1), c2 = code(x2, y2);
-  let ax = x1, ay = y1, bx = x2, by = y2;
-  while (true) {
-    if (!(c1 | c2)) return true;
-    if (c1 & c2) return false;
-    const c = c1 || c2;
-    let x = 0, y = 0;
-    if (c & TOP) { x = ax + (bx - ax) * (ry + rh - ay) / (by - ay); y = ry + rh; }
-    else if (c & BOTTOM) { x = ax + (bx - ax) * (ry - ay) / (by - ay); y = ry; }
-    else if (c & RIGHT) { y = ay + (by - ay) * (rx + rw - ax) / (bx - ax); x = rx + rw; }
-    else if (c & LEFT) { y = ay + (by - ay) * (rx - ax) / (bx - ax); x = rx; }
-    if (c === c1) { ax = x; ay = y; c1 = code(ax, ay); }
-    else { bx = x; by = y; c2 = code(bx, by); }
-  }
-}
-
-const LINE_HIT_PADDING = 4;
-
-/** Check if any segment of a multi-point polyline intersects the rectangle (with padding for stroke width). */
-function lineIntersectsRect(line: LineBounds, rect: Rect): boolean {
-  const padded: Rect = {
-    x: rect.x - LINE_HIT_PADDING,
-    y: rect.y - LINE_HIT_PADDING,
-    w: rect.w + LINE_HIT_PADDING * 2,
-    h: rect.h + LINE_HIT_PADDING * 2,
-  };
-  const pts = line.points;
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (segmentIntersectsRect(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, padded.x, padded.y, padded.w, padded.h)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function resolveRectangleSelection(
-  rect: Rect,
+  rect: XYRect,
   nodes: NodeData[],
   regions: RegionBounds[],
   getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number },
@@ -176,7 +121,7 @@ export function resolveRectangleSelection(
   // Find intersected nodes
   const hitNodes = nodes.filter(node => {
     const dims = getNodeDimensions(node);
-    const nodeRect: Rect = {
+    const nodeRect: XYRect = {
       x: node.x - dims.w / 2,
       y: node.y - dims.h / 2,
       w: dims.w,

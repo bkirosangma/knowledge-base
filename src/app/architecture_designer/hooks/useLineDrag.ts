@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
 import type { NodeData, Connection } from "../utils/types";
-import { getNodeHeight } from "../utils/types";
+import { getNodeDims } from "../utils/geometry";
 
 interface UseLineDragOptions {
   nodes: NodeData[];
@@ -25,14 +25,6 @@ export interface CreatingLine {
     x: number;
     y: number;
   } | null;
-}
-
-function getNodeDims(node: NodeData, measuredSizes: Record<string, { w: number; h: number }>) {
-  const measured = measuredSizes[node.id];
-  return {
-    w: measured?.w ?? node.w,
-    h: measured?.h ?? getNodeHeight(node.w),
-  };
 }
 
 export function useLineDrag({

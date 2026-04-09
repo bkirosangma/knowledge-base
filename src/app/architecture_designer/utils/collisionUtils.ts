@@ -1,7 +1,4 @@
-import { LAYER_PADDING as LAYER_PADDING_IMPORTED, LAYER_TITLE_OFFSET as LAYER_TITLE_OFFSET_IMPORTED } from "./layerBounds";
-
-export const LAYER_GAP = 10;
-export const NODE_GAP = 8;
+import { LAYER_GAP, NODE_GAP, LAYER_PADDING, LAYER_TITLE_OFFSET } from "./constants";
 
 export interface Rect {
   left: number;
@@ -31,11 +28,60 @@ export function between(val: number, a: number, b: number): boolean {
 }
 
 /**
- * Clamp a drag delta so the dragged layer can't overlap any other layer.
+ * Generic edge-snapping + binary-search clamping algorithm.
+ * Used by all three clamp functions (layer delta, node position, multi-node delta).
  *
- * For each obstacle, computes the 4 exclusion-zone edges in delta-space.
- * Generates candidate positions by snapping to each edge, then picks
- * the candidate closest to the raw delta that doesn't overlap any obstacle.
+ * 1. Fast path: if no overlap at raw position, return it.
+ * 2. Generate candidate X/Y values from obstacle exclusion-zone edges.
+ * 3. Test all (X, Y) combinations, pick closest valid one to raw target.
+ * 4. Binary search fallback along the vector from prev to raw.
+ */
+function clampToAvoidOverlap(
+  rawA: number, rawB: number,
+  prevA: number, prevB: number,
+  anyOverlap: (a: number, b: number) => boolean,
+  collectEdges: (rawA: number, rawB: number, prevA: number, prevB: number) => { aEdges: number[]; bEdges: number[] },
+): { a: number; b: number } {
+  if (!anyOverlap(rawA, rawB)) return { a: rawA, b: rawB };
+
+  const { aEdges, bEdges } = collectEdges(rawA, rawB, prevA, prevB);
+
+  let bestA = prevA, bestB = prevB, bestDist = Infinity;
+  let found = false;
+
+  for (const a of aEdges) {
+    for (const b of bEdges) {
+      if (anyOverlap(a, b)) continue;
+      const dist = (a - rawA) ** 2 + (b - rawB) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestA = a;
+        bestB = b;
+        found = true;
+      }
+    }
+  }
+
+  if (found) return { a: bestA, b: bestB };
+
+  // Binary search along the vector from previous to raw target
+  let lo = 0;
+  let hi = 1;
+  const vecA = rawA - prevA;
+  const vecB = rawB - prevB;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    if (anyOverlap(prevA + vecA * mid, prevB + vecB * mid)) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return { a: prevA + vecA * lo, b: prevB + vecB * lo };
+}
+
+/**
+ * Clamp a drag delta so the dragged layer can't overlap any other layer.
  */
 export function clampLayerDelta(
   draggedBounds: LayerBounds,
@@ -53,63 +99,28 @@ export function clampLayerDelta(
     return obstacles.some((o) => rectsOverlap(b, o, LAYER_GAP));
   };
 
-  // Fast path — no collision
-  if (!anyOverlap(rawDx, rawDy)) return { dx: rawDx, dy: rawDy };
-
-  const xEdges: number[] = [rawDx, prevDx];
-  const yEdges: number[] = [rawDy, prevDy];
-
-  for (const obs of obstacles) {
-    const exL = obs.left - LAYER_GAP - draggedBounds.width - draggedBounds.left;
-    const exR = obs.left + obs.width + LAYER_GAP - draggedBounds.left;
-    const exT = obs.top - LAYER_GAP - draggedBounds.height - draggedBounds.top;
-    const exB = obs.top + obs.height + LAYER_GAP - draggedBounds.top;
-
-    if (between(exL, prevDx, rawDx)) xEdges.push(exL);
-    if (between(exR, prevDx, rawDx)) xEdges.push(exR);
-    if (between(exT, prevDy, rawDy)) yEdges.push(exT);
-    if (between(exB, prevDy, rawDy)) yEdges.push(exB);
-  }
-
-  // Try every combination of X edge × Y edge, pick the closest valid one
-  let bestDx = prevDx, bestDy = prevDy, bestDist = Infinity;
-  let found = false;
-
-  for (const dx of xEdges) {
-    for (const dy of yEdges) {
-      if (anyOverlap(dx, dy)) continue;
-      const dist = (dx - rawDx) ** 2 + (dy - rawDy) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestDx = dx;
-        bestDy = dy;
-        found = true;
-      }
+  const collectEdges = (rawDx: number, rawDy: number, prevDx: number, prevDy: number) => {
+    const aEdges: number[] = [rawDx, prevDx];
+    const bEdges: number[] = [rawDy, prevDy];
+    for (const obs of obstacles) {
+      const exL = obs.left - LAYER_GAP - draggedBounds.width - draggedBounds.left;
+      const exR = obs.left + obs.width + LAYER_GAP - draggedBounds.left;
+      const exT = obs.top - LAYER_GAP - draggedBounds.height - draggedBounds.top;
+      const exB = obs.top + obs.height + LAYER_GAP - draggedBounds.top;
+      if (between(exL, prevDx, rawDx)) aEdges.push(exL);
+      if (between(exR, prevDx, rawDx)) aEdges.push(exR);
+      if (between(exT, prevDy, rawDy)) bEdges.push(exT);
+      if (between(exB, prevDy, rawDy)) bEdges.push(exB);
     }
-  }
+    return { aEdges, bEdges };
+  };
 
-  if (found) return { dx: bestDx, dy: bestDy };
-
-  // Binary search along the vector from previous position to raw target
-  let lo = 0;
-  let hi = 1;
-  const vecDx = rawDx - prevDx;
-  const vecDy = rawDy - prevDy;
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (anyOverlap(prevDx + vecDx * mid, prevDy + vecDy * mid)) {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-  return { dx: prevDx + vecDx * lo, dy: prevDy + vecDy * lo };
+  const result = clampToAvoidOverlap(rawDx, rawDy, prevDx, prevDy, anyOverlap, collectEdges);
+  return { dx: result.a, dy: result.b };
 }
 
 /**
  * Clamp a node position so it can't overlap any sibling node.
- * Mirrors the layer clamp algorithm but operates on center-based
- * coordinates (x, y) converted to rects.
  */
 export function clampNodePosition(
   x: number,
@@ -123,10 +134,7 @@ export function clampNodePosition(
   if (siblings.length === 0) return { x, y };
 
   const toRect = (cx: number, cy: number): Rect => ({
-    left: cx - halfW,
-    top: cy - halfH,
-    width: halfW * 2,
-    height: halfH * 2,
+    left: cx - halfW, top: cy - halfH, width: halfW * 2, height: halfH * 2,
   });
 
   const anyOverlap = (cx: number, cy: number) => {
@@ -134,58 +142,25 @@ export function clampNodePosition(
     return siblings.some((s) => rectsOverlap(r, s, NODE_GAP));
   };
 
-  // Fast path — no collision
-  if (!anyOverlap(x, y)) return { x, y };
-
-  // Collect exclusion-zone edges in position-space
   const draggedRect = toRect(prevX, prevY);
-  const xEdges: number[] = [x, prevX];
-  const yEdges: number[] = [y, prevY];
-
-  for (const obs of siblings) {
-    const exL = obs.left - NODE_GAP - draggedRect.width + halfW;
-    const exR = obs.left + obs.width + NODE_GAP + halfW;
-    const exT = obs.top - NODE_GAP - draggedRect.height + halfH;
-    const exB = obs.top + obs.height + NODE_GAP + halfH;
-
-    if (between(exL, prevX, x)) xEdges.push(exL);
-    if (between(exR, prevX, x)) xEdges.push(exR);
-    if (between(exT, prevY, y)) yEdges.push(exT);
-    if (between(exB, prevY, y)) yEdges.push(exB);
-  }
-
-  let bestX = prevX, bestY = prevY, bestDist = Infinity;
-  let found = false;
-
-  for (const ex of xEdges) {
-    for (const ey of yEdges) {
-      if (anyOverlap(ex, ey)) continue;
-      const dist = (ex - x) ** 2 + (ey - y) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestX = ex;
-        bestY = ey;
-        found = true;
-      }
+  const collectEdges = (rawX: number, rawY: number, prevX: number, prevY: number) => {
+    const aEdges: number[] = [rawX, prevX];
+    const bEdges: number[] = [rawY, prevY];
+    for (const obs of siblings) {
+      const exL = obs.left - NODE_GAP - draggedRect.width + halfW;
+      const exR = obs.left + obs.width + NODE_GAP + halfW;
+      const exT = obs.top - NODE_GAP - draggedRect.height + halfH;
+      const exB = obs.top + obs.height + NODE_GAP + halfH;
+      if (between(exL, prevX, rawX)) aEdges.push(exL);
+      if (between(exR, prevX, rawX)) aEdges.push(exR);
+      if (between(exT, prevY, rawY)) bEdges.push(exT);
+      if (between(exB, prevY, rawY)) bEdges.push(exB);
     }
-  }
+    return { aEdges, bEdges };
+  };
 
-  if (found) return { x: bestX, y: bestY };
-
-  // Binary search fallback
-  let lo = 0;
-  let hi = 1;
-  const vecX = x - prevX;
-  const vecY = y - prevY;
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (anyOverlap(prevX + vecX * mid, prevY + vecY * mid)) {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-  return { x: prevX + vecX * lo, y: prevY + vecY * lo };
+  const result = clampToAvoidOverlap(x, y, prevX, prevY, anyOverlap, collectEdges);
+  return { x: result.a, y: result.b };
 }
 
 interface NodeRect {
@@ -194,8 +169,6 @@ interface NodeRect {
 
 /**
  * Clamp a group drag delta so no dragged node overlaps any non-dragged sibling.
- * Uses the same edge-snapping + binary-search approach as clampNodePosition,
- * but operates in delta-space and checks all dragged nodes against all siblings.
  */
 export function clampMultiNodeDelta(
   dx: number,
@@ -210,10 +183,8 @@ export function clampMultiNodeDelta(
   const anyOverlap = (ddx: number, ddy: number) => {
     for (const dn of draggedNodes) {
       const r: Rect = {
-        left: dn.x + ddx - dn.halfW,
-        top: dn.y + ddy - dn.halfH,
-        width: dn.halfW * 2,
-        height: dn.halfH * 2,
+        left: dn.x + ddx - dn.halfW, top: dn.y + ddy - dn.halfH,
+        width: dn.halfW * 2, height: dn.halfH * 2,
       };
       for (const s of siblings) {
         if (rectsOverlap(r, s, NODE_GAP)) return true;
@@ -222,62 +193,28 @@ export function clampMultiNodeDelta(
     return false;
   };
 
-  // Fast path — no collision
-  if (!anyOverlap(dx, dy)) return { dx, dy };
-
-  // Collect exclusion-zone edges in delta-space
-  const dxEdges: number[] = [dx, prevDx];
-  const dyEdges: number[] = [dy, prevDy];
-
-  for (const dn of draggedNodes) {
-    const dw = dn.halfW * 2;
-    const dh = dn.halfH * 2;
-    for (const obs of siblings) {
-      // Left/right edges: where dragged node just clears the obstacle
-      const exL = obs.left - NODE_GAP - dw + dn.halfW - dn.x;
-      const exR = obs.left + obs.width + NODE_GAP + dn.halfW - dn.x;
-      const exT = obs.top - NODE_GAP - dh + dn.halfH - dn.y;
-      const exB = obs.top + obs.height + NODE_GAP + dn.halfH - dn.y;
-
-      if (between(exL, prevDx, dx)) dxEdges.push(exL);
-      if (between(exR, prevDx, dx)) dxEdges.push(exR);
-      if (between(exT, prevDy, dy)) dyEdges.push(exT);
-      if (between(exB, prevDy, dy)) dyEdges.push(exB);
-    }
-  }
-
-  let bestDx = prevDx, bestDy = prevDy, bestDist = Infinity;
-  let found = false;
-
-  for (const ex of dxEdges) {
-    for (const ey of dyEdges) {
-      if (anyOverlap(ex, ey)) continue;
-      const dist = (ex - dx) ** 2 + (ey - dy) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestDx = ex;
-        bestDy = ey;
-        found = true;
+  const collectEdges = (rawDx: number, rawDy: number, prevDx: number, prevDy: number) => {
+    const aEdges: number[] = [rawDx, prevDx];
+    const bEdges: number[] = [rawDy, prevDy];
+    for (const dn of draggedNodes) {
+      const dw = dn.halfW * 2;
+      const dh = dn.halfH * 2;
+      for (const obs of siblings) {
+        const exL = obs.left - NODE_GAP - dw + dn.halfW - dn.x;
+        const exR = obs.left + obs.width + NODE_GAP + dn.halfW - dn.x;
+        const exT = obs.top - NODE_GAP - dh + dn.halfH - dn.y;
+        const exB = obs.top + obs.height + NODE_GAP + dn.halfH - dn.y;
+        if (between(exL, prevDx, rawDx)) aEdges.push(exL);
+        if (between(exR, prevDx, rawDx)) aEdges.push(exR);
+        if (between(exT, prevDy, rawDy)) bEdges.push(exT);
+        if (between(exB, prevDy, rawDy)) bEdges.push(exB);
       }
     }
-  }
+    return { aEdges, bEdges };
+  };
 
-  if (found) return { dx: bestDx, dy: bestDy };
-
-  // Binary search fallback along the delta vector
-  let lo = 0;
-  let hi = 1;
-  const vecX = dx - prevDx;
-  const vecY = dy - prevDy;
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (anyOverlap(prevDx + vecX * mid, prevDy + vecY * mid)) {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-  return { dx: prevDx + vecX * lo, dy: prevDy + vecY * lo };
+  const result = clampToAvoidOverlap(dx, dy, prevDx, prevDy, anyOverlap, collectEdges);
+  return { dx: result.a, dy: result.b };
 }
 
 /**
@@ -341,13 +278,13 @@ export function clampElementToAvoidLayerCollision(
   for (const obs of obstacles) {
     // Element X positions that would keep the predicted layer just clear of this obstacle
     // Right side of layer must be < obs.left - LAYER_GAP → elem center at most:
-    xCandidates.push(obs.left - LAYER_GAP - LAYER_PADDING_IMPORTED - elemHalfW);
+    xCandidates.push(obs.left - LAYER_GAP - LAYER_PADDING - elemHalfW);
     // Left side of layer must be > obs.left + obs.width + LAYER_GAP → elem center at least:
-    xCandidates.push(obs.left + obs.width + LAYER_GAP + LAYER_PADDING_IMPORTED + elemHalfW);
+    xCandidates.push(obs.left + obs.width + LAYER_GAP + LAYER_PADDING + elemHalfW);
     // Top of layer must be > obs.top + obs.height + LAYER_GAP
-    yCandidates.push(obs.top + obs.height + LAYER_GAP + LAYER_PADDING_IMPORTED + LAYER_TITLE_OFFSET_IMPORTED + elemHalfH);
+    yCandidates.push(obs.top + obs.height + LAYER_GAP + LAYER_PADDING + LAYER_TITLE_OFFSET + elemHalfH);
     // Bottom of layer must be < obs.top - LAYER_GAP
-    yCandidates.push(obs.top - LAYER_GAP - LAYER_PADDING_IMPORTED - elemHalfH);
+    yCandidates.push(obs.top - LAYER_GAP - LAYER_PADDING - elemHalfH);
   }
 
   // Include existing layer-node extents as candidates (to keep element within current layer bounds)

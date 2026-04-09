@@ -1,20 +1,12 @@
 import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
+import { useEditableState } from "../../hooks/useEditableState";
 import { ChevronRight, X } from "lucide-react";
 import { getIcon, getIconNames } from "../../utils/iconRegistry";
+import type { RegionBounds } from "../../utils/types";
+
+export type { RegionBounds };
 
 export const KEY_COL = "w-[72px] shrink-0";
-
-export interface RegionBounds {
-  id: string;
-  title: string;
-  left: number;
-  width: number;
-  top: number;
-  height: number;
-  bg: string;
-  border: string;
-  textColor?: string;
-}
 
 export function Row({ label, value }: { label: string; value: string | number }) {
   return (
@@ -36,27 +28,14 @@ export function EditableRow({
   onCommit: (newValue: string) => boolean;
   onClear?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [error, setError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
-  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  const { editing, setEditing, draft, setDraft, error, showError, clearError, inputRef, cancel, finishEditing } = useEditableState(value);
 
   const commit = useCallback(() => {
     const trimmed = draft.trim();
-    if (trimmed === value) { setEditing(false); setError(false); return; }
-    if (!trimmed || !onCommit(trimmed)) {
-      setError(true);
-      inputRef.current?.focus();
-      return;
-    }
-    setError(false);
-    setEditing(false);
-  }, [draft, value, onCommit]);
-
-  const cancel = useCallback(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
+    if (trimmed === value) { finishEditing(); return; }
+    if (!trimmed || !onCommit(trimmed)) { showError(); return; }
+    finishEditing();
+  }, [draft, value, onCommit, finishEditing, showError]);
 
   if (!editing) {
     return (
@@ -82,7 +61,7 @@ export function EditableRow({
         ref={inputRef}
         className={`text-[13px] text-slate-800 bg-slate-50 border rounded px-1.5 py-0.5 outline-none w-full min-w-0 ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
         value={draft}
-        onChange={(e) => { setDraft(e.target.value); setError(false); }}
+        onChange={(e) => { setDraft(e.target.value); clearError(); }}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") cancel(); }}
       />
@@ -101,35 +80,24 @@ export function EditableIdRow({
   prefix: string;
   onCommit: (newFullId: string) => boolean;
 }) {
-  const suffix = value.startsWith(prefix) ? value.slice(prefix.length) : value;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(suffix);
-  const [error, setError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const extractSuffix = (v: string) => v.startsWith(prefix) ? v.slice(prefix.length) : v;
+  const { editing, setEditing, draft, setDraft, error, showError, clearError, inputRef, finishEditing } = useEditableState(extractSuffix(value));
 
-  useEffect(() => {
-    const s = value.startsWith(prefix) ? value.slice(prefix.length) : value;
-    setDraft(s); setEditing(false); setError(false);
-  }, [value, prefix]);
-  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  // Re-sync draft when value or prefix changes (useEditableState syncs on extractSuffix(value))
+  useEffect(() => { setDraft(extractSuffix(value)); }, [value, prefix]);
 
   const commit = useCallback(() => {
     const trimmed = draft.trim();
     const newId = prefix + trimmed;
-    if (newId === value) { setEditing(false); setError(false); return; }
-    if (!trimmed || !onCommit(newId)) {
-      setError(true);
-      inputRef.current?.focus();
-      return;
-    }
-    setError(false);
-    setEditing(false);
-  }, [draft, value, prefix, onCommit]);
+    if (newId === value) { finishEditing(); return; }
+    if (!trimmed || !onCommit(newId)) { showError(); return; }
+    finishEditing();
+  }, [draft, value, prefix, onCommit, finishEditing, showError]);
 
   const cancel = useCallback(() => {
-    const s = value.startsWith(prefix) ? value.slice(prefix.length) : value;
-    setDraft(s); setEditing(false); setError(false);
-  }, [value, prefix]);
+    setDraft(extractSuffix(value));
+    finishEditing();
+  }, [value, prefix, finishEditing, setDraft]);
 
   if (!editing) {
     return (
@@ -139,7 +107,7 @@ export function EditableIdRow({
       >
         <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
         <span className="text-[13px] text-slate-800 break-all min-w-0">
-          <span className="text-slate-400">{prefix}</span>{suffix}
+          <span className="text-slate-400">{prefix}</span>{extractSuffix(value)}
         </span>
       </div>
     );
@@ -154,7 +122,7 @@ export function EditableIdRow({
           ref={inputRef}
           className="text-[13px] text-slate-800 bg-transparent outline-none px-1 py-0.5 w-full min-w-0"
           value={draft}
-          onChange={(e) => { setDraft(e.target.value); setError(false); }}
+          onChange={(e) => { setDraft(e.target.value); clearError(); }}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") cancel(); }}
         />
@@ -364,27 +332,18 @@ export function ColorRow({
   value: string;
   onChange?: (hex: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [error, setError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
-  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  const { editing, setEditing, draft, setDraft, error, showError, clearError, inputRef, cancel, finishEditing } = useEditableState(value);
 
   const isValidHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
 
   const commit = useCallback(() => {
     const trimmed = draft.trim().toLowerCase();
     const hex = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
-    if (hex === value) { setEditing(false); setError(false); return; }
-    if (!isValidHex(hex)) { setError(true); inputRef.current?.focus(); return; }
+    if (hex === value) { finishEditing(); return; }
+    if (!isValidHex(hex)) { showError(); return; }
     onChange?.(hex);
-    setError(false);
-    setEditing(false);
-  }, [draft, value, onChange]);
-
-  const cancel = useCallback(() => { setDraft(value); setEditing(false); setError(false); }, [value]);
+    finishEditing();
+  }, [draft, value, onChange, finishEditing, showError]);
 
   return (
     <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
@@ -401,7 +360,7 @@ export function ColorRow({
             ref={inputRef}
             className={`text-[13px] text-slate-800 font-mono bg-slate-50 border rounded px-1.5 py-0.5 outline-none w-[80px] ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
             value={draft}
-            onChange={(e) => { setDraft(e.target.value); setError(false); }}
+            onChange={(e) => { setDraft(e.target.value); clearError(); }}
             onBlur={commit}
             onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") cancel(); }}
           />

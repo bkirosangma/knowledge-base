@@ -19,7 +19,7 @@ import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, clearDiagram } from "./utils/persistence";
 import { computeRegions } from "./utils/layerBounds";
-import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/layerBounds";
+import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
 import { useDiagramPersistence } from "./hooks/useDiagramPersistence";
 import { useViewportPersistence } from "./hooks/useViewportPersistence";
@@ -28,12 +28,14 @@ import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useLineDrag } from "./hooks/useLineDrag";
-import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
+import Minimap from "./components/Minimap";
 import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
-import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } from "./utils/collisionUtils";
-import { predictLayerBounds } from "./utils/layerBounds";
+import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
-import { Box } from "lucide-react";
+import { useDeletion } from "./hooks/useDeletion";
+import { useCanvasEffects } from "./hooks/useCanvasEffects";
+import { detectContextMenuTarget } from "./utils/geometry";
+import DiagramControls from "./components/DiagramControls";
 
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(false);
@@ -94,107 +96,7 @@ export default function ArchitectureDesigner() {
   useEffect(() => { registerSetIsZooming(setIsZooming); }, [registerSetIsZooming]);
 
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
-
-  const scrollToRect = useCallback((rect: { x: number; y: number; w: number; h: number }) => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const w = worldRef.current;
-    const z = zoomRef.current;
-    const pad = 20 * z;
-
-    const compLeft = (rect.x - w.x) * z + VIEWPORT_PADDING - pad;
-    const compRight = (rect.x + rect.w - w.x) * z + VIEWPORT_PADDING + pad;
-    const compTop = (rect.y - w.y) * z + VIEWPORT_PADDING - pad;
-    const compBottom = (rect.y + rect.h - w.y) * z + VIEWPORT_PADDING + pad;
-
-    const vpW = el.clientWidth;
-    const vpH = el.clientHeight;
-
-    let targetSL = el.scrollLeft;
-    let targetST = el.scrollTop;
-
-    if (compRight - compLeft > vpW) {
-      targetSL = compLeft;
-    } else if (compLeft < el.scrollLeft) {
-      targetSL = compLeft;
-    } else if (compRight > el.scrollLeft + vpW) {
-      targetSL = compRight - vpW;
-    }
-
-    if (compBottom - compTop > vpH) {
-      targetST = compTop;
-    } else if (compTop < el.scrollTop) {
-      targetST = compTop;
-    } else if (compBottom > el.scrollTop + vpH) {
-      targetST = compBottom - vpH;
-    }
-
-    if (targetSL === el.scrollLeft && targetST === el.scrollTop) return;
-
-    const startSL = el.scrollLeft;
-    const startST = el.scrollTop;
-    const startTime = performance.now();
-    const duration = 100;
-
-    const animate = (now: number) => {
-      const t = Math.min((now - startTime) / duration, 1);
-      const ease = t * (2 - t);
-      el.scrollLeft = startSL + (targetSL - startSL) * ease;
-      el.scrollTop = startST + (targetST - startST) * ease;
-      if (t < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, []);
-
-  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
-        e.preventDefault();
-      }
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("wheel", onWheel);
-    };
-  }, []);
-
-  // Clamp scroll bounds
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const w = worldRef.current;
-      const z = zoomRef.current;
-      const vpWidth = el.clientWidth;
-      const vpHeight = el.clientHeight;
-
-      // Ensure the minimap viewport indicator stays at least 2px visible
-      const minimapScale = (w.w > 0 && w.h > 0)
-        ? Math.min(MINIMAP_WIDTH / w.w, MINIMAP_MAX_HEIGHT / w.h)
-        : 1;
-      const minOverlap = 2 * z / minimapScale;
-
-      const minSL = VIEWPORT_PADDING - vpWidth + minOverlap;
-      const maxSL = VIEWPORT_PADDING + w.w * z - minOverlap;
-      const minST = VIEWPORT_PADDING - vpHeight + minOverlap;
-      const maxST = VIEWPORT_PADDING + w.h * z - minOverlap;
-
-      if (el.scrollLeft < minSL) { el.scrollLeft = minSL; }
-      if (el.scrollLeft > maxSL) { el.scrollLeft = maxSL; }
-      if (el.scrollTop < minST) { el.scrollTop = minST; }
-      if (el.scrollTop > maxST) { el.scrollTop = maxST; }
-    };
-    el.addEventListener("scroll", onScroll, { passive: false });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  const { scrollToRect } = useCanvasEffects(canvasRef, worldRef, zoomRef);
 
   const { draggingEndpoint, handleLineClick } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
@@ -237,6 +139,10 @@ export default function ArchitectureDesigner() {
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve,
   );
 
+  const { deleteNodes, deleteLayer, deleteSelection } = useDeletion(nodesRef, {
+    setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection,
+  });
+
   // Compute layer bounds from contained nodes
   const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
 
@@ -271,65 +177,7 @@ export default function ArchitectureDesigner() {
         const tag = (document.activeElement as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
         e.preventDefault();
-
-        const sel = selectionRef.current;
-        let nodeIdsToDelete: string[] = [];
-        let layerIdsToDelete: string[] = [];
-        let lineIdsToDelete: string[] = [];
-
-        switch (sel.type) {
-          case "node":
-            nodeIdsToDelete = [sel.id];
-            break;
-          case "multi-node":
-            nodeIdsToDelete = sel.ids;
-            break;
-          case "layer":
-            layerIdsToDelete = [sel.id];
-            break;
-          case "multi-layer":
-            layerIdsToDelete = sel.ids;
-            break;
-          case "line":
-            lineIdsToDelete = [sel.id];
-            break;
-          case "multi-line":
-            lineIdsToDelete = sel.ids;
-            break;
-        }
-
-        // Cascade: layers → collect their nodes
-        if (layerIdsToDelete.length > 0) {
-          const layerSet = new Set(layerIdsToDelete);
-          const nodesInLayers = nodesRef.current.filter((n) => layerSet.has(n.layer)).map((n) => n.id);
-          nodeIdsToDelete = [...new Set([...nodeIdsToDelete, ...nodesInLayers])];
-          setLayerDefs((prev) => prev.filter((l) => !layerSet.has(l.id)));
-          setLayerManualSizes((prev) => {
-            const next = { ...prev };
-            for (const id of layerIdsToDelete) delete next[id];
-            return next;
-          });
-        }
-
-        // Cascade: nodes → remove referencing connections
-        if (nodeIdsToDelete.length > 0) {
-          const nodeSet = new Set(nodeIdsToDelete);
-          setNodes((prev) => prev.filter((n) => !nodeSet.has(n.id)));
-          setConnections((prev) => prev.filter((c) => !nodeSet.has(c.from) && !nodeSet.has(c.to)));
-          setMeasuredSizes((prev) => {
-            const next = { ...prev };
-            for (const id of nodeIdsToDelete) delete next[id];
-            return next;
-          });
-        }
-
-        // Direct line deletion
-        if (lineIdsToDelete.length > 0) {
-          const lineSet = new Set(lineIdsToDelete);
-          setConnections((prev) => prev.filter((c) => !lineSet.has(c.id)));
-        }
-
-        setSelection(null);
+        deleteSelection(selectionRef.current);
       }
     };
     const onMouseUp = (e: MouseEvent) => {
@@ -481,136 +329,21 @@ export default function ArchitectureDesigner() {
     };
   }
 
-  const handleAddElement = () => {
-    if (!contextMenu) return;
-    const cx = contextMenu.canvasX;
-    const cy = contextMenu.canvasY;
-    const newW = 210;
-    const newH = getNodeHeight(newW);
-    const halfW = newW / 2;
-    const halfH = newH / 2;
-
-    // If right-clicked inside a layer, assign the element to that layer
-    let targetLayer = "";
-    for (const r of regions) {
-      if (!r.empty && cx >= r.left && cx <= r.left + r.width && cy >= r.top && cy <= r.top + r.height) {
-        targetLayer = r.id;
-        break;
-      }
-    }
-
-    let finalX = cx;
-    let finalY = cy;
-    if (targetLayer) {
-      // Layer collision avoidance: ensure layer expansion doesn't overlap other layers
-      // Also checks node overlap internally so the element doesn't land on existing nodes
-      const result = clampElementToAvoidLayerCollision(
-        cx, cy, halfW, halfH,
-        targetLayer, nodes, getNodeDimensions,
-        layerManualSizes, regions,
-        predictLayerBounds,
-      );
-      finalX = result.x;
-      finalY = result.y;
-      if (result.layerShift) {
-        const { dx, dy } = result.layerShift;
-        // Shift all existing nodes in the layer by the same delta
-        setNodes((prev) => prev.map((n) =>
-          n.layer === targetLayer ? { ...n, x: n.x + dx, y: n.y + dy } : n,
-        ));
-        // Also shift the new element position
-        finalX += dx;
-        finalY += dy;
-        // Update manual sizes if present
-        setLayerManualSizes((prev) => {
-          const existing = prev[targetLayer];
-          if (!existing) return prev;
-          return {
-            ...prev,
-            [targetLayer]: {
-              ...existing,
-              left: existing.left !== undefined ? existing.left + dx : undefined,
-              top: existing.top !== undefined ? existing.top + dy : undefined,
-            },
-          };
-        });
-      }
-    } else {
-      // No layer: simple collision avoidance — shift down until no overlap with existing nodes
-      const maxAttempts = 50;
-      for (let i = 0; i < maxAttempts; i++) {
-        const overlaps = nodes.some((n) => {
-          const dims = getNodeDimensions(n);
-          const nHalfW = dims.w / 2;
-          const nHalfH = dims.h / 2;
-          return Math.abs(finalX - n.x) < halfW + nHalfW && Math.abs(finalY - n.y) < halfH + nHalfH;
-        });
-        if (!overlaps) break;
-        finalY += 20;
-      }
-    }
-
-    const newId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: finalX, y: finalY, w: newW, layer: targetLayer }]);
-    setSelection({ type: "node", id: newId });
-    setContextMenu(null);
-  };
-
-  const handleAddLayer = () => {
-    if (!contextMenu) return;
-    const cx = contextMenu.canvasX;
-    const cy = contextMenu.canvasY;
-    const newW = 400;
-    const newH = 200;
-
-    // Use the same edge-snapping collision logic as layer drag clamping
-    const pos = findNonOverlappingLayerPosition(
-      { left: cx - newW / 2, top: cy - newH / 2, width: newW, height: newH },
-      regions,
-    );
-    const placeLeft = pos.left;
-    const placeTop = pos.top;
-
-    const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setLayerDefs((prev) => [...prev, { id: newId, title: "NEW LAYER", bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
-    setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: newW, top: placeTop, height: newH } }));
-    setSelection({ type: "layer", id: newId });
-    setContextMenu(null);
-  };
+  const { handleAddElement, handleAddLayer } = useContextMenuActions(
+    contextMenu, regions, nodes, getNodeDimensions, layerManualSizes,
+    setNodes, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu,
+  );
 
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       {/* Header */}
-      <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-start md:items-end px-8 pt-6 pb-4 bg-white border-b border-slate-200 gap-4 z-20">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-sm transition-colors">
-            &larr; Back
-          </Link>
-          <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-            {title}
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-8 text-sm">
-          <div>
-            <div className="text-slate-500 font-bold text-[10px] tracking-wider uppercase mb-1">Regional Clusters</div>
-            <div className="font-semibold text-slate-800">EU, US (HA)</div>
-          </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[10px] tracking-wider uppercase mb-1">Global Endpoint</div>
-            <div className="font-semibold text-slate-800">Thanos Querier</div>
-          </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[10px] tracking-wider uppercase mb-1">Lake</div>
-            <div className="font-semibold text-slate-800">S3 Metrics</div>
-          </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[10px] tracking-wider uppercase mb-1">Status</div>
-            <div className="font-semibold flex items-center gap-2 text-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 block shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              Production
-            </div>
-          </div>
-        </div>
+      <div className="flex-shrink-0 flex items-center gap-4 px-8 pt-6 pb-4 bg-white border-b border-slate-200 z-20">
+        <Link href="/" className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-sm transition-colors">
+          &larr; Back
+        </Link>
+        <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
+          {title}
+        </h1>
       </div>
 
       {/* Viewport + Properties */}
@@ -628,25 +361,7 @@ export default function ArchitectureDesigner() {
           const cx = coords.x;
           const cy = coords.y;
 
-          // Detect what's under the click: element > layer > canvas
-          let target: ContextMenuTarget = { type: "canvas" };
-          for (const n of nodes) {
-            const dims = getNodeDimensions(n);
-            const halfW = dims.w / 2;
-            const halfH = dims.h / 2;
-            if (cx >= n.x - halfW && cx <= n.x + halfW && cy >= n.y - halfH && cy <= n.y + halfH) {
-              target = { type: "element", id: n.id };
-              break;
-            }
-          }
-          if (target.type === "canvas") {
-            for (const r of regions) {
-              if (!r.empty && cx >= r.left && cx <= r.left + r.width && cy >= r.top && cy <= r.top + r.height) {
-                target = { type: "layer", id: r.id };
-                break;
-              }
-            }
-          }
+          const target = detectContextMenuTarget(cx, cy, nodes, getNodeDimensions, regions);
 
           setContextMenu({ clientX: e.clientX, clientY: e.clientY, canvasX: cx, canvasY: cy, target });
         }}
@@ -836,23 +551,8 @@ export default function ArchitectureDesigner() {
           target={contextMenu.target}
           onAddElement={handleAddElement}
           onAddLayer={handleAddLayer}
-          onDeleteElement={(nodeId) => {
-            const nodeIdsToDelete = [nodeId];
-            setConnections((prev) => prev.filter((c) => c.from !== nodeId && c.to !== nodeId));
-            setNodes((prev) => prev.filter((n) => !nodeIdsToDelete.includes(n.id)));
-            setMeasuredSizes((prev) => { const next = { ...prev }; delete next[nodeId]; return next; });
-            setSelection(null);
-          }}
-          onDeleteLayer={(layerId) => {
-            const nodeIds = nodes.filter((n) => n.layer === layerId).map((n) => n.id);
-            const nodeSet = new Set(nodeIds);
-            setConnections((prev) => prev.filter((c) => !nodeSet.has(c.from) && !nodeSet.has(c.to)));
-            setNodes((prev) => prev.filter((n) => n.layer !== layerId));
-            setLayerDefs((prev) => prev.filter((l) => l.id !== layerId));
-            setLayerManualSizes((prev) => { const next = { ...prev }; delete next[layerId]; return next; });
-            setMeasuredSizes((prev) => { const next = { ...prev }; for (const id of nodeIds) delete next[id]; return next; });
-            setSelection(null);
-          }}
+          onDeleteElement={(nodeId) => deleteNodes([nodeId])}
+          onDeleteLayer={(layerId) => deleteLayer(layerId)}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -945,52 +645,26 @@ export default function ArchitectureDesigner() {
       )}
 
       {/* Controls */}
-      <div className="flex-shrink-0 bg-white border-t border-slate-200 px-6 py-4 z-20">
-        <div className="flex flex-col sm:flex-row items-center justify-between">
-          <div className="flex items-center gap-8 mb-4 sm:mb-0">
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setIsLive(!isLive)}>
-              <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Live Data Flow</span>
-              <div className={`w-11 h-6 rounded-full flex items-center p-1 transition-colors ${isLive ? "bg-blue-600" : "bg-slate-300"}`}>
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isLive ? "translate-x-5" : ""}`} />
-              </div>
-            </div>
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setShowLabels(!showLabels)}>
-              <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Show Labels</span>
-              <div className={`w-11 h-6 rounded-full flex items-center p-1 transition-colors ${showLabels ? "bg-blue-600" : "bg-slate-300"}`}>
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showLabels ? "translate-x-5" : ""}`} />
-              </div>
-            </div>
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setShowMinimap(!showMinimap)}>
-              <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Minimap</span>
-              <div className={`w-11 h-6 rounded-full flex items-center p-1 transition-colors ${showMinimap ? "bg-blue-600" : "bg-slate-300"}`}>
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showMinimap ? "translate-x-5" : ""}`} />
-              </div>
-            </div>
-            <span className="text-xs text-slate-400 font-mono">
-              {world.w}&times;{world.h}px ({patches.length} patch{patches.length !== 1 ? "es" : ""}) {Math.round(zoom * 100)}%
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              clearDiagram();
-              try { localStorage.removeItem(VIEWPORT_KEY); } catch { /* ignore */ }
-              const defaults = loadDefaults();
-              setIsLive(true);
-              setShowLabels(true);
-              setLayerDefs(defaults.layers);
-              setNodes(defaults.nodes);
-              setConnections(defaults.connections);
-              setPatches([{ id: "main", col: 0, row: 0, widthUnits: 3, heightUnits: 3 }]);
-              setLayerManualSizes({});
-              zoomRef.current = 1;
-              setZoom(1);
-            }}
-            className="px-6 py-2 bg-[#e2e8f0] hover:bg-[#cbd5e1] text-slate-700 font-semibold rounded-full text-sm transition-colors shadow-sm"
-          >
-            Reset View
-          </button>
-        </div>
-      </div>
+      <DiagramControls
+        isLive={isLive} setIsLive={setIsLive}
+        showLabels={showLabels} setShowLabels={setShowLabels}
+        showMinimap={showMinimap} setShowMinimap={setShowMinimap}
+        world={world} patches={patches} zoom={zoom}
+        onReset={() => {
+          clearDiagram();
+          try { localStorage.removeItem(VIEWPORT_KEY); } catch { /* ignore */ }
+          const defaults = loadDefaults();
+          setIsLive(true);
+          setShowLabels(true);
+          setLayerDefs(defaults.layers);
+          setNodes(defaults.nodes);
+          setConnections(defaults.connections);
+          setPatches([{ id: "main", col: 0, row: 0, widthUnits: 3, heightUnits: 3 }]);
+          setLayerManualSizes({});
+          zoomRef.current = 1;
+          setZoom(1);
+        }}
+      />
     </div>
   );
 }

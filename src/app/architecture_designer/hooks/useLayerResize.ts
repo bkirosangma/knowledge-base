@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { ResizeEdge } from "../components/Layer";
-import { LAYER_GAP } from "./useLayerDrag";
+import { LAYER_GAP } from "../utils/constants";
 
 interface RegionBounds {
   id: string;

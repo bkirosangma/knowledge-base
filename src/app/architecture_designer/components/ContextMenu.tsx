@@ -1,10 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Box, Layers, Trash2 } from "lucide-react";
 
-export type ContextMenuTarget =
-  | { type: "canvas" }
-  | { type: "layer"; id: string }
-  | { type: "element"; id: string };
+import type { ContextMenuTarget } from "../utils/geometry";
+export type { ContextMenuTarget };
 
 export default function ContextMenu({
   x,

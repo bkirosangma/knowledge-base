@@ -69,6 +69,17 @@ export interface DiagramData {
   lineCurve?: LineCurveAlgorithm;
 }
 
-export function getNodeHeight(w: number): number {
-  return w === 110 || w === 130 ? 60 : 70;
+export interface RegionBounds {
+  id: string;
+  title: string;
+  bg: string;
+  border: string;
+  textColor?: string;
+  left: number;
+  width: number;
+  top: number;
+  height: number;
+  empty: boolean;
 }
+
+export { getNodeHeight } from "./geometry";
