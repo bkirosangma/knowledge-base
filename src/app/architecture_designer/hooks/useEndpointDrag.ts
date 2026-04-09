@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
 import type { NodeData, Connection } from "../utils/types";
@@ -44,6 +44,7 @@ export function useEndpointDrag({
   setConnections,
 }: UseEndpointDragOptions) {
   const [draggingEndpoint, setDraggingEndpoint] = useState<DraggingEndpoint | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLineClick = useCallback(
     (connectionId: string, e: React.MouseEvent) => {
@@ -70,14 +71,29 @@ export function useEndpointDrag({
       const originalNodeId = end === "from" ? conn.from : conn.to;
       const originalAnchor = end === "from" ? conn.fromAnchor : conn.toAnchor;
 
-      setDraggingEndpoint({
-        connectionId,
-        end,
-        currentPos: { x: mx, y: my },
-        snappedAnchor: null,
-        originalNodeId,
-        originalAnchor,
-      });
+      // Delay drag initiation by 150ms to avoid accidental drags
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        setDraggingEndpoint({
+          connectionId,
+          end,
+          currentPos: { x: mx, y: my },
+          snappedAnchor: null,
+          originalNodeId,
+          originalAnchor,
+        });
+      }, 150);
+
+      // Cancel if mouse released before timer fires
+      const cancelOnUp = () => {
+        if (holdTimer.current) {
+          clearTimeout(holdTimer.current);
+          holdTimer.current = null;
+        }
+        window.removeEventListener("mouseup", cancelOnUp);
+      };
+      window.addEventListener("mouseup", cancelOnUp);
     },
     [connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords]
   );

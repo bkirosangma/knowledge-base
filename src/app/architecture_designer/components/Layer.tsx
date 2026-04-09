@@ -48,8 +48,8 @@ export default function Layer({
   return (
     <>
       <div
-        className={`absolute rounded-xl border transition-opacity ${isSelected ? "border-blue-400 border-solid border-2" : "border-dashed"} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
-        style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1, backgroundColor: bg, ...(!isSelected ? { borderColor: border } : {}) }}
+        className={`absolute rounded-xl border ${isSelected ? "border-blue-400 border-solid border-2" : "border-dashed"} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", backgroundColor: bg, ...(!isSelected ? { borderColor: border } : {}) }}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
             e.preventDefault();
@@ -90,8 +90,8 @@ export default function Layer({
         </>)}
       </div>
       <span
-        className="absolute font-bold tracking-wider text-[11px] transition-opacity select-none overflow-hidden text-ellipsis whitespace-nowrap"
-        style={{ left: left + 12, top: top + 12, width: width - 24, opacity: dimmed ? 0.55 : 1, color: textColor ?? "#334155" }}
+        className="absolute font-bold tracking-wider text-[11px] select-none overflow-hidden text-ellipsis whitespace-nowrap"
+        style={{ left: left + 12, top: top + 12, width: width - 24, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", color: textColor ?? "#334155" }}
         title={title}
         onMouseDown={(e) => {
           e.preventDefault();

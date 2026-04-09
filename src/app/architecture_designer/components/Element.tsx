@@ -6,7 +6,11 @@ interface ElementProps {
   id: string;
   label: string;
   sub?: string;
-  icon?: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  icon?: ComponentType<{
+    size?: number;
+    className?: string;
+    strokeWidth?: number;
+  }>;
   x: number;
   y: number;
   w?: number;
@@ -17,7 +21,11 @@ interface ElementProps {
   showAnchors?: boolean;
   highlightedAnchor?: AnchorId | null;
   anchors?: AnchorPoint[];
-  onAnchorDragStart?: (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => void;
+  onAnchorDragStart?: (
+    nodeId: string,
+    anchorId: AnchorId,
+    e: React.MouseEvent,
+  ) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onResize?: (id: string, width: number, height: number) => void;
@@ -81,7 +89,7 @@ export default function Element({
   return (
     <div
       ref={ref}
-      className={`absolute rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
+      className={`absolute rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border flex flex-col items-center justify-center text-center p-3 z-10 select-none ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
       style={{
         left: x,
         top: y,
@@ -89,6 +97,9 @@ export default function Element({
         width: `${w}px`,
         minHeight: `${minH}px`,
         opacity: dimmed ? 0.55 : 1,
+        transitionProperty: "opacity",
+        transitionDuration: "150ms",
+        transitionDelay: dimmed ? "0.15s" : "0s",
         backgroundColor: bgColor ?? "#ffffff",
         borderColor: borderColor ?? "#e2e8f0",
       }}
@@ -104,40 +115,54 @@ export default function Element({
           <Icon size={18} strokeWidth={1.5} />
         </span>
       )}
-      <div className="font-semibold text-[13px] leading-tight" style={{ color: textColor ?? "#1e293b" }}>
+      <div
+        className="font-semibold text-[13px] leading-tight"
+        style={{ color: textColor ?? "#1e293b" }}
+      >
         {label}
       </div>
       {showLabels && sub && (
-        <div className="text-[10.5px] mt-1 font-medium tracking-tight" style={{ color: textColor ? `${textColor}99` : "#64748b" }}>
+        <div
+          className="text-[10.5px] mt-1 font-medium tracking-tight"
+          style={{ color: textColor ? `${textColor}99` : "#64748b" }}
+        >
           {sub}
         </div>
       )}
 
       {/* Anchor points */}
-      {showAnchors && anchors?.map((anchor) => {
+      {anchors?.map((anchor) => {
         const relX = anchor.x - x + w / 2;
         const relY = anchor.y - y + displayH / 2;
-        const isHighlighted = highlightedAnchor === anchor.id;
+        const isHighlighted = showAnchors && highlightedAnchor === anchor.id;
         return (
           <div
             key={anchor.id}
-            className={`absolute rounded-full transition-all ${
+            className={`absolute rounded-full ${
               isHighlighted
-                ? "w-3.5 h-3.5 bg-blue-500 ring-2 ring-blue-300"
-                : "w-2 h-2 bg-slate-400 opacity-50 hover:w-3 hover:h-3 hover:bg-blue-400 hover:opacity-100"
+                ? "w-4 h-4 bg-blue-500 ring-2 ring-blue-300"
+                : "w-2.5 h-2.5 bg-slate-400 hover:w-4 hover:h-4 hover:bg-blue-400 hover:opacity-100"
             }`}
             style={{
-              left: relX,
-              top: relY,
+              left: `${(relX / w) * 100}%`,
+              top: `${(relY / displayH) * 100}%`,
               transform: "translate(-50%, -50%)",
-              pointerEvents: onAnchorDragStart ? "auto" : "none",
+              opacity: showAnchors ? (isHighlighted ? 1 : 0.5) : 0,
+              transitionProperty: "all",
+              transitionDuration: "150ms",
+              transitionDelay: showAnchors ? "0s" : "0.15s",
+              pointerEvents: showAnchors && onAnchorDragStart ? "auto" : "none",
               cursor: onAnchorDragStart ? "crosshair" : undefined,
             }}
-            onMouseDown={onAnchorDragStart ? (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onAnchorDragStart(id, anchor.id, e);
-            } : undefined}
+            onMouseDown={
+              onAnchorDragStart
+                ? (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onAnchorDragStart(id, anchor.id, e);
+                  }
+                : undefined
+            }
           />
         );
       })}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
 import type { NodeData, Connection } from "../utils/types";
@@ -45,6 +45,14 @@ export function useLineDrag({
   isBlocked,
 }: UseLineDragOptions) {
   const [creatingLine, setCreatingLine] = useState<CreatingLine | null>(null);
+  const creatingLineRef = useRef(creatingLine);
+  creatingLineRef.current = creatingLine;
+
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const measuredSizesRef = useRef(measuredSizes);
+  measuredSizesRef.current = measuredSizes;
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAnchorDragStart = useCallback(
     (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => {
@@ -57,13 +65,28 @@ export function useLineDrag({
       const dims = getNodeDims(node, measuredSizes);
       const fromPos = getAnchorPosition(anchorId, node.x, node.y + shift, dims.w, dims.h);
 
-      setCreatingLine({
-        fromNodeId: nodeId,
-        fromAnchorId: anchorId,
-        fromPos,
-        currentPos: fromPos,
-        snappedAnchor: null,
-      });
+      // Delay drag initiation by 100ms to avoid accidental drags
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        setCreatingLine({
+          fromNodeId: nodeId,
+          fromAnchorId: anchorId,
+          fromPos,
+          currentPos: fromPos,
+          snappedAnchor: null,
+        });
+      }, 100);
+
+      // Cancel if mouse released before timer fires
+      const cancelOnUp = () => {
+        if (holdTimer.current) {
+          clearTimeout(holdTimer.current);
+          holdTimer.current = null;
+        }
+        window.removeEventListener("mouseup", cancelOnUp);
+      };
+      window.addEventListener("mouseup", cancelOnUp);
     },
     [nodes, measuredSizes, layerShiftsRef, isBlocked]
   );
@@ -72,12 +95,14 @@ export function useLineDrag({
     if (!creatingLine) return;
 
     const handleMouseMove = (e: MouseEvent) => {
+      const cur = creatingLineRef.current;
+      if (!cur) return;
       const { x: mx, y: my } = toCanvasCoords(e.clientX, e.clientY);
 
-      const nodesWithHeight = nodes
-        .filter((n) => n.id !== creatingLine.fromNodeId)
+      const nodesWithHeight = nodesRef.current
+        .filter((n) => n.id !== cur.fromNodeId)
         .map((n) => {
-          const dims = getNodeDims(n, measuredSizes);
+          const dims = getNodeDims(n, measuredSizesRef.current);
           const shift = layerShiftsRef.current[n.layer] || 0;
           return { id: n.id, x: n.x, y: n.y + shift, w: dims.w, h: dims.h };
         });
@@ -103,24 +128,23 @@ export function useLineDrag({
     };
 
     const handleMouseUp = () => {
-      setCreatingLine((prev) => {
-        if (!prev) return null;
+      const cur = creatingLineRef.current;
+      if (!cur) return;
 
-        if (prev.snappedAnchor && prev.snappedAnchor.nodeId !== prev.fromNodeId) {
-          const newConnection: Connection = {
-            id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            from: prev.fromNodeId,
-            to: prev.snappedAnchor.nodeId,
-            fromAnchor: prev.fromAnchorId,
-            toAnchor: prev.snappedAnchor.anchorId,
-            color: "#3b82f6",
-            label: "",
-          };
-          setConnections((conns) => [...conns, newConnection]);
-        }
+      if (cur.snappedAnchor && cur.snappedAnchor.nodeId !== cur.fromNodeId) {
+        const newConnection: Connection = {
+          id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          from: cur.fromNodeId,
+          to: cur.snappedAnchor.nodeId,
+          fromAnchor: cur.fromAnchorId,
+          toAnchor: cur.snappedAnchor.anchorId,
+          color: "#3b82f6",
+          label: "",
+        };
+        setConnections((conns) => [...conns, newConnection]);
+      }
 
-        return null;
-      });
+      setCreatingLine(null);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -137,7 +161,9 @@ export function useLineDrag({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [creatingLine, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections]);
+  // Only attach/detach listeners when creatingLine goes from null↔non-null
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!creatingLine]);
 
   return { creatingLine, handleAnchorDragStart };
 }

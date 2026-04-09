@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from "react";
 import { ChevronRight } from "lucide-react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection } from "../../utils/types";
+import type { AnchorId } from "../../utils/anchors";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
@@ -19,7 +20,7 @@ interface PropertiesPanelProps {
   layerDefs: LayerDef[];
   onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string }>) => void;
   onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
-  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string; color: string }>) => void;
+  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number }>) => void;
   lineCurve?: LineCurveAlgorithm;
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
 }

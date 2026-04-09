@@ -35,13 +35,6 @@ export default function DataLine({
   isSelected,
   dimmed,
 }: DataLineProps) {
-  const dotFill =
-    color === "#10b981"
-      ? "#059669"
-      : color === "#64748b"
-        ? "#475569"
-        : "#2563eb";
-
   return (
     <g
       style={{ pointerEvents: dimmed ? "none" : "auto", cursor: "pointer" }}
@@ -61,9 +54,27 @@ export default function DataLine({
         d={path}
         fill="none"
         stroke={color}
-        strokeWidth={isDraggingEndpoint ? "1.5" : isSelected ? "3" : isHovered ? "3" : "1.5"}
-        className="transition-all"
-        opacity={dimmed ? 0.1 : isDraggingEndpoint ? 0.25 : isSelected ? 1 : isHovered ? 1 : 0.7}
+        strokeWidth={
+          isDraggingEndpoint
+            ? "1.5"
+            : isSelected
+              ? "3"
+              : isHovered
+                ? "3"
+                : "1.5"
+        }
+        style={{ transitionProperty: "opacity, stroke-width", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s" }}
+        opacity={
+          dimmed
+            ? 0.1
+            : isDraggingEndpoint
+              ? 0.25
+              : isSelected
+                ? 1
+                : isHovered
+                  ? 1
+                  : 0.7
+        }
         strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
       />
       {/* Animated dots are rendered in a separate SVG layer for performance */}

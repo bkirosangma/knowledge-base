@@ -31,6 +31,8 @@ export interface Connection {
   toAnchor: AnchorId;
   color: string;
   label: string;
+  biDirectional?: boolean;
+  flowDuration?: number;
 }
 
 export interface SerializedNodeData {

@@ -1,7 +1,7 @@
 import React from "react";
 
 const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId, isLive, hoveredLineId, selectedLineIds }: {
-  lines: { id: string; path: string; color: string }[];
+  lines: { id: string; path: string; color: string; biDirectional?: boolean; flowDuration?: number }[];
   world: { x: number; y: number; w: number; h: number };
   isZooming: boolean;
   draggingEndpointId: string | null;
@@ -23,10 +23,18 @@ const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggin
         const isBeingDragged = draggingEndpointId === line.id;
         const dimmed = (!!draggingEndpointId && !isBeingDragged) || !!draggingId || !!draggingLayerId;
         if (isBeingDragged || dimmed) return null;
-        const dotFill = line.color === "#10b981" ? "#059669" : line.color === "#64748b" ? "#475569" : "#2563eb";
+        const baseDur = line.flowDuration ?? 2.5;
+        const dur = line.biDirectional ? baseDur * 2 : baseDur;
         return (
-          <circle key={line.id} r="4" fill={dotFill}>
-            <animateMotion dur="2.5s" repeatCount="indefinite" path={line.path} />
+          <circle key={line.id} r="4" fill={line.color}>
+            <animateMotion
+              dur={`${dur}s`}
+              repeatCount="indefinite"
+              path={line.path}
+              keyPoints={line.biDirectional ? "0;1;0" : "0;1"}
+              keyTimes={line.biDirectional ? "0;0.5;1" : "0;1"}
+              calcMode="linear"
+            />
           </circle>
         );
       })}

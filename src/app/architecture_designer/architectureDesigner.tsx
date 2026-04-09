@@ -427,6 +427,8 @@ export default function ArchitectureDesigner() {
       points,
       color: conn.color,
       label: conn.label,
+      biDirectional: conn.biDirectional,
+      flowDuration: conn.flowDuration,
       fromPos,
       toPos,
     };
