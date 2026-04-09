@@ -108,22 +108,38 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
       if (insideIndicator) {
         // Drag from current position, preserving click offset within indicator
         dragOffsetRef.current = { x: mx - indicatorLeft, y: my - indicatorTop };
+        setIsDraggingIndicator(true);
+        didDragRef.current = false;
       } else {
-        // Center viewport on click point, then start drag from center of indicator
+        // Animate scroll to click point over 100ms, then start drag
         const viewport = viewportRef.current;
-        if (viewport) {
-          const z = zoomRef.current;
-          const worldX = mx / scale + world.x;
-          const worldY = my / scale + world.y;
-          viewport.scrollLeft = (worldX - world.x) * z - vpWidth / 2 + VIEWPORT_PADDING;
-          viewport.scrollTop = (worldY - world.y) * z - vpHeight / 2 + VIEWPORT_PADDING;
-        }
-        // Offset so indicator center tracks the cursor
-        dragOffsetRef.current = { x: indicatorW / 2, y: indicatorH / 2 };
-      }
+        if (!viewport) return;
+        const z = zoomRef.current;
+        const worldX = mx / scale + world.x;
+        const worldY = my / scale + world.y;
+        const targetSL = (worldX - world.x) * z - vpWidth / 2 + VIEWPORT_PADDING;
+        const targetST = (worldY - world.y) * z - vpHeight / 2 + VIEWPORT_PADDING;
+        const startSL = viewport.scrollLeft;
+        const startST = viewport.scrollTop;
+        const duration = 100;
+        const startTime = performance.now();
 
-      setIsDraggingIndicator(true);
-      didDragRef.current = false;
+        const animate = (now: number) => {
+          const t = Math.min((now - startTime) / duration, 1);
+          const ease = t * (2 - t); // ease-out quad
+          viewport.scrollLeft = startSL + (targetSL - startSL) * ease;
+          viewport.scrollTop = startST + (targetST - startST) * ease;
+          if (t < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            // Animation done — start drag with center offset
+            dragOffsetRef.current = { x: indicatorW / 2, y: indicatorH / 2 };
+            setIsDraggingIndicator(true);
+            didDragRef.current = false;
+          }
+        };
+        requestAnimationFrame(animate);
+      }
     },
     [toMinimapCoords, indicatorLeft, indicatorTop, indicatorW, indicatorH, scale, world, vpWidth, vpHeight, zoomRef, viewportRef]
   );
