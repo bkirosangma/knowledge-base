@@ -8,49 +8,25 @@ import Canvas, {
 import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine from "./components/DataLine";
+import FlowDots from "./components/FlowDots";
 import { getAnchorPosition, getAnchors } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
 import type { LineCurveAlgorithm } from "./utils/types";
-import PropertiesPanel from "./components/PropertiesPanel";
-import { loadDiagram, loadDefaults, saveDiagram, clearDiagram } from "./utils/persistence";
+import PropertiesPanel from "./components/properties/PropertiesPanel";
+import { loadDefaults, clearDiagram } from "./utils/persistence";
+import { computeRegions } from "./utils/layerBounds";
+import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/layerBounds";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
+import { useDiagramPersistence } from "./hooks/useDiagramPersistence";
+import { useViewportPersistence } from "./hooks/useViewportPersistence";
 import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap";
 import { useZoom } from "./hooks/useZoom";
-
-const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId }: {
-  lines: { id: string; path: string; color: string }[];
-  world: { x: number; y: number; w: number; h: number };
-  isZooming: boolean;
-  draggingEndpointId: string | null;
-  draggingId: string | null;
-  draggingLayerId: string | null;
-}) {
-  return (
-    <svg
-      className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
-      style={{ zIndex: 6, left: world.x, top: world.y, width: world.w, height: world.h, willChange: 'contents' }}
-      viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
-    >
-      {lines.map((line) => {
-        const isBeingDragged = draggingEndpointId === line.id;
-        const dimmed = (!!draggingEndpointId && !isBeingDragged) || !!draggingId || !!draggingLayerId;
-        if (isBeingDragged || dimmed) return null;
-        const dotFill = line.color === "#10b981" ? "#059669" : line.color === "#64748b" ? "#475569" : "#2563eb";
-        return (
-          <circle key={line.id} r="4" fill={dotFill}>
-            <animateMotion dur="2.5s" repeatCount="indefinite" path={line.path} />
-          </circle>
-        );
-      })}
-    </svg>
-  );
-});
 
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(true);
@@ -62,7 +38,6 @@ export default function ArchitectureDesigner() {
     x: number;
     y: number;
   } | null>(null);
-  const hydratedRef = useRef(false);
   const defaults = useRef(loadDefaults());
   const [title, setTitle] = useState(defaults.current.title);
   const [layerDefs, setLayerDefs] = useState(defaults.current.layers);
@@ -106,7 +81,6 @@ export default function ArchitectureDesigner() {
   useEffect(() => { registerSetIsZooming(setIsZooming); }, [registerSetIsZooming]);
 
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
-  const hasScrolledToCenter = useRef(false);
 
   const scrollToRect = useCallback((rect: { x: number; y: number; w: number; h: number }) => {
     const el = canvasRef.current;
@@ -225,49 +199,9 @@ export default function ArchitectureDesigner() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Save viewport (scroll + zoom) to localStorage, debounced
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const save = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        try {
-          localStorage.setItem("architecture-designer-viewport", JSON.stringify({
-            scrollLeft: el.scrollLeft,
-            scrollTop: el.scrollTop,
-            zoom: zoomRef.current,
-          }));
-        } catch { /* ignore */ }
-      }, 300);
-    };
-    el.addEventListener("scroll", save, { passive: true });
-    return () => { clearTimeout(timer); el.removeEventListener("scroll", save); };
-  }, []);
-
-  // Also save viewport when zoom changes
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem("architecture-designer-viewport", JSON.stringify({
-          scrollLeft: el.scrollLeft,
-          scrollTop: el.scrollTop,
-          zoom,
-        }));
-      } catch { /* ignore */ }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [zoom]);
-
   const { draggingEndpoint, handleLineClick } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
-
-  const LAYER_PADDING = 25;
-  const LAYER_TITLE_OFFSET = 20;
 
   const { draggingId, elementDragPos, handleDragStart } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
@@ -293,77 +227,13 @@ export default function ArchitectureDesigner() {
     setLayerManualSizes,
   });
 
-  // Hydrate from localStorage on mount (SSR renders with defaults)
-  useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("architecture-designer-data")) {
-      const saved = loadDiagram();
-      setTitle(saved.title);
-      setLayerDefs(saved.layers);
-      setNodes(saved.nodes);
-      setConnections(saved.connections);
-      setLayerManualSizes(saved.layerManualSizes);
-      setLineCurve(saved.lineCurve);
-    }
-    hydratedRef.current = true;
-  }, []);
-
-  // Persist to localStorage (debounced, skip until hydrated)
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    const timer = setTimeout(() => {
-      saveDiagram(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve]);
+  useDiagramPersistence(
+    setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve,
+    title, layerDefs, nodes, connections, layerManualSizes, lineCurve,
+  );
 
   // Compute layer bounds from contained nodes
-
-  const naturalBounds = layerDefs.map((layer) => {
-    const layerNodes = nodes.filter((n) => n.layer === layer.id);
-    if (layerNodes.length === 0) {
-      return { ...layer, left: 0, width: 0, top: 0, height: 0, empty: true };
-    }
-
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-
-    for (const n of layerNodes) {
-      const dims = getNodeDimensions(n);
-      const halfW = dims.w / 2;
-      const halfH = dims.h / 2;
-      const nx = (n.id === draggingId && elementDragPos) ? elementDragPos.x : n.x;
-      const ny = (n.id === draggingId && elementDragPos) ? elementDragPos.y : n.y;
-      if (nx - halfW < minX) minX = nx - halfW;
-      if (nx + halfW > maxX) maxX = nx + halfW;
-      if (ny - halfH < minY) minY = ny - halfH;
-      if (ny + halfH > maxY) maxY = ny + halfH;
-    }
-
-    let left = minX - LAYER_PADDING;
-    let width = maxX - minX + LAYER_PADDING * 2;
-    let top = minY - LAYER_PADDING - LAYER_TITLE_OFFSET;
-    let height = maxY - minY + LAYER_PADDING * 2 + LAYER_TITLE_OFFSET;
-
-    const manual = layerManualSizes[layer.id];
-    if (manual) {
-      if (manual.left !== undefined && manual.left < left) {
-        width += left - manual.left;
-        left = manual.left;
-      }
-      if (manual.width !== undefined && manual.width > width) {
-        width = manual.width;
-      }
-      if (manual.top !== undefined && manual.top < top) {
-        height += top - manual.top;
-        top = manual.top;
-      }
-      if (manual.height !== undefined && manual.height > height) {
-        height = manual.height;
-      }
-    }
-
-    return { ...layer, left, width, top, height, empty: false };
-  });
+  const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos);
 
   // No render-time collision resolution — layer positions are explicit.
   // Overlap is only resolved on drop (in useLayerDrag).
@@ -409,29 +279,7 @@ export default function ArchitectureDesigner() {
   worldRef.current = world;
   setWorldOffset(world.x, world.y);
 
-  // Restore scroll position from localStorage, or center on first render
-  useEffect(() => {
-    if (hasScrolledToCenter.current) return;
-    const el = canvasRef.current;
-    if (!el || world.w === 0) return;
-    try {
-      const raw = localStorage.getItem("architecture-designer-viewport");
-      if (raw) {
-        const vp = JSON.parse(raw);
-        if (vp.zoom != null) { zoomRef.current = vp.zoom; setZoom(vp.zoom); }
-        // Defer scroll restore to after zoom is applied
-        requestAnimationFrame(() => {
-          if (vp.scrollLeft != null) el.scrollLeft = vp.scrollLeft;
-          if (vp.scrollTop != null) el.scrollTop = vp.scrollTop;
-        });
-        hasScrolledToCenter.current = true;
-        return;
-      }
-    } catch { /* ignore */ }
-    el.scrollLeft = VIEWPORT_PADDING + (world.w * zoom - el.clientWidth) / 2;
-    el.scrollTop = VIEWPORT_PADDING + (world.h * zoom - el.clientHeight) / 2;
-    hasScrolledToCenter.current = true;
-  }, [world.w, world.h]);
+  const { VIEWPORT_KEY } = useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom);
 
   // Compensate scroll when world origin shifts (canvas expands left/top)
   // useLayoutEffect runs before paint, preventing visible jumps
@@ -791,7 +639,7 @@ export default function ArchitectureDesigner() {
           <button
             onClick={() => {
               clearDiagram();
-              try { localStorage.removeItem("architecture-designer-viewport"); } catch { /* ignore */ }
+              try { localStorage.removeItem(VIEWPORT_KEY); } catch { /* ignore */ }
               const defaults = loadDefaults();
               setIsLive(true);
               setShowLabels(true);

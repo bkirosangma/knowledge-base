@@ -1,113 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData } from "../utils/types";
+import { LAYER_GAP, clampLayerDelta, type LayerBounds } from "../utils/collisionUtils";
 
-interface LayerBounds {
-  id: string;
-  left: number;
-  width: number;
-  top: number;
-  height: number;
-  empty: boolean;
-}
-
-export const LAYER_GAP = 10;
-
-/** Check if two rects overlap (with gap) */
-function rectsOverlap(a: LayerBounds, b: LayerBounds): boolean {
-  return (
-    a.left < b.left + b.width + LAYER_GAP &&
-    a.left + a.width + LAYER_GAP > b.left &&
-    a.top < b.top + b.height + LAYER_GAP &&
-    a.top + a.height + LAYER_GAP > b.top
-  );
-}
-
-/** Is `val` between `a` and `b` (inclusive, order-independent)? */
-function between(val: number, a: number, b: number): boolean {
-  return a <= b ? a <= val && val <= b : b <= val && val <= a;
-}
-
-/**
- * Clamp a drag delta so the dragged layer can't overlap any other layer.
- *
- * For each obstacle, computes the 4 exclusion-zone edges in delta-space
- * (left, right, top, bottom). Generates candidate positions by snapping
- * to each edge (keeping the other axis free) and to each corner (both axes
- * snapped). Picks the candidate closest to the raw delta that doesn't
- * overlap any obstacle.
- */
-function clampDelta(
-  draggedBounds: LayerBounds,
-  others: LayerBounds[],
-  rawDx: number,
-  rawDy: number,
-  prevDx: number,
-  prevDy: number,
-): { dx: number; dy: number } {
-  const obstacles = others.filter((l) => !l.empty && l.id !== draggedBounds.id);
-  if (obstacles.length === 0) return { dx: rawDx, dy: rawDy };
-
-  const anyOverlap = (tdx: number, tdy: number) => {
-    const b: LayerBounds = { ...draggedBounds, left: draggedBounds.left + tdx, top: draggedBounds.top + tdy };
-    return obstacles.some((o) => rectsOverlap(b, o));
-  };
-
-  // Fast path — no collision
-  if (!anyOverlap(rawDx, rawDy)) return { dx: rawDx, dy: rawDy };
-
-  // Collect all valid edge values from each obstacle's exclusion zone.
-  // An edge is valid if it lies between the previous clamped position and
-  // the raw target — this lets the layer navigate around obstacles when
-  // the user changes direction mid-drag.
-  const xEdges: number[] = [rawDx, prevDx];
-  const yEdges: number[] = [rawDy, prevDy];
-
-  for (const obs of obstacles) {
-    const exL = obs.left - LAYER_GAP - draggedBounds.width - draggedBounds.left;
-    const exR = obs.left + obs.width + LAYER_GAP - draggedBounds.left;
-    const exT = obs.top - LAYER_GAP - draggedBounds.height - draggedBounds.top;
-    const exB = obs.top + obs.height + LAYER_GAP - draggedBounds.top;
-
-    if (between(exL, prevDx, rawDx)) xEdges.push(exL);
-    if (between(exR, prevDx, rawDx)) xEdges.push(exR);
-    if (between(exT, prevDy, rawDy)) yEdges.push(exT);
-    if (between(exB, prevDy, rawDy)) yEdges.push(exB);
-  }
-
-  // Try every combination of X edge × Y edge, pick the closest valid one
-  let bestDx = prevDx, bestDy = prevDy, bestDist = Infinity;
-  let found = false;
-
-  for (const dx of xEdges) {
-    for (const dy of yEdges) {
-      if (anyOverlap(dx, dy)) continue;
-      const dist = (dx - rawDx) ** 2 + (dy - rawDy) ** 2;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestDx = dx;
-        bestDy = dy;
-        found = true;
-      }
-    }
-  }
-
-  if (found) return { dx: bestDx, dy: bestDy };
-
-  // Binary search along the vector from previous position to raw target
-  let lo = 0;
-  let hi = 1;
-  const vecDx = rawDx - prevDx;
-  const vecDy = rawDy - prevDy;
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (anyOverlap(prevDx + vecDx * mid, prevDy + vecDy * mid)) {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-  return { dx: prevDx + vecDx * lo, dy: prevDy + vecDy * lo };
-}
+export { LAYER_GAP };
+export type { LayerBounds };
 
 interface UseLayerDragOptions {
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
@@ -153,7 +49,7 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
       let delta: { dx: number; dy: number };
       const prev = lastClampedDelta.current;
       if (draggedRegion && regions) {
-        delta = clampDelta(draggedRegion, regions, rawDx, rawDy, prev.dx, prev.dy);
+        delta = clampLayerDelta(draggedRegion, regions, rawDx, rawDy, prev.dx, prev.dy);
       } else {
         delta = { dx: rawDx, dy: rawDy };
       }
