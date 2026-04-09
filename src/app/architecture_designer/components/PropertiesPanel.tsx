@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
 import { ChevronRight, X } from "lucide-react";
 import type { NodeData, Connection, LineCurveAlgorithm } from "../utils/types";
+import { getIcon, getIconNames } from "../utils/iconRegistry";
 
 interface RegionBounds {
   id: string;
@@ -20,7 +21,7 @@ interface PropertiesPanelProps {
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
   onUpdateTitle?: (title: string) => void;
-  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string }>) => void;
+  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }>) => void;
   onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string }>) => void;
   onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string }>) => void;
   lineCurve?: LineCurveAlgorithm;
@@ -237,7 +238,7 @@ function NodeProperties({
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }>) => void;
   allNodeIds: string[];
 }) {
   const node = nodes.find((n) => n.id === id);
@@ -275,10 +276,11 @@ function NodeProperties({
         />
         <EditableRow label="Label" value={node.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
         <EditableRow label="Sub" value={node.sub ?? ""} onCommit={(v) => { onUpdate?.(id, { sub: v }); return true; }} onClear={() => onUpdate?.(id, { sub: "" })} />
-        <div className="flex items-center py-1.5 border-b border-slate-100">
-          <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Icon</span>
-          <span className="flex items-center gap-1.5 text-[13px] text-slate-800"><Icon size={14} className="text-slate-600" strokeWidth={1.5} />{iconName}</span>
-        </div>
+        <IconPickerRow
+          currentIcon={Icon}
+          currentName={iconName}
+          onSelect={(icon) => onUpdate?.(id, { icon })}
+        />
         <div className="flex items-center py-1.5 border-b border-slate-100">
           <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Layer</span>
           <button
@@ -407,6 +409,72 @@ function ExpandableListRow({
           {items.map((item, idx) => (
             <ListItem key={`${item.id}-${idx}`} item={item} onSelect={onSelect} />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IconPickerRow({
+  currentIcon,
+  currentName,
+  onSelect,
+}: {
+  currentIcon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  currentName: string;
+  onSelect?: (icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const allNames = getIconNames();
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const CurrentIcon = currentIcon;
+
+  return (
+    <div ref={ref} className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 relative">
+      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Icon</span>
+      <button
+        className="flex items-center gap-1.5 text-[13px] text-slate-800 hover:text-blue-600 transition-colors cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
+        <CurrentIcon size={14} className="text-slate-600" strokeWidth={1.5} />
+        {currentName}
+        <ChevronRight size={12} className={`text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 w-[248px] max-h-[280px] overflow-y-auto p-2">
+          <div className="grid grid-cols-5 gap-1">
+            {allNames.map((name) => {
+              const Icon = getIcon(name)!;
+              const isActive = name === currentName;
+              return (
+                <button
+                  key={name}
+                  title={name}
+                  className={`flex flex-col items-center gap-0.5 p-1.5 rounded transition-colors cursor-pointer ${
+                    isActive ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-600"
+                  }`}
+                  onClick={() => {
+                    const icon = getIcon(name);
+                    if (icon) onSelect?.(icon);
+                    setOpen(false);
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.5} />
+                  <span className="text-[8px] leading-tight truncate w-full text-center">{name}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
