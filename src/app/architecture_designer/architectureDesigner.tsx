@@ -467,7 +467,7 @@ export default function ArchitectureDesigner() {
             viewportRef={canvasRef}
             regions={regions}
             nodes={displayNodes}
-            zoom={zoom}
+            zoomRef={zoomRef}
           />
         </div>
       )}

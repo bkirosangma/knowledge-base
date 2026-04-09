@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { VIEWPORT_PADDING } from "../hooks/useCanvasCoords";
 
 interface MinimapProps {
@@ -10,15 +10,19 @@ interface MinimapProps {
   regions: { id: string; left: number; width: number; top: number; height: number; bg: string; empty: boolean }[];
   /** Node positions to draw as dots */
   nodes: { id: string; x: number; y: number; w: number }[];
-  /** Current zoom level */
-  zoom?: number;
+  /** Live zoom ref for real-time updates during pinch */
+  zoomRef: React.RefObject<number>;
 }
 
 const MINIMAP_WIDTH = 200;
 const MINIMAP_MAX_HEIGHT = 150;
 
-export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }: MinimapProps) {
+export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }: MinimapProps) {
   const minimapRef = useRef<HTMLDivElement>(null);
+  const prevScaleRef = useRef<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoom = zoomRef.current;
 
   if (world.w === 0 || world.h === 0) return null;
 
@@ -26,6 +30,18 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }
   const scale = Math.min(MINIMAP_WIDTH / world.w, MINIMAP_MAX_HEIGHT / world.h);
   const miniW = world.w * scale;
   const miniH = world.h * scale;
+
+  // Detect when minimap scale changes (aspect ratio change) — enable transitions briefly
+  if (prevScaleRef.current !== null && prevScaleRef.current !== scale) {
+    if (!isResizing) setIsResizing(true);
+    if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+    resizeTimerRef.current = setTimeout(() => setIsResizing(false), 350);
+  }
+  prevScaleRef.current = scale;
+
+  const resizeTransition = isResizing
+    ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out'
+    : 'none';
 
   // Get viewport rect in world coords
   const vp = viewportRef.current;
@@ -58,17 +74,18 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }
       const worldX = clickX / scale + world.x;
       const worldY = clickY / scale + world.y;
 
-      viewport.scrollLeft = (worldX - world.x) * zoom - vpWidth / 2 + VIEWPORT_PADDING;
-      viewport.scrollTop = (worldY - world.y) * zoom - vpHeight / 2 + VIEWPORT_PADDING;
+      const z = zoomRef.current;
+      viewport.scrollLeft = (worldX - world.x) * z - vpWidth / 2 + VIEWPORT_PADDING;
+      viewport.scrollTop = (worldY - world.y) * z - vpHeight / 2 + VIEWPORT_PADDING;
     },
-    [scale, miniW, world, vpWidth, vpHeight, zoom, viewportRef]
+    [scale, miniW, world, vpWidth, vpHeight, zoomRef, viewportRef]
   );
 
   return (
     <div
       ref={minimapRef}
-      className="bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden transition-transform duration-200 ease-out origin-bottom-left hover:scale-[2]"
-      style={{ width: miniW, height: miniH }}
+      className="relative bg-white border border-slate-300 rounded-lg shadow-lg cursor-pointer overflow-hidden origin-bottom-left hover:scale-[2]"
+      style={{ width: miniW, height: miniH, transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out' }}
       onClick={handleMinimapClick}
     >
       {/* Regions */}
@@ -82,6 +99,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }
               top: (r.top - world.y) * scale,
               width: r.width * scale,
               height: r.height * scale,
+              transition: resizeTransition,
             }}
           />
         )
@@ -97,6 +115,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }
             top: (n.y - 35 - world.y) * scale,
             width: Math.max(3, n.w * scale),
             height: Math.max(2, 70 * scale),
+            transition: resizeTransition,
           }}
         />
       ))}
@@ -113,7 +132,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoom = 1 }
         return (
           <div
             className="absolute border-2 border-blue-500 rounded-sm bg-blue-500/10"
-            style={{ left: clampedLeft, top: clampedTop, width: clampedW, height: clampedH }}
+            style={{ left: clampedLeft, top: clampedTop, width: clampedW, height: clampedH, transition: resizeTransition }}
           />
         );
       })()}
