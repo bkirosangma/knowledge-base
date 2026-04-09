@@ -7,6 +7,7 @@ interface RegionBounds {
   width: number;
   top: number;
   height: number;
+  empty: boolean;
 }
 
 interface UseLayerResizeOptions {

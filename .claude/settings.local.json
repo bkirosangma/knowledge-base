@@ -8,7 +8,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx next:*)",
       "mcp__Claude_Preview__preview_start",
-      "Bash(kill 39720)"
+      "Bash(kill 39720)",
+      "Bash(node -e ':*)"
     ]
   }
 }

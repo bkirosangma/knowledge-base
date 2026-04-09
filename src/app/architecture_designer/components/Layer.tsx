@@ -45,7 +45,7 @@ export default function Layer({
     <>
       <div
         className={`absolute rounded-xl border border-dashed transition-opacity ${bg} ${border} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
-        style={{ left, width, top, height, opacity: dimmed ? 0.2 : 1 }}
+        style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1 }}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
             e.preventDefault();
@@ -53,7 +53,8 @@ export default function Layer({
           }
         }}
       >
-        {/* Resize handles — edges */}
+        {/* Resize handles — edges (hidden when dimmed to prevent resize cursors during drag) */}
+        {!dimmed && (<>
         {/* Left */}
         <div
           className="absolute top-0 -left-1 w-2 h-full cursor-ew-resize z-20 group"
@@ -82,10 +83,11 @@ export default function Layer({
         >
           <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
+        </>)}
       </div>
       <span
         className="absolute font-bold text-slate-700 tracking-wider text-[11px] transition-opacity select-none"
-        style={{ left: left + 12, top: top + 12, opacity: dimmed ? 0.2 : 1 }}
+        style={{ left: left + 12, top: top + 12, opacity: dimmed ? 0.55 : 1 }}
         onMouseDown={(e) => {
           e.preventDefault();
           onDragStart?.(id, e);

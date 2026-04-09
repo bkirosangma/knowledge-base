@@ -87,7 +87,7 @@ export default function ArchitectureDesigner() {
   const worldRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const prevWorldOriginRef = useRef<{ x: number; y: number } | null>(null);
   const layerShiftsRef = useRef<Record<string, number>>({});
-  const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number }[] | null>(null);
+  const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number; empty: boolean }[] | null>(null);
 
   const [zoom, setZoom] = useState(1);
   const [isZooming, setIsZooming] = useState(false);
@@ -152,27 +152,33 @@ export default function ArchitectureDesigner() {
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
+  const LAYER_PADDING = 25;
+  const LAYER_TITLE_OFFSET = 20;
+
   const { draggingId, elementDragPos, handleDragStart } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
     isBlocked: !!draggingEndpoint,
     setNodes,
-  });
-
-  const { draggingLayerId, layerDragDelta, handleLayerDragStart } = useLayerDrag({
-    toCanvasCoords,
-    isBlocked: !!draggingEndpoint || !!draggingId,
-    setNodes,
+    regionsRef,
+    getNodeDimensions,
+    layerPadding: LAYER_PADDING,
+    layerTitleOffset: LAYER_TITLE_OFFSET,
   });
 
   const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart } = useLayerResize({
     regionsRef, toCanvasCoords,
-    isBlocked: !!draggingId || !!draggingLayerId || !!draggingEndpoint,
+    isBlocked: !!draggingId || !!draggingEndpoint,
+  });
+
+  const { draggingLayerId, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
+    toCanvasCoords,
+    isBlocked: !!draggingEndpoint || !!draggingId,
+    setNodes,
+    regionsRef,
+    setLayerManualSizes,
   });
 
   // Compute layer bounds from contained nodes
-  const LAYER_PADDING = 25;
-  const LAYER_TITLE_OFFSET = 20;
-  const LAYER_GAP = 10;
 
   const naturalBounds = layerDefs.map((layer) => {
     const layerNodes = nodes.filter((n) => n.layer === layer.id);
@@ -219,24 +225,12 @@ export default function ArchitectureDesigner() {
     return { ...layer, left, width, top, height, empty: false };
   });
 
-  const regions: typeof naturalBounds = [];
+  // No render-time collision resolution — layer positions are explicit.
+  // Overlap is only resolved on drop (in useLayerDrag).
+  const regions = naturalBounds;
   const layerShifts: Record<string, number> = {};
-  for (let i = 0; i < naturalBounds.length; i++) {
-    const region = { ...naturalBounds[i] };
-    let shift = 0;
-    if (i > 0 && !region.empty) {
-      const prev = regions[i - 1];
-      if (!prev.empty) {
-        const prevBottom = prev.top + prev.height;
-        const minTop = prevBottom + LAYER_GAP;
-        if (region.top < minTop) {
-          shift = minTop - region.top;
-          region.top = minTop;
-        }
-      }
-    }
-    layerShifts[region.id] = shift;
-    regions.push(region);
+  for (const r of regions) {
+    layerShifts[r.id] = 0;
   }
 
   layerShiftsRef.current = layerShifts;
@@ -406,8 +400,8 @@ export default function ArchitectureDesigner() {
               const dimmed = (!!draggingLayerId && !isThisLayerDragged) || !!draggingId;
               return (
                 <React.Fragment key={r.id}>
-                  {isThisLayerDragged && layerDragDelta && (
-                    <Layer id={`${r.id}-ghost`} title={r.title} left={r.left} width={r.width} top={r.top} height={r.height} bg={r.bg} border={r.border} dimmed />
+                  {isThisLayerDragged && layerDragRawDelta && (
+                    <Layer id={`${r.id}-ghost`} title={r.title} left={r.left + layerDragRawDelta.dx} width={r.width} top={r.top + layerDragRawDelta.dy} height={r.height} bg={r.bg} border={r.border} dimmed />
                   )}
                   <Layer
                     {...r}
