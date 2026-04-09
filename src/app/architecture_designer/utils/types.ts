@@ -40,12 +40,15 @@ export interface SerializedNodeData {
   layer: string;
 }
 
+export type LineCurveAlgorithm = "orthogonal" | "bezier" | "straight";
+
 export interface DiagramData {
   title: string;
   layers: LayerDef[];
   nodes: SerializedNodeData[];
   connections: Connection[];
   layerManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+  lineCurve?: LineCurveAlgorithm;
 }
 
 export function getNodeHeight(w: number): number {

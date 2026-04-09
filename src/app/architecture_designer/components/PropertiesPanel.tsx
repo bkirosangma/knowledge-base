@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronRight, X } from "lucide-react";
-import type { NodeData, Connection } from "../utils/types";
+import type { NodeData, Connection, LineCurveAlgorithm } from "../utils/types";
 
 interface RegionBounds {
   id: string;
@@ -23,6 +23,8 @@ interface PropertiesPanelProps {
   onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string }>) => void;
   onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string }>) => void;
   onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string }>) => void;
+  lineCurve?: LineCurveAlgorithm;
+  onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
 }
 
 const KEY_COL = "w-[72px] shrink-0";
@@ -174,7 +176,7 @@ function EditableIdRow({
   );
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve }: PropertiesPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   const allNodeIds = nodes.map((n) => n.id);
@@ -209,6 +211,8 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
               onUpdateTitle={onUpdateTitle}
               onSelectLayer={onSelectLayer}
               onSelectNode={onSelectNode}
+              lineCurve={lineCurve}
+              onUpdateLineCurve={onUpdateLineCurve}
             />
           )}
 
@@ -409,13 +413,71 @@ function ExpandableListRow({
   );
 }
 
+function DropdownRow<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange?: (value: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 relative">
+      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>
+        {label}
+      </span>
+      <button
+        className="text-[13px] text-slate-800 hover:text-blue-600 transition-colors cursor-pointer flex items-center gap-1"
+        onClick={() => setOpen(!open)}
+      >
+        {selected?.label ?? value}
+        <ChevronRight size={12} className={`text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-[72px] top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 min-w-[120px]">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              className={`block w-full text-left px-3 py-1.5 text-[12px] hover:bg-slate-50 transition-colors cursor-pointer ${
+                opt.value === value ? "text-blue-600 font-semibold" : "text-slate-700"
+              }`}
+              onClick={() => { onChange?.(opt.value); setOpen(false); }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ArchitectureProperties({
-  title, regions, nodes, onUpdateTitle, onSelectLayer, onSelectNode,
+  title, regions, nodes, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[];
   onUpdateTitle?: (title: string) => void;
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
+  lineCurve?: LineCurveAlgorithm;
+  onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -424,6 +486,16 @@ function ArchitectureProperties({
     <div className="space-y-3">
       <div className="space-y-0">
         <EditableRow label="Title" value={title} onCommit={(v) => { onUpdateTitle?.(v); return true; }} />
+        <DropdownRow<LineCurveAlgorithm>
+          label="Lines"
+          value={lineCurve ?? "orthogonal"}
+          options={[
+            { value: "orthogonal", label: "Orthogonal" },
+            { value: "bezier", label: "Bezier" },
+            { value: "straight", label: "Straight" },
+          ]}
+          onChange={onUpdateLineCurve}
+        />
         <ExpandableListRow label="Layers" items={layerItems} onSelect={onSelectLayer} />
         <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
       </div>

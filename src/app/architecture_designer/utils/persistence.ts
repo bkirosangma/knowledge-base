@@ -1,4 +1,4 @@
-import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData } from "./types";
+import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm } from "./types";
 import { getIcon, getIconName } from "./iconRegistry";
 import defaultData from "../data/thanos.json";
 
@@ -30,6 +30,7 @@ export function loadDiagram(): {
   nodes: NodeData[];
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+  lineCurve: LineCurveAlgorithm;
 } {
   if (typeof window !== "undefined") {
     try {
@@ -42,6 +43,7 @@ export function loadDiagram(): {
           nodes: deserializeNodes(data.nodes),
           connections: data.connections,
           layerManualSizes: data.layerManualSizes ?? {},
+          lineCurve: data.lineCurve ?? "orthogonal",
         };
       }
     } catch {
@@ -57,6 +59,7 @@ export function loadDefaults(): {
   nodes: NodeData[];
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+  lineCurve: LineCurveAlgorithm;
 } {
   const data = defaultData as DiagramData;
   return {
@@ -65,6 +68,7 @@ export function loadDefaults(): {
     nodes: deserializeNodes(data.nodes),
     connections: data.connections,
     layerManualSizes: {},
+    lineCurve: "orthogonal",
   };
 }
 
@@ -74,6 +78,7 @@ export function saveDiagram(
   nodes: NodeData[],
   connections: Connection[],
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
+  lineCurve: LineCurveAlgorithm,
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -82,6 +87,7 @@ export function saveDiagram(
     nodes: serializeNodes(nodes),
     connections,
     layerManualSizes,
+    lineCurve,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

@@ -9,8 +9,10 @@ import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine from "./components/DataLine";
 import { getAnchorPosition, getAnchors } from "./utils/anchors";
-import { computeOrthogonalPath, buildObstacles } from "./utils/orthogonalRouter";
+import { buildObstacles } from "./utils/orthogonalRouter";
+import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
+import type { LineCurveAlgorithm } from "./utils/types";
 import PropertiesPanel from "./components/PropertiesPanel";
 import { loadDiagram, loadDefaults, saveDiagram, clearDiagram } from "./utils/persistence";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -66,6 +68,7 @@ export default function ArchitectureDesigner() {
   const [layerDefs, setLayerDefs] = useState(defaults.current.layers);
   const [nodes, setNodes] = useState(defaults.current.nodes);
   const [connections, setConnections] = useState(defaults.current.connections);
+  const [lineCurve, setLineCurve] = useState<LineCurveAlgorithm>(defaults.current.lineCurve);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ type: 'node' | 'layer' | 'line'; id: string } | null>(null);
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
@@ -299,6 +302,7 @@ export default function ArchitectureDesigner() {
       setNodes(saved.nodes);
       setConnections(saved.connections);
       setLayerManualSizes(saved.layerManualSizes);
+      setLineCurve(saved.lineCurve);
     }
     hydratedRef.current = true;
   }, []);
@@ -307,10 +311,10 @@ export default function ArchitectureDesigner() {
   useEffect(() => {
     if (!hydratedRef.current) return;
     const timer = setTimeout(() => {
-      saveDiagram(title, layerDefs, nodes, connections, layerManualSizes);
+      saveDiagram(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes]);
+  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve]);
 
   // Compute layer bounds from contained nodes
 
@@ -467,7 +471,7 @@ export default function ArchitectureDesigner() {
     const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
     return {
       id: conn.id,
-      path: computeOrthogonalPath(fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles),
+      path: computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles),
       color: conn.color,
       label: conn.label,
       fromPos,
@@ -730,6 +734,8 @@ export default function ArchitectureDesigner() {
             setSelection({ type: 'line', id: newId });
           }
         }}
+        lineCurve={lineCurve}
+        onUpdateLineCurve={(alg) => setLineCurve(alg)}
       />
       </div>
 
