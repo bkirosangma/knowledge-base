@@ -75,6 +75,9 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           {selection?.type === "multi-layer" && (
             <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} layers selected</div>
           )}
+          {selection?.type === "multi-line" && (
+            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} lines selected</div>
+          )}
         </div>
       )}
     </div>

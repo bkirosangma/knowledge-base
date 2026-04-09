@@ -31,7 +31,7 @@ import Minimap, { MINIMAP_WIDTH, MINIMAP_MAX_HEIGHT } from "./components/Minimap
 import { useZoom } from "./hooks/useZoom";
 
 export default function ArchitectureDesigner() {
-  const [isLive, setIsLive] = useState(true);
+  const [isLive, setIsLive] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
   const [hoveredLine, setHoveredLine] = useState<{
@@ -76,6 +76,7 @@ export default function ArchitectureDesigner() {
   const layerShiftsRef = useRef<Record<string, number>>({});
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const linesForSelection = useRef<{ id: string; points: { x: number; y: number }[] }[]>([]);
   const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number; empty: boolean }[] | null>(null);
 
   const [zoom, setZoom] = useState(1);
@@ -240,7 +241,7 @@ export default function ArchitectureDesigner() {
   const { selectionRect, handleCanvasMouseDown, handleSelectionRectStart, cancelSelectionRect } = useSelectionRect({
     toCanvasCoords,
     isBlocked: !!draggingId || !!draggingLayerId || !!draggingEndpoint || !!resizingLayer || isMultiDrag,
-    nodes, regions, getNodeDimensions, setSelection,
+    nodes, regions, lines: linesForSelection.current, getNodeDimensions, setSelection,
     pendingSelectionRef: pendingSelection,
   });
 
@@ -346,15 +347,19 @@ export default function ArchitectureDesigner() {
     const fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
     const toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
     const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
+    const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles);
     return {
       id: conn.id,
-      path: computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles),
+      path,
+      points,
       color: conn.color,
       label: conn.label,
       fromPos,
       toPos,
     };
   });
+
+  linesForSelection.current = lines;
 
   // Ghost line
   let ghostLine: { path: string; color: string; fromPos: { x: number; y: number }; toPos: { x: number; y: number } } | null = null;
@@ -489,16 +494,24 @@ export default function ArchitectureDesigner() {
             </svg>
 
             {/* Animated flow dots — memoized to avoid restart on hover */}
-            {isLive && (
-              <FlowDots
-                lines={lines}
-                world={world}
-                isZooming={isZooming}
-                draggingEndpointId={draggingEndpoint?.connectionId ?? null}
-                draggingId={draggingId}
-                draggingLayerId={draggingLayerId}
-              />
-            )}
+            {(() => {
+              const selectedLineIds = selection?.type === 'line' ? [selection.id]
+                : selection?.type === 'multi-line' ? selection.ids
+                : [];
+              return (isLive || hoveredLine || selectedLineIds.length > 0) && (
+                <FlowDots
+                  lines={lines}
+                  world={world}
+                  isZooming={isZooming}
+                  draggingEndpointId={draggingEndpoint?.connectionId ?? null}
+                  draggingId={draggingId}
+                  draggingLayerId={draggingLayerId}
+                  isLive={isLive}
+                  hoveredLineId={hoveredLine?.id ?? null}
+                  selectedLineIds={selectedLineIds}
+                />
+              );
+            })()}
 
             {/* Nodes */}
             {displayNodes.map((node) => {

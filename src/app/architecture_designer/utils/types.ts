@@ -46,6 +46,7 @@ export type Selection =
   | { type: 'line'; id: string }
   | { type: 'multi-node'; ids: string[]; layer: string }
   | { type: 'multi-layer'; ids: string[] }
+  | { type: 'multi-line'; ids: string[] }
   | null;
 
 export type LineCurveAlgorithm = "orthogonal" | "bezier" | "straight";

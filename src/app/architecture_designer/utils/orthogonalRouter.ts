@@ -26,7 +26,7 @@ export function computeOrthogonalPath(
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
   obstacles: Rect[]
-): string {
+): { path: string; points: Point[] } {
   const fromDir = getAnchorDirection(fromAnchor);
   const toDir = getAnchorDirection(toAnchor);
 
@@ -50,10 +50,11 @@ export function computeOrthogonalPath(
   const pts = dedup(allPoints);
 
   if (pts.length < 2) {
-    return `M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`;
+    const fallback = [fromPos, toPos];
+    return { path: `M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`, points: fallback };
   }
 
-  return buildRoundedPath(pts, CORNER_RADIUS);
+  return { path: buildRoundedPath(pts, CORNER_RADIUS), points: pts };
 }
 
 /**

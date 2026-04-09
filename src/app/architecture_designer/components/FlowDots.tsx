@@ -1,12 +1,15 @@
 import React from "react";
 
-const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId }: {
+const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId, isLive, hoveredLineId, selectedLineIds }: {
   lines: { id: string; path: string; color: string }[];
   world: { x: number; y: number; w: number; h: number };
   isZooming: boolean;
   draggingEndpointId: string | null;
   draggingId: string | null;
   draggingLayerId: string | null;
+  isLive: boolean;
+  hoveredLineId: string | null;
+  selectedLineIds: string[];
 }) {
   return (
     <svg
@@ -15,6 +18,8 @@ const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggin
       viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
     >
       {lines.map((line) => {
+        const isActive = isLive || line.id === hoveredLineId || selectedLineIds.includes(line.id);
+        if (!isActive) return null;
         const isBeingDragged = draggingEndpointId === line.id;
         const dimmed = (!!draggingEndpointId && !isBeingDragged) || !!draggingId || !!draggingLayerId;
         if (isBeingDragged || dimmed) return null;
