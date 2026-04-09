@@ -40,6 +40,14 @@ export interface SerializedNodeData {
   layer: string;
 }
 
+export type Selection =
+  | { type: 'node'; id: string }
+  | { type: 'layer'; id: string }
+  | { type: 'line'; id: string }
+  | { type: 'multi-node'; ids: string[]; layer: string }
+  | { type: 'multi-layer'; ids: string[] }
+  | null;
+
 export type LineCurveAlgorithm = "orthogonal" | "bezier" | "straight";
 
 export interface DiagramData {

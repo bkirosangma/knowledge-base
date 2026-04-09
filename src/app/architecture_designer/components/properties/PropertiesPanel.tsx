@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { ChevronRight } from "lucide-react";
-import type { NodeData, Connection, LineCurveAlgorithm } from "../../utils/types";
+import type { NodeData, Connection, LineCurveAlgorithm, Selection } from "../../utils/types";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
@@ -8,7 +8,7 @@ import { LineProperties } from "./LineProperties";
 import { ArchitectureProperties } from "./ArchitectureProperties";
 
 interface PropertiesPanelProps {
-  selection: { type: "node" | "layer" | "line"; id: string } | null;
+  selection: Selection;
   title: string;
   nodes: NodeData[];
   connections: Connection[];
@@ -68,6 +68,12 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           )}
           {selection?.type === "line" && (
             <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} />
+          )}
+          {selection?.type === "multi-node" && (
+            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>
+          )}
+          {selection?.type === "multi-layer" && (
+            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} layers selected</div>
           )}
         </div>
       )}

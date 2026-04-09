@@ -13,7 +13,9 @@ import { getAnchorPosition, getAnchors } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
-import type { LineCurveAlgorithm } from "./utils/types";
+import type { LineCurveAlgorithm, Selection } from "./utils/types";
+import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
+import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, clearDiagram } from "./utils/persistence";
 import { computeRegions } from "./utils/layerBounds";
@@ -45,7 +47,7 @@ export default function ArchitectureDesigner() {
   const [connections, setConnections] = useState(defaults.current.connections);
   const [lineCurve, setLineCurve] = useState<LineCurveAlgorithm>(defaults.current.lineCurve);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [selection, setSelection] = useState<{ type: 'node' | 'layer' | 'line'; id: string } | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [patches, setPatches] = useState<CanvasPatch[]>([
@@ -72,6 +74,8 @@ export default function ArchitectureDesigner() {
   const worldRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const prevWorldOriginRef = useRef<{ x: number; y: number } | null>(null);
   const layerShiftsRef = useRef<Record<string, number>>({});
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
   const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number; empty: boolean }[] | null>(null);
 
   const [zoom, setZoom] = useState(1);
@@ -133,14 +137,11 @@ export default function ArchitectureDesigner() {
     requestAnimationFrame(animate);
   }, []);
 
-  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0) + selection keyboard
+  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
         e.preventDefault();
-      }
-      if (e.key === "Escape") {
-        setSelection(null);
       }
     };
     const onWheel = (e: WheelEvent) => {
@@ -148,24 +149,11 @@ export default function ArchitectureDesigner() {
         e.preventDefault();
       }
     };
-    const onMouseUp = (e: MouseEvent) => {
-      const p = pendingSelection.current;
-      if (p) {
-        const dx = e.clientX - p.x;
-        const dy = e.clientY - p.y;
-        if (dx * dx + dy * dy < 25) {
-          setSelection({ type: p.type, id: p.id });
-        }
-        pendingSelection.current = null;
-      }
-    };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("mouseup", onMouseUp);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("wheel", onWheel);
-      window.removeEventListener("mouseup", onMouseUp);
     };
   }, []);
 
@@ -203,7 +191,8 @@ export default function ArchitectureDesigner() {
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
-  const { draggingId, elementDragPos, elementDragRawPos, handleDragStart } = useNodeDrag({
+  const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
+    isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
     isBlocked: !!draggingEndpoint,
     setNodes,
@@ -211,20 +200,22 @@ export default function ArchitectureDesigner() {
     getNodeDimensions,
     layerPadding: LAYER_PADDING,
     layerTitleOffset: LAYER_TITLE_OFFSET,
+    selection,
   });
 
   const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart } = useLayerResize({
     regionsRef, toCanvasCoords,
-    isBlocked: !!draggingId || !!draggingEndpoint,
+    isBlocked: !!draggingId || !!draggingEndpoint || isMultiDrag,
     initialManualSizes: defaults.current.layerManualSizes,
   });
 
-  const { draggingLayerId, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
+  const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
     toCanvasCoords,
-    isBlocked: !!draggingEndpoint || !!draggingId,
+    isBlocked: !!draggingEndpoint || !!draggingId || isMultiDrag,
     setNodes,
     regionsRef,
     setLayerManualSizes,
+    selection,
   });
 
   useDiagramPersistence(
@@ -233,7 +224,7 @@ export default function ArchitectureDesigner() {
   );
 
   // Compute layer bounds from contained nodes
-  const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos);
+  const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
 
   // No render-time collision resolution — layer positions are explicit.
   // Overlap is only resolved on drop (in useLayerDrag).
@@ -245,6 +236,44 @@ export default function ArchitectureDesigner() {
 
   layerShiftsRef.current = layerShifts;
   regionsRef.current = regions;
+
+  const { selectionRect, handleCanvasMouseDown, handleSelectionRectStart, cancelSelectionRect } = useSelectionRect({
+    toCanvasCoords,
+    isBlocked: !!draggingId || !!draggingLayerId || !!draggingEndpoint || !!resizingLayer || isMultiDrag,
+    nodes, regions, getNodeDimensions, setSelection,
+    pendingSelectionRef: pendingSelection,
+  });
+
+  // Selection keyboard + pending selection resolve
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        cancelSelectionRect();
+        setSelection(null);
+      }
+    };
+    const onMouseUp = (e: MouseEvent) => {
+      const p = pendingSelection.current;
+      if (p) {
+        const dx = e.clientX - p.x;
+        const dy = e.clientY - p.y;
+        if (dx * dx + dy * dy < 25) {
+          if (e.metaKey || e.ctrlKey) {
+            setSelection((prev) => toggleItemInSelection(prev, { type: p.type, id: p.id }, nodesRef.current));
+          } else {
+            setSelection({ type: p.type, id: p.id });
+          }
+        }
+        pendingSelection.current = null;
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [cancelSelectionRect]);
 
   // Auto-fit canvas patches
   const contentBounds = useMemo(() => {
@@ -388,9 +417,9 @@ export default function ArchitectureDesigner() {
       {/* Viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId ? "cursor-grabbing" : ""}`}
+        className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
-        onMouseDown={() => { setSelection(null); }}
+        onMouseDown={(e) => { handleCanvasMouseDown(e); }}
       >
         <div style={{
           width: VIEWPORT_PADDING * 2 + world.w * zoom,
@@ -401,8 +430,8 @@ export default function ArchitectureDesigner() {
         <Canvas patches={patches}>
             {/* Layers */}
             {regions.map((r) => {
-              const isThisLayerDragged = draggingLayerId === r.id;
-              const dimmed = (!!draggingLayerId && !isThisLayerDragged) || !!draggingId;
+              const isThisLayerDragged = draggingLayerIds.includes(r.id);
+              const dimmed = (draggingLayerIds.length > 0 && !isThisLayerDragged) || !!draggingId || isMultiDrag;
               return (
                 <React.Fragment key={r.id}>
                   {isThisLayerDragged && layerDragRawDelta && (
@@ -412,11 +441,11 @@ export default function ArchitectureDesigner() {
                     {...r}
                     left={isThisLayerDragged && layerDragDelta ? r.left + layerDragDelta.dx : r.left}
                     top={isThisLayerDragged && layerDragDelta ? r.top + layerDragDelta.dy : r.top}
-                    onDragStart={(id, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerDragStart(id, e); }}
+                    onDragStart={(id, e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerDragStart(id, e); }}
                     onResizeStart={(id, edge, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerResizeStart(id, edge, e); }}
                     isDragging={isThisLayerDragged}
                     isResizing={resizingLayer?.layerId === r.id}
-                    isSelected={selection?.type === 'layer' && selection.id === r.id}
+                    isSelected={isItemSelected(selection, 'layer', r.id)}
                     dimmed={dimmed}
                   />
                 </React.Fragment>
@@ -431,7 +460,7 @@ export default function ArchitectureDesigner() {
             >
               {lines.map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId || !!draggingLayerId;
+                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!draggingId || !!draggingLayerId || isMultiDrag;
                 return (
                   <DataLine
                     key={line.id}
@@ -439,7 +468,7 @@ export default function ArchitectureDesigner() {
                     isLive={isLive}
                     isHovered={hoveredLine?.id === line.id}
                     isDraggingEndpoint={isBeingDragged}
-                    isSelected={selection?.type === 'line' && selection.id === line.id}
+                    isSelected={isItemSelected(selection, 'line', line.id)}
                     dimmed={dimmed}
                     onHoverStart={(id, label, x, y) => setHoveredLine({ id, label, x, y })}
                     onHoverMove={(id, x, y) =>
@@ -473,7 +502,9 @@ export default function ArchitectureDesigner() {
 
             {/* Nodes */}
             {displayNodes.map((node) => {
-              const isThisDragged = draggingId === node.id;
+              const isThisSingleDragged = draggingId === node.id;
+              const isThisMultiDragged = isMultiDrag && multiDragIds.includes(node.id);
+              const isThisDragged = isThisSingleDragged || isThisMultiDragged;
               const dims = getNodeDimensions(node);
               const anchors = getAnchors(node.x, node.y, dims.w, dims.h);
               const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id;
@@ -486,26 +517,39 @@ export default function ArchitectureDesigner() {
                 dimmed = node.id !== fixedNodeId && hoveredNodeId !== node.id;
                 showAnchors = hoveredNodeId === node.id;
               }
-              if (draggingId) { showAnchors = false; if (!isThisDragged) dimmed = true; }
-              const isInDraggedLayer = draggingLayerId && node.layer === draggingLayerId;
-              if (draggingLayerId) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
+              if (draggingId || isMultiDrag) { showAnchors = false; if (!isThisDragged) dimmed = true; }
+              const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
+              if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
 
-              const visualX = isThisDragged && elementDragPos ? elementDragPos.x : isInDraggedLayer && layerDragDelta ? node.x + layerDragDelta.dx : node.x;
-              const visualY = isThisDragged && elementDragPos ? elementDragPos.y : isInDraggedLayer && layerDragDelta ? node.y + layerDragDelta.dy : node.y;
+              let visualX = node.x;
+              let visualY = node.y;
+              if (isThisSingleDragged && elementDragPos) {
+                visualX = elementDragPos.x;
+                visualY = elementDragPos.y;
+              } else if (isThisMultiDragged && multiDragDelta) {
+                visualX = node.x + multiDragDelta.dx;
+                visualY = node.y + multiDragDelta.dy;
+              } else if (isInDraggedLayer && layerDragDelta) {
+                visualX = node.x + layerDragDelta.dx;
+                visualY = node.y + layerDragDelta.dy;
+              }
 
               return (
                 <React.Fragment key={node.id}>
-                  {isThisDragged && elementDragRawPos && (
+                  {isThisSingleDragged && elementDragRawPos && (
                     <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
+                  )}
+                  {isThisMultiDragged && multiDragRawDelta && (
+                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
                   )}
                   <Element
                     {...node}
                     x={visualX}
                     y={visualY}
                     showLabels={showLabels}
-                    onDragStart={(id, e) => { e.stopPropagation(); pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); }}
+                    onDragStart={(id, e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); }}
                     isDragging={isThisDragged}
-                    isSelected={selection?.type === 'node' && selection.id === node.id}
+                    isSelected={isItemSelected(selection, 'node', node.id)}
                     showAnchors={showAnchors}
                     highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
                     anchors={anchors}
@@ -518,6 +562,19 @@ export default function ArchitectureDesigner() {
                 </React.Fragment>
               );
             })}
+            {/* Selection Rectangle */}
+            {selectionRect && (
+              <div
+                className="absolute border-2 border-blue-400 bg-blue-400/10 pointer-events-none rounded-sm"
+                style={{
+                  left: selectionRect.x,
+                  top: selectionRect.y,
+                  width: selectionRect.w,
+                  height: selectionRect.h,
+                  zIndex: 50,
+                }}
+              />
+            )}
         </Canvas>
         </div>
         </div>

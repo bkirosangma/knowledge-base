@@ -4,7 +4,7 @@ import { VIEWPORT_PADDING } from "./useCanvasCoords";
 const VIEWPORT_KEY = "architecture-designer-viewport";
 
 /**
- * Persists viewport scroll position and zoom to localStorage,
+ * Persists viewport center (in canvas coordinates) and zoom to localStorage,
  * and restores it on mount.
  */
 export function useViewportPersistence(
@@ -16,6 +16,26 @@ export function useViewportPersistence(
 ) {
   const hasScrolledToCenter = useRef(false);
 
+  /** Compute the canvas-space coordinate at the viewport center */
+  const getViewportCenter = () => {
+    const el = canvasRef.current;
+    const world = worldRef.current;
+    const z = zoomRef.current;
+    if (!el) return null;
+    const cx = (el.scrollLeft - VIEWPORT_PADDING + el.clientWidth / 2) / z + world.x;
+    const cy = (el.scrollTop - VIEWPORT_PADDING + el.clientHeight / 2) / z + world.y;
+    return { cx, cy };
+  };
+
+  /** Set scroll so that the given canvas-space point is at viewport center */
+  const scrollToCenter = (cx: number, cy: number, z: number) => {
+    const el = canvasRef.current;
+    const world = worldRef.current;
+    if (!el) return;
+    el.scrollLeft = VIEWPORT_PADDING + (cx - world.x) * z - el.clientWidth / 2;
+    el.scrollTop = VIEWPORT_PADDING + (cy - world.y) * z - el.clientHeight / 2;
+  };
+
   // Save viewport on scroll (debounced)
   useEffect(() => {
     const el = canvasRef.current;
@@ -25,11 +45,14 @@ export function useViewportPersistence(
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {
-          localStorage.setItem(VIEWPORT_KEY, JSON.stringify({
-            scrollLeft: el.scrollLeft,
-            scrollTop: el.scrollTop,
-            zoom: zoomRef.current,
-          }));
+          const center = getViewportCenter();
+          if (center) {
+            localStorage.setItem(VIEWPORT_KEY, JSON.stringify({
+              cx: center.cx,
+              cy: center.cy,
+              zoom: zoomRef.current,
+            }));
+          }
         } catch { /* ignore */ }
       }, 300);
     };
@@ -43,11 +66,14 @@ export function useViewportPersistence(
     if (!el) return;
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(VIEWPORT_KEY, JSON.stringify({
-          scrollLeft: el.scrollLeft,
-          scrollTop: el.scrollTop,
-          zoom,
-        }));
+        const center = getViewportCenter();
+        if (center) {
+          localStorage.setItem(VIEWPORT_KEY, JSON.stringify({
+            cx: center.cx,
+            cy: center.cy,
+            zoom,
+          }));
+        }
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
@@ -63,11 +89,17 @@ export function useViewportPersistence(
       const raw = localStorage.getItem(VIEWPORT_KEY);
       if (raw) {
         const vp = JSON.parse(raw);
-        if (vp.zoom != null) { zoomRef.current = vp.zoom; setZoom(vp.zoom); }
-        requestAnimationFrame(() => {
-          if (vp.scrollLeft != null) el.scrollLeft = vp.scrollLeft;
-          if (vp.scrollTop != null) el.scrollTop = vp.scrollTop;
-        });
+        const z = vp.zoom ?? zoom;
+        if (vp.zoom != null) { zoomRef.current = z; setZoom(z); }
+        if (vp.cx != null && vp.cy != null) {
+          requestAnimationFrame(() => scrollToCenter(vp.cx, vp.cy, z));
+        } else if (vp.scrollLeft != null && vp.scrollTop != null) {
+          // Legacy: raw scroll values (migrate gracefully)
+          requestAnimationFrame(() => {
+            el.scrollLeft = vp.scrollLeft;
+            el.scrollTop = vp.scrollTop;
+          });
+        }
         hasScrolledToCenter.current = true;
         return;
       }

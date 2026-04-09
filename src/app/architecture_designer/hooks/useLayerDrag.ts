@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { NodeData } from "../utils/types";
+import type { NodeData, Selection } from "../utils/types";
 import { LAYER_GAP, clampLayerDelta, type LayerBounds } from "../utils/collisionUtils";
+import { isItemSelected } from "../utils/selectionUtils";
 
 export { LAYER_GAP };
 export type { LayerBounds };
@@ -13,30 +14,41 @@ interface UseLayerDragOptions {
   setLayerManualSizes: React.Dispatch<React.SetStateAction<
     Record<string, { left?: number; width?: number; top?: number; height?: number }>
   >>;
+  selection: Selection;
 }
 
-export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, setLayerManualSizes }: UseLayerDragOptions) {
-  const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, setLayerManualSizes, selection }: UseLayerDragOptions) {
+  const [draggingLayerIds, setDraggingLayerIds] = useState<string[]>([]);
   const [layerDragDelta, setLayerDragDelta] = useState<{ dx: number; dy: number } | null>(null);
   const [layerDragRawDelta, setLayerDragRawDelta] = useState<{ dx: number; dy: number } | null>(null);
   const layerDragStart = useRef({ x: 0, y: 0 });
-  // Snapshot regions at drag start so clamping uses stable bounds
   const dragStartRegions = useRef<LayerBounds[] | null>(null);
-  // Synchronously track the last clamped delta so mouseup always commits the exact visual position
   const lastClampedDelta = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+
+  // Backwards-compatible single-layer accessor
+  const draggingLayerId = draggingLayerIds.length > 0 ? draggingLayerIds[0] : null;
 
   const handleLayerDragStart = useCallback((layerId: string, e: React.MouseEvent) => {
     if (isBlocked) return;
     layerDragStart.current = toCanvasCoords(e.clientX, e.clientY);
     dragStartRegions.current = regionsRef.current ? [...regionsRef.current] : null;
     lastClampedDelta.current = { dx: 0, dy: 0 };
-    setDraggingLayerId(layerId);
+
+    // Determine which layers to drag
+    let ids: string[];
+    if (selection?.type === 'multi-layer' && isItemSelected(selection, 'layer', layerId)) {
+      ids = selection.ids;
+    } else {
+      ids = [layerId];
+    }
+
+    setDraggingLayerIds(ids);
     setLayerDragDelta({ dx: 0, dy: 0 });
     setLayerDragRawDelta({ dx: 0, dy: 0 });
-  }, [isBlocked, toCanvasCoords, regionsRef]);
+  }, [isBlocked, toCanvasCoords, regionsRef, selection]);
 
   useEffect(() => {
-    if (!draggingLayerId) return;
+    if (draggingLayerIds.length === 0) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       const mouse = toCanvasCoords(e.clientX, e.clientY);
@@ -44,45 +56,56 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
       const rawDy = mouse.y - layerDragStart.current.y;
 
       const regions = dragStartRegions.current;
-      const draggedRegion = regions?.find((r) => r.id === draggingLayerId);
-
-      let delta: { dx: number; dy: number };
       const prev = lastClampedDelta.current;
-      if (draggedRegion && regions) {
-        delta = clampLayerDelta(draggedRegion, regions, rawDx, rawDy, prev.dx, prev.dy);
-      } else {
-        delta = { dx: rawDx, dy: rawDy };
+
+      // Clamp delta for each dragged layer individually, take the most restrictive
+      let dx = rawDx;
+      let dy = rawDy;
+      for (const lid of draggingLayerIds) {
+        const draggedRegion = regions?.find((r) => r.id === lid);
+        if (draggedRegion && regions) {
+          // For multi-layer drag, exclude all dragged layers from obstacles
+          const obstacles = regions.filter(r => !draggingLayerIds.includes(r.id));
+          const regionsWithObstacles = [draggedRegion, ...obstacles];
+          const clamped = clampLayerDelta(draggedRegion, regionsWithObstacles, dx, dy, prev.dx, prev.dy);
+          dx = clamped.dx;
+          dy = clamped.dy;
+        }
       }
 
-      lastClampedDelta.current = delta;
-      setLayerDragDelta(delta);
+      lastClampedDelta.current = { dx, dy };
+      setLayerDragDelta({ dx, dy });
       setLayerDragRawDelta({ dx: rawDx, dy: rawDy });
     };
 
     const handleMouseUp = () => {
-      // Use the ref (synchronous) — not React state which may be stale
       const delta = lastClampedDelta.current;
       if (delta.dx !== 0 || delta.dy !== 0) {
+        const draggedSet = new Set(draggingLayerIds);
         setNodes((prev) =>
           prev.map((n) =>
-            n.layer === draggingLayerId
+            draggedSet.has(n.layer)
               ? { ...n, x: n.x + delta.dx, y: n.y + delta.dy }
               : n
           )
         );
-        // Shift manual layer sizes by the same delta so bounds stay consistent
         setLayerManualSizes((prev) => {
-          const existing = prev[draggingLayerId!];
-          if (!existing) return prev;
-          const next = { ...existing };
-          if (next.left !== undefined) next.left += delta.dx;
-          if (next.top !== undefined) next.top += delta.dy;
-          return { ...prev, [draggingLayerId!]: next };
+          const next = { ...prev };
+          for (const lid of draggingLayerIds) {
+            const existing = next[lid];
+            if (existing) {
+              const updated = { ...existing };
+              if (updated.left !== undefined) updated.left += delta.dx;
+              if (updated.top !== undefined) updated.top += delta.dy;
+              next[lid] = updated;
+            }
+          }
+          return next;
         });
       }
       setLayerDragDelta(null);
       setLayerDragRawDelta(null);
-      setDraggingLayerId(null);
+      setDraggingLayerIds([]);
       dragStartRegions.current = null;
     };
 
@@ -92,7 +115,7 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggingLayerId, toCanvasCoords, setNodes]);
+  }, [draggingLayerIds, toCanvasCoords, setNodes, setLayerManualSizes]);
 
-  return { draggingLayerId, layerDragDelta, layerDragRawDelta, handleLayerDragStart };
+  return { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart };
 }

@@ -28,6 +28,8 @@ export function computeRegions(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   draggingId: string | null,
   elementDragPos: { x: number; y: number } | null,
+  multiDragIds?: string[],
+  multiDragDelta?: { dx: number; dy: number } | null,
 ): RegionBounds[] {
   return layerDefs.map((layer) => {
     const layerNodes = nodes.filter((n) => n.layer === layer.id);
@@ -42,8 +44,15 @@ export function computeRegions(
       const dims = getNodeDimensions(n);
       const halfW = dims.w / 2;
       const halfH = dims.h / 2;
-      const nx = (n.id === draggingId && elementDragPos) ? elementDragPos.x : n.x;
-      const ny = (n.id === draggingId && elementDragPos) ? elementDragPos.y : n.y;
+      let nx = n.x;
+      let ny = n.y;
+      if (n.id === draggingId && elementDragPos) {
+        nx = elementDragPos.x;
+        ny = elementDragPos.y;
+      } else if (multiDragIds?.includes(n.id) && multiDragDelta) {
+        nx = n.x + multiDragDelta.dx;
+        ny = n.y + multiDragDelta.dy;
+      }
       if (nx - halfW < minX) minX = nx - halfW;
       if (nx + halfW > maxX) maxX = nx + halfW;
       if (ny - halfH < minY) minY = ny - halfH;

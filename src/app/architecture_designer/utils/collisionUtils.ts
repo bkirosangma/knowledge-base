@@ -185,3 +185,95 @@ export function clampNodePosition(
   }
   return { x: prevX + vecX * lo, y: prevY + vecY * lo };
 }
+
+interface NodeRect {
+  x: number; y: number; halfW: number; halfH: number;
+}
+
+/**
+ * Clamp a group drag delta so no dragged node overlaps any non-dragged sibling.
+ * Uses the same edge-snapping + binary-search approach as clampNodePosition,
+ * but operates in delta-space and checks all dragged nodes against all siblings.
+ */
+export function clampMultiNodeDelta(
+  dx: number,
+  dy: number,
+  prevDx: number,
+  prevDy: number,
+  draggedNodes: NodeRect[],
+  siblings: Rect[],
+): { dx: number; dy: number } {
+  if (siblings.length === 0 || draggedNodes.length === 0) return { dx, dy };
+
+  const anyOverlap = (ddx: number, ddy: number) => {
+    for (const dn of draggedNodes) {
+      const r: Rect = {
+        left: dn.x + ddx - dn.halfW,
+        top: dn.y + ddy - dn.halfH,
+        width: dn.halfW * 2,
+        height: dn.halfH * 2,
+      };
+      for (const s of siblings) {
+        if (rectsOverlap(r, s, NODE_GAP)) return true;
+      }
+    }
+    return false;
+  };
+
+  // Fast path — no collision
+  if (!anyOverlap(dx, dy)) return { dx, dy };
+
+  // Collect exclusion-zone edges in delta-space
+  const dxEdges: number[] = [dx, prevDx];
+  const dyEdges: number[] = [dy, prevDy];
+
+  for (const dn of draggedNodes) {
+    const dw = dn.halfW * 2;
+    const dh = dn.halfH * 2;
+    for (const obs of siblings) {
+      // Left/right edges: where dragged node just clears the obstacle
+      const exL = obs.left - NODE_GAP - dw + dn.halfW - dn.x;
+      const exR = obs.left + obs.width + NODE_GAP + dn.halfW - dn.x;
+      const exT = obs.top - NODE_GAP - dh + dn.halfH - dn.y;
+      const exB = obs.top + obs.height + NODE_GAP + dn.halfH - dn.y;
+
+      if (between(exL, prevDx, dx)) dxEdges.push(exL);
+      if (between(exR, prevDx, dx)) dxEdges.push(exR);
+      if (between(exT, prevDy, dy)) dyEdges.push(exT);
+      if (between(exB, prevDy, dy)) dyEdges.push(exB);
+    }
+  }
+
+  let bestDx = prevDx, bestDy = prevDy, bestDist = Infinity;
+  let found = false;
+
+  for (const ex of dxEdges) {
+    for (const ey of dyEdges) {
+      if (anyOverlap(ex, ey)) continue;
+      const dist = (ex - dx) ** 2 + (ey - dy) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestDx = ex;
+        bestDy = ey;
+        found = true;
+      }
+    }
+  }
+
+  if (found) return { dx: bestDx, dy: bestDy };
+
+  // Binary search fallback along the delta vector
+  let lo = 0;
+  let hi = 1;
+  const vecX = dx - prevDx;
+  const vecY = dy - prevDy;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    if (anyOverlap(prevDx + vecX * mid, prevDy + vecY * mid)) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return { dx: prevDx + vecX * lo, dy: prevDy + vecY * lo };
+}
