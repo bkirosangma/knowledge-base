@@ -15,6 +15,7 @@ interface LayerProps {
   onResizeStart?: (id: string, edge: ResizeEdge, e: React.MouseEvent) => void;
   isDragging?: boolean;
   isResizing?: boolean;
+  isSelected?: boolean;
   dimmed?: boolean;
 }
 
@@ -33,6 +34,7 @@ export default function Layer({
   onResizeStart,
   isDragging,
   isResizing,
+  isSelected,
   dimmed,
 }: LayerProps) {
   const handleResize = (edge: ResizeEdge, e: React.MouseEvent) => {
@@ -44,7 +46,7 @@ export default function Layer({
   return (
     <>
       <div
-        className={`absolute rounded-xl border border-dashed transition-opacity ${bg} ${border} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        className={`absolute rounded-xl border transition-opacity ${bg} ${isSelected ? "border-blue-400 border-solid border-2" : `border-dashed ${border}`} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1 }}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {

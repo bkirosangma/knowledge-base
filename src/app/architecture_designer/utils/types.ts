@@ -29,6 +29,25 @@ export interface Connection {
   label: string;
 }
 
+export interface SerializedNodeData {
+  id: string;
+  label: string;
+  sub?: string;
+  icon: string;
+  x: number;
+  y: number;
+  w: number;
+  layer: string;
+}
+
+export interface DiagramData {
+  title: string;
+  layers: LayerDef[];
+  nodes: SerializedNodeData[];
+  connections: Connection[];
+  layerManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+}
+
 export function getNodeHeight(w: number): number {
   return w === 110 || w === 130 ? 60 : 70;
 }

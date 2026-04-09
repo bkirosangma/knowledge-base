@@ -11,7 +11,8 @@ import DataLine from "./components/DataLine";
 import { getAnchorPosition, getAnchors } from "./utils/anchors";
 import { computeOrthogonalPath, buildObstacles } from "./utils/orthogonalRouter";
 import { getNodeHeight } from "./utils/types";
-import { layerDefs, initialNodes, initialConnections } from "./data/thanos";
+import PropertiesPanel from "./components/PropertiesPanel";
+import { loadDiagram, loadDefaults, saveDiagram, clearDiagram } from "./utils/persistence";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
 import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
@@ -59,9 +60,15 @@ export default function ArchitectureDesigner() {
     x: number;
     y: number;
   } | null>(null);
-  const [nodes, setNodes] = useState(initialNodes);
-  const [connections, setConnections] = useState(initialConnections);
+  const hydratedRef = useRef(false);
+  const defaults = useRef(loadDefaults());
+  const [title, setTitle] = useState(defaults.current.title);
+  const [layerDefs, setLayerDefs] = useState(defaults.current.layers);
+  const [nodes, setNodes] = useState(defaults.current.nodes);
+  const [connections, setConnections] = useState(defaults.current.connections);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<{ type: 'node' | 'layer' | 'line'; id: string } | null>(null);
+  const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [patches, setPatches] = useState<CanvasPatch[]>([
     { id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 },
@@ -98,11 +105,65 @@ export default function ArchitectureDesigner() {
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const hasScrolledToCenter = useRef(false);
 
-  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0)
+  const scrollToRect = useCallback((rect: { x: number; y: number; w: number; h: number }) => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const w = worldRef.current;
+    const z = zoomRef.current;
+    const pad = 20 * z;
+
+    const compLeft = (rect.x - w.x) * z + VIEWPORT_PADDING - pad;
+    const compRight = (rect.x + rect.w - w.x) * z + VIEWPORT_PADDING + pad;
+    const compTop = (rect.y - w.y) * z + VIEWPORT_PADDING - pad;
+    const compBottom = (rect.y + rect.h - w.y) * z + VIEWPORT_PADDING + pad;
+
+    const vpW = el.clientWidth;
+    const vpH = el.clientHeight;
+
+    let targetSL = el.scrollLeft;
+    let targetST = el.scrollTop;
+
+    if (compRight - compLeft > vpW) {
+      targetSL = compLeft;
+    } else if (compLeft < el.scrollLeft) {
+      targetSL = compLeft;
+    } else if (compRight > el.scrollLeft + vpW) {
+      targetSL = compRight - vpW;
+    }
+
+    if (compBottom - compTop > vpH) {
+      targetST = compTop;
+    } else if (compTop < el.scrollTop) {
+      targetST = compTop;
+    } else if (compBottom > el.scrollTop + vpH) {
+      targetST = compBottom - vpH;
+    }
+
+    if (targetSL === el.scrollLeft && targetST === el.scrollTop) return;
+
+    const startSL = el.scrollLeft;
+    const startST = el.scrollTop;
+    const startTime = performance.now();
+    const duration = 100;
+
+    const animate = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = t * (2 - t);
+      el.scrollLeft = startSL + (targetSL - startSL) * ease;
+      el.scrollTop = startST + (targetST - startST) * ease;
+      if (t < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, []);
+
+  // Prevent browser zoom (Ctrl/Cmd + scroll, Ctrl/Cmd + +/-/0) + selection keyboard
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
         e.preventDefault();
+      }
+      if (e.key === "Escape") {
+        setSelection(null);
       }
     };
     const onWheel = (e: WheelEvent) => {
@@ -110,11 +171,24 @@ export default function ArchitectureDesigner() {
         e.preventDefault();
       }
     };
+    const onMouseUp = (e: MouseEvent) => {
+      const p = pendingSelection.current;
+      if (p) {
+        const dx = e.clientX - p.x;
+        const dy = e.clientY - p.y;
+        if (dx * dx + dy * dy < 25) {
+          setSelection({ type: p.type, id: p.id });
+        }
+        pendingSelection.current = null;
+      }
+    };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("mouseup", onMouseUp);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("wheel", onWheel);
+      window.removeEventListener("mouseup", onMouseUp);
     };
   }, []);
 
@@ -148,6 +222,43 @@ export default function ArchitectureDesigner() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Save viewport (scroll + zoom) to localStorage, debounced
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const save = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        try {
+          localStorage.setItem("architecture-designer-viewport", JSON.stringify({
+            scrollLeft: el.scrollLeft,
+            scrollTop: el.scrollTop,
+            zoom: zoomRef.current,
+          }));
+        } catch { /* ignore */ }
+      }, 300);
+    };
+    el.addEventListener("scroll", save, { passive: true });
+    return () => { clearTimeout(timer); el.removeEventListener("scroll", save); };
+  }, []);
+
+  // Also save viewport when zoom changes
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem("architecture-designer-viewport", JSON.stringify({
+          scrollLeft: el.scrollLeft,
+          scrollTop: el.scrollTop,
+          zoom,
+        }));
+      } catch { /* ignore */ }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [zoom]);
+
   const { draggingEndpoint, handleLineClick } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
@@ -168,6 +279,7 @@ export default function ArchitectureDesigner() {
   const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart } = useLayerResize({
     regionsRef, toCanvasCoords,
     isBlocked: !!draggingId || !!draggingEndpoint,
+    initialManualSizes: defaults.current.layerManualSizes,
   });
 
   const { draggingLayerId, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
@@ -177,6 +289,28 @@ export default function ArchitectureDesigner() {
     regionsRef,
     setLayerManualSizes,
   });
+
+  // Hydrate from localStorage on mount (SSR renders with defaults)
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("architecture-designer-data")) {
+      const saved = loadDiagram();
+      setTitle(saved.title);
+      setLayerDefs(saved.layers);
+      setNodes(saved.nodes);
+      setConnections(saved.connections);
+      setLayerManualSizes(saved.layerManualSizes);
+    }
+    hydratedRef.current = true;
+  }, []);
+
+  // Persist to localStorage (debounced, skip until hydrated)
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const timer = setTimeout(() => {
+      saveDiagram(title, layerDefs, nodes, connections, layerManualSizes);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [title, layerDefs, nodes, connections, layerManualSizes]);
 
   // Compute layer bounds from contained nodes
 
@@ -271,11 +405,25 @@ export default function ArchitectureDesigner() {
   worldRef.current = world;
   setWorldOffset(world.x, world.y);
 
-  // Center viewport on canvas on first render
+  // Restore scroll position from localStorage, or center on first render
   useEffect(() => {
     if (hasScrolledToCenter.current) return;
     const el = canvasRef.current;
     if (!el || world.w === 0) return;
+    try {
+      const raw = localStorage.getItem("architecture-designer-viewport");
+      if (raw) {
+        const vp = JSON.parse(raw);
+        if (vp.zoom != null) { zoomRef.current = vp.zoom; setZoom(vp.zoom); }
+        // Defer scroll restore to after zoom is applied
+        requestAnimationFrame(() => {
+          if (vp.scrollLeft != null) el.scrollLeft = vp.scrollLeft;
+          if (vp.scrollTop != null) el.scrollTop = vp.scrollTop;
+        });
+        hasScrolledToCenter.current = true;
+        return;
+      }
+    } catch { /* ignore */ }
     el.scrollLeft = VIEWPORT_PADDING + (world.w * zoom - el.clientWidth) / 2;
     el.scrollTop = VIEWPORT_PADDING + (world.h * zoom - el.clientHeight) / 2;
     hasScrolledToCenter.current = true;
@@ -357,7 +505,7 @@ export default function ArchitectureDesigner() {
             &larr; Back
           </Link>
           <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-            Thanos Production Architecture
+            {title}
           </h1>
         </div>
         <div className="flex flex-wrap gap-8 text-sm">
@@ -383,11 +531,14 @@ export default function ArchitectureDesigner() {
         </div>
       </div>
 
+      {/* Viewport + Properties */}
+      <div className="flex-1 flex min-h-0">
       {/* Viewport */}
       <div
         ref={canvasRef}
         className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
+        onMouseDown={() => { setSelection(null); }}
       >
         <div style={{
           width: VIEWPORT_PADDING * 2 + world.w * zoom,
@@ -409,10 +560,11 @@ export default function ArchitectureDesigner() {
                     {...r}
                     left={isThisLayerDragged && layerDragDelta ? r.left + layerDragDelta.dx : r.left}
                     top={isThisLayerDragged && layerDragDelta ? r.top + layerDragDelta.dy : r.top}
-                    onDragStart={handleLayerDragStart}
-                    onResizeStart={handleLayerResizeStart}
+                    onDragStart={(id, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerDragStart(id, e); }}
+                    onResizeStart={(id, edge, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerResizeStart(id, edge, e); }}
                     isDragging={isThisLayerDragged}
                     isResizing={resizingLayer?.layerId === r.id}
+                    isSelected={selection?.type === 'layer' && selection.id === r.id}
                     dimmed={dimmed}
                   />
                 </React.Fragment>
@@ -435,13 +587,14 @@ export default function ArchitectureDesigner() {
                     isLive={isLive}
                     isHovered={hoveredLine?.id === line.id}
                     isDraggingEndpoint={isBeingDragged}
+                    isSelected={selection?.type === 'line' && selection.id === line.id}
                     dimmed={dimmed}
                     onHoverStart={(id, label, x, y) => setHoveredLine({ id, label, x, y })}
                     onHoverMove={(id, x, y) =>
                       setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev))
                     }
                     onHoverEnd={() => setHoveredLine(null)}
-                    onLineClick={handleLineClick}
+                    onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; handleLineClick(id, e); }}
                   />
                 );
               })}
@@ -498,8 +651,9 @@ export default function ArchitectureDesigner() {
                     x={visualX}
                     y={visualY}
                     showLabels={showLabels}
-                    onDragStart={handleDragStart}
+                    onDragStart={(id, e) => { e.stopPropagation(); pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); }}
                     isDragging={isThisDragged}
+                    isSelected={selection?.type === 'node' && selection.id === node.id}
                     showAnchors={showAnchors}
                     highlightedAnchor={isSnapTarget ? draggingEndpoint!.snappedAnchor!.anchorId : null}
                     anchors={anchors}
@@ -516,6 +670,67 @@ export default function ArchitectureDesigner() {
         </div>
         </div>
 
+      </div>
+
+      {/* Properties Panel */}
+      <PropertiesPanel
+        selection={selection}
+        title={title}
+        nodes={nodes}
+        connections={connections}
+        regions={regions}
+        onSelectLayer={(layerId) => {
+          setSelection({ type: 'layer', id: layerId });
+          const region = regions.find((r) => r.id === layerId);
+          if (region) scrollToRect({ x: region.left, y: region.top, w: region.width, h: region.height });
+        }}
+        onSelectNode={(nodeId) => {
+          setSelection({ type: 'node', id: nodeId });
+          const node = nodes.find((n) => n.id === nodeId);
+          if (node) {
+            const dims = getNodeDimensions(node);
+            scrollToRect({ x: node.x - dims.w / 2, y: node.y - dims.h / 2, w: dims.w, h: dims.h });
+          }
+        }}
+        onUpdateTitle={(t) => setTitle(t)}
+        onUpdateNode={(oldId, updates) => {
+          const newId = updates.id;
+          setNodes((prev) => prev.map((n) => n.id === oldId ? { ...n, ...updates } : n));
+          if (newId && newId !== oldId) {
+            setConnections((prev) => prev.map((c) => ({
+              ...c,
+              from: c.from === oldId ? newId : c.from,
+              to: c.to === oldId ? newId : c.to,
+            })));
+            setMeasuredSizes((prev) => {
+              if (!(oldId in prev)) return prev;
+              const { [oldId]: val, ...rest } = prev;
+              return { ...rest, [newId]: val };
+            });
+            setSelection({ type: 'node', id: newId });
+          }
+        }}
+        onUpdateLayer={(oldId, updates) => {
+          const newId = updates.id;
+          setLayerDefs((prev) => prev.map((l) => l.id === oldId ? { ...l, ...updates } : l));
+          if (newId && newId !== oldId) {
+            setNodes((prev) => prev.map((n) => n.layer === oldId ? { ...n, layer: newId } : n));
+            setLayerManualSizes((prev) => {
+              if (!(oldId in prev)) return prev;
+              const { [oldId]: val, ...rest } = prev;
+              return { ...rest, [newId]: val };
+            });
+            setSelection({ type: 'layer', id: newId });
+          }
+        }}
+        onUpdateConnection={(oldId, updates) => {
+          const newId = updates.id;
+          setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
+          if (newId && newId !== oldId) {
+            setSelection({ type: 'line', id: newId });
+          }
+        }}
+      />
       </div>
 
       {/* Minimap — overlays viewport from outside the scroll container */}
@@ -569,10 +784,14 @@ export default function ArchitectureDesigner() {
           </div>
           <button
             onClick={() => {
+              clearDiagram();
+              try { localStorage.removeItem("architecture-designer-viewport"); } catch { /* ignore */ }
+              const defaults = loadDefaults();
               setIsLive(true);
               setShowLabels(true);
-              setNodes(initialNodes);
-              setConnections(initialConnections);
+              setLayerDefs(defaults.layers);
+              setNodes(defaults.nodes);
+              setConnections(defaults.connections);
               setPatches([{ id: "main", col: 0, row: 0, widthUnits: 3, heightUnits: 3 }]);
               setLayerManualSizes({});
               zoomRef.current = 1;

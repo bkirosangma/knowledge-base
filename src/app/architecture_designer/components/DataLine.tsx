@@ -13,6 +13,7 @@ interface DataLineProps {
   toPos: { x: number; y: number };
   onLineClick: (connectionId: string, e: React.MouseEvent) => void;
   isDraggingEndpoint?: boolean;
+  isSelected?: boolean;
   dimmed?: boolean;
 }
 
@@ -31,6 +32,7 @@ export default function DataLine({
   toPos,
   onLineClick,
   isDraggingEndpoint,
+  isSelected,
   dimmed,
 }: DataLineProps) {
   const dotFill =
@@ -42,7 +44,7 @@ export default function DataLine({
 
   return (
     <g
-      style={{ pointerEvents: "auto", cursor: "pointer" }}
+      style={{ pointerEvents: dimmed ? "none" : "auto", cursor: "pointer" }}
       onMouseEnter={(e) => onHoverStart(id, label, e.clientX, e.clientY)}
       onMouseMove={(e) => onHoverMove(id, e.clientX, e.clientY)}
       onMouseLeave={onHoverEnd}
@@ -59,9 +61,9 @@ export default function DataLine({
         d={path}
         fill="none"
         stroke={color}
-        strokeWidth={isDraggingEndpoint ? "1.5" : isHovered ? "3" : "1.5"}
+        strokeWidth={isDraggingEndpoint ? "1.5" : isSelected ? "3" : isHovered ? "3" : "1.5"}
         className="transition-all"
-        opacity={dimmed ? 0.1 : isDraggingEndpoint ? 0.25 : isHovered ? 1 : 0.7}
+        opacity={dimmed ? 0.1 : isDraggingEndpoint ? 0.25 : isSelected ? 1 : isHovered ? 1 : 0.7}
         strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
       />
       {/* Animated dots are rendered in a separate SVG layer for performance */}

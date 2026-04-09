@@ -13,6 +13,7 @@ interface ElementProps {
   showLabels: boolean;
   onDragStart?: (id: string, e: React.MouseEvent) => void;
   isDragging?: boolean;
+  isSelected?: boolean;
   showAnchors?: boolean;
   highlightedAnchor?: AnchorId | null;
   anchors?: AnchorPoint[];
@@ -34,6 +35,7 @@ export default function Element({
   showLabels,
   onDragStart,
   isDragging,
+  isSelected,
   showAnchors,
   highlightedAnchor,
   anchors,
@@ -71,7 +73,7 @@ export default function Element({
   return (
     <div
       ref={ref}
-      className={`absolute bg-white rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border border-slate-200 flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : "cursor-grab"}`}
+      className={`absolute bg-white rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border border-slate-200 flex flex-col items-center justify-center text-center p-3 z-10 select-none transition-opacity ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
       style={{
         left: x,
         top: y,

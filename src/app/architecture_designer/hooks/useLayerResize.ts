@@ -15,12 +15,13 @@ interface UseLayerResizeOptions {
   regionsRef: React.RefObject<RegionBounds[] | null>;
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
   isBlocked: boolean;
+  initialManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
 }
 
-export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked }: UseLayerResizeOptions) {
+export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialManualSizes }: UseLayerResizeOptions) {
   const [layerManualSizes, setLayerManualSizes] = useState<
     Record<string, { left?: number; width?: number; top?: number; height?: number }>
-  >({});
+  >(initialManualSizes ?? {});
 
   const [resizingLayer, setResizingLayer] = useState<{
     layerId: string;
