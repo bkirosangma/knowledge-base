@@ -1,7 +1,7 @@
 "use client";
 
-import ThanosArchitecture from "./sample";
+import ArchitectureDesigner from "./architectureDesigner";
 
 export default function ArchitectureDesignerPage() {
-  return <ThanosArchitecture />;
+  return <ArchitectureDesigner />;
 }

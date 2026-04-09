@@ -1,24 +1,95 @@
 import React from "react";
 
+export type ResizeEdge = "left" | "right" | "top" | "bottom";
+
 interface LayerProps {
   id: string;
   title: string;
+  left: number;
+  width: number;
   top: number;
   height: number;
   bg: string;
   border: string;
+  onDragStart?: (id: string, e: React.MouseEvent) => void;
+  onResizeStart?: (id: string, edge: ResizeEdge, e: React.MouseEvent) => void;
+  isDragging?: boolean;
+  isResizing?: boolean;
+  dimmed?: boolean;
 }
 
-export default function Layer({ title, top, height, bg, border }: LayerProps) {
+const HANDLE_SIZE = 8;
+
+export default function Layer({
+  id,
+  title,
+  left,
+  width,
+  top,
+  height,
+  bg,
+  border,
+  onDragStart,
+  onResizeStart,
+  isDragging,
+  isResizing,
+  dimmed,
+}: LayerProps) {
+  const handleResize = (edge: ResizeEdge, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onResizeStart?.(id, edge, e);
+  };
+
   return (
     <>
       <div
-        className={`absolute left-5 right-5 rounded-xl border border-dashed ${bg} ${border}`}
-        style={{ top, height }}
-      />
+        className={`absolute rounded-xl border border-dashed transition-opacity ${bg} ${border} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        style={{ left, width, top, height, opacity: dimmed ? 0.2 : 1 }}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+            onDragStart?.(id, e);
+          }
+        }}
+      >
+        {/* Resize handles — edges */}
+        {/* Left */}
+        <div
+          className="absolute top-0 -left-1 w-2 h-full cursor-ew-resize z-20 group"
+          onMouseDown={(e) => handleResize("left", e)}
+        >
+          <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        {/* Right */}
+        <div
+          className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize z-20 group"
+          onMouseDown={(e) => handleResize("right", e)}
+        >
+          <div className="absolute right-0.5 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        {/* Top */}
+        <div
+          className="absolute -top-1 left-0 h-2 w-full cursor-ns-resize z-20 group"
+          onMouseDown={(e) => handleResize("top", e)}
+        >
+          <div className="absolute top-0.5 left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        {/* Bottom */}
+        <div
+          className="absolute -bottom-1 left-0 h-2 w-full cursor-ns-resize z-20 group"
+          onMouseDown={(e) => handleResize("bottom", e)}
+        >
+          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-8 rounded-full bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
       <span
-        className="absolute left-10 font-bold text-slate-700 tracking-wider text-[11px]"
-        style={{ top: top + 12 }}
+        className="absolute font-bold text-slate-700 tracking-wider text-[11px] transition-opacity select-none"
+        style={{ left: left + 12, top: top + 12, opacity: dimmed ? 0.2 : 1 }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onDragStart?.(id, e);
+        }}
       >
         {title}
       </span>

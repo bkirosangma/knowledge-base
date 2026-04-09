@@ -4,3 +4,9 @@ body {
   margin: 0;
   padding: 0;
 }
+
+.paused-animations,
+.paused-animations * {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
