@@ -8,7 +8,7 @@ import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
 import FlowDots from "./components/FlowDots";
-import { getAnchorPosition, getAnchors, getAnchorDirection, getNodeAnchorPosition, getNodeAnchorDirection, pickBestTargetAnchor } from "./utils/anchors";
+import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
@@ -17,7 +17,7 @@ import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
-import { Map, GitBranch } from "lucide-react";
+import { Map } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -33,7 +33,12 @@ import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
 import { useDeletion, type PendingDeletion } from "./hooks/useDeletion";
-import { isContiguous, orderConnections, findBrokenFlowsByReconnect } from "./utils/flowUtils";
+import { findBrokenFlowsByReconnect } from "./utils/flowUtils";
+import { useFlowManagement } from "./hooks/useFlowManagement";
+import { useLabelEditing } from "./hooks/useLabelEditing";
+import { useAnchorConnections } from "./hooks/useAnchorConnections";
+import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
+import { useFileActions } from "./hooks/useFileActions";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
 import DiagramControls from "./components/DiagramControls";
@@ -44,7 +49,6 @@ import ConditionElement from "./components/ConditionElement";
 import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
 import Header from "./components/Header";
 import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
-import { getNodesByType } from "./utils/typeUtils";
 import HistoryPanel from "./components/HistoryPanel";
 import { useFileExplorer } from "./hooks/useFileExplorer";
 import { loadDiagramFromData } from "./utils/persistence";
@@ -287,40 +291,16 @@ export default function ArchitectureDesigner() {
     applySnapshot(history.goToEntry(index));
   }, [history.goToEntry, applySnapshot]);
 
-  const handleLoadFile = useCallback(async (fileName: string) => {
-    const result = await fileExplorer.selectFile(fileName);
-    if (!result) return;
-    const { data, diskJson, hasDraft } = result;
-    const diagram = loadDiagramFromData(data);
-    const snapshotSource = hasDraft ? loadDiagramFromData(JSON.parse(diskJson)) : undefined;
-    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
-    // Initialize history using disk JSON for checksum consistency
-    isRestoringRef.current = true;
-    const diskData = JSON.parse(diskJson);
-    await history.initHistory(diskJson, {
-      title: diskData.title ?? "Untitled",
-      layerDefs: diskData.layers,
-      nodes: diskData.nodes,
-      connections: diskData.connections,
-      layerManualSizes: diskData.layerManualSizes ?? {},
-      lineCurve: diskData.lineCurve ?? "orthogonal",
-      flows: diskData.flows ?? [],
-    }, fileExplorer.dirHandleRef.current, fileName);
-    requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, applyDiagramToState, history.initHistory]);
-
-  const handleSave = useCallback(async () => {
-    if (!fileExplorer.activeFile || !isDirty) return;
-    const success = await fileExplorer.saveFile(
-      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows,
-    );
-    if (success) {
-      setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
-      // Update history checksum to match saved file
-      const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve, flows };
-      history.onSave(JSON.stringify(savedData));
-    }
-  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, setLoadSnapshot, history.onSave]);
+  // File operation handlers
+  const {
+    handleLoadFile, handleSave, handleCreateFile, handleCreateFolder,
+    handleDeleteFile, handleDeleteFolder, handleRenameFile, handleRenameFolder,
+    handleDuplicateFile, handleMoveItem, handleDiscard, handleConfirmAction,
+  } = useFileActions(
+    fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
+    confirmAction, setConfirmAction, canvasRef,
+    title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
+  );
 
   // Cmd+S / Ctrl+S keyboard shortcut
   useEffect(() => {
@@ -342,115 +322,6 @@ export default function ArchitectureDesigner() {
     }
   }, [fileExplorer.pendingFile, fileExplorer.clearPendingFile, handleLoadFile]);
 
-  const handleCreateFile = useCallback(async (parentPath: string = ""): Promise<string | null> => {
-    const result = await fileExplorer.createFile(parentPath);
-    if (!result) return null;
-    const diagram = loadDiagramFromData(result.data);
-    applyDiagramToState(diagram, { setSnapshot: true });
-    // Center canvas for empty diagram
-    requestAnimationFrame(() => {
-      if (canvasRef.current) {
-        const el = canvasRef.current;
-        el.scrollTo({
-          left: (el.scrollWidth - el.clientWidth) / 2,
-          top: (el.scrollHeight - el.clientHeight) / 2,
-          behavior: "instant",
-        });
-      }
-    });
-    return result.path;
-  }, [fileExplorer.createFile, applyDiagramToState]);
-
-  const handleCreateFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
-    return fileExplorer.createFolder(parentPath);
-  }, [fileExplorer.createFolder]);
-
-  const handleDeleteFile = useCallback((path: string, event: React.MouseEvent) => {
-    setConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
-  }, []);
-
-  const executeDeleteFile = useCallback(async (path: string) => {
-    const wasActive = fileExplorer.activeFile === path;
-    await fileExplorer.deleteFile(path);
-    if (wasActive) {
-      const defs = loadDefaults();
-      applyDiagramToState(defs);
-    }
-  }, [fileExplorer.activeFile, fileExplorer.deleteFile, applyDiagramToState]);
-
-  const handleDeleteFolder = useCallback((path: string, event: React.MouseEvent) => {
-    setConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
-  }, []);
-
-  const handleRenameFile = useCallback(async (oldPath: string, newName: string) => {
-    await fileExplorer.renameFile(oldPath, newName);
-  }, [fileExplorer.renameFile]);
-
-  const handleRenameFolder = useCallback(async (oldPath: string, newName: string) => {
-    await fileExplorer.renameFolder(oldPath, newName);
-  }, [fileExplorer.renameFolder]);
-
-  const handleDuplicateFile = useCallback(async (path: string) => {
-    const result = await fileExplorer.duplicateFile(path);
-    if (!result) return;
-    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true });
-  }, [fileExplorer.duplicateFile, applyDiagramToState]);
-
-  const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
-    await fileExplorer.moveItem(sourcePath, targetFolderPath);
-  }, [fileExplorer.moveItem]);
-
-  const executeDiscard = useCallback(async () => {
-    if (!fileExplorer.activeFile) return;
-
-    // Try navigating history back to the last saved state
-    const savedSnapshot = history.goToSaved();
-    if (savedSnapshot) {
-      isRestoringRef.current = true;
-      const diagram = loadDiagramFromData({
-        title: savedSnapshot.title,
-        layers: savedSnapshot.layerDefs,
-        nodes: savedSnapshot.nodes,
-        connections: savedSnapshot.connections,
-        layerManualSizes: savedSnapshot.layerManualSizes,
-        lineCurve: savedSnapshot.lineCurve,
-        flows: savedSnapshot.flows,
-      });
-      applyDiagramToState(diagram, { setSnapshot: true });
-      // Clear draft since we're back to saved state
-      fileExplorer.discardFile(fileExplorer.activeFile);
-      requestAnimationFrame(() => { isRestoringRef.current = false; });
-      return;
-    }
-
-    // Fallback: saved state was pruned from history, reload from disk
-    const data = await fileExplorer.discardFile(fileExplorer.activeFile);
-    if (!data) return;
-    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true });
-  }, [fileExplorer.activeFile, fileExplorer.discardFile, applyDiagramToState, history.goToSaved]);
-
-  const handleDiscard = useCallback((event: React.MouseEvent) => {
-    if (!fileExplorer.activeFile || !isDirty) return;
-    // Check "don't ask again" preference
-    if (typeof window !== "undefined" && localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true") {
-      executeDiscard();
-      return;
-    }
-    setConfirmAction({ type: "discard", x: event.clientX, y: event.clientY });
-  }, [fileExplorer.activeFile, isDirty, executeDiscard]);
-
-  const handleConfirmAction = useCallback(async () => {
-    if (!confirmAction) return;
-    if (confirmAction.type === "delete-file" && confirmAction.path) {
-      await executeDeleteFile(confirmAction.path);
-    } else if (confirmAction.type === "delete-folder" && confirmAction.path) {
-      await fileExplorer.deleteFolder(confirmAction.path);
-    } else if (confirmAction.type === "discard") {
-      await executeDiscard();
-    }
-    setConfirmAction(null);
-  }, [confirmAction, executeDeleteFile, fileExplorer.deleteFolder, executeDiscard]);
-
   const { deleteSelection, confirmDeletion } = useDeletion(nodesRef, connectionsRef, flowsRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
   }, scheduleRecord);
@@ -466,174 +337,20 @@ export default function ArchitectureDesigner() {
   } | null>(null);
 
   // Flow-related callbacks
-  let flowCounter = useRef(0);
-  const handleCreateFlow = useCallback((connectionIds: string[]) => {
-    if (!isContiguous(connectionIds, connectionsRef.current)) {
-      return;
-    }
-    const ordered = orderConnections(connectionIds, connectionsRef.current);
-    const id = `flow-${++flowCounter.current}`;
-    const existingNames = flowsRef.current.map((f) => f.name);
-    let n = flowsRef.current.length + 1;
-    let name = `Flow ${n}`;
-    while (existingNames.includes(name)) { n++; name = `Flow ${n}`; }
-    const newFlow: FlowDef = { id, name, connectionIds: ordered };
-    setFlows((prev) => [...prev, newFlow]);
-    setSelection({ type: 'flow', id });
-    scheduleRecord("Create flow");
-  }, [scheduleRecord]);
+  const flowCounter = useRef(0);
+  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleSelectLine } = useFlowManagement(
+    connectionsRef, flowsRef, flowCounter, setFlows, setSelection, scheduleRecord,
+  );
 
-  const handleSelectFlow = useCallback((flowId: string) => {
-    setSelection({ type: 'flow', id: flowId });
-  }, []);
-
-  const handleUpdateFlow = useCallback((oldId: string, updates: Partial<{ id: string; name: string }>) => {
-    const newId = updates.id;
-    setFlows((prev) => prev.map((f) => f.id === oldId ? { ...f, ...updates } : f));
-    if (newId && newId !== oldId) {
-      setSelection({ type: 'flow', id: newId });
-    }
-    scheduleRecord("Edit flow");
-  }, [scheduleRecord]);
-
-  const handleDeleteFlow = useCallback((flowId: string) => {
-    setFlows((prev) => prev.filter((f) => f.id !== flowId));
-    setSelection(null);
-    scheduleRecord("Delete flow");
-  }, [scheduleRecord]);
-
-  const handleSelectLine = useCallback((lineId: string) => {
-    setSelection({ type: 'line', id: lineId });
-  }, []);
+  const { commitLabel } = useLabelEditing(
+    editingLabelBeforeRef, setNodes, setLayerDefs, setConnections, setEditingLabel, scheduleRecord,
+  );
 
   // Anchor popup handlers
-  const handleAnchorConnectToElement = useCallback((targetNodeId: string) => {
-    if (!anchorPopup) return;
-    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
-    const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
-    if (!sourceNode || !targetNode) return;
-    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
-    const dims = getNodeDimensions(sourceNode);
-    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
-    const targetShift = layerShiftsRef.current[targetNode.layer] || 0;
-    const targetDims = getNodeDimensions(targetNode);
-    const toAnchor = pickBestTargetAnchor(fromPos, targetNode.x, targetNode.y + targetShift, targetDims.w, targetDims.h);
-    const conn = {
-      id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      from: anchorPopup.nodeId,
-      to: targetNodeId,
-      fromAnchor: anchorPopup.anchorId,
-      toAnchor,
-      color: "#3b82f6",
-      label: "",
-    };
-    setConnections((prev) => [...prev, conn]);
-    scheduleRecord("Connect to element");
-  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
-
-  const handleAnchorCreateCondition = useCallback(() => {
-    if (!anchorPopup) return;
-    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
-    if (!sourceNode) return;
-    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
-    const dims = getNodeDimensions(sourceNode);
-    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
-    const dir = getAnchorDirection(anchorPopup.anchorId);
-    const condX = fromPos.x + dir.dx * 150;
-    const condY = fromPos.y + dir.dy * 150;
-    const condId = `el-cond-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const newNode = {
-      id: condId,
-      label: "Condition",
-      icon: GitBranch,
-      x: condX,
-      y: condY,
-      w: 120,
-      layer: "",
-      shape: "condition" as const,
-      conditionOutCount: 2,
-      rotation: 0 as const,
-    };
-    const conn = {
-      id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      from: anchorPopup.nodeId,
-      to: condId,
-      fromAnchor: anchorPopup.anchorId,
-      toAnchor: "cond-in" as import("./utils/anchors").AnchorId,
-      color: "#3b82f6",
-      label: "",
-    };
-    setNodes((prev) => [...prev, newNode]);
-    setConnections((prev) => [...prev, conn]);
-    setSelection({ type: 'node', id: condId });
-    scheduleRecord("Add condition");
-  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
-
-  const handleAnchorConnectToType = useCallback((type: string) => {
-    if (!anchorPopup) return;
-    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
-    if (!sourceNode) return;
-    const targets = getNodesByType(nodesRef.current, type).filter((n) => n.id !== anchorPopup.nodeId);
-    if (targets.length === 0) return;
-    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
-    const dims = getNodeDimensions(sourceNode);
-    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
-    const newConns = targets.map((t) => {
-      const tShift = layerShiftsRef.current[t.layer] || 0;
-      const tDims = getNodeDimensions(t);
-      const toAnchor = pickBestTargetAnchor(fromPos, t.x, t.y + tShift, tDims.w, tDims.h);
-      return {
-        id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${t.id}`,
-        from: anchorPopup.nodeId,
-        to: t.id,
-        fromAnchor: anchorPopup.anchorId,
-        toAnchor,
-        color: "#3b82f6",
-        label: "",
-      };
-    });
-    setConnections((prev) => [...prev, ...newConns]);
-    scheduleRecord("Connect to type");
-  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
-
-  // Drag-to-rotate for condition elements
-  const handleRotationDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
-    const node = nodesRef.current.find((n) => n.id === nodeId);
-    if (!node) return;
-    const initialRotation = node.rotation ?? 0;
-
-    // Get the element's center in client coords from the parent container
-    const parentEl = (e.currentTarget.parentElement) as HTMLElement;
-    const rect = parentEl.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const baseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
-
-    let lastSnapped = initialRotation;
-    const onMove = (ev: MouseEvent) => {
-      const currentAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180 / Math.PI;
-      const delta = currentAngle - baseAngle;
-      const raw = initialRotation + delta;
-      // Normalize to 0-360
-      const normalized = ((raw % 360) + 360) % 360;
-      // Only snap when within 15° of a 90° boundary
-      const nearest90 = (Math.round(normalized / 90) * 90 % 360) as 0 | 90 | 180 | 270;
-      const distTo90 = Math.abs(normalized - nearest90) <= 180 ? Math.abs(normalized - nearest90) : 360 - Math.abs(normalized - nearest90);
-      if (distTo90 <= 15) {
-        lastSnapped = nearest90;
-      }
-      setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, rotation: lastSnapped as 0 | 90 | 180 | 270 } : n));
-    };
-
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      scheduleRecord("Rotate condition");
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [scheduleRecord]);
+  const { handleAnchorConnectToElement, handleAnchorCreateCondition, handleAnchorConnectToType } = useAnchorConnections(
+    anchorPopup, nodesRef, layerShiftsRef, getNodeDimensions,
+    setNodes, setConnections, setSelection, scheduleRecord,
+  );
 
   // Flow dimming: compute which items are "included" in the selected or hovered flow
   const flowDimSets = useMemo(() => {
@@ -676,6 +393,13 @@ export default function ArchitectureDesigner() {
     nodes, regions, lines: linesForSelection.current, getNodeDimensions, setSelection,
     pendingSelectionRef: pendingSelection,
   });
+
+  // Canvas interaction handlers (rotation, drag, double-click, hover)
+  const { handleRotationDragStart, handleNodeDragStart, handleNodeDoubleClick, handleNodeMouseEnter, handleNodeMouseLeave } = useCanvasInteraction(
+    nodesRef, editingLabelBeforeRef, setNodes, setHoveredNodeId,
+    setEditingLabel, setEditingLabelValue, pendingSelection,
+    handleSelectionRectStart, handleDragStart, scheduleRecord,
+  );
 
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu,
@@ -839,25 +563,6 @@ export default function ArchitectureDesigner() {
     scheduleRecord,
   );
 
-  // Stable callbacks for Element/ConditionElement (avoids new function refs per node per render)
-  const handleNodeDragStart = useCallback((id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (e.metaKey || e.ctrlKey) {
-      pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY };
-      handleSelectionRectStart(e);
-      return;
-    }
-    pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY };
-    handleDragStart(id, e);
-  }, [handleSelectionRectStart, handleDragStart]);
-
-  const handleNodeDoubleClick = useCallback((nodeId: string) => {
-    const n = nodesRef.current.find((nd) => nd.id === nodeId);
-    if (n) { setEditingLabel({ type: "node", id: nodeId }); setEditingLabelValue(n.label); editingLabelBeforeRef.current = n.label; }
-  }, []);
-
-  const handleNodeMouseEnter = useCallback((id: string) => setHoveredNodeId(id), []);
-  const handleNodeMouseLeave = useCallback(() => setHoveredNodeId(null), []);
 
   // Sorted lines — used in both the main SVG and the label overlay SVG
   const sortedLines = useMemo(() => [...lines].sort((a, b) => {
@@ -957,6 +662,7 @@ export default function ArchitectureDesigner() {
         className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { handleCanvasMouseDown(e); }}
+        onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
         onScroll={() => setContextMenu(null)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -1327,20 +1033,7 @@ export default function ArchitectureDesigner() {
                   }
                 }
               }
-              const commitLabel = () => {
-                const v = editingLabelValue.trim();
-                if (v && v !== editingLabelBeforeRef.current) {
-                  if (editingLabel.type === "node") {
-                    setNodes((prev) => prev.map((n) => n.id === editingLabel.id ? { ...n, label: v } : n));
-                  } else if (editingLabel.type === "layer") {
-                    setLayerDefs((prev) => prev.map((l) => l.id === editingLabel.id ? { ...l, title: v } : l));
-                  } else if (editingLabel.type === "line") {
-                    setConnections((prev) => prev.map((c) => c.id === editingLabel.id ? { ...c, label: v } : c));
-                  }
-                  scheduleRecord(`Edit ${editingLabel.type} label`);
-                }
-                setEditingLabel(null);
-              };
+              const doCommit = () => commitLabel(editingLabel, editingLabelValue);
               return (
                 <div
                   className="absolute"
@@ -1351,7 +1044,7 @@ export default function ArchitectureDesigner() {
                     value={editingLabelValue}
                     onChange={(e) => setEditingLabelValue(e.target.value)}
                     onFocus={(e) => e.target.select()}
-                    onBlur={commitLabel}
+                    onBlur={doCommit}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.currentTarget.blur();
                       else if (e.key === "Escape") { setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }

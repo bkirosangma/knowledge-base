@@ -166,9 +166,9 @@ function DataLine({
   return (
     <g
       style={{ pointerEvents: dimmed ? "none" : "auto", cursor: "pointer" }}
-      onMouseEnter={(e) => onHoverStart(id, label, e.clientX, e.clientY)}
-      onMouseMove={(e) => onHoverMove(id, e.clientX, e.clientY)}
-      onMouseLeave={onHoverEnd}
+      onPointerEnter={(e) => onHoverStart(id, label, e.clientX, e.clientY)}
+      onPointerMove={(e) => onHoverMove(id, e.clientX, e.clientY)}
+      onPointerLeave={onHoverEnd}
       onMouseDown={(e) => {
         e.stopPropagation();
         onLineClick(id, e);
