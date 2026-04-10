@@ -1,9 +1,9 @@
-import type { ComponentType } from "react";
-import type { NodeData, Connection, LayerDef } from "../../utils/types";
+import { useMemo, type ComponentType } from "react";
+import type { NodeData, Connection, LayerDef, FlowDef } from "../../utils/types";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 
 export function NodeProperties({
-  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds,
+  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
@@ -11,12 +11,24 @@ export function NodeProperties({
   onSelectNode?: (nodeId: string) => void;
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string }>) => void;
   allNodeIds: string[];
+  flows?: FlowDef[];
+  onSelectFlow?: (flowId: string) => void;
 }) {
   const node = nodes.find((n) => n.id === id);
   if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
 
   const Icon = node.icon;
   const iconName = (Icon as unknown as { displayName?: string }).displayName ?? Icon.name ?? "—";
+
+  const memberFlows = useMemo(() =>
+    (flows ?? []).filter((f) =>
+      f.connectionIds.some((cid) => {
+        const conn = connections.find((c) => c.id === cid);
+        return conn && (conn.from === id || conn.to === id);
+      })
+    ).map((f) => ({ id: f.id, name: f.name })),
+    [flows, connections, id],
+  );
 
   const incomingItems = connections
     .filter((c) => c.to === id)
@@ -81,6 +93,12 @@ export function NodeProperties({
         <ColorRow label="Border" value={node.borderColor ?? "#e2e8f0"} onChange={(v) => onUpdate?.(id, { borderColor: v })} />
         <ColorRow label="Text" value={node.textColor ?? "#1e293b"} onChange={(v) => onUpdate?.(id, { textColor: v })} />
       </Section>
+
+      {memberFlows.length > 0 && (
+        <Section title="Flows">
+          <ExpandableListRow label="Flows" items={memberFlows} onSelect={onSelectFlow} />
+        </Section>
+      )}
 
       <Section title="Layout">
         <Row label="Position" value={`${Math.round(node.x)}, ${Math.round(node.y)}`} />

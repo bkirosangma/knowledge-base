@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import type { LayerDef, Connection, SerializedNodeData, LineCurveAlgorithm } from "../utils/types";
+import type { LayerDef, Connection, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "../utils/types";
 
 /* ── FNV-1a hash (fast, non-cryptographic) ── */
 
@@ -21,6 +21,7 @@ export interface DiagramSnapshot {
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
+  flows: FlowDef[];
 }
 
 export interface HistoryEntry {

@@ -23,6 +23,12 @@ export interface LayerDef {
   textColor?: string;
 }
 
+export interface FlowDef {
+  id: string;
+  name: string;
+  connectionIds: string[];
+}
+
 export interface Connection {
   id: string;
   from: string;
@@ -58,6 +64,7 @@ export type Selection =
   | { type: 'multi-node'; ids: string[]; layer: string }
   | { type: 'multi-layer'; ids: string[] }
   | { type: 'multi-line'; ids: string[] }
+  | { type: 'flow'; id: string }
   | null;
 
 export type LineCurveAlgorithm = "orthogonal" | "bezier" | "straight";
@@ -69,6 +76,7 @@ export interface DiagramData {
   connections: Connection[];
   layerManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve?: LineCurveAlgorithm;
+  flows?: FlowDef[];
 }
 
 export interface RegionBounds {

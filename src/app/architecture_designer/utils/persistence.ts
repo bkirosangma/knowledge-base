@@ -1,4 +1,4 @@
-import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm } from "./types";
+import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
 import { getIcon, getIconName } from "./iconRegistry";
 import { scopedKey } from "./directoryScope";
 import defaultData from "../data/thanos.json";
@@ -49,6 +49,7 @@ export function loadDiagram(): {
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
+  flows: FlowDef[];
 } {
   if (typeof window !== "undefined") {
     try {
@@ -62,6 +63,7 @@ export function loadDiagram(): {
           connections: data.connections,
           layerManualSizes: data.layerManualSizes ?? {},
           lineCurve: data.lineCurve ?? "orthogonal",
+          flows: data.flows ?? [],
         };
       }
     } catch {
@@ -78,6 +80,7 @@ export function loadDiagramFromData(data: DiagramData): {
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
+  flows: FlowDef[];
 } {
   return {
     title: data.title ?? "Untitled",
@@ -86,6 +89,7 @@ export function loadDiagramFromData(data: DiagramData): {
     connections: data.connections,
     layerManualSizes: data.layerManualSizes ?? {},
     lineCurve: data.lineCurve ?? "orthogonal",
+    flows: data.flows ?? [],
   };
 }
 
@@ -97,6 +101,7 @@ export function createEmptyDiagram(title: string): DiagramData {
     connections: [],
     layerManualSizes: {},
     lineCurve: "orthogonal",
+    flows: [],
   };
 }
 
@@ -107,6 +112,7 @@ export function loadDefaults(): {
   connections: Connection[];
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
+  flows: FlowDef[];
 } {
   const data = defaultData as DiagramData;
   return {
@@ -116,6 +122,7 @@ export function loadDefaults(): {
     connections: data.connections,
     layerManualSizes: {},
     lineCurve: "orthogonal",
+    flows: data.flows ?? [],
   };
 }
 
@@ -126,6 +133,7 @@ export function saveDiagram(
   connections: Connection[],
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
+  flows: FlowDef[] = [],
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -135,6 +143,7 @@ export function saveDiagram(
     connections,
     layerManualSizes,
     lineCurve,
+    flows,
   };
   try {
     localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(data));
@@ -164,6 +173,7 @@ export function saveDraft(
   connections: Connection[],
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
+  flows: FlowDef[] = [],
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -173,6 +183,7 @@ export function saveDraft(
     connections,
     layerManualSizes,
     lineCurve,
+    flows,
   };
   try {
     localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));

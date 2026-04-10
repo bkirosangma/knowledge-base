@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm } from "../utils/types";
+import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
 import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft } from "../utils/persistence";
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 
@@ -335,8 +335,9 @@ export function useFileExplorer() {
     layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lineCurve: LineCurveAlgorithm,
     serializeNodesFn: (nodes: NodeData[]) => DiagramData["nodes"],
+    flows: FlowDef[] = [],
   ): Promise<boolean> => {
-    const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve };
+    const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows };
     const json = JSON.stringify(data, null, 2);
 
     const entry = fileMap.get(filePath);

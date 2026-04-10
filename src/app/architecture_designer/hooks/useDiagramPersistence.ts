@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { NodeData, LayerDef, Connection, LineCurveAlgorithm } from "../utils/types";
+import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
 import { loadDiagram, saveDiagram, saveDraft } from "../utils/persistence";
 import { scopedKey } from "../utils/directoryScope";
 
@@ -15,12 +15,14 @@ export function useDiagramPersistence(
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
   setLayerManualSizes: React.Dispatch<React.SetStateAction<Record<string, { left?: number; width?: number; top?: number; height?: number }>>>,
   setLineCurve: (alg: LineCurveAlgorithm) => void,
+  setFlows: React.Dispatch<React.SetStateAction<FlowDef[]>>,
   title: string,
   layerDefs: LayerDef[],
   nodes: NodeData[],
   connections: Connection[],
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
+  flows: FlowDef[],
   activeFile: string | null,
   onDirtyChange?: (fileName: string, dirty: boolean) => void,
 ) {
@@ -32,9 +34,10 @@ export function useDiagramPersistence(
     t: string, l: LayerDef[], n: NodeData[], c: Connection[],
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
+    fl: FlowDef[],
   ) => {
     // Lightweight fingerprint: JSON of the serializable parts
-    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l });
+    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl });
   }, []);
 
   // Set snapshot when a file is loaded
@@ -42,8 +45,9 @@ export function useDiagramPersistence(
     t: string, l: LayerDef[], n: NodeData[], c: Connection[],
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
+    fl: FlowDef[],
   ) => {
-    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc);
+    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl);
     setIsDirty(false);
   }, [takeSnapshot]);
 
@@ -57,6 +61,7 @@ export function useDiagramPersistence(
       setConnections(saved.connections);
       setLayerManualSizes(saved.layerManualSizes);
       setLineCurve(saved.lineCurve);
+      setFlows(saved.flows);
     }
     hydratedRef.current = true;
   }, []);
@@ -65,7 +70,7 @@ export function useDiagramPersistence(
   useEffect(() => {
     if (!hydratedRef.current) return;
 
-    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
     const dirty = snapshotRef.current !== null && currentSnap !== snapshotRef.current;
     setIsDirty(dirty);
 
@@ -73,15 +78,15 @@ export function useDiagramPersistence(
       if (activeFile) {
         // Only write draft if actually changed from disk version
         if (dirty) {
-          saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+          saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
           onDirtyChange?.(activeFile, true);
         }
       } else {
-        saveDiagram(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+        saveDiagram(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, activeFile, takeSnapshot, onDirtyChange]);
+  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, activeFile, takeSnapshot, onDirtyChange]);
 
   return { isDirty, setLoadSnapshot };
 }

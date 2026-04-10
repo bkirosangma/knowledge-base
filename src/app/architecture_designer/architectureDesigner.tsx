@@ -13,7 +13,7 @@ import { getAnchorPosition, getAnchors } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
-import type { LineCurveAlgorithm, Selection } from "./utils/types";
+import type { LineCurveAlgorithm, Selection, FlowDef } from "./utils/types";
 import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
@@ -33,7 +33,8 @@ import Minimap from "./components/Minimap";
 import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
-import { useDeletion } from "./hooks/useDeletion";
+import { useDeletion, type PendingDeletion } from "./hooks/useDeletion";
+import { isContiguous, orderConnections, findBrokenFlowsByReconnect } from "./utils/flowUtils";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
 import DiagramControls from "./components/DiagramControls";
@@ -63,6 +64,7 @@ export default function ArchitectureDesigner() {
   const [nodes, setNodes] = useState(defaults.current.nodes);
   const [connections, setConnections] = useState(defaults.current.connections);
   const [lineCurve, setLineCurve] = useState<LineCurveAlgorithm>(defaults.current.lineCurve);
+  const [flows, setFlows] = useState<FlowDef[]>(defaults.current.flows);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
@@ -149,6 +151,7 @@ export default function ArchitectureDesigner() {
         connections,
         layerManualSizes,
         lineCurve,
+        flows,
       });
     }
   });
@@ -171,6 +174,7 @@ export default function ArchitectureDesigner() {
     setConnections(diagram.connections);
     setLayerManualSizes(diagram.layerManualSizes);
     setLineCurve(diagram.lineCurve);
+    setFlows(snapshot.flows ?? []);
     setSelection(null);
     // Clear restoring flag after React processes the state updates
     requestAnimationFrame(() => { isRestoringRef.current = false; });
@@ -210,6 +214,10 @@ export default function ArchitectureDesigner() {
   const layerShiftsRef = useRef<Record<string, number>>({});
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const connectionsRef = useRef(connections);
+  connectionsRef.current = connections;
+  const flowsRef = useRef(flows);
+  flowsRef.current = flows;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const linesForSelection = useRef<{ id: string; points: { x: number; y: number }[] }[]>([]);
@@ -271,8 +279,8 @@ export default function ArchitectureDesigner() {
   });
 
   const { isDirty, setLoadSnapshot } = useDiagramPersistence(
-    setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve,
-    title, layerDefs, nodes, connections, layerManualSizes, lineCurve,
+    setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve, setFlows,
+    title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
     fileExplorer.activeFile,
     fileExplorer.markDirty,
   );
@@ -288,10 +296,11 @@ export default function ArchitectureDesigner() {
     setConnections(diagram.connections);
     setLayerManualSizes(diagram.layerManualSizes);
     setLineCurve(diagram.lineCurve);
+    setFlows(diagram.flows);
     setSelection(null);
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
     // Initialize history for this file
     isRestoringRef.current = true;
     await history.initHistory(diagramJson, {
@@ -301,6 +310,7 @@ export default function ArchitectureDesigner() {
       connections: data.connections,
       layerManualSizes: data.layerManualSizes ?? {},
       lineCurve: data.lineCurve ?? "orthogonal",
+      flows: data.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, setLoadSnapshot, history.initHistory]);
@@ -308,15 +318,15 @@ export default function ArchitectureDesigner() {
   const handleSave = useCallback(async () => {
     if (!fileExplorer.activeFile || !isDirty) return;
     const success = await fileExplorer.saveFile(
-      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes,
+      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows,
     );
     if (success) {
-      setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+      setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
       // Update history checksum to match saved file
-      const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve };
+      const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve, flows };
       history.onSave(JSON.stringify(savedData));
     }
-  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, setLoadSnapshot, history.onSave]);
+  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, setLoadSnapshot, history.onSave]);
 
   // Cmd+S / Ctrl+S keyboard shortcut
   useEffect(() => {
@@ -348,10 +358,11 @@ export default function ArchitectureDesigner() {
     setConnections(diagram.connections);
     setLayerManualSizes(diagram.layerManualSizes);
     setLineCurve(diagram.lineCurve);
+    setFlows(diagram.flows);
     setSelection(null);
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
     // Center canvas for empty diagram
     requestAnimationFrame(() => {
       if (canvasRef.current) {
@@ -385,6 +396,7 @@ export default function ArchitectureDesigner() {
       setConnections(defs.connections);
       setLayerManualSizes(defs.layerManualSizes);
       setLineCurve(defs.lineCurve);
+      setFlows(defs.flows);
       setSelection(null);
       setMeasuredSizes({});
     }
@@ -412,10 +424,11 @@ export default function ArchitectureDesigner() {
     setConnections(diagram.connections);
     setLayerManualSizes(diagram.layerManualSizes);
     setLineCurve(diagram.lineCurve);
+    setFlows(diagram.flows);
     setSelection(null);
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
   }, [fileExplorer.duplicateFile, setLoadSnapshot]);
 
   const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
@@ -436,6 +449,7 @@ export default function ArchitectureDesigner() {
         connections: savedSnapshot.connections,
         layerManualSizes: savedSnapshot.layerManualSizes,
         lineCurve: savedSnapshot.lineCurve,
+        flows: savedSnapshot.flows,
       };
       const diagram = loadDiagramFromData(asData);
       setTitle(diagram.title);
@@ -444,10 +458,11 @@ export default function ArchitectureDesigner() {
       setConnections(diagram.connections);
       setLayerManualSizes(diagram.layerManualSizes);
       setLineCurve(diagram.lineCurve);
+      setFlows(diagram.flows);
       setSelection(null);
       setMeasuredSizes({});
       setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
       // Clear draft since we're back to saved state
       fileExplorer.discardFile(fileExplorer.activeFile);
       requestAnimationFrame(() => { isRestoringRef.current = false; });
@@ -464,10 +479,11 @@ export default function ArchitectureDesigner() {
     setConnections(diagram.connections);
     setLayerManualSizes(diagram.layerManualSizes);
     setLineCurve(diagram.lineCurve);
+    setFlows(diagram.flows);
     setSelection(null);
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
   }, [fileExplorer.activeFile, fileExplorer.discardFile, setLoadSnapshot, history.goToSaved]);
 
   const handleDiscard = useCallback((event: React.MouseEvent) => {
@@ -492,9 +508,79 @@ export default function ArchitectureDesigner() {
     setConfirmAction(null);
   }, [confirmAction, executeDeleteFile, fileExplorer.deleteFolder, executeDiscard]);
 
-  const { deleteNodes, deleteLayer, deleteSelection } = useDeletion(nodesRef, {
-    setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection,
+  const { deleteSelection, confirmDeletion } = useDeletion(nodesRef, connectionsRef, flowsRef, {
+    setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
   }, scheduleRecord);
+
+  // Pending deletion state for the warning modal
+  const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
+
+  // Pending reconnection state for flow break warning
+  const [pendingReconnect, setPendingReconnect] = useState<{
+    oldId: string;
+    updates: Record<string, unknown>;
+    brokenFlows: FlowDef[];
+  } | null>(null);
+
+  // Flow-related callbacks
+  let flowCounter = useRef(0);
+  const handleCreateFlow = useCallback((connectionIds: string[]) => {
+    if (!isContiguous(connectionIds, connectionsRef.current)) {
+      return;
+    }
+    const ordered = orderConnections(connectionIds, connectionsRef.current);
+    const id = `flow-${++flowCounter.current}`;
+    const existingNames = flowsRef.current.map((f) => f.name);
+    let n = flowsRef.current.length + 1;
+    let name = `Flow ${n}`;
+    while (existingNames.includes(name)) { n++; name = `Flow ${n}`; }
+    const newFlow: FlowDef = { id, name, connectionIds: ordered };
+    setFlows((prev) => [...prev, newFlow]);
+    setSelection({ type: 'flow', id });
+    scheduleRecord("Create flow");
+  }, [scheduleRecord]);
+
+  const handleSelectFlow = useCallback((flowId: string) => {
+    setSelection({ type: 'flow', id: flowId });
+  }, []);
+
+  const handleUpdateFlow = useCallback((oldId: string, updates: Partial<{ id: string; name: string }>) => {
+    const newId = updates.id;
+    setFlows((prev) => prev.map((f) => f.id === oldId ? { ...f, ...updates } : f));
+    if (newId && newId !== oldId) {
+      setSelection({ type: 'flow', id: newId });
+    }
+    scheduleRecord("Edit flow");
+  }, [scheduleRecord]);
+
+  const handleDeleteFlow = useCallback((flowId: string) => {
+    setFlows((prev) => prev.filter((f) => f.id !== flowId));
+    setSelection(null);
+    scheduleRecord("Delete flow");
+  }, [scheduleRecord]);
+
+  const handleSelectLine = useCallback((lineId: string) => {
+    setSelection({ type: 'line', id: lineId });
+  }, []);
+
+  // Flow dimming: compute which items are "included" in the selected flow
+  const flowDimSets = useMemo(() => {
+    if (selection?.type !== 'flow') return null;
+    const flow = flows.find((f) => f.id === selection.id);
+    if (!flow) return null;
+    const connIds = new Set(flow.connectionIds);
+    const nodeIds = new Set<string>();
+    const layerIds = new Set<string>();
+    for (const cid of flow.connectionIds) {
+      const conn = connections.find((c) => c.id === cid);
+      if (conn) { nodeIds.add(conn.from); nodeIds.add(conn.to); }
+    }
+    for (const nid of nodeIds) {
+      const node = nodes.find((n) => n.id === nid);
+      if (node?.layer) layerIds.add(node.layer);
+    }
+    return { connIds, nodeIds, layerIds };
+  }, [selection, flows, connections, nodes]);
 
   // Compute layer bounds from contained nodes
   const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
@@ -530,7 +616,19 @@ export default function ArchitectureDesigner() {
         const tag = (document.activeElement as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
         e.preventDefault();
-        deleteSelection(selectionRef.current);
+        const pending = deleteSelection(selectionRef.current);
+        if (pending) setPendingDeletion(pending);
+      }
+
+      // Create Flow (Cmd+G)
+      if ((e.metaKey || e.ctrlKey) && e.key === "g") {
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        const sel = selectionRef.current;
+        if (sel?.type === "multi-line") {
+          handleCreateFlow(sel.ids);
+        }
       }
 
       // Undo/Redo
@@ -971,7 +1069,7 @@ export default function ArchitectureDesigner() {
             {/* Layers */}
             {regions.map((r) => {
               const isThisLayerDragged = draggingLayerIds.includes(r.id);
-              const dimmed = (draggingLayerIds.length > 0 && !isThisLayerDragged) || !!draggingId || isMultiDrag;
+              const dimmed = (draggingLayerIds.length > 0 && !isThisLayerDragged) || !!draggingId || isMultiDrag || (flowDimSets != null && !flowDimSets.layerIds.has(r.id));
               return (
                 <React.Fragment key={r.id}>
                   {isThisLayerDragged && layerDragRawDelta && (
@@ -1012,7 +1110,7 @@ export default function ArchitectureDesigner() {
                 return aFront - bFront;
               }).map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag;
+                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id));
                 return (
                   <DataLine
                     key={line.id}
@@ -1061,6 +1159,7 @@ export default function ArchitectureDesigner() {
             {(() => {
               const selectedLineIds = selection?.type === 'line' ? [selection.id]
                 : selection?.type === 'multi-line' ? selection.ids
+                : selection?.type === 'flow' ? (flows.find((f) => f.id === selection.id)?.connectionIds ?? [])
                 : [];
               return (isLive || hoveredLine || selectedLineIds.length > 0) && (
                 <FlowDots
@@ -1102,6 +1201,7 @@ export default function ArchitectureDesigner() {
               if (draggingId || isMultiDrag) { showAnchors = false; if (!isThisDragged) dimmed = true; }
               const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
               if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
+              if (flowDimSets != null && !flowDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
 
               let visualX = node.x;
               let visualY = node.y;
@@ -1325,8 +1425,8 @@ export default function ArchitectureDesigner() {
           target={contextMenu.target}
           onAddElement={handleAddElement}
           onAddLayer={handleAddLayer}
-          onDeleteElement={(nodeId) => deleteNodes([nodeId])}
-          onDeleteLayer={(layerId) => deleteLayer(layerId)}
+          onDeleteElement={(nodeId) => { const p = deleteSelection({ type: 'node', id: nodeId }); if (p) setPendingDeletion(p); }}
+          onDeleteLayer={(layerId) => { const p = deleteSelection({ type: 'layer', id: layerId }); if (p) setPendingDeletion(p); }}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -1387,14 +1487,33 @@ export default function ArchitectureDesigner() {
         }}
         onUpdateConnection={(oldId, updates) => {
           const newId = updates.id;
+          // Check if reconnection would break flows
+          if (updates.from !== undefined || updates.to !== undefined) {
+            const broken = findBrokenFlowsByReconnect(flows, oldId, updates.from as string | undefined, updates.to as string | undefined, connections);
+            if (broken.length > 0) {
+              setPendingReconnect({ oldId, updates, brokenFlows: broken });
+              return;
+            }
+          }
           setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
           if (newId && newId !== oldId) {
+            // Update flow references for renamed connection
+            setFlows((prev) => prev.map((f) => ({
+              ...f,
+              connectionIds: f.connectionIds.map((cid) => cid === oldId ? newId : cid),
+            })));
             setSelection({ type: 'line', id: newId });
           }
           scheduleRecord("Edit connection");
         }}
         lineCurve={lineCurve}
         onUpdateLineCurve={(alg) => { setLineCurve(alg); scheduleRecord("Change line curve"); }}
+        flows={flows}
+        onSelectFlow={handleSelectFlow}
+        onUpdateFlow={handleUpdateFlow}
+        onDeleteFlow={handleDeleteFlow}
+        onCreateFlow={handleCreateFlow}
+        onSelectLine={handleSelectLine}
       />
       </div>
 
@@ -1447,6 +1566,51 @@ export default function ArchitectureDesigner() {
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmAction(null)}
         />
+      )}
+
+      {/* Flow break warning modal (deletion) */}
+      {pendingDeletion && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" onClick={() => setPendingDeletion(null)}>
+          <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-2">This will break {pendingDeletion.brokenFlows.length === 1 ? "a flow" : "flows"}</h3>
+            <p className="text-xs text-slate-600 mb-3">The following flows will be deleted because their connections would no longer be contiguous:</p>
+            <ul className="mb-4 space-y-1">
+              {pendingDeletion.brokenFlows.map((f) => (
+                <li key={f.id} className="text-xs text-slate-700 font-medium bg-slate-50 rounded px-2 py-1">{f.name}</li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <button className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer" onClick={() => setPendingDeletion(null)}>Cancel</button>
+              <button className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors cursor-pointer" onClick={() => { confirmDeletion(pendingDeletion); setPendingDeletion(null); }}>Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Flow break warning modal (reconnection) */}
+      {pendingReconnect && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" onClick={() => setPendingReconnect(null)}>
+          <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-2">This will break {pendingReconnect.brokenFlows.length === 1 ? "a flow" : "flows"}</h3>
+            <p className="text-xs text-slate-600 mb-3">Reconnecting this endpoint will break the contiguity of these flows, which will be deleted:</p>
+            <ul className="mb-4 space-y-1">
+              {pendingReconnect.brokenFlows.map((f) => (
+                <li key={f.id} className="text-xs text-slate-700 font-medium bg-slate-50 rounded px-2 py-1">{f.name}</li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <button className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer" onClick={() => setPendingReconnect(null)}>Cancel</button>
+              <button className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors cursor-pointer" onClick={() => {
+                const { oldId, updates, brokenFlows } = pendingReconnect;
+                const brokenIds = new Set(brokenFlows.map((f) => f.id));
+                setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
+                setFlows((prev) => prev.filter((f) => !brokenIds.has(f.id)));
+                scheduleRecord("Edit connection");
+                setPendingReconnect(null);
+              }}>Continue</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

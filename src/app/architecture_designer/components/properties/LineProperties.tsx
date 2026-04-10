@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import type { NodeData, Connection } from "../../utils/types";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { NodeData, Connection, FlowDef } from "../../utils/types";
 import type { AnchorId } from "../../utils/anchors";
-import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow } from "./shared";
+import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 
 function DurationRow({ value, defaultValue, onChange }: { value: number; defaultValue: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
@@ -52,17 +52,24 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 }
 
 export function LineProperties({
-  id, connections, nodes, onUpdate, allConnectionIds,
+  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number }>) => void;
   allConnectionIds: string[];
+  flows?: FlowDef[];
+  onSelectFlow?: (flowId: string) => void;
 }) {
   const conn = connections.find((c) => c.id === id);
   if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
 
   const fromNode = nodes.find((n) => n.id === conn.from);
   const toNode = nodes.find((n) => n.id === conn.to);
+
+  const memberFlows = useMemo(() =>
+    (flows ?? []).filter((f) => f.connectionIds.includes(id)).map((f) => ({ id: f.id, name: f.name })),
+    [flows, id],
+  );
 
   return (
     <>
@@ -111,6 +118,12 @@ export function LineProperties({
         />
         <ColorRow label="Color" value={conn.color} onChange={(v) => onUpdate?.(id, { color: v })} />
       </Section>
+
+      {memberFlows.length > 0 && (
+        <Section title="Flows">
+          <ExpandableListRow label="Flows" items={memberFlows} onSelect={onSelectFlow} />
+        </Section>
+      )}
 
       <Section title="Animation">
         <DurationRow
