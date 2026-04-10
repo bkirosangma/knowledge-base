@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import Link from "next/link";
 import Canvas, {
   type CanvasPatch,
   fitToContent,
@@ -14,11 +13,11 @@ import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
 import type { LineCurveAlgorithm, Selection, FlowDef } from "./utils/types";
-import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
+import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
-import { Save, RotateCcw, Undo2, Redo2, Activity, Tag, Map, GitBranch } from "lucide-react";
+import { Map, GitBranch } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -42,6 +41,8 @@ import ExplorerPanel from "./components/explorer/ExplorerPanel";
 import ConfirmPopover from "./components/explorer/ConfirmPopover";
 import AnchorPopupMenu from "./components/AnchorPopupMenu";
 import ConditionElement from "./components/ConditionElement";
+import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
+import Header from "./components/Header";
 import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
 import { getNodesByType } from "./utils/typeUtils";
 import HistoryPanel from "./components/HistoryPanel";
@@ -49,8 +50,13 @@ import { useFileExplorer } from "./hooks/useFileExplorer";
 import { loadDiagramFromData } from "./utils/persistence";
 import { useActionHistory } from "./hooks/useActionHistory";
 import type { DiagramSnapshot } from "./hooks/useActionHistory";
+import { useSyncRef } from "./hooks/useSyncRef";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
+import type { SortField, SortDirection, SortGrouping } from "./components/explorer/ExplorerPanel";
 
 const SKIP_DISCARD_CONFIRM_KEY = "architecture-designer-skip-discard-confirm";
+const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(false);
@@ -76,15 +82,10 @@ export default function ArchitectureDesigner() {
   const [contextMenu, setContextMenu] = useState<{ clientX: number; clientY: number; canvasX: number; canvasY: number; target: ContextMenuTarget } | null>(null);
   const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("./utils/anchors").AnchorId } | null>(null);
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null);
-  const [patches, setPatches] = useState<CanvasPatch[]>([
-    { id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 },
-  ]);
+  const [patches, setPatches] = useState<CanvasPatch[]>(DEFAULT_PATCHES);
 
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const titleMeasureRef = useRef<HTMLSpanElement>(null);
-  const titleBeforeEdit = useRef(title);
   const [editingLabel, setEditingLabel] = useState<{ type: "node" | "layer" | "line"; id: string } | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState("");
   const editingLabelBeforeRef = useRef("");
@@ -94,40 +95,18 @@ export default function ArchitectureDesigner() {
   const fileExplorer = useFileExplorer();
   const history = useActionHistory();
 
-  // Sort preferences
+  // Sort preferences (single state instead of 3 separate)
   const SORT_PREFS_KEY = "architecture-designer-sort-prefs";
-  const [sortField, setSortField] = useState<import("./components/explorer/ExplorerPanel").SortField>(() => {
-    if (typeof window === "undefined") return "name";
+  const [sortPrefs, setSortPrefs] = useState<{ field: SortField; direction: SortDirection; grouping: SortGrouping }>(() => {
+    if (typeof window === "undefined") return { field: "name", direction: "asc", grouping: "folders-first" };
     try {
-      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
-      return prefs.field ?? "name";
-    } catch { return "name"; }
+      const raw = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
+      return { field: raw.field ?? "name", direction: raw.direction ?? "asc", grouping: raw.grouping ?? "folders-first" };
+    } catch { return { field: "name", direction: "asc", grouping: "folders-first" }; }
   });
-  const [sortDirection, setSortDirection] = useState<import("./components/explorer/ExplorerPanel").SortDirection>(() => {
-    if (typeof window === "undefined") return "asc";
-    try {
-      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
-      return prefs.direction ?? "asc";
-    } catch { return "asc"; }
-  });
-  const [sortGrouping, setSortGrouping] = useState<import("./components/explorer/ExplorerPanel").SortGrouping>(() => {
-    if (typeof window === "undefined") return "folders-first";
-    try {
-      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
-      return prefs.grouping ?? "folders-first";
-    } catch { return "folders-first"; }
-  });
-  const handleSortChange = useCallback((
-    field: import("./components/explorer/ExplorerPanel").SortField,
-    direction: import("./components/explorer/ExplorerPanel").SortDirection,
-    grouping: import("./components/explorer/ExplorerPanel").SortGrouping,
-  ) => {
-    setSortField(field);
-    setSortDirection(direction);
-    setSortGrouping(grouping);
-    try {
-      localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping }));
-    } catch { /* ignore */ }
+  const handleSortChange = useCallback((field: SortField, direction: SortDirection, grouping: SortGrouping) => {
+    setSortPrefs({ field, direction, grouping });
+    try { localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping })); } catch { /* ignore */ }
   }, []);
 
   const [confirmAction, setConfirmAction] = useState<{
@@ -163,42 +142,6 @@ export default function ArchitectureDesigner() {
     }
   });
 
-  const applySnapshot = useCallback((snapshot: DiagramSnapshot | null) => {
-    if (!snapshot) return;
-    isRestoringRef.current = true;
-    const asData = {
-      title: snapshot.title,
-      layers: snapshot.layerDefs,
-      nodes: snapshot.nodes,
-      connections: snapshot.connections,
-      layerManualSizes: snapshot.layerManualSizes,
-      lineCurve: snapshot.lineCurve,
-    };
-    const diagram = loadDiagramFromData(asData);
-    setTitle(diagram.title);
-    setLayerDefs(diagram.layers);
-    setNodes(diagram.nodes);
-    setConnections(diagram.connections);
-    setLayerManualSizes(diagram.layerManualSizes);
-    setLineCurve(diagram.lineCurve);
-    setFlows(snapshot.flows ?? []);
-    setSelection(null);
-    // Clear restoring flag after React processes the state updates
-    requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, []);
-
-  const handleUndo = useCallback(() => {
-    applySnapshot(history.undo());
-  }, [history.undo, applySnapshot]);
-
-  const handleRedo = useCallback(() => {
-    applySnapshot(history.redo());
-  }, [history.redo, applySnapshot]);
-
-  const handleGoToEntry = useCallback((index: number) => {
-    applySnapshot(history.goToEntry(index));
-  }, [history.goToEntry, applySnapshot]);
-
   const handleElementResize = useCallback((id: string, width: number, height: number) => {
     setMeasuredSizes((prev) => {
       const existing = prev[id];
@@ -223,14 +166,10 @@ export default function ArchitectureDesigner() {
   const worldRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const prevWorldOriginRef = useRef<{ x: number; y: number } | null>(null);
   const layerShiftsRef = useRef<Record<string, number>>({});
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-  const connectionsRef = useRef(connections);
-  connectionsRef.current = connections;
-  const flowsRef = useRef(flows);
-  flowsRef.current = flows;
-  const selectionRef = useRef(selection);
-  selectionRef.current = selection;
+  const nodesRef = useSyncRef(nodes);
+  const connectionsRef = useSyncRef(connections);
+  const flowsRef = useSyncRef(flows);
+  const selectionRef = useSyncRef(selection);
   const linesForSelection = useRef<{ id: string; points: { x: number; y: number }[] }[]>([]);
   const regionsRef = useRef<{ id: string; left: number; width: number; top: number; height: number; empty: boolean }[] | null>(null);
 
@@ -238,13 +177,6 @@ export default function ArchitectureDesigner() {
   const [isZooming, setIsZooming] = useState(false);
   const { zoomRef, registerSetZoom, registerSetIsZooming, setZoomTo } = useZoom(canvasRef, worldRef);
   useEffect(() => { registerSetZoom(setZoom); }, [registerSetZoom]);
-
-  // Title input: auto-width from hidden measurer
-  useEffect(() => {
-    if (titleMeasureRef.current) {
-      setTitleWidth(Math.min(400, titleMeasureRef.current.scrollWidth + 4));
-    }
-  }, [titleInputValue]);
 
   // Sync title → titleInputValue on external changes (file load, undo)
   useEffect(() => { setTitleInputValue(title); }, [title]);
@@ -306,28 +238,62 @@ export default function ArchitectureDesigner() {
     fileExplorer.markDirty,
   );
 
+  /** Apply a loaded/restored diagram to all state in one call. */
+  const applyDiagramToState = useCallback((
+    data: ReturnType<typeof loadDiagramFromData>,
+    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
+  ) => {
+    setTitle(data.title);
+    setLayerDefs(data.layers);
+    setNodes(data.nodes);
+    setConnections(data.connections);
+    setLayerManualSizes(data.layerManualSizes);
+    setLineCurve(data.lineCurve);
+    setFlows(data.flows);
+    setSelection(null);
+    setMeasuredSizes({});
+    setPatches(DEFAULT_PATCHES);
+    if (opts?.setSnapshot) {
+      const src = opts.snapshotSource ?? data;
+      setLoadSnapshot(src.title, src.layers, src.nodes, src.connections, src.layerManualSizes, src.lineCurve, src.flows);
+    }
+  }, [setLayerManualSizes, setLoadSnapshot]);
+
+  const applySnapshot = useCallback((snapshot: DiagramSnapshot | null) => {
+    if (!snapshot) return;
+    isRestoringRef.current = true;
+    const diagram = loadDiagramFromData({
+      title: snapshot.title,
+      layers: snapshot.layerDefs,
+      nodes: snapshot.nodes,
+      connections: snapshot.connections,
+      layerManualSizes: snapshot.layerManualSizes,
+      lineCurve: snapshot.lineCurve,
+      flows: snapshot.flows,
+    });
+    applyDiagramToState(diagram);
+    requestAnimationFrame(() => { isRestoringRef.current = false; });
+  }, [applyDiagramToState]);
+
+  const handleUndo = useCallback(() => {
+    applySnapshot(history.undo());
+  }, [history.undo, applySnapshot]);
+
+  const handleRedo = useCallback(() => {
+    applySnapshot(history.redo());
+  }, [history.redo, applySnapshot]);
+
+  const handleGoToEntry = useCallback((index: number) => {
+    applySnapshot(history.goToEntry(index));
+  }, [history.goToEntry, applySnapshot]);
+
   const handleLoadFile = useCallback(async (fileName: string) => {
     const result = await fileExplorer.selectFile(fileName);
     if (!result) return;
     const { data, diskJson, hasDraft } = result;
     const diagram = loadDiagramFromData(data);
-    setTitle(diagram.title);
-    setLayerDefs(diagram.layers);
-    setNodes(diagram.nodes);
-    setConnections(diagram.connections);
-    setLayerManualSizes(diagram.layerManualSizes);
-    setLineCurve(diagram.lineCurve);
-    setFlows(diagram.flows);
-    setSelection(null);
-    setMeasuredSizes({});
-    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    // Set snapshot to disk content so isDirty is correct when restoring a draft
-    if (hasDraft) {
-      const diskDiagram = loadDiagramFromData(JSON.parse(diskJson));
-      setLoadSnapshot(diskDiagram.title, diskDiagram.layers, diskDiagram.nodes, diskDiagram.connections, diskDiagram.layerManualSizes, diskDiagram.lineCurve, diskDiagram.flows);
-    } else {
-      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
-    }
+    const snapshotSource = hasDraft ? loadDiagramFromData(JSON.parse(diskJson)) : undefined;
+    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
     // Initialize history using disk JSON for checksum consistency
     isRestoringRef.current = true;
     const diskData = JSON.parse(diskJson);
@@ -341,7 +307,7 @@ export default function ArchitectureDesigner() {
       flows: diskData.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, setLoadSnapshot, history.initHistory]);
+  }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, applyDiagramToState, history.initHistory]);
 
   const handleSave = useCallback(async () => {
     if (!fileExplorer.activeFile || !isDirty) return;
@@ -380,17 +346,7 @@ export default function ArchitectureDesigner() {
     const result = await fileExplorer.createFile(parentPath);
     if (!result) return null;
     const diagram = loadDiagramFromData(result.data);
-    setTitle(diagram.title);
-    setLayerDefs(diagram.layers);
-    setNodes(diagram.nodes);
-    setConnections(diagram.connections);
-    setLayerManualSizes(diagram.layerManualSizes);
-    setLineCurve(diagram.lineCurve);
-    setFlows(diagram.flows);
-    setSelection(null);
-    setMeasuredSizes({});
-    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
+    applyDiagramToState(diagram, { setSnapshot: true });
     // Center canvas for empty diagram
     requestAnimationFrame(() => {
       if (canvasRef.current) {
@@ -403,7 +359,7 @@ export default function ArchitectureDesigner() {
       }
     });
     return result.path;
-  }, [fileExplorer.createFile, setLoadSnapshot]);
+  }, [fileExplorer.createFile, applyDiagramToState]);
 
   const handleCreateFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
     return fileExplorer.createFolder(parentPath);
@@ -418,17 +374,9 @@ export default function ArchitectureDesigner() {
     await fileExplorer.deleteFile(path);
     if (wasActive) {
       const defs = loadDefaults();
-      setTitle(defs.title);
-      setLayerDefs(defs.layers);
-      setNodes(defs.nodes);
-      setConnections(defs.connections);
-      setLayerManualSizes(defs.layerManualSizes);
-      setLineCurve(defs.lineCurve);
-      setFlows(defs.flows);
-      setSelection(null);
-      setMeasuredSizes({});
+      applyDiagramToState(defs);
     }
-  }, [fileExplorer.activeFile, fileExplorer.deleteFile]);
+  }, [fileExplorer.activeFile, fileExplorer.deleteFile, applyDiagramToState]);
 
   const handleDeleteFolder = useCallback((path: string, event: React.MouseEvent) => {
     setConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
@@ -445,19 +393,8 @@ export default function ArchitectureDesigner() {
   const handleDuplicateFile = useCallback(async (path: string) => {
     const result = await fileExplorer.duplicateFile(path);
     if (!result) return;
-    const diagram = loadDiagramFromData(result.data);
-    setTitle(diagram.title);
-    setLayerDefs(diagram.layers);
-    setNodes(diagram.nodes);
-    setConnections(diagram.connections);
-    setLayerManualSizes(diagram.layerManualSizes);
-    setLineCurve(diagram.lineCurve);
-    setFlows(diagram.flows);
-    setSelection(null);
-    setMeasuredSizes({});
-    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
-  }, [fileExplorer.duplicateFile, setLoadSnapshot]);
+    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true });
+  }, [fileExplorer.duplicateFile, applyDiagramToState]);
 
   const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     await fileExplorer.moveItem(sourcePath, targetFolderPath);
@@ -470,7 +407,7 @@ export default function ArchitectureDesigner() {
     const savedSnapshot = history.goToSaved();
     if (savedSnapshot) {
       isRestoringRef.current = true;
-      const asData = {
+      const diagram = loadDiagramFromData({
         title: savedSnapshot.title,
         layers: savedSnapshot.layerDefs,
         nodes: savedSnapshot.nodes,
@@ -478,19 +415,8 @@ export default function ArchitectureDesigner() {
         layerManualSizes: savedSnapshot.layerManualSizes,
         lineCurve: savedSnapshot.lineCurve,
         flows: savedSnapshot.flows,
-      };
-      const diagram = loadDiagramFromData(asData);
-      setTitle(diagram.title);
-      setLayerDefs(diagram.layers);
-      setNodes(diagram.nodes);
-      setConnections(diagram.connections);
-      setLayerManualSizes(diagram.layerManualSizes);
-      setLineCurve(diagram.lineCurve);
-      setFlows(diagram.flows);
-      setSelection(null);
-      setMeasuredSizes({});
-      setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
+      });
+      applyDiagramToState(diagram, { setSnapshot: true });
       // Clear draft since we're back to saved state
       fileExplorer.discardFile(fileExplorer.activeFile);
       requestAnimationFrame(() => { isRestoringRef.current = false; });
@@ -500,19 +426,8 @@ export default function ArchitectureDesigner() {
     // Fallback: saved state was pruned from history, reload from disk
     const data = await fileExplorer.discardFile(fileExplorer.activeFile);
     if (!data) return;
-    const diagram = loadDiagramFromData(data);
-    setTitle(diagram.title);
-    setLayerDefs(diagram.layers);
-    setNodes(diagram.nodes);
-    setConnections(diagram.connections);
-    setLayerManualSizes(diagram.layerManualSizes);
-    setLineCurve(diagram.lineCurve);
-    setFlows(diagram.flows);
-    setSelection(null);
-    setMeasuredSizes({});
-    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
-  }, [fileExplorer.activeFile, fileExplorer.discardFile, setLoadSnapshot, history.goToSaved]);
+    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true });
+  }, [fileExplorer.activeFile, fileExplorer.discardFile, applyDiagramToState, history.goToSaved]);
 
   const handleDiscard = useCallback((event: React.MouseEvent) => {
     if (!fileExplorer.activeFile || !isDirty) return;
@@ -740,16 +655,17 @@ export default function ArchitectureDesigner() {
     return { connIds, nodeIds, layerIds };
   }, [selection, hoveredFlowId, flows, connections, nodes]);
 
-  // Compute layer bounds from contained nodes
-  const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
+  // Compute layer bounds from contained nodes (memoized)
+  const regions = useMemo(
+    () => computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta),
+    [layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta],
+  );
 
-  // No render-time collision resolution — layer positions are explicit.
-  // Overlap is only resolved on drop (in useLayerDrag).
-  const regions = naturalBounds;
-  const layerShifts: Record<string, number> = {};
-  for (const r of regions) {
-    layerShifts[r.id] = 0;
-  }
+  const layerShifts: Record<string, number> = useMemo(() => {
+    const shifts: Record<string, number> = {};
+    for (const r of regions) shifts[r.id] = 0;
+    return shifts;
+  }, [regions]);
 
   layerShiftsRef.current = layerShifts;
   regionsRef.current = regions;
@@ -761,101 +677,19 @@ export default function ArchitectureDesigner() {
     pendingSelectionRef: pendingSelection,
   });
 
-  // Selection keyboard + pending selection resolve
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        cancelSelectionRect();
-        setSelection(null);
-        setContextMenu(null);
-      }
-
-      if ((e.key === "Delete" || e.key === "Backspace") && selectionRef.current) {
-        const tag = (document.activeElement as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
-        e.preventDefault();
-        const pending = deleteSelection(selectionRef.current);
-        if (pending) setPendingDeletion(pending);
-      }
-
-      // Create Flow (Cmd+G)
-      if ((e.metaKey || e.ctrlKey) && e.key === "g") {
-        const tag = (document.activeElement as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
-        e.preventDefault();
-        const sel = selectionRef.current;
-        if (sel?.type === "multi-line") {
-          handleCreateFlow(sel.ids);
-        }
-      }
-
-      // Undo/Redo
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
-        const tag = (document.activeElement as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
-        e.preventDefault();
-        handleUndo();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
-        const tag = (document.activeElement as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
-        e.preventDefault();
-        handleRedo();
-      }
-    };
-    const onMouseUp = (e: MouseEvent) => {
-      const p = pendingSelection.current;
-      if (p) {
-        const dx = e.clientX - p.x;
-        const dy = e.clientY - p.y;
-        if (dx * dx + dy * dy < 25) {
-          if (e.metaKey || e.ctrlKey) {
-            setSelection((prev) => toggleItemInSelection(prev, { type: p.type, id: p.id }, nodesRef.current));
-          } else {
-            setSelection({ type: p.type, id: p.id });
-          }
-        }
-        pendingSelection.current = null;
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [cancelSelectionRect, handleUndo, handleRedo]);
+  useKeyboardShortcuts({
+    cancelSelectionRect, setSelection, setContextMenu,
+    deleteSelection, setPendingDeletion,
+    handleCreateFlow, handleUndo, handleRedo,
+    selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
+  });
 
   // ── Drag-end watchers for history recording (only record if something actually changed) ──
-  const prevDraggingId = useRef<string | null>(null);
-  useEffect(() => {
-    if (prevDraggingId.current && !draggingId && nodeDragDidMove.current) scheduleRecord("Move element");
-    prevDraggingId.current = draggingId;
-  }, [draggingId, scheduleRecord]);
-
-  const prevMultiDrag = useRef(false);
-  useEffect(() => {
-    if (prevMultiDrag.current && !isMultiDrag && multiDragDidMove.current) scheduleRecord("Move elements");
-    prevMultiDrag.current = isMultiDrag;
-  }, [isMultiDrag, scheduleRecord]);
-
-  const prevDraggingLayerId = useRef<string | null>(null);
-  useEffect(() => {
-    if (prevDraggingLayerId.current && !draggingLayerId && layerDragDidMove.current) scheduleRecord("Move layer");
-    prevDraggingLayerId.current = draggingLayerId;
-  }, [draggingLayerId, scheduleRecord]);
-
-  const prevResizingLayer = useRef<unknown>(null);
-  useEffect(() => {
-    if (prevResizingLayer.current && !resizingLayer && resizeDidChange.current) scheduleRecord("Resize layer");
-    prevResizingLayer.current = resizingLayer;
-  }, [resizingLayer, scheduleRecord]);
-
-  const prevDraggingEndpoint = useRef<unknown>(null);
-  useEffect(() => {
-    if (prevDraggingEndpoint.current && !draggingEndpoint && endpointDragDidMove.current) scheduleRecord("Move connection endpoint");
-    prevDraggingEndpoint.current = draggingEndpoint;
-  }, [draggingEndpoint, scheduleRecord]);
+  useDragEndRecorder(draggingId, nodeDragDidMove, "Move element", scheduleRecord);
+  useDragEndRecorder(isMultiDrag, multiDragDidMove, "Move elements", scheduleRecord);
+  useDragEndRecorder(draggingLayerId, layerDragDidMove, "Move layer", scheduleRecord);
+  useDragEndRecorder(resizingLayer, resizeDidChange, "Resize layer", scheduleRecord);
+  useDragEndRecorder(draggingEndpoint, endpointDragDidMove, "Move connection endpoint", scheduleRecord);
 
   const prevCreatingLine = useRef<unknown>(null);
   const prevConnectionCount = useRef(connections.length);
@@ -924,60 +758,46 @@ export default function ArchitectureDesigner() {
     prevWorldOriginRef.current = { x: world.x, y: world.y };
   }, [world.x, world.y]);
 
-  // Display nodes with layer shifts applied
-  const displayNodes = nodes.map((n) => {
+  // Display nodes with layer shifts applied (memoized)
+  const displayNodes = useMemo(() => nodes.map((n) => {
     const shift = layerShifts[n.layer] || 0;
     return shift !== 0 ? { ...n, y: n.y + shift } : n;
-  });
+  }), [nodes, layerShifts]);
 
-  // Compute lines
-  const nodeMap = Object.fromEntries(displayNodes.map((n) => [n.id, n]));
-  const allNodeRects = displayNodes.map((n) => {
-    const dims = getNodeDimensions(n);
-    return { id: n.id, x: n.x, y: n.y, w: dims.w, h: dims.h };
-  });
+  // Shared node lookup map (used by lines computation and ghost line)
+  const nodeMap = useMemo(() => Object.fromEntries(displayNodes.map((n) => [n.id, n])), [displayNodes]);
 
   /** Resolve anchor position for a node, handling conditions. */
-  const resolveAnchorPos = (anchorId: string, node: typeof displayNodes[0], dims: { w: number; h: number }) => {
+  const resolveAnchorPos = useCallback((anchorId: string, node: typeof displayNodes[0], dims: { w: number; h: number }) => {
     if (node.shape === "condition") {
       return getNodeAnchorPosition(anchorId, node.x, node.y, dims.w, dims.h, node.shape, node.conditionOutCount, node.rotation);
     }
     return getAnchorPosition(anchorId as import("./utils/anchors").AnchorId, node.x, node.y, dims.w, dims.h);
-  };
+  }, []);
 
-  /** Resolve anchor direction for a node, handling conditions. */
-  const resolveAnchorDir = (anchorId: string, node: typeof displayNodes[0], dims: { w: number; h: number }) => {
-    if (node.shape === "condition") {
-      return getNodeAnchorDirection(anchorId, node.x, node.y, dims.w, dims.h, node.shape, node.conditionOutCount, node.rotation);
-    }
-    return getAnchorDirection(anchorId as import("./utils/anchors").AnchorId);
-  };
-
-  const lines = connections.map((conn) => {
-    const fromNode = nodeMap[conn.from];
-    const toNode = nodeMap[conn.to];
-    const fromDims = getNodeDimensions(fromNode);
-    const toDims = getNodeDimensions(toNode);
-    const fromPos = resolveAnchorPos(conn.fromAnchor, fromNode, fromDims);
-    const toPos = resolveAnchorPos(conn.toAnchor, toNode, toDims);
-    const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
-    const fromDir = resolveAnchorDir(conn.fromAnchor, fromNode, fromDims);
-    const toDir = resolveAnchorDir(conn.toAnchor, toNode, toDims);
-    const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles);
-    return {
-      id: conn.id,
-      path,
-      points,
-      color: conn.color,
-      label: conn.label,
-      biDirectional: conn.biDirectional,
-      flowDuration: conn.flowDuration,
-      labelPosition: conn.labelPosition ?? 0.5,
-      connectionType: conn.connectionType,
-      fromPos,
-      toPos,
-    };
-  });
+  // Compute lines (memoized — path computation is expensive)
+  const lines = useMemo(() => {
+    const allNodeRects = displayNodes.map((n) => {
+      const dims = getNodeDimensions(n);
+      return { id: n.id, x: n.x, y: n.y, w: dims.w, h: dims.h };
+    });
+    return connections.map((conn) => {
+      const fromNode = nodeMap[conn.from];
+      const toNode = nodeMap[conn.to];
+      const fromDims = getNodeDimensions(fromNode);
+      const toDims = getNodeDimensions(toNode);
+      const fromPos = resolveAnchorPos(conn.fromAnchor, fromNode, fromDims);
+      const toPos = resolveAnchorPos(conn.toAnchor, toNode, toDims);
+      const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
+      const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles);
+      return {
+        id: conn.id, path, points, color: conn.color, label: conn.label,
+        biDirectional: conn.biDirectional, flowDuration: conn.flowDuration,
+        labelPosition: conn.labelPosition ?? 0.5, connectionType: conn.connectionType,
+        fromPos, toPos,
+      };
+    });
+  }, [connections, displayNodes, nodeMap, lineCurve, getNodeDimensions, resolveAnchorPos]);
 
   linesForSelection.current = lines;
 
@@ -1019,142 +839,55 @@ export default function ArchitectureDesigner() {
     scheduleRecord,
   );
 
+  // Stable callbacks for Element/ConditionElement (avoids new function refs per node per render)
+  const handleNodeDragStart = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.metaKey || e.ctrlKey) {
+      pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY };
+      handleSelectionRectStart(e);
+      return;
+    }
+    pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY };
+    handleDragStart(id, e);
+  }, [handleSelectionRectStart, handleDragStart]);
+
+  const handleNodeDoubleClick = useCallback((nodeId: string) => {
+    const n = nodesRef.current.find((nd) => nd.id === nodeId);
+    if (n) { setEditingLabel({ type: "node", id: nodeId }); setEditingLabelValue(n.label); editingLabelBeforeRef.current = n.label; }
+  }, []);
+
+  const handleNodeMouseEnter = useCallback((id: string) => setHoveredNodeId(id), []);
+  const handleNodeMouseLeave = useCallback(() => setHoveredNodeId(null), []);
+
+  // Sorted lines — used in both the main SVG and the label overlay SVG
+  const sortedLines = useMemo(() => [...lines].sort((a, b) => {
+    const aFront = (a.id === hoveredLine?.id || isItemSelected(selection, 'line', a.id)) ? 1 : 0;
+    const bFront = (b.id === hoveredLine?.id || isItemSelected(selection, 'line', b.id)) ? 1 : 0;
+    return aFront - bFront;
+  }), [lines, hoveredLine?.id, selection]);
+
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 bg-white border-b border-slate-200 z-20">
-        <Link href="/" className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors" title="Back">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-        </Link>
-
-        <div className="h-5 w-px bg-slate-200" />
-
-        {/* Editable title — invisible input, click to edit, blur to save */}
-        <div className="relative flex items-center max-w-[400px]">
-          <span
-            ref={titleMeasureRef}
-            className="invisible absolute whitespace-pre text-sm font-semibold px-0.5"
-            aria-hidden="true"
-          >
-            {titleInputValue || " "}
-          </span>
-          <input
-            ref={titleInputRef}
-            value={titleInputValue}
-            onChange={(e) => setTitleInputValue(e.target.value)}
-            onFocus={(e) => { titleBeforeEdit.current = title; e.target.select(); }}
-            onBlur={() => {
-              const v = titleInputValue.trim();
-              if (v && v !== title) { setTitle(v); scheduleRecord("Edit title"); }
-              else { setTitleInputValue(title); }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              else if (e.key === "Escape") { setTitleInputValue(titleBeforeEdit.current); e.currentTarget.blur(); }
-            }}
-            maxLength={80}
-            className="text-sm font-semibold text-slate-800 bg-transparent border-none outline-none px-0.5 rounded hover:bg-slate-50 focus:bg-slate-50 focus:ring-1 focus:ring-blue-200 transition-colors cursor-pointer focus:cursor-text truncate"
-            style={{ width: titleWidth }}
-            title="Click to edit title"
-          />
-        </div>
-
-        {isDirty && (
-          <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" title="Unsaved changes" />
-        )}
-
-        <div className="flex-1" />
-
-        {/* View toggles */}
-        <div className="flex items-center gap-0.5 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
-          <button
-            onClick={() => setIsLive(!isLive)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              isLive ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
-            }`}
-            title="Toggle live data flow animation"
-          >
-            <Activity size={13} />
-            <span className="hidden xl:inline">Live</span>
-          </button>
-          <button
-            onClick={() => setShowLabels(!showLabels)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              showLabels ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
-            }`}
-            title="Toggle data line labels"
-          >
-            <Tag size={13} />
-            <span className="hidden xl:inline">Labels</span>
-          </button>
-        </div>
-        <button
-          onClick={() => setShowMinimap(!showMinimap)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-            showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
-          }`}
-          title="Toggle minimap"
-        >
-            <Map size={13} />
-            <span className="hidden xl:inline">Minimap</span>
-        </button>
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
-          <button
-            onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))}
-            className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition-all"
-            title="Zoom out"
-          >
-            &minus;
-          </button>
-          <button
-            onClick={() => setZoomTo(1)}
-            className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
-              Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
-            }`}
-            title="Reset zoom to 100%"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            onClick={() => setZoomTo(Math.min(3, zoom + 0.25))}
-            className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition-all"
-            title="Zoom in"
-          >
-            +
-          </button>
-        </div>
-
-        <div className="h-5 w-px bg-slate-200" />
-
-        {/* Discard / Save */}
-        <button
-          onClick={(e) => handleDiscard(e)}
-          disabled={!fileExplorer.activeFile || !isDirty}
-          className={`p-1.5 rounded-md transition-colors ${
-            fileExplorer.activeFile && isDirty
-              ? "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              : "text-slate-300 cursor-not-allowed"
-          }`}
-          title="Discard changes"
-        >
-          <RotateCcw size={16} />
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={!fileExplorer.activeFile || !isDirty}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-            fileExplorer.activeFile && isDirty
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-slate-100 text-slate-300 cursor-not-allowed"
-          }`}
-          title="Save (⌘S)"
-        >
-          <Save size={14} />
-          Save
-        </button>
-      </div>
+      <Header
+        title={title}
+        titleInputValue={titleInputValue}
+        setTitleInputValue={setTitleInputValue}
+        titleWidth={titleWidth}
+        setTitleWidth={setTitleWidth}
+        onTitleCommit={(v) => { setTitle(v); scheduleRecord("Edit title"); }}
+        isDirty={isDirty}
+        hasActiveFile={!!fileExplorer.activeFile}
+        isLive={isLive}
+        showLabels={showLabels}
+        showMinimap={showMinimap}
+        zoom={zoom}
+        onToggleLive={() => setIsLive(!isLive)}
+        onToggleLabels={() => setShowLabels(!showLabels)}
+        onToggleMinimap={() => setShowMinimap(!showMinimap)}
+        onZoomChange={setZoomTo}
+        onDiscard={handleDiscard}
+        onSave={handleSave}
+      />
 
       {/* Hidden fallback input for browsers without File System Access API */}
       <input
@@ -1192,9 +925,9 @@ export default function ArchitectureDesigner() {
           onMoveItem={handleMoveItem}
           isLoading={fileExplorer.isLoading}
           onRefresh={fileExplorer.refresh}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          sortGrouping={sortGrouping}
+          sortField={sortPrefs.field}
+          sortDirection={sortPrefs.direction}
+          sortGrouping={sortPrefs.grouping}
           onSortChange={handleSortChange}
         />
         <HistoryPanel
@@ -1290,11 +1023,7 @@ export default function ArchitectureDesigner() {
               style={{ zIndex: 5, left: world.x, top: world.y, width: world.w, height: world.h }}
               viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
             >
-              {[...lines].sort((a, b) => {
-                const aFront = (a.id === hoveredLine?.id || isItemSelected(selection, 'line', a.id)) ? 1 : 0;
-                const bFront = (b.id === hoveredLine?.id || isItemSelected(selection, 'line', b.id)) ? 1 : 0;
-                return aFront - bFront;
-              }).map((line) => {
+              {sortedLines.map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
                 const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id));
                 return (
@@ -1414,11 +1143,6 @@ export default function ArchitectureDesigner() {
                 visualY = node.y + layerDragDelta.dy;
               }
 
-              const commonDragStart = (id: string, e: React.MouseEvent) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); };
-              const commonDoubleClick = (nodeId: string) => {
-                const n = nodes.find((nd) => nd.id === nodeId);
-                if (n) { setEditingLabel({ type: "node", id: nodeId }); setEditingLabelValue(n.label); editingLabelBeforeRef.current = n.label; }
-              };
               const commonProps = {
                 isDragging: isThisDragged,
                 isSelected: isItemSelected(selection, 'node', node.id),
@@ -1426,10 +1150,10 @@ export default function ArchitectureDesigner() {
                 highlightedAnchor: isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null,
                 onAnchorDragStart: handleAnchorDragStart,
                 onResize: handleElementResize,
-                onMouseEnter: () => setHoveredNodeId(node.id),
-                onMouseLeave: () => setHoveredNodeId(null),
+                onMouseEnter: handleNodeMouseEnter,
+                onMouseLeave: handleNodeMouseLeave,
                 dimmed,
-                onDoubleClick: commonDoubleClick,
+                onDoubleClick: handleNodeDoubleClick,
               };
 
               if (isCondition) {
@@ -1447,7 +1171,7 @@ export default function ArchitectureDesigner() {
                       outCount={node.conditionOutCount ?? 2}
                       rotation={node.rotation ?? 0}
                       showLabels
-                      onDragStart={commonDragStart}
+                      onDragStart={handleNodeDragStart}
                       {...commonProps}
                       onAddOutAnchor={() => {
                         setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
@@ -1475,7 +1199,7 @@ export default function ArchitectureDesigner() {
                     x={visualX}
                     y={visualY}
                     showLabels
-                    onDragStart={commonDragStart}
+                    onDragStart={handleNodeDragStart}
                     {...commonProps}
                     anchors={anchors}
                     measuredHeight={dims.h}
@@ -1490,11 +1214,7 @@ export default function ArchitectureDesigner() {
                 style={{ zIndex: 15, left: world.x, top: world.y, width: world.w, height: world.h }}
                 viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
               >
-                {[...lines].sort((a, b) => {
-                  const aFront = (a.id === hoveredLine?.id || isItemSelected(selection, 'line', a.id)) ? 1 : 0;
-                  const bFront = (b.id === hoveredLine?.id || isItemSelected(selection, 'line', b.id)) ? 1 : 0;
-                  return aFront - bFront;
-                }).map((line) => {
+                {sortedLines.map((line) => {
                   if (!line.label) return null;
                   const pt = interpolatePoints(line.points, line.labelPosition);
                   const isHovered = hoveredLine?.id === line.id;
@@ -1816,49 +1536,29 @@ export default function ArchitectureDesigner() {
         />
       )}
 
-      {/* Flow break warning modal (deletion) */}
       {pendingDeletion && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" onClick={() => setPendingDeletion(null)}>
-          <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">This will break {pendingDeletion.brokenFlows.length === 1 ? "a flow" : "flows"}</h3>
-            <p className="text-xs text-slate-600 mb-3">The following flows will be deleted because their connections would no longer be contiguous:</p>
-            <ul className="mb-4 space-y-1">
-              {pendingDeletion.brokenFlows.map((f) => (
-                <li key={f.id} className="text-xs text-slate-700 font-medium bg-slate-50 rounded px-2 py-1">{f.name}</li>
-              ))}
-            </ul>
-            <div className="flex justify-end gap-2">
-              <button className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer" onClick={() => setPendingDeletion(null)}>Cancel</button>
-              <button className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors cursor-pointer" onClick={() => { confirmDeletion(pendingDeletion); setPendingDeletion(null); }}>Continue</button>
-            </div>
-          </div>
-        </div>
+        <FlowBreakWarningModal
+          description="The following flows will be deleted because their connections would no longer be contiguous:"
+          brokenFlows={pendingDeletion.brokenFlows}
+          onCancel={() => setPendingDeletion(null)}
+          onConfirm={() => { confirmDeletion(pendingDeletion); setPendingDeletion(null); }}
+        />
       )}
 
-      {/* Flow break warning modal (reconnection) */}
       {pendingReconnect && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" onClick={() => setPendingReconnect(null)}>
-          <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">This will break {pendingReconnect.brokenFlows.length === 1 ? "a flow" : "flows"}</h3>
-            <p className="text-xs text-slate-600 mb-3">Reconnecting this endpoint will break the contiguity of these flows, which will be deleted:</p>
-            <ul className="mb-4 space-y-1">
-              {pendingReconnect.brokenFlows.map((f) => (
-                <li key={f.id} className="text-xs text-slate-700 font-medium bg-slate-50 rounded px-2 py-1">{f.name}</li>
-              ))}
-            </ul>
-            <div className="flex justify-end gap-2">
-              <button className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer" onClick={() => setPendingReconnect(null)}>Cancel</button>
-              <button className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors cursor-pointer" onClick={() => {
-                const { oldId, updates, brokenFlows } = pendingReconnect;
-                const brokenIds = new Set(brokenFlows.map((f) => f.id));
-                setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
-                setFlows((prev) => prev.filter((f) => !brokenIds.has(f.id)));
-                scheduleRecord("Edit connection");
-                setPendingReconnect(null);
-              }}>Continue</button>
-            </div>
-          </div>
-        </div>
+        <FlowBreakWarningModal
+          description="Reconnecting this endpoint will break the contiguity of these flows, which will be deleted:"
+          brokenFlows={pendingReconnect.brokenFlows}
+          onCancel={() => setPendingReconnect(null)}
+          onConfirm={() => {
+            const { oldId, updates, brokenFlows } = pendingReconnect;
+            const brokenIds = new Set(brokenFlows.map((f) => f.id));
+            setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
+            setFlows((prev) => prev.filter((f) => !brokenIds.has(f.id)));
+            scheduleRecord("Edit connection");
+            setPendingReconnect(null);
+          }}
+        />
       )}
     </div>
   );

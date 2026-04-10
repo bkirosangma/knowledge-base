@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
@@ -21,8 +21,8 @@ interface ConditionElementProps {
   showAnchors?: boolean;
   highlightedAnchor?: AnchorId | null;
   onAnchorDragStart?: (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => void;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
+  onMouseEnter?: (id: string) => void;
+  onMouseLeave?: (id: string) => void;
   onResize?: (id: string, width: number, height: number) => void;
   onDoubleClick?: (id: string) => void;
   onAddOutAnchor?: () => void;
@@ -33,7 +33,7 @@ interface ConditionElementProps {
   textColor?: string;
 }
 
-export default function ConditionElement({
+function ConditionElement({
   id,
   label,
   icon: Icon,
@@ -115,8 +115,8 @@ export default function ConditionElement({
         transitionDelay: dimmed ? "0.15s" : "0s",
       }}
       onMouseDown={(e) => { e.preventDefault(); onDragStart?.(id, e); }}
-      onMouseEnter={() => { setHovered(true); onMouseEnter?.(); }}
-      onMouseLeave={() => { setHovered(false); onMouseLeave?.(); }}
+      onMouseEnter={() => { setHovered(true); onMouseEnter?.(id); }}
+      onMouseLeave={() => { setHovered(false); onMouseLeave?.(id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
       {/* SVG shape */}
@@ -235,3 +235,5 @@ export default function ConditionElement({
     </div>
   );
 }
+
+export default React.memo(ConditionElement);

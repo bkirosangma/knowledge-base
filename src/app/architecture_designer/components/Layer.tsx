@@ -23,7 +23,7 @@ interface LayerProps {
 
 const HANDLE_SIZE = 8;
 
-export default function Layer({
+function Layer({
   id,
   title,
   left,
@@ -106,3 +106,5 @@ export default function Layer({
     </>
   );
 }
+
+export default React.memo(Layer);

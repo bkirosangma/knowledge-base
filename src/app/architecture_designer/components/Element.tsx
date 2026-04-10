@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 
@@ -26,8 +26,8 @@ interface ElementProps {
     anchorId: AnchorId,
     e: React.MouseEvent,
   ) => void;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
+  onMouseEnter?: (id: string) => void;
+  onMouseLeave?: (id: string) => void;
   onResize?: (id: string, width: number, height: number) => void;
   onDoubleClick?: (id: string) => void;
   measuredHeight?: number;
@@ -37,7 +37,7 @@ interface ElementProps {
   textColor?: string;
 }
 
-export default function Element({
+function Element({
   id,
   label,
   sub,
@@ -109,8 +109,8 @@ export default function Element({
         e.preventDefault();
         onDragStart?.(id, e);
       }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={onMouseEnter ? () => onMouseEnter(id) : undefined}
+      onMouseLeave={onMouseLeave ? () => onMouseLeave(id) : undefined}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
       {Icon && (
@@ -172,3 +172,5 @@ export default function Element({
     </div>
   );
 }
+
+export default React.memo(Element);

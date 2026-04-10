@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import React, { useRef, useCallback, useEffect, useState } from "react";
 
 /** Interpolate a point along a polyline at parameter t (0..1) */
 export function interpolatePoints(points: { x: number; y: number }[], t: number): { x: number; y: number } {
@@ -101,7 +101,7 @@ interface DataLineProps {
   connectionType?: 'synchronous' | 'asynchronous';
 }
 
-export default function DataLine({
+function DataLine({
   id,
   path,
   color,
@@ -267,3 +267,5 @@ export default function DataLine({
     </g>
   );
 }
+
+export default React.memo(DataLine);
