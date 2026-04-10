@@ -17,7 +17,8 @@ import type { LineCurveAlgorithm, Selection } from "./utils/types";
 import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
-import { loadDefaults, clearDiagram } from "./utils/persistence";
+import { loadDefaults, serializeNodes } from "./utils/persistence";
+import { Save, RotateCcw } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -36,6 +37,12 @@ import { useDeletion } from "./hooks/useDeletion";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
 import DiagramControls from "./components/DiagramControls";
+import ExplorerPanel from "./components/explorer/ExplorerPanel";
+import ConfirmPopover from "./components/explorer/ConfirmPopover";
+import { useFileExplorer } from "./hooks/useFileExplorer";
+import { loadDiagramFromData } from "./utils/persistence";
+
+const SKIP_DISCARD_CONFIRM_KEY = "architecture-designer-skip-discard-confirm";
 
 export default function ArchitectureDesigner() {
   const [isLive, setIsLive] = useState(false);
@@ -61,6 +68,52 @@ export default function ArchitectureDesigner() {
   const [patches, setPatches] = useState<CanvasPatch[]>([
     { id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 },
   ]);
+
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
+  const fileExplorer = useFileExplorer();
+
+  // Sort preferences
+  const SORT_PREFS_KEY = "architecture-designer-sort-prefs";
+  const [sortField, setSortField] = useState<import("./components/explorer/ExplorerPanel").SortField>(() => {
+    if (typeof window === "undefined") return "name";
+    try {
+      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
+      return prefs.field ?? "name";
+    } catch { return "name"; }
+  });
+  const [sortDirection, setSortDirection] = useState<import("./components/explorer/ExplorerPanel").SortDirection>(() => {
+    if (typeof window === "undefined") return "asc";
+    try {
+      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
+      return prefs.direction ?? "asc";
+    } catch { return "asc"; }
+  });
+  const [sortGrouping, setSortGrouping] = useState<import("./components/explorer/ExplorerPanel").SortGrouping>(() => {
+    if (typeof window === "undefined") return "folders-first";
+    try {
+      const prefs = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
+      return prefs.grouping ?? "folders-first";
+    } catch { return "folders-first"; }
+  });
+  const handleSortChange = useCallback((
+    field: import("./components/explorer/ExplorerPanel").SortField,
+    direction: import("./components/explorer/ExplorerPanel").SortDirection,
+    grouping: import("./components/explorer/ExplorerPanel").SortGrouping,
+  ) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setSortGrouping(grouping);
+    try {
+      localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping }));
+    } catch { /* ignore */ }
+  }, []);
+
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "delete-file" | "delete-folder" | "discard";
+    path?: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const handleElementResize = useCallback((id: string, width: number, height: number) => {
     setMeasuredSizes((prev) => {
@@ -134,10 +187,181 @@ export default function ArchitectureDesigner() {
     selection,
   });
 
-  useDiagramPersistence(
+  const { isDirty, setLoadSnapshot } = useDiagramPersistence(
     setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve,
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve,
+    fileExplorer.activeFile,
+    fileExplorer.markDirty,
   );
+
+  const handleLoadFile = useCallback(async (fileName: string) => {
+    const data = await fileExplorer.selectFile(fileName);
+    if (!data) return;
+    const diagram = loadDiagramFromData(data);
+    setTitle(diagram.title);
+    setLayerDefs(diagram.layers);
+    setNodes(diagram.nodes);
+    setConnections(diagram.connections);
+    setLayerManualSizes(diagram.layerManualSizes);
+    setLineCurve(diagram.lineCurve);
+    setSelection(null);
+    setMeasuredSizes({});
+    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+  }, [fileExplorer.selectFile, setLoadSnapshot]);
+
+  const handleSave = useCallback(async () => {
+    if (!fileExplorer.activeFile || !isDirty) return;
+    const success = await fileExplorer.saveFile(
+      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes,
+    );
+    if (success) {
+      setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+    }
+  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, setLoadSnapshot]);
+
+  // Cmd+S / Ctrl+S keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSave]);
+
+  // Auto-load last opened file on restore
+  useEffect(() => {
+    if (fileExplorer.pendingFile) {
+      handleLoadFile(fileExplorer.pendingFile);
+      fileExplorer.clearPendingFile();
+    }
+  }, [fileExplorer.pendingFile, fileExplorer.clearPendingFile, handleLoadFile]);
+
+  const handleCreateFile = useCallback(async (parentPath: string = ""): Promise<string | null> => {
+    const result = await fileExplorer.createFile(parentPath);
+    if (!result) return null;
+    const diagram = loadDiagramFromData(result.data);
+    setTitle(diagram.title);
+    setLayerDefs(diagram.layers);
+    setNodes(diagram.nodes);
+    setConnections(diagram.connections);
+    setLayerManualSizes(diagram.layerManualSizes);
+    setLineCurve(diagram.lineCurve);
+    setSelection(null);
+    setMeasuredSizes({});
+    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+    // Center canvas for empty diagram
+    requestAnimationFrame(() => {
+      if (canvasRef.current) {
+        const el = canvasRef.current;
+        el.scrollTo({
+          left: (el.scrollWidth - el.clientWidth) / 2,
+          top: (el.scrollHeight - el.clientHeight) / 2,
+          behavior: "instant",
+        });
+      }
+    });
+    return result.path;
+  }, [fileExplorer.createFile, setLoadSnapshot]);
+
+  const handleCreateFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
+    return fileExplorer.createFolder(parentPath);
+  }, [fileExplorer.createFolder]);
+
+  const handleDeleteFile = useCallback((path: string, event: React.MouseEvent) => {
+    setConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
+  }, []);
+
+  const executeDeleteFile = useCallback(async (path: string) => {
+    const wasActive = fileExplorer.activeFile === path;
+    await fileExplorer.deleteFile(path);
+    if (wasActive) {
+      const defs = loadDefaults();
+      setTitle(defs.title);
+      setLayerDefs(defs.layers);
+      setNodes(defs.nodes);
+      setConnections(defs.connections);
+      setLayerManualSizes(defs.layerManualSizes);
+      setLineCurve(defs.lineCurve);
+      setSelection(null);
+      setMeasuredSizes({});
+    }
+  }, [fileExplorer.activeFile, fileExplorer.deleteFile]);
+
+  const handleDeleteFolder = useCallback((path: string, event: React.MouseEvent) => {
+    setConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleRenameFile = useCallback(async (oldPath: string, newName: string) => {
+    await fileExplorer.renameFile(oldPath, newName);
+  }, [fileExplorer.renameFile]);
+
+  const handleRenameFolder = useCallback(async (oldPath: string, newName: string) => {
+    await fileExplorer.renameFolder(oldPath, newName);
+  }, [fileExplorer.renameFolder]);
+
+  const handleDuplicateFile = useCallback(async (path: string) => {
+    const result = await fileExplorer.duplicateFile(path);
+    if (!result) return;
+    const diagram = loadDiagramFromData(result.data);
+    setTitle(diagram.title);
+    setLayerDefs(diagram.layers);
+    setNodes(diagram.nodes);
+    setConnections(diagram.connections);
+    setLayerManualSizes(diagram.layerManualSizes);
+    setLineCurve(diagram.lineCurve);
+    setSelection(null);
+    setMeasuredSizes({});
+    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+  }, [fileExplorer.duplicateFile, setLoadSnapshot]);
+
+  const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
+    await fileExplorer.moveItem(sourcePath, targetFolderPath);
+  }, [fileExplorer.moveItem]);
+
+  const executeDiscard = useCallback(async () => {
+    if (!fileExplorer.activeFile) return;
+    const data = await fileExplorer.discardFile(fileExplorer.activeFile);
+    if (!data) return;
+    const diagram = loadDiagramFromData(data);
+    setTitle(diagram.title);
+    setLayerDefs(diagram.layers);
+    setNodes(diagram.nodes);
+    setConnections(diagram.connections);
+    setLayerManualSizes(diagram.layerManualSizes);
+    setLineCurve(diagram.lineCurve);
+    setSelection(null);
+    setMeasuredSizes({});
+    setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
+    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+  }, [fileExplorer.activeFile, fileExplorer.discardFile, setLoadSnapshot]);
+
+  const handleDiscard = useCallback((event: React.MouseEvent) => {
+    if (!fileExplorer.activeFile || !isDirty) return;
+    // Check "don't ask again" preference
+    if (typeof window !== "undefined" && localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true") {
+      executeDiscard();
+      return;
+    }
+    setConfirmAction({ type: "discard", x: event.clientX, y: event.clientY });
+  }, [fileExplorer.activeFile, isDirty, executeDiscard]);
+
+  const handleConfirmAction = useCallback(async () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "delete-file" && confirmAction.path) {
+      await executeDeleteFile(confirmAction.path);
+    } else if (confirmAction.type === "delete-folder" && confirmAction.path) {
+      await fileExplorer.deleteFolder(confirmAction.path);
+    } else if (confirmAction.type === "discard") {
+      await executeDiscard();
+    }
+    setConfirmAction(null);
+  }, [confirmAction, executeDeleteFile, fileExplorer.deleteFolder, executeDiscard]);
 
   const { deleteNodes, deleteLayer, deleteSelection } = useDeletion(nodesRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection,
@@ -341,13 +565,74 @@ export default function ArchitectureDesigner() {
         <Link href="/" className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-sm transition-colors">
           &larr; Back
         </Link>
-        <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
+        <h1 className="text-2xl font-semibold text-slate-800 tracking-tight flex-1">
           {title}
         </h1>
+        <button
+          onClick={(e) => handleDiscard(e)}
+          disabled={!fileExplorer.activeFile || !isDirty}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            fileExplorer.activeFile && isDirty
+              ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
+              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+          }`}
+          title="Discard changes"
+        >
+          <RotateCcw size={16} />
+          Discard
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!fileExplorer.activeFile || !isDirty}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            fileExplorer.activeFile && isDirty
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+          }`}
+          title="Save (⌘S)"
+        >
+          <Save size={16} />
+          Save
+        </button>
       </div>
 
-      {/* Viewport + Properties */}
+      {/* Hidden fallback input for browsers without File System Access API */}
+      <input
+        ref={fileExplorer.inputRef}
+        type="file"
+        /* @ts-expect-error webkitdirectory is non-standard */
+        webkitdirectory=""
+        className="hidden"
+        onChange={(e) => fileExplorer.handleFallbackInput(e.target.files)}
+      />
+
+      {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
+      {/* Explorer Panel (left sidebar) */}
+      <ExplorerPanel
+        collapsed={explorerCollapsed}
+        onToggleCollapse={() => setExplorerCollapsed((c) => !c)}
+        directoryName={fileExplorer.directoryName}
+        tree={fileExplorer.tree}
+        activeFile={fileExplorer.activeFile}
+        dirtyFiles={fileExplorer.dirtyFiles}
+        onOpenFolder={fileExplorer.openFolder}
+        onSelectFile={handleLoadFile}
+        onCreateFile={handleCreateFile}
+        onCreateFolder={handleCreateFolder}
+        onDeleteFile={handleDeleteFile}
+        onDeleteFolder={handleDeleteFolder}
+        onRenameFile={handleRenameFile}
+        onRenameFolder={handleRenameFolder}
+        onDuplicateFile={handleDuplicateFile}
+        onMoveItem={handleMoveItem}
+        isLoading={fileExplorer.isLoading}
+        onRefresh={fileExplorer.refresh}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        sortGrouping={sortGrouping}
+        onSortChange={handleSortChange}
+      />
       {/* Viewport */}
       <div
         ref={canvasRef}
@@ -650,21 +935,30 @@ export default function ArchitectureDesigner() {
         showLabels={showLabels} setShowLabels={setShowLabels}
         showMinimap={showMinimap} setShowMinimap={setShowMinimap}
         world={world} patches={patches} zoom={zoom}
-        onReset={() => {
-          clearDiagram();
-          try { localStorage.removeItem(VIEWPORT_KEY); } catch { /* ignore */ }
-          const defaults = loadDefaults();
-          setIsLive(true);
-          setShowLabels(true);
-          setLayerDefs(defaults.layers);
-          setNodes(defaults.nodes);
-          setConnections(defaults.connections);
-          setPatches([{ id: "main", col: 0, row: 0, widthUnits: 3, heightUnits: 3 }]);
-          setLayerManualSizes({});
-          zoomRef.current = 1;
-          setZoom(1);
-        }}
       />
+
+      {/* Confirmation popover */}
+      {confirmAction && (
+        <ConfirmPopover
+          message={
+            confirmAction.type === "delete-file"
+              ? `Delete "${confirmAction.path?.split("/").pop()}"?`
+              : confirmAction.type === "delete-folder"
+                ? `Delete folder "${confirmAction.path?.split("/").pop()}" and all its contents?`
+                : "Discard all unsaved changes?"
+          }
+          confirmLabel={confirmAction.type === "discard" ? "Discard" : "Delete"}
+          confirmColor={confirmAction.type === "discard" ? "blue" : "red"}
+          showDontAsk={confirmAction.type === "discard"}
+          onDontAskChange={(checked) => {
+            if (checked) localStorage.setItem(SKIP_DISCARD_CONFIRM_KEY, "true");
+            else localStorage.removeItem(SKIP_DISCARD_CONFIRM_KEY);
+          }}
+          position={{ x: confirmAction.x, y: confirmAction.y }}
+          onConfirm={handleConfirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   );
 }

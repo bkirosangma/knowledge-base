@@ -11,7 +11,7 @@ function deserializeNodes(serialized: SerializedNodeData[]): NodeData[] {
   }));
 }
 
-function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
+export function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
   return nodes.map((n) => ({
     id: n.id,
     label: n.label,
@@ -70,6 +70,35 @@ export function loadDiagram(): {
   return loadDefaults();
 }
 
+export function loadDiagramFromData(data: DiagramData): {
+  title: string;
+  layers: LayerDef[];
+  nodes: NodeData[];
+  connections: Connection[];
+  layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+  lineCurve: LineCurveAlgorithm;
+} {
+  return {
+    title: data.title ?? "Untitled",
+    layers: migrateLayerColors(data.layers),
+    nodes: deserializeNodes(data.nodes),
+    connections: data.connections,
+    layerManualSizes: data.layerManualSizes ?? {},
+    lineCurve: data.lineCurve ?? "orthogonal",
+  };
+}
+
+export function createEmptyDiagram(title: string): DiagramData {
+  return {
+    title,
+    layers: [],
+    nodes: [],
+    connections: [],
+    layerManualSizes: {},
+    lineCurve: "orthogonal",
+  };
+}
+
 export function loadDefaults(): {
   title: string;
   layers: LayerDef[];
@@ -120,4 +149,70 @@ export function clearDiagram(): void {
   } catch {
     // Silently ignore
   }
+}
+
+/* ── Per-file draft helpers ── */
+
+const DRAFT_PREFIX = "architecture-designer-draft:";
+
+export function saveDraft(
+  fileName: string,
+  title: string,
+  layers: LayerDef[],
+  nodes: NodeData[],
+  connections: Connection[],
+  layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
+  lineCurve: LineCurveAlgorithm,
+): void {
+  if (typeof window === "undefined") return;
+  const data: DiagramData = {
+    title,
+    layers,
+    nodes: serializeNodes(nodes),
+    connections,
+    layerManualSizes,
+    lineCurve,
+  };
+  try {
+    localStorage.setItem(DRAFT_PREFIX + fileName, JSON.stringify(data));
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+export function loadDraft(fileName: string): DiagramData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DRAFT_PREFIX + fileName);
+    if (raw) return JSON.parse(raw) as DiagramData;
+  } catch {
+    // Corrupted
+  }
+  return null;
+}
+
+export function clearDraft(fileName: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(DRAFT_PREFIX + fileName);
+  } catch {
+    // Silently ignore
+  }
+}
+
+export function hasDraft(fileName: string): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(DRAFT_PREFIX + fileName) !== null;
+}
+
+export function listDrafts(): Set<string> {
+  const result = new Set<string>();
+  if (typeof window === "undefined") return result;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(DRAFT_PREFIX)) {
+      result.add(key.slice(DRAFT_PREFIX.length));
+    }
+  }
+  return result;
 }
