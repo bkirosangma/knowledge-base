@@ -55,7 +55,7 @@ export function LineProperties({
   id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
   allConnectionIds: string[];
   flows?: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
@@ -107,6 +107,24 @@ export function LineProperties({
           >
             <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${conn.biDirectional ? "left-[16px]" : "left-[2px]"}`} />
           </button>
+        </div>
+        <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Conn Type</span>
+          <div className="flex gap-0.5">
+            {([['synchronous', 'Sync'], ['asynchronous', 'Async']] as const).map(([type, label]) => (
+              <button
+                key={type}
+                className={`px-2.5 py-0.5 text-[11px] font-medium rounded transition-colors ${
+                  (conn.connectionType ?? 'synchronous') === type
+                    ? "bg-blue-100 text-blue-700 border border-blue-300"
+                    : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
+                }`}
+                onClick={() => onUpdate?.(id, { connectionType: type })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </Section>
 

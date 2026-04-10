@@ -1,0 +1,882 @@
+{
+  "title": "Spring Security Architecture",
+  "layers": [
+    {
+      "id": "ly-client",
+      "title": "CLIENT LAYER",
+      "bg": "#eff6ff",
+      "border": "#bfdbfe"
+    },
+    {
+      "id": "ly-filter",
+      "title": "SERVLET FILTER CHAIN",
+      "bg": "#fef3c7",
+      "border": "#fcd34d"
+    },
+    {
+      "id": "ly-authn",
+      "title": "AUTHENTICATION LAYER",
+      "bg": "#ecfdf5",
+      "border": "#6ee7b7"
+    },
+    {
+      "id": "ly-authz",
+      "title": "AUTHORIZATION LAYER",
+      "bg": "#fdf2f8",
+      "border": "#f9a8d4"
+    },
+    {
+      "id": "ly-app",
+      "title": "APPLICATION LAYER",
+      "bg": "#f5f3ff",
+      "border": "#c4b5fd"
+    },
+    {
+      "id": "ly-data",
+      "title": "DATA & IDENTITY STORE LAYER",
+      "bg": "#f1f5f9",
+      "border": "#cbd5e1"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "el-browser",
+      "label": "Browser Client",
+      "sub": "HTTP/HTTPS Requests",
+      "icon": "Monitor",
+      "x": 401,
+      "y": 126,
+      "w": 210,
+      "layer": "ly-client"
+    },
+    {
+      "id": "el-mobile",
+      "label": "Mobile Client",
+      "sub": "REST API / JWT Bearer",
+      "icon": "Smartphone",
+      "x": 1001,
+      "y": 126,
+      "w": 210,
+      "layer": "ly-client"
+    },
+    {
+      "id": "el-security-filter",
+      "label": "SecurityFilterChain",
+      "sub": "DelegatingFilterProxy",
+      "icon": "Shield",
+      "x": 200,
+      "y": 300,
+      "w": 210,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-cors",
+      "label": "CORS Filter",
+      "sub": "Cross-Origin Handling",
+      "icon": "Globe",
+      "x": 480,
+      "y": 300,
+      "w": 180,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-csrf",
+      "label": "CSRF Filter",
+      "sub": "Token Validation",
+      "icon": "ShieldCheck",
+      "x": 730,
+      "y": 300,
+      "w": 180,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-authn-filter",
+      "label": "Authentication Filter",
+      "sub": "UsernamePassword / Bearer",
+      "icon": "Database",
+      "x": 980,
+      "y": 300,
+      "w": 210,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-authz-filter",
+      "label": "Authorization Filter",
+      "sub": "FilterSecurityInterceptor",
+      "icon": "Lock",
+      "x": 1260,
+      "y": 300,
+      "w": 210,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-exception-filter",
+      "label": "Exception Translation",
+      "sub": "AuthenticationEntryPoint",
+      "icon": "Zap",
+      "x": 1540,
+      "y": 440,
+      "w": 210,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-rate-limiter",
+      "label": "Rate Limiter",
+      "sub": "Request Throttling",
+      "icon": "Database",
+      "x": 200,
+      "y": 440,
+      "w": 180,
+      "layer": "ly-filter"
+    },
+    {
+      "id": "el-cond-authenticated",
+      "label": "Authenticated?",
+      "icon": "GitBranch",
+      "x": 1085,
+      "y": 470,
+      "w": 120,
+      "shape": "condition",
+      "conditionOutCount": 2
+    },
+    {
+      "id": "el-cond-tokentype",
+      "label": "Token Type?",
+      "icon": "GitBranch",
+      "x": 600,
+      "y": 530,
+      "w": 120,
+      "shape": "condition",
+      "conditionOutCount": 2
+    },
+    {
+      "id": "el-authn-manager",
+      "label": "AuthenticationManager",
+      "sub": "ProviderManager",
+      "icon": "Cog",
+      "x": 600,
+      "y": 630,
+      "w": 210,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-jwt-validator",
+      "label": "JWT Token Validator",
+      "sub": "Bearer Token Verification",
+      "icon": "Key",
+      "x": 900,
+      "y": 630,
+      "w": 210,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-dao-provider",
+      "label": "DaoAuthProvider",
+      "sub": "Password Encoding",
+      "icon": "Key",
+      "x": 330,
+      "y": 780,
+      "w": 190,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-ldap-provider",
+      "label": "LdapAuthProvider",
+      "sub": "Bind Authentication",
+      "icon": "Network",
+      "x": 590,
+      "y": 780,
+      "w": 190,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-oauth2-provider",
+      "label": "OAuth2LoginProvider",
+      "sub": "Authorization Code Flow",
+      "icon": "Globe",
+      "x": 850,
+      "y": 780,
+      "w": 210,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-userdetails",
+      "label": "UserDetailsService",
+      "sub": "loadUserByUsername()",
+      "icon": "User",
+      "x": 1150,
+      "y": 650,
+      "w": 210,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-security-context",
+      "label": "SecurityContextHolder",
+      "sub": "ThreadLocal Strategy",
+      "icon": "Layers",
+      "x": 1430,
+      "y": 650,
+      "w": 210,
+      "layer": "ly-authn"
+    },
+    {
+      "id": "el-access-decision",
+      "label": "AccessDecisionManager",
+      "sub": "AffirmativeBased",
+      "icon": "ShieldCheck",
+      "x": 600,
+      "y": 1000,
+      "w": 220,
+      "layer": "ly-authz"
+    },
+    {
+      "id": "el-role-voter",
+      "label": "RoleVoter",
+      "sub": "ROLE_ prefix matching",
+      "icon": "Users",
+      "x": 350,
+      "y": 1150,
+      "w": 180,
+      "layer": "ly-authz"
+    },
+    {
+      "id": "el-web-voter",
+      "label": "Web Expression Voter",
+      "sub": "SpEL Authorization",
+      "icon": "Code",
+      "x": 600,
+      "y": 1150,
+      "w": 210,
+      "layer": "ly-authz"
+    },
+    {
+      "id": "el-method-security",
+      "label": "Method Security",
+      "sub": "@PreAuthorize / @Secured",
+      "icon": "FileCode",
+      "x": 880,
+      "y": 1150,
+      "w": 210,
+      "layer": "ly-authz"
+    },
+    {
+      "id": "el-permission-eval",
+      "label": "PermissionEvaluator",
+      "sub": "Domain Object ACL",
+      "icon": "Lock",
+      "x": 1150,
+      "y": 1050,
+      "w": 210,
+      "layer": "ly-authz"
+    },
+    {
+      "id": "el-cond-hasrole",
+      "label": "Has Role?",
+      "icon": "GitBranch",
+      "x": 850,
+      "y": 1260,
+      "w": 120,
+      "shape": "condition",
+      "conditionOutCount": 2
+    },
+    {
+      "id": "el-dispatcher",
+      "label": "DispatcherServlet",
+      "sub": "Front Controller Pattern",
+      "icon": "Router",
+      "x": 750,
+      "y": 1370,
+      "w": 210,
+      "layer": "ly-app"
+    },
+    {
+      "id": "el-audit-logger",
+      "label": "Audit Logger",
+      "sub": "Security Event Logging",
+      "icon": "Database",
+      "x": 1200,
+      "y": 1370,
+      "w": 210,
+      "layer": "ly-app"
+    },
+    {
+      "id": "el-controller",
+      "label": "@RestController",
+      "sub": "Request Handling & Mapping",
+      "icon": "Terminal",
+      "x": 400,
+      "y": 1520,
+      "w": 210,
+      "layer": "ly-app"
+    },
+    {
+      "id": "el-service",
+      "label": "@Service Layer",
+      "sub": "@Transactional Business Logic",
+      "icon": "Cog",
+      "x": 680,
+      "y": 1520,
+      "w": 210,
+      "layer": "ly-app"
+    },
+    {
+      "id": "el-repository",
+      "label": "@Repository",
+      "sub": "Spring Data JPA",
+      "icon": "Database",
+      "x": 960,
+      "y": 1520,
+      "w": 210,
+      "layer": "ly-app"
+    },
+    {
+      "id": "el-app-db",
+      "label": "Application Database",
+      "sub": "PostgreSQL / MySQL",
+      "icon": "DatabaseZap",
+      "x": 960,
+      "y": 1740,
+      "w": 210,
+      "layer": "ly-data"
+    },
+    {
+      "id": "el-user-db",
+      "label": "User Database",
+      "sub": "Credentials & Roles",
+      "icon": "Database",
+      "x": 1240,
+      "y": 1740,
+      "w": 210,
+      "layer": "ly-data"
+    },
+    {
+      "id": "el-ldap-server",
+      "label": "LDAP Server",
+      "sub": "Active Directory",
+      "icon": "Server",
+      "x": 350,
+      "y": 1740,
+      "w": 190,
+      "layer": "ly-data"
+    },
+    {
+      "id": "el-oauth2-server",
+      "label": "OAuth2 Provider",
+      "sub": "Google / GitHub / Okta",
+      "icon": "Cloud",
+      "x": 610,
+      "y": 1740,
+      "w": 210,
+      "layer": "ly-data"
+    },
+    {
+      "id": "el-session-store",
+      "label": "Session Store",
+      "sub": "Redis / JDBC",
+      "icon": "HardDrive",
+      "x": 1520,
+      "y": 1740,
+      "w": 190,
+      "layer": "ly-data"
+    }
+  ],
+  "connections": [
+    {
+      "id": "dl-browser-secfilter",
+      "from": "el-browser",
+      "to": "el-security-filter",
+      "fromAnchor": "bottom-0",
+      "toAnchor": "top-1",
+      "color": "#3b82f6",
+      "label": "HTTP Request"
+    },
+    {
+      "id": "dl-mobile-authnfilter",
+      "from": "el-mobile",
+      "to": "el-authn-filter",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#3b82f6",
+      "label": "REST + JWT"
+    },
+    {
+      "id": "dl-secfilter-cors",
+      "from": "el-security-filter",
+      "to": "el-cors",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#3b82f6",
+      "label": "Chain delegates"
+    },
+    {
+      "id": "dl-cors-csrf",
+      "from": "el-cors",
+      "to": "el-csrf",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#3b82f6",
+      "label": ""
+    },
+    {
+      "id": "dl-csrf-authnf",
+      "from": "el-csrf",
+      "to": "el-authn-filter",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#3b82f6",
+      "label": ""
+    },
+    {
+      "id": "dl-authnf-cond-auth",
+      "from": "el-authn-filter",
+      "to": "el-cond-authenticated",
+      "fromAnchor": "right-2",
+      "toAnchor": "cond-in",
+      "color": "#10b981",
+      "label": "Check result"
+    },
+    {
+      "id": "dl-cond-auth-yes",
+      "from": "el-cond-authenticated",
+      "to": "el-authz-filter",
+      "fromAnchor": "cond-out-0",
+      "toAnchor": "left-2",
+      "color": "#10b981",
+      "label": "Yes"
+    },
+    {
+      "id": "dl-cond-auth-no",
+      "from": "el-cond-authenticated",
+      "to": "el-exception-filter",
+      "fromAnchor": "cond-out-1",
+      "toAnchor": "left-2",
+      "color": "#ef4444",
+      "label": "No → 401"
+    },
+    {
+      "id": "dl-authzf-exception",
+      "from": "el-authz-filter",
+      "to": "el-exception-filter",
+      "fromAnchor": "right-2",
+      "toAnchor": "left-1",
+      "color": "#f59e0b",
+      "label": "On failure"
+    },
+    {
+      "id": "dl-authnf-cond-token",
+      "from": "el-authn-filter",
+      "to": "el-cond-tokentype",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "cond-in",
+      "color": "#10b981",
+      "label": "authenticate()"
+    },
+    {
+      "id": "dl-cond-token-session",
+      "from": "el-cond-tokentype",
+      "to": "el-authn-manager",
+      "fromAnchor": "cond-out-0",
+      "toAnchor": "top-1",
+      "color": "#10b981",
+      "label": "Session/Password"
+    },
+    {
+      "id": "dl-cond-token-jwt",
+      "from": "el-cond-tokentype",
+      "to": "el-jwt-validator",
+      "fromAnchor": "cond-out-1",
+      "toAnchor": "top-1",
+      "color": "#10b981",
+      "label": "Bearer Token"
+    },
+    {
+      "id": "dl-authnmgr-dao",
+      "from": "el-authn-manager",
+      "to": "el-dao-provider",
+      "fromAnchor": "bottom-0",
+      "toAnchor": "top-2",
+      "color": "#10b981",
+      "label": "Delegates"
+    },
+    {
+      "id": "dl-authnmgr-ldap",
+      "from": "el-authn-manager",
+      "to": "el-ldap-provider",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#10b981",
+      "label": "Delegates"
+    },
+    {
+      "id": "dl-authnmgr-oauth2",
+      "from": "el-authn-manager",
+      "to": "el-oauth2-provider",
+      "fromAnchor": "bottom-2",
+      "toAnchor": "top-0",
+      "color": "#10b981",
+      "label": "Delegates"
+    },
+    {
+      "id": "dl-dao-userdetails",
+      "from": "el-dao-provider",
+      "to": "el-userdetails",
+      "fromAnchor": "top-1",
+      "toAnchor": "left-2",
+      "color": "#10b981",
+      "label": "loadUserByUsername()"
+    },
+    {
+      "id": "dl-authnf-secctx",
+      "from": "el-authn-filter",
+      "to": "el-security-context",
+      "fromAnchor": "bottom-2",
+      "toAnchor": "top-1",
+      "color": "#10b981",
+      "label": "Store Authentication"
+    },
+    {
+      "id": "dl-jwt-secctx",
+      "from": "el-jwt-validator",
+      "to": "el-security-context",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#10b981",
+      "label": "Store JWT Principal"
+    },
+    {
+      "id": "dl-authzf-accessdec",
+      "from": "el-authz-filter",
+      "to": "el-access-decision",
+      "fromAnchor": "bottom-0",
+      "toAnchor": "top-2",
+      "color": "#f59e0b",
+      "label": "decide()"
+    },
+    {
+      "id": "dl-accessdec-rolevoter",
+      "from": "el-access-decision",
+      "to": "el-role-voter",
+      "fromAnchor": "bottom-0",
+      "toAnchor": "top-1",
+      "color": "#f59e0b",
+      "label": "vote()"
+    },
+    {
+      "id": "dl-accessdec-webvoter",
+      "from": "el-access-decision",
+      "to": "el-web-voter",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#f59e0b",
+      "label": "vote()"
+    },
+    {
+      "id": "dl-accessdec-method",
+      "from": "el-access-decision",
+      "to": "el-method-security",
+      "fromAnchor": "bottom-2",
+      "toAnchor": "top-0",
+      "color": "#f59e0b",
+      "label": "AOP Intercept"
+    },
+    {
+      "id": "dl-method-permeval",
+      "from": "el-method-security",
+      "to": "el-permission-eval",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#f59e0b",
+      "label": "hasPermission()"
+    },
+    {
+      "id": "dl-accessdec-cond-role",
+      "from": "el-access-decision",
+      "to": "el-cond-hasrole",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "cond-in",
+      "color": "#f59e0b",
+      "label": "Evaluate roles"
+    },
+    {
+      "id": "dl-cond-role-granted",
+      "from": "el-cond-hasrole",
+      "to": "el-dispatcher",
+      "fromAnchor": "cond-out-0",
+      "toAnchor": "top-0",
+      "color": "#10b981",
+      "label": "Granted"
+    },
+    {
+      "id": "dl-cond-role-denied",
+      "from": "el-cond-hasrole",
+      "to": "el-exception-filter",
+      "fromAnchor": "cond-out-1",
+      "toAnchor": "bottom-1",
+      "color": "#ef4444",
+      "label": "Denied → 403"
+    },
+    {
+      "id": "dl-authzf-dispatcher",
+      "from": "el-authz-filter",
+      "to": "el-dispatcher",
+      "fromAnchor": "bottom-2",
+      "toAnchor": "top-2",
+      "color": "#3b82f6",
+      "label": "Request Authorized"
+    },
+    {
+      "id": "dl-secfilter-ratelimit",
+      "from": "el-security-filter",
+      "to": "el-rate-limiter",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#3b82f6",
+      "label": "Pre-filter check"
+    },
+    {
+      "id": "dl-dispatcher-audit",
+      "from": "el-dispatcher",
+      "to": "el-audit-logger",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#8b5cf6",
+      "label": "Log access events"
+    },
+    {
+      "id": "dl-dispatcher-controller",
+      "from": "el-dispatcher",
+      "to": "el-controller",
+      "fromAnchor": "bottom-0",
+      "toAnchor": "top-1",
+      "color": "#8b5cf6",
+      "label": "Route to Handler"
+    },
+    {
+      "id": "dl-controller-service",
+      "from": "el-controller",
+      "to": "el-service",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#8b5cf6",
+      "label": "Delegate Logic"
+    },
+    {
+      "id": "dl-service-repository",
+      "from": "el-service",
+      "to": "el-repository",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#8b5cf6",
+      "label": "Data Access"
+    },
+    {
+      "id": "dl-repository-appdb",
+      "from": "el-repository",
+      "to": "el-app-db",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#64748b",
+      "label": "JPA / SQL Query"
+    },
+    {
+      "id": "dl-userdetails-db",
+      "from": "el-userdetails",
+      "to": "el-user-db",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#64748b",
+      "label": "JDBC / JPA Query"
+    },
+    {
+      "id": "dl-ldapprov-ldapsrv",
+      "from": "el-ldap-provider",
+      "to": "el-ldap-server",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#64748b",
+      "label": "LDAP Bind"
+    },
+    {
+      "id": "dl-oauth2prov-oauth2srv",
+      "from": "el-oauth2-provider",
+      "to": "el-oauth2-server",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#64748b",
+      "label": "Token Exchange"
+    },
+    {
+      "id": "dl-secctx-session",
+      "from": "el-security-context",
+      "to": "el-session-store",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#64748b",
+      "label": "Session Persistence"
+    },
+    {
+      "id": "dl-exception-browser",
+      "from": "el-exception-filter",
+      "to": "el-browser",
+      "fromAnchor": "top-2",
+      "toAnchor": "right-2",
+      "color": "#f59e0b",
+      "label": "401/403 Response"
+    }
+  ],
+  "layerManualSizes": {},
+  "lineCurve": "bezier",
+  "flows": [
+    {
+      "id": "flow-browser-happy-path",
+      "name": "Browser Happy Path",
+      "connectionIds": [
+        "dl-browser-secfilter",
+        "dl-secfilter-cors",
+        "dl-cors-csrf",
+        "dl-csrf-authnf",
+        "dl-authnf-cond-auth",
+        "dl-cond-auth-yes",
+        "dl-authzf-dispatcher",
+        "dl-dispatcher-controller",
+        "dl-controller-service",
+        "dl-service-repository",
+        "dl-repository-appdb"
+      ]
+    },
+    {
+      "id": "flow-mobile-request",
+      "name": "Mobile API Request",
+      "connectionIds": [
+        "dl-mobile-authnfilter",
+        "dl-authnf-cond-auth",
+        "dl-cond-auth-yes",
+        "dl-authzf-dispatcher",
+        "dl-dispatcher-controller",
+        "dl-controller-service",
+        "dl-service-repository",
+        "dl-repository-appdb"
+      ]
+    },
+    {
+      "id": "flow-filter-chain",
+      "name": "Servlet Filter Chain",
+      "connectionIds": [
+        "dl-secfilter-cors",
+        "dl-cors-csrf",
+        "dl-csrf-authnf",
+        "dl-authnf-cond-auth",
+        "dl-cond-auth-yes"
+      ]
+    },
+    {
+      "id": "flow-dao-authentication",
+      "name": "DAO Authentication",
+      "connectionIds": [
+        "dl-authnf-cond-token",
+        "dl-cond-token-session",
+        "dl-authnmgr-dao",
+        "dl-dao-userdetails",
+        "dl-userdetails-db"
+      ]
+    },
+    {
+      "id": "flow-ldap-authentication",
+      "name": "LDAP Authentication",
+      "connectionIds": [
+        "dl-authnf-cond-token",
+        "dl-cond-token-session",
+        "dl-authnmgr-ldap",
+        "dl-ldapprov-ldapsrv"
+      ]
+    },
+    {
+      "id": "flow-oauth2-authentication",
+      "name": "OAuth2 Authentication",
+      "connectionIds": [
+        "dl-authnf-cond-token",
+        "dl-cond-token-session",
+        "dl-authnmgr-oauth2",
+        "dl-oauth2prov-oauth2srv"
+      ]
+    },
+    {
+      "id": "flow-authorization-decision",
+      "name": "Authorization Decision",
+      "connectionIds": [
+        "dl-authzf-accessdec",
+        "dl-accessdec-rolevoter",
+        "dl-accessdec-webvoter",
+        "dl-accessdec-method",
+        "dl-method-permeval"
+      ]
+    },
+    {
+      "id": "flow-request-processing",
+      "name": "Request Processing",
+      "connectionIds": [
+        "dl-authzf-dispatcher",
+        "dl-dispatcher-controller",
+        "dl-controller-service",
+        "dl-service-repository",
+        "dl-repository-appdb"
+      ]
+    },
+    {
+      "id": "flow-exception-handling",
+      "name": "Exception Handling",
+      "connectionIds": [
+        "dl-authzf-exception",
+        "dl-exception-browser"
+      ]
+    },
+    {
+      "id": "flow-session-management",
+      "name": "Session Management",
+      "connectionIds": [
+        "dl-authnf-secctx",
+        "dl-secctx-session"
+      ]
+    },
+    {
+      "id": "flow-jwt-auth",
+      "name": "JWT Bearer Authentication",
+      "connectionIds": [
+        "dl-mobile-authnfilter",
+        "dl-authnf-cond-token",
+        "dl-cond-token-jwt",
+        "dl-jwt-secctx",
+        "dl-secctx-session"
+      ]
+    },
+    {
+      "id": "flow-auth-failure",
+      "name": "Authentication Failure",
+      "connectionIds": [
+        "dl-browser-secfilter",
+        "dl-secfilter-cors",
+        "dl-cors-csrf",
+        "dl-csrf-authnf",
+        "dl-authnf-cond-auth",
+        "dl-cond-auth-no",
+        "dl-exception-browser"
+      ]
+    },
+    {
+      "id": "flow-authz-denied",
+      "name": "Authorization Denied (403)",
+      "connectionIds": [
+        "dl-browser-secfilter",
+        "dl-secfilter-cors",
+        "dl-cors-csrf",
+        "dl-csrf-authnf",
+        "dl-authnf-cond-auth",
+        "dl-cond-auth-yes",
+        "dl-authzf-accessdec",
+        "dl-accessdec-cond-role",
+        "dl-cond-role-denied",
+        "dl-exception-browser"
+      ]
+    }
+  ]
+}

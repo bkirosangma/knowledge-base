@@ -98,6 +98,7 @@ interface DataLineProps {
   isSelected?: boolean;
   dimmed?: boolean;
   suppressLabel?: boolean;
+  connectionType?: 'synchronous' | 'asynchronous';
 }
 
 export default function DataLine({
@@ -124,6 +125,7 @@ export default function DataLine({
   isSelected,
   dimmed,
   suppressLabel,
+  connectionType,
 }: DataLineProps) {
   const [isDraggingLabel, setIsDraggingLabel] = useState(false);
   const dragRef = useRef({ startT: labelPosition, points });
@@ -205,7 +207,7 @@ export default function DataLine({
                   ? 1
                   : 0.7
         }
-        strokeDasharray={isDraggingEndpoint ? "4 3" : "none"}
+        strokeDasharray={isDraggingEndpoint ? "4 3" : connectionType === 'asynchronous' ? "8 5" : "none"}
       />
       {/* Animated dots are rendered in a separate SVG layer for performance */}
       {/* Visible endpoint dots (hidden during drag — ghost line shows its own) */}

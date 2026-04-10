@@ -46,6 +46,7 @@ export interface Connection {
   flowDuration?: number;
   /** Position of the label along the path (0 = start, 1 = end, default 0.5 = midpoint) */
   labelPosition?: number;
+  connectionType?: 'synchronous' | 'asynchronous';
 }
 
 export interface SerializedNodeData {

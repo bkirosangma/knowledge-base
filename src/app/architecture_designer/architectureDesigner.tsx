@@ -964,6 +964,7 @@ export default function ArchitectureDesigner() {
       biDirectional: conn.biDirectional,
       flowDuration: conn.flowDuration,
       labelPosition: conn.labelPosition ?? 0.5,
+      connectionType: conn.connectionType,
       fromPos,
       toPos,
     };
