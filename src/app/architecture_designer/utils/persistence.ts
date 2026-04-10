@@ -1,5 +1,6 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm } from "./types";
 import { getIcon, getIconName } from "./iconRegistry";
+import { scopedKey } from "./directoryScope";
 import defaultData from "../data/thanos.json";
 
 const STORAGE_KEY = "architecture-designer-data";
@@ -51,7 +52,7 @@ export function loadDiagram(): {
 } {
   if (typeof window !== "undefined") {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(scopedKey(STORAGE_KEY));
       if (raw) {
         const data: DiagramData = JSON.parse(raw);
         return {
@@ -136,7 +137,7 @@ export function saveDiagram(
     lineCurve,
   };
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(data));
   } catch {
     // Storage full or unavailable — silently ignore
   }
@@ -145,7 +146,7 @@ export function saveDiagram(
 export function clearDiagram(): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(scopedKey(STORAGE_KEY));
   } catch {
     // Silently ignore
   }
@@ -174,7 +175,7 @@ export function saveDraft(
     lineCurve,
   };
   try {
-    localStorage.setItem(DRAFT_PREFIX + fileName, JSON.stringify(data));
+    localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));
   } catch {
     // Storage full or unavailable
   }
@@ -183,7 +184,7 @@ export function saveDraft(
 export function loadDraft(fileName: string): DiagramData | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(DRAFT_PREFIX + fileName);
+    const raw = localStorage.getItem(scopedKey(DRAFT_PREFIX) + fileName);
     if (raw) return JSON.parse(raw) as DiagramData;
   } catch {
     // Corrupted
@@ -194,7 +195,7 @@ export function loadDraft(fileName: string): DiagramData | null {
 export function clearDraft(fileName: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(DRAFT_PREFIX + fileName);
+    localStorage.removeItem(scopedKey(DRAFT_PREFIX) + fileName);
   } catch {
     // Silently ignore
   }
@@ -202,16 +203,17 @@ export function clearDraft(fileName: string): void {
 
 export function hasDraft(fileName: string): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(DRAFT_PREFIX + fileName) !== null;
+  return localStorage.getItem(scopedKey(DRAFT_PREFIX) + fileName) !== null;
 }
 
 export function listDrafts(): Set<string> {
   const result = new Set<string>();
   if (typeof window === "undefined") return result;
+  const prefix = scopedKey(DRAFT_PREFIX);
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key?.startsWith(DRAFT_PREFIX)) {
-      result.add(key.slice(DRAFT_PREFIX.length));
+    if (key?.startsWith(prefix)) {
+      result.add(key.slice(prefix.length));
     }
   }
   return result;

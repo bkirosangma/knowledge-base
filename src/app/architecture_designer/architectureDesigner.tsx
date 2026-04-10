@@ -18,7 +18,7 @@ import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, Undo2, Redo2 } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -39,8 +39,11 @@ import { detectContextMenuTarget } from "./utils/geometry";
 import DiagramControls from "./components/DiagramControls";
 import ExplorerPanel from "./components/explorer/ExplorerPanel";
 import ConfirmPopover from "./components/explorer/ConfirmPopover";
+import HistoryPanel from "./components/HistoryPanel";
 import { useFileExplorer } from "./hooks/useFileExplorer";
 import { loadDiagramFromData } from "./utils/persistence";
+import { useActionHistory } from "./hooks/useActionHistory";
+import type { DiagramSnapshot } from "./hooks/useActionHistory";
 
 const SKIP_DISCARD_CONFIRM_KEY = "architecture-designer-skip-discard-confirm";
 
@@ -70,7 +73,9 @@ export default function ArchitectureDesigner() {
   ]);
 
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const fileExplorer = useFileExplorer();
+  const history = useActionHistory();
 
   // Sort preferences
   const SORT_PREFS_KEY = "architecture-designer-sort-prefs";
@@ -114,6 +119,66 @@ export default function ArchitectureDesigner() {
     x: number;
     y: number;
   } | null>(null);
+
+  /* ── History recording helpers ── */
+  const pendingRecord = useRef<string | null>(null);
+  const isRestoringRef = useRef(false);
+
+  const scheduleRecord = useCallback((description: string) => {
+    if (isRestoringRef.current) return;
+    pendingRecord.current = description;
+  }, []);
+
+  // Fire after render so all state is settled
+  useEffect(() => {
+    if (pendingRecord.current && !isRestoringRef.current) {
+      const desc = pendingRecord.current;
+      pendingRecord.current = null;
+      history.recordAction(desc, {
+        title,
+        layerDefs,
+        nodes: serializeNodes(nodes),
+        connections,
+        layerManualSizes,
+        lineCurve,
+      });
+    }
+  });
+
+  const applySnapshot = useCallback((snapshot: DiagramSnapshot | null) => {
+    if (!snapshot) return;
+    isRestoringRef.current = true;
+    const asData = {
+      title: snapshot.title,
+      layers: snapshot.layerDefs,
+      nodes: snapshot.nodes,
+      connections: snapshot.connections,
+      layerManualSizes: snapshot.layerManualSizes,
+      lineCurve: snapshot.lineCurve,
+    };
+    const diagram = loadDiagramFromData(asData);
+    setTitle(diagram.title);
+    setLayerDefs(diagram.layers);
+    setNodes(diagram.nodes);
+    setConnections(diagram.connections);
+    setLayerManualSizes(diagram.layerManualSizes);
+    setLineCurve(diagram.lineCurve);
+    setSelection(null);
+    // Clear restoring flag after React processes the state updates
+    requestAnimationFrame(() => { isRestoringRef.current = false; });
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    applySnapshot(history.undo());
+  }, [history.undo, applySnapshot]);
+
+  const handleRedo = useCallback(() => {
+    applySnapshot(history.redo());
+  }, [history.redo, applySnapshot]);
+
+  const handleGoToEntry = useCallback((index: number) => {
+    applySnapshot(history.goToEntry(index));
+  }, [history.goToEntry, applySnapshot]);
 
   const handleElementResize = useCallback((id: string, width: number, height: number) => {
     setMeasuredSizes((prev) => {
@@ -197,6 +262,7 @@ export default function ArchitectureDesigner() {
   const handleLoadFile = useCallback(async (fileName: string) => {
     const data = await fileExplorer.selectFile(fileName);
     if (!data) return;
+    const diagramJson = JSON.stringify(data);
     const diagram = loadDiagramFromData(data);
     setTitle(diagram.title);
     setLayerDefs(diagram.layers);
@@ -208,7 +274,18 @@ export default function ArchitectureDesigner() {
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
     setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
-  }, [fileExplorer.selectFile, setLoadSnapshot]);
+    // Initialize history for this file
+    isRestoringRef.current = true;
+    await history.initHistory(diagramJson, {
+      title: data.title ?? "Untitled",
+      layerDefs: data.layers,
+      nodes: data.nodes,
+      connections: data.connections,
+      layerManualSizes: data.layerManualSizes ?? {},
+      lineCurve: data.lineCurve ?? "orthogonal",
+    }, fileExplorer.dirHandleRef.current, fileName);
+    requestAnimationFrame(() => { isRestoringRef.current = false; });
+  }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, setLoadSnapshot, history.initHistory]);
 
   const handleSave = useCallback(async () => {
     if (!fileExplorer.activeFile || !isDirty) return;
@@ -217,8 +294,11 @@ export default function ArchitectureDesigner() {
     );
     if (success) {
       setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve);
+      // Update history checksum to match saved file
+      const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve };
+      history.onSave(JSON.stringify(savedData));
     }
-  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, setLoadSnapshot]);
+  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, setLoadSnapshot, history.onSave]);
 
   // Cmd+S / Ctrl+S keyboard shortcut
   useEffect(() => {
@@ -326,6 +406,37 @@ export default function ArchitectureDesigner() {
 
   const executeDiscard = useCallback(async () => {
     if (!fileExplorer.activeFile) return;
+
+    // Try navigating history back to the last saved state
+    const savedSnapshot = history.goToSaved();
+    if (savedSnapshot) {
+      isRestoringRef.current = true;
+      const asData = {
+        title: savedSnapshot.title,
+        layers: savedSnapshot.layerDefs,
+        nodes: savedSnapshot.nodes,
+        connections: savedSnapshot.connections,
+        layerManualSizes: savedSnapshot.layerManualSizes,
+        lineCurve: savedSnapshot.lineCurve,
+      };
+      const diagram = loadDiagramFromData(asData);
+      setTitle(diagram.title);
+      setLayerDefs(diagram.layers);
+      setNodes(diagram.nodes);
+      setConnections(diagram.connections);
+      setLayerManualSizes(diagram.layerManualSizes);
+      setLineCurve(diagram.lineCurve);
+      setSelection(null);
+      setMeasuredSizes({});
+      setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
+      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
+      // Clear draft since we're back to saved state
+      fileExplorer.discardFile(fileExplorer.activeFile);
+      requestAnimationFrame(() => { isRestoringRef.current = false; });
+      return;
+    }
+
+    // Fallback: saved state was pruned from history, reload from disk
     const data = await fileExplorer.discardFile(fileExplorer.activeFile);
     if (!data) return;
     const diagram = loadDiagramFromData(data);
@@ -339,7 +450,7 @@ export default function ArchitectureDesigner() {
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
     setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve);
-  }, [fileExplorer.activeFile, fileExplorer.discardFile, setLoadSnapshot]);
+  }, [fileExplorer.activeFile, fileExplorer.discardFile, setLoadSnapshot, history.goToSaved]);
 
   const handleDiscard = useCallback((event: React.MouseEvent) => {
     if (!fileExplorer.activeFile || !isDirty) return;
@@ -365,7 +476,7 @@ export default function ArchitectureDesigner() {
 
   const { deleteNodes, deleteLayer, deleteSelection } = useDeletion(nodesRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection,
-  });
+  }, scheduleRecord);
 
   // Compute layer bounds from contained nodes
   const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
@@ -403,6 +514,20 @@ export default function ArchitectureDesigner() {
         e.preventDefault();
         deleteSelection(selectionRef.current);
       }
+
+      // Undo/Redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        handleRedo();
+      }
     };
     const onMouseUp = (e: MouseEvent) => {
       const p = pendingSelection.current;
@@ -425,7 +550,48 @@ export default function ArchitectureDesigner() {
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [cancelSelectionRect]);
+  }, [cancelSelectionRect, handleUndo, handleRedo]);
+
+  // ── Drag-end watchers for history recording ──
+  const prevDraggingId = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevDraggingId.current && !draggingId) scheduleRecord("Move element");
+    prevDraggingId.current = draggingId;
+  }, [draggingId, scheduleRecord]);
+
+  const prevMultiDrag = useRef(false);
+  useEffect(() => {
+    if (prevMultiDrag.current && !isMultiDrag) scheduleRecord("Move elements");
+    prevMultiDrag.current = isMultiDrag;
+  }, [isMultiDrag, scheduleRecord]);
+
+  const prevDraggingLayerId = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevDraggingLayerId.current && !draggingLayerId) scheduleRecord("Move layer");
+    prevDraggingLayerId.current = draggingLayerId;
+  }, [draggingLayerId, scheduleRecord]);
+
+  const prevResizingLayer = useRef<unknown>(null);
+  useEffect(() => {
+    if (prevResizingLayer.current && !resizingLayer) scheduleRecord("Resize layer");
+    prevResizingLayer.current = resizingLayer;
+  }, [resizingLayer, scheduleRecord]);
+
+  const prevDraggingEndpoint = useRef<unknown>(null);
+  useEffect(() => {
+    if (prevDraggingEndpoint.current && !draggingEndpoint) scheduleRecord("Move connection endpoint");
+    prevDraggingEndpoint.current = draggingEndpoint;
+  }, [draggingEndpoint, scheduleRecord]);
+
+  const prevCreatingLine = useRef<unknown>(null);
+  const prevConnectionCount = useRef(connections.length);
+  useEffect(() => {
+    if (prevCreatingLine.current && !creatingLine && connections.length > prevConnectionCount.current) {
+      scheduleRecord("Create connection");
+    }
+    prevCreatingLine.current = creatingLine;
+    prevConnectionCount.current = connections.length;
+  }, [creatingLine, connections.length, scheduleRecord]);
 
   // Auto-fit canvas patches
   const contentBounds = useMemo(() => {
@@ -467,7 +633,7 @@ export default function ArchitectureDesigner() {
   worldRef.current = world;
   setWorldOffset(world.x, world.y);
 
-  const { VIEWPORT_KEY } = useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom);
+  const { VIEWPORT_KEY } = useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom, fileExplorer.activeFile);
 
   // Compensate scroll when world origin shifts (canvas expands left/top)
   // useLayoutEffect runs before paint, preventing visible jumps
@@ -556,6 +722,7 @@ export default function ArchitectureDesigner() {
   const { handleAddElement, handleAddLayer } = useContextMenuActions(
     contextMenu, regions, nodes, getNodeDimensions, layerManualSizes,
     setNodes, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu,
+    scheduleRecord,
   );
 
   return (
@@ -608,31 +775,49 @@ export default function ArchitectureDesigner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-      {/* Explorer Panel (left sidebar) */}
-      <ExplorerPanel
-        collapsed={explorerCollapsed}
-        onToggleCollapse={() => setExplorerCollapsed((c) => !c)}
-        directoryName={fileExplorer.directoryName}
-        tree={fileExplorer.tree}
-        activeFile={fileExplorer.activeFile}
-        dirtyFiles={fileExplorer.dirtyFiles}
-        onOpenFolder={fileExplorer.openFolder}
-        onSelectFile={handleLoadFile}
-        onCreateFile={handleCreateFile}
-        onCreateFolder={handleCreateFolder}
-        onDeleteFile={handleDeleteFile}
-        onDeleteFolder={handleDeleteFolder}
-        onRenameFile={handleRenameFile}
-        onRenameFolder={handleRenameFolder}
-        onDuplicateFile={handleDuplicateFile}
-        onMoveItem={handleMoveItem}
-        isLoading={fileExplorer.isLoading}
-        onRefresh={fileExplorer.refresh}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        sortGrouping={sortGrouping}
-        onSortChange={handleSortChange}
-      />
+      {/* Left sidebar: Explorer + History */}
+      <div
+        className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
+        style={{ width: explorerCollapsed ? 36 : 260 }}
+      >
+        <ExplorerPanel
+          collapsed={explorerCollapsed}
+          onToggleCollapse={() => setExplorerCollapsed((c) => !c)}
+          directoryName={fileExplorer.directoryName}
+          tree={fileExplorer.tree}
+          activeFile={fileExplorer.activeFile}
+          dirtyFiles={fileExplorer.dirtyFiles}
+          onOpenFolder={fileExplorer.openFolder}
+          onSelectFile={handleLoadFile}
+          onCreateFile={handleCreateFile}
+          onCreateFolder={handleCreateFolder}
+          onDeleteFile={handleDeleteFile}
+          onDeleteFolder={handleDeleteFolder}
+          onRenameFile={handleRenameFile}
+          onRenameFolder={handleRenameFolder}
+          onDuplicateFile={handleDuplicateFile}
+          onMoveItem={handleMoveItem}
+          isLoading={fileExplorer.isLoading}
+          onRefresh={fileExplorer.refresh}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          sortGrouping={sortGrouping}
+          onSortChange={handleSortChange}
+        />
+        <HistoryPanel
+          entries={history.entries}
+          currentIndex={history.currentIndex}
+          savedIndex={history.savedIndex}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onGoToEntry={handleGoToEntry}
+          collapsed={historyCollapsed}
+          sidebarCollapsed={explorerCollapsed}
+          onToggleCollapse={() => setHistoryCollapsed((c) => !c)}
+        />
+      </div>
       {/* Viewport */}
       <div
         ref={canvasRef}
@@ -863,7 +1048,7 @@ export default function ArchitectureDesigner() {
             scrollToRect({ x: node.x - dims.w / 2, y: node.y - dims.h / 2, w: dims.w, h: dims.h });
           }
         }}
-        onUpdateTitle={(t) => setTitle(t)}
+        onUpdateTitle={(t) => { setTitle(t); scheduleRecord("Edit title"); }}
         onUpdateNode={(oldId, updates) => {
           const newId = updates.id;
           setNodes((prev) => prev.map((n) => n.id === oldId ? { ...n, ...updates } : n));
@@ -880,6 +1065,7 @@ export default function ArchitectureDesigner() {
             });
             setSelection({ type: 'node', id: newId });
           }
+          scheduleRecord("Edit element");
         }}
         onUpdateLayer={(oldId, updates) => {
           const newId = updates.id;
@@ -893,6 +1079,7 @@ export default function ArchitectureDesigner() {
             });
             setSelection({ type: 'layer', id: newId });
           }
+          scheduleRecord("Edit layer");
         }}
         onUpdateConnection={(oldId, updates) => {
           const newId = updates.id;
@@ -900,15 +1087,16 @@ export default function ArchitectureDesigner() {
           if (newId && newId !== oldId) {
             setSelection({ type: 'line', id: newId });
           }
+          scheduleRecord("Edit connection");
         }}
         lineCurve={lineCurve}
-        onUpdateLineCurve={(alg) => setLineCurve(alg)}
+        onUpdateLineCurve={(alg) => { setLineCurve(alg); scheduleRecord("Change line curve"); }}
       />
       </div>
 
       {/* Minimap — overlays viewport from outside the scroll container */}
       {showMinimap && (
-        <div className="absolute bottom-16 left-4 z-30">
+        <div className="absolute bottom-16 z-30 transition-[left] duration-200" style={{ left: explorerCollapsed ? 52 : 276 }}>
           <Minimap
             world={world}
             viewportRef={canvasRef}

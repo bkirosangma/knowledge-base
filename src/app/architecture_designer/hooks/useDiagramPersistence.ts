@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm } from "../utils/types";
 import { loadDiagram, saveDiagram, saveDraft } from "../utils/persistence";
+import { scopedKey } from "../utils/directoryScope";
 
 /**
  * Hydrates diagram state from localStorage on mount, and auto-saves
@@ -48,7 +49,7 @@ export function useDiagramPersistence(
 
   // Hydrate from localStorage on mount
   useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("architecture-designer-data")) {
+    if (typeof window !== "undefined" && localStorage.getItem(scopedKey("architecture-designer-data"))) {
       const saved = loadDiagram();
       setTitle(saved.title);
       setLayerDefs(saved.layers);

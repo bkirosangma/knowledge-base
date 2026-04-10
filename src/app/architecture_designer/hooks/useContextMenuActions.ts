@@ -21,6 +21,7 @@ export function useContextMenuActions(
   setLayerManualSizes: React.Dispatch<React.SetStateAction<ManualSizes>>,
   setSelection: React.Dispatch<React.SetStateAction<Selection>>,
   setContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>,
+  onActionComplete?: (description: string) => void,
 ): { handleAddElement: () => void; handleAddLayer: () => void } {
 
   const handleAddElement = useCallback(() => {
@@ -96,7 +97,8 @@ export function useContextMenuActions(
     setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: finalX, y: finalY, w: newW, layer: targetLayer }]);
     setSelection({ type: "node", id: newId });
     setContextMenu(null);
-  }, [contextMenu, regions, nodes, getNodeDimensions, layerManualSizes, setNodes, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu]);
+    onActionComplete?.("Add element");
+  }, [contextMenu, regions, nodes, getNodeDimensions, layerManualSizes, setNodes, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu, onActionComplete]);
 
   const handleAddLayer = useCallback(() => {
     if (!contextMenu) return;
@@ -118,7 +120,8 @@ export function useContextMenuActions(
     setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: newW, top: placeTop, height: newH } }));
     setSelection({ type: "layer", id: newId });
     setContextMenu(null);
-  }, [contextMenu, regions, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu]);
+    onActionComplete?.("Add layer");
+  }, [contextMenu, regions, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu, onActionComplete]);
 
   return { handleAddElement, handleAddLayer };
 }

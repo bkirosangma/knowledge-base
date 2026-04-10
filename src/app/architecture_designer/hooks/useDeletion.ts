@@ -21,6 +21,7 @@ export function useDeletion(
     setNodes, setConnections, setLayerDefs, setLayerManualSizes,
     setMeasuredSizes, setSelection,
   }: DeletionSetters,
+  onActionComplete?: (description: string) => void,
 ) {
   const performDeletion = useCallback((
     nodeIdsToDelete: string[],
@@ -59,7 +60,13 @@ export function useDeletion(
     }
 
     setSelection(null);
-  }, [nodesRef, setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection]);
+
+    const parts: string[] = [];
+    if (layerIdsToDelete.length > 0) parts.push(`${layerIdsToDelete.length} layer(s)`);
+    if (nodeIdsToDelete.length > 0) parts.push(`${nodeIdsToDelete.length} element(s)`);
+    if (lineIdsToDelete.length > 0) parts.push(`${lineIdsToDelete.length} connection(s)`);
+    onActionComplete?.(`Delete ${parts.join(", ")}`);
+  }, [nodesRef, setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, onActionComplete]);
 
   const deleteNodes = useCallback((nodeIds: string[]) => {
     performDeletion(nodeIds, [], []);

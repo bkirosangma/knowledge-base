@@ -401,10 +401,7 @@ export default function ExplorerPanel({
   };
 
   return (
-    <div
-      className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
-      style={{ width: collapsed ? 36 : 260 }}
-    >
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Toggle header */}
       <button
         onClick={onToggleCollapse}

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm } from "../utils/types";
 import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft } from "../utils/persistence";
+import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 
 /* ── Tree types ── */
 
@@ -33,27 +34,35 @@ function openIDB(): Promise<IDBDatabase> {
   });
 }
 
-async function saveDirHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+const IDB_SCOPE_KEY = "directory-scope";
+
+async function saveDirHandle(handle: FileSystemDirectoryHandle, scopeId: string): Promise<void> {
   try {
     const db = await openIDB();
     const tx = db.transaction(IDB_STORE, "readwrite");
     tx.objectStore(IDB_STORE).put(handle, IDB_DIR_KEY);
+    tx.objectStore(IDB_STORE).put(scopeId, IDB_SCOPE_KEY);
     await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
     db.close();
   } catch { /* ignore */ }
 }
 
-async function loadDirHandle(): Promise<FileSystemDirectoryHandle | null> {
+async function loadDirHandle(): Promise<{ handle: FileSystemDirectoryHandle; scopeId: string } | null> {
   try {
     const db = await openIDB();
     const tx = db.transaction(IDB_STORE, "readonly");
-    const req = tx.objectStore(IDB_STORE).get(IDB_DIR_KEY);
-    const result = await new Promise<FileSystemDirectoryHandle | null>((res, rej) => {
-      req.onsuccess = () => res(req.result ?? null);
-      req.onerror = () => rej(req.error);
+    const store = tx.objectStore(IDB_STORE);
+    const handleReq = store.get(IDB_DIR_KEY);
+    const scopeReq = store.get(IDB_SCOPE_KEY);
+    const [handle, scopeId] = await new Promise<[FileSystemDirectoryHandle | null, string | null]>((res, rej) => {
+      tx.oncomplete = () => res([handleReq.result ?? null, scopeReq.result ?? null]);
+      tx.onerror = () => rej(tx.error);
     });
     db.close();
-    return result;
+    if (!handle) return null;
+    // Generate a scope if missing (migration from old data)
+    const id = scopeId ?? crypto.randomUUID().slice(0, 8);
+    return { handle, scopeId: id };
   } catch { return null; }
 }
 
@@ -62,6 +71,7 @@ async function clearDirHandle(): Promise<void> {
     const db = await openIDB();
     const tx = db.transaction(IDB_STORE, "readwrite");
     tx.objectStore(IDB_STORE).delete(IDB_DIR_KEY);
+    tx.objectStore(IDB_STORE).delete(IDB_SCOPE_KEY);
     await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
     db.close();
   } catch { /* ignore */ }
@@ -92,7 +102,7 @@ async function scanTree(handle: FileSystemDirectoryHandle, prefix: string): Prom
       // Folder lastModified = max of children's lastModified
       const maxMod = children.reduce((max, c) => Math.max(max, c.lastModified ?? 0), 0);
       folders.push({ type: "folder", name: entry.name, path, dirHandle, children, lastModified: maxMod || undefined });
-    } else if (entry.kind === "file" && entry.name.endsWith(".json")) {
+    } else if (entry.kind === "file" && entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name)) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const fileHandle = entry as FileSystemFileHandle;
       let lastModified: number | undefined;
@@ -211,13 +221,15 @@ export function useFileExplorer() {
     restoredRef.current = true;
 
     (async () => {
-      const handle = await loadDirHandle();
-      if (!handle) return;
+      const stored = await loadDirHandle();
+      if (!stored) return;
+      const { handle, scopeId } = stored;
       try {
         const perm = await handle.requestPermission({ mode: "readwrite" });
         if (perm !== "granted") return;
 
         dirHandleRef.current = handle;
+        setDirectoryScope(scopeId);
         setDirectoryName(handle.name);
         localStorage.setItem(DIR_NAME_KEY, handle.name);
         setIsLoading(true);
@@ -234,6 +246,7 @@ export function useFileExplorer() {
         }
       } catch {
         await clearDirHandle();
+        clearDirectoryScope();
         localStorage.removeItem(DIR_NAME_KEY);
         setDirectoryName(null);
       }
@@ -252,9 +265,11 @@ export function useFileExplorer() {
       try {
         const handle = await window.showDirectoryPicker({ mode: "readwrite" });
         dirHandleRef.current = handle;
+        const scopeId = crypto.randomUUID().slice(0, 8);
+        setDirectoryScope(scopeId);
         setDirectoryName(handle.name);
         localStorage.setItem(DIR_NAME_KEY, handle.name);
-        await saveDirHandle(handle);
+        await saveDirHandle(handle, scopeId);
         setIsLoading(true);
         const nodes = await scanTree(handle, "");
         setTree(nodes);
@@ -624,6 +639,7 @@ export function useFileExplorer() {
           dirHandleRef.current = null;
           setTree([]);
           setDirectoryName(null);
+          clearDirectoryScope();
           localStorage.removeItem(DIR_NAME_KEY);
           await clearDirHandle();
           setIsLoading(false);
@@ -667,5 +683,6 @@ export function useFileExplorer() {
     refresh,
     handleFallbackInput,
     inputRef,
+    dirHandleRef,
   };
 }
