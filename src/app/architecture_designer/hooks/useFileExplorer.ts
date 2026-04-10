@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
-import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft } from "../utils/persistence";
+import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 
 /* ── Tree types ── */
@@ -147,6 +147,35 @@ function uniqueName(siblings: TreeNode[], base: string, ext: string): string {
   }
 }
 
+/** Collect all file paths under a folder path from the tree. */
+function collectFilePaths(nodes: TreeNode[], folderPath: string): string[] {
+  const result: string[] = [];
+  function walk(items: TreeNode[]) {
+    for (const item of items) {
+      if (item.type === "file" && item.path.startsWith(folderPath + "/")) {
+        result.push(item.path);
+      } else if (item.type === "folder" && item.children) {
+        walk(item.children);
+      }
+    }
+  }
+  walk(nodes);
+  return result;
+}
+
+/** Collect all file paths in the tree. */
+function collectAllFilePaths(nodes: TreeNode[]): Set<string> {
+  const result = new Set<string>();
+  function walk(items: TreeNode[]) {
+    for (const item of items) {
+      if (item.type === "file") result.add(item.path);
+      else if (item.children) walk(item.children);
+    }
+  }
+  walk(nodes);
+  return result;
+}
+
 /** Resolve parent dir handle from a path. Empty string = root. */
 async function resolveParentHandle(
   rootHandle: FileSystemDirectoryHandle,
@@ -236,6 +265,8 @@ export function useFileExplorer() {
 
         const nodes = await scanTree(handle, "");
         setTree(nodes);
+        // Clean up localStorage for files that no longer exist on disk
+        cleanupOrphanedData(collectAllFilePaths(nodes));
         setDirtyFiles(listDrafts());
         setIsLoading(false);
 
@@ -305,25 +336,31 @@ export function useFileExplorer() {
     setDirtyFiles(listDrafts());
   }, []);
 
-  const selectFile = useCallback(async (filePath: string): Promise<DiagramData | null> => {
-    const draft = loadDraft(filePath);
-    if (draft && isDiagramData(draft)) {
-      setActiveFile(filePath);
-      return draft;
+  const selectFile = useCallback(async (filePath: string): Promise<{ data: DiagramData; diskJson: string; hasDraft: boolean } | null> => {
+    const entry = fileMap.get(filePath);
+    let diskData: DiagramData | null = null;
+    let diskJson = "";
+    if (entry?.handle) {
+      try {
+        const file = await entry.handle.getFile();
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (isDiagramData(parsed)) {
+          diskData = parsed;
+          diskJson = text;
+        }
+      } catch { /* ignore */ }
     }
 
-    const entry = fileMap.get(filePath);
-    if (!entry?.handle) return null;
-    try {
-      const file = await entry.handle.getFile();
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!isDiagramData(parsed)) return null;
+    const draft = loadDraft(filePath);
+    if (draft && isDiagramData(draft) && diskData) {
       setActiveFile(filePath);
-      return parsed;
-    } catch {
-      return null;
+      return { data: draft, diskJson, hasDraft: true };
     }
+
+    if (!diskData) return null;
+    setActiveFile(filePath);
+    return { data: diskData, diskJson, hasDraft: false };
   }, [fileMap]);
 
   const saveFile = useCallback(async (
@@ -413,6 +450,9 @@ export function useFileExplorer() {
         setActiveFile(null);
         localStorage.removeItem(ACTIVE_FILE_KEY);
       }
+      // Defer viewport cleanup so it runs after the viewport persistence
+      // effect saves on file switch (which would otherwise re-create the key)
+      setTimeout(() => clearViewport(filePath), 0);
       return true;
     } catch { return false; }
   }, [rescan, activeFile]);
@@ -424,6 +464,11 @@ export function useFileExplorer() {
       const name = parts.pop()!;
       const parentPath = parts.join("/");
       const parentHandle = await resolveParentHandle(dirHandleRef.current, parentPath);
+      // Clean up localStorage for all files in the folder
+      const folderFiles = collectFilePaths(tree, folderPath);
+      for (const fp of folderFiles) {
+        clearDraft(fp);
+      }
       await parentHandle.removeEntry(name, { recursive: true });
       await rescan();
       // If active file was inside this folder, clear it
@@ -431,6 +476,8 @@ export function useFileExplorer() {
         setActiveFile(null);
         localStorage.removeItem(ACTIVE_FILE_KEY);
       }
+      // Defer viewport cleanup so it runs after viewport persistence effect
+      setTimeout(() => { for (const fp of folderFiles) clearViewport(fp); }, 0);
       return true;
     } catch { return false; }
   }, [rescan, activeFile]);
@@ -458,6 +505,7 @@ export function useFileExplorer() {
       clearDraft(oldPath);
 
       const newPath = parentPath ? `${parentPath}/${finalName}` : finalName;
+      migrateViewport(oldPath, newPath);
       await rescan();
       if (activeFile === oldPath) setActiveFile(newPath);
       return newPath;
@@ -493,6 +541,17 @@ export function useFileExplorer() {
       await parentHandle.removeEntry(oldName, { recursive: true });
 
       const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+      // Migrate localStorage for all files in the renamed folder
+      const oldFiles = collectFilePaths(tree, oldPath);
+      for (const fp of oldFiles) {
+        const newFp = fp.replace(oldPath, newPath);
+        migrateViewport(fp, newFp);
+        const draft = loadDraft(fp);
+        if (draft) {
+          saveDraft(newFp, draft.title ?? "", draft.layers, draft.nodes as never[], draft.connections, draft.layerManualSizes ?? {}, draft.lineCurve ?? "orthogonal");
+          clearDraft(fp);
+        }
+      }
       await rescan();
       // Update activeFile if it was inside the renamed folder
       if (activeFile?.startsWith(oldPath + "/")) {
@@ -572,13 +631,14 @@ export function useFileExplorer() {
         await writable.close();
         await srcParentHandle.removeEntry(srcName);
 
-        // Migrate draft
+        // Migrate draft and viewport
         const finalPath = targetFolderPath ? `${targetFolderPath}/${resolvedName}` : resolvedName;
         const draft = loadDraft(sourcePath);
         if (draft) {
           saveDraft(finalPath, draft.title ?? "", draft.layers, draft.nodes as never[], draft.connections, draft.layerManualSizes ?? {}, draft.lineCurve ?? "orthogonal");
           clearDraft(sourcePath);
         }
+        migrateViewport(sourcePath, finalPath);
       } else if (entry?.dirHandle) {
         // Resolve name collision for folders
         if (targetSiblings.some((n) => n.name === srcName)) {

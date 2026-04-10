@@ -1,8 +1,6 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
 import { getIcon, getIconName } from "./iconRegistry";
 import { scopedKey } from "./directoryScope";
-import defaultData from "../data/thanos.json";
-
 const STORAGE_KEY = "architecture-designer-data";
 
 function deserializeNodes(serialized: SerializedNodeData[]): NodeData[] {
@@ -62,7 +60,7 @@ export function loadDiagram(): {
       if (raw) {
         const data: DiagramData = JSON.parse(raw);
         return {
-          title: data.title ?? (defaultData as DiagramData).title,
+          title: data.title ?? "Untitled",
           layers: migrateLayerColors(data.layers),
           nodes: deserializeNodes(data.nodes),
           connections: data.connections,
@@ -119,15 +117,14 @@ export function loadDefaults(): {
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
 } {
-  const data = defaultData as DiagramData;
   return {
-    title: data.title,
-    layers: migrateLayerColors(data.layers),
-    nodes: deserializeNodes(data.nodes),
-    connections: data.connections,
+    title: "Untitled",
+    layers: [],
+    nodes: [],
+    connections: [],
     layerManualSizes: {},
     lineCurve: "orthogonal",
-    flows: data.flows ?? [],
+    flows: [],
   };
 }
 
@@ -233,4 +230,50 @@ export function listDrafts(): Set<string> {
     }
   }
   return result;
+}
+
+/* ── Per-file viewport helpers ── */
+
+const VIEWPORT_PREFIX = "architecture-designer-viewport";
+
+export function clearViewport(fileName: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(scopedKey(VIEWPORT_PREFIX) + ":" + fileName);
+  } catch { /* ignore */ }
+}
+
+export function migrateViewport(oldFileName: string, newFileName: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const oldKey = scopedKey(VIEWPORT_PREFIX) + ":" + oldFileName;
+    const newKey = scopedKey(VIEWPORT_PREFIX) + ":" + newFileName;
+    const raw = localStorage.getItem(oldKey);
+    if (raw) {
+      localStorage.setItem(newKey, raw);
+      localStorage.removeItem(oldKey);
+    }
+  } catch { /* ignore */ }
+}
+
+/** Remove all per-file data (drafts + viewport) for files not in the given set. */
+export function cleanupOrphanedData(existingFiles: Set<string>): void {
+  if (typeof window === "undefined") return;
+  const draftPrefix = scopedKey(DRAFT_PREFIX);
+  const viewportPrefix = scopedKey(VIEWPORT_PREFIX) + ":";
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.startsWith(draftPrefix)) {
+      const fileName = key.slice(draftPrefix.length);
+      if (!existingFiles.has(fileName)) keysToRemove.push(key);
+    } else if (key.startsWith(viewportPrefix)) {
+      const fileName = key.slice(viewportPrefix.length);
+      if (!existingFiles.has(fileName)) keysToRemove.push(key);
+    }
+  }
+  for (const key of keysToRemove) {
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  }
 }

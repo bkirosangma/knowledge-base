@@ -48,24 +48,26 @@ export function useViewportPersistence(
   // Reset scroll-to-center flag when file changes so viewport restores per-file
   useEffect(() => {
     if (activeFileRef.current !== activeFile) {
-      // Save current viewport for old file before switching
-      try {
-        const center = getViewportCenter();
-        if (center) {
-          localStorage.setItem(getKey(), JSON.stringify({
-            cx: center.cx,
-            cy: center.cy,
-            zoom: zoomRef.current,
-          }));
-        }
-      } catch { /* ignore */ }
+      // Save current viewport for old file before switching (only if a file was active)
+      if (activeFileRef.current) {
+        try {
+          const center = getViewportCenter();
+          if (center) {
+            localStorage.setItem(getKey(), JSON.stringify({
+              cx: center.cx,
+              cy: center.cy,
+              zoom: zoomRef.current,
+            }));
+          }
+        } catch { /* ignore */ }
+      }
 
       activeFileRef.current = activeFile;
       hasScrolledToCenter.current = false;
     }
   }, [activeFile]);
 
-  // Save viewport on scroll (debounced)
+  // Save viewport on scroll (debounced) — only when a file is active
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -73,6 +75,7 @@ export function useViewportPersistence(
     const save = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
+        if (!activeFileRef.current) return;
         try {
           const center = getViewportCenter();
           if (center) {
@@ -89,10 +92,10 @@ export function useViewportPersistence(
     return () => { clearTimeout(timer); el.removeEventListener("scroll", save); };
   }, []);
 
-  // Save viewport when zoom changes
+  // Save viewport when zoom changes — only when a file is active
   useEffect(() => {
     const el = canvasRef.current;
-    if (!el) return;
+    if (!el || !activeFile) return;
     const timer = setTimeout(() => {
       try {
         const center = getViewportCenter();

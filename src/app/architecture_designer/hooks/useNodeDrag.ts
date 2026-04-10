@@ -29,6 +29,8 @@ export function useNodeDrag({
   const dragNodeInfo = useRef<{ layer: string; halfW: number; halfH: number } | null>(null);
   const siblingRects = useRef<Rect[]>([]);
   const lastValidPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const nodeDragDidMove = useRef(false);
 
   // Multi-node drag state
   const [multiDragIds, setMultiDragIds] = useState<string[]>([]);
@@ -40,6 +42,7 @@ export function useNodeDrag({
   const multiSiblingRects = useRef<Rect[]>([]);
   // Snapshot of dragged nodes at drag start for bounding box computation
   const multiDragNodesSnapshot = useRef<NodeData[]>([]);
+  const multiDragDidMove = useRef(false);
 
   const isMultiDrag = multiDragIds.length > 0;
 
@@ -59,6 +62,7 @@ export function useNodeDrag({
       multiDragLayer.current = selection.layer;
       multiDragNodesSnapshot.current = draggedNodes;
       lastClampedDelta.current = { dx: 0, dy: 0 };
+      multiDragDidMove.current = false;
 
       // Build sibling rects: non-dragged nodes in the same layer
       multiSiblingRects.current = nodes
@@ -95,6 +99,8 @@ export function useNodeDrag({
       });
 
     lastValidPos.current = { x: node.x, y: displayY };
+    dragStartPos.current = { x: node.x, y: displayY };
+    nodeDragDidMove.current = false;
     setDraggingId(id);
     setElementDragPos({ x: node.x, y: displayY });
     setElementDragRawPos({ x: node.x, y: displayY });
@@ -164,6 +170,8 @@ export function useNodeDrag({
     const handleMouseUp = () => {
       setElementDragPos((pos) => {
         if (pos) {
+          const start = dragStartPos.current;
+          nodeDragDidMove.current = pos.x !== start.x || pos.y !== start.y;
           setNodes((prev) =>
             prev.map((n) => (n.id === draggingId ? { ...n, x: pos.x, y: pos.y } : n))
           );
@@ -258,7 +266,8 @@ export function useNodeDrag({
 
     const handleMouseUp = () => {
       const delta = lastClampedDelta.current;
-      if (delta.dx !== 0 || delta.dy !== 0) {
+      multiDragDidMove.current = delta.dx !== 0 || delta.dy !== 0;
+      if (multiDragDidMove.current) {
         const ids = new Set(multiDragIds);
         setNodes((prev) =>
           prev.map((n) => ids.has(n.id) ? { ...n, x: n.x + delta.dx, y: n.y + delta.dy } : n)
@@ -282,5 +291,6 @@ export function useNodeDrag({
   return {
     draggingId, elementDragPos, elementDragRawPos, handleDragStart,
     isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta,
+    nodeDragDidMove, multiDragDidMove,
   };
 }

@@ -24,6 +24,7 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
   const layerDragStart = useRef({ x: 0, y: 0 });
   const dragStartRegions = useRef<LayerBounds[] | null>(null);
   const lastClampedDelta = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const layerDragDidMove = useRef(false);
 
   // Backwards-compatible single-layer accessor
   const draggingLayerId = draggingLayerIds.length > 0 ? draggingLayerIds[0] : null;
@@ -33,6 +34,7 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
     layerDragStart.current = toCanvasCoords(e.clientX, e.clientY);
     dragStartRegions.current = regionsRef.current ? [...regionsRef.current] : null;
     lastClampedDelta.current = { dx: 0, dy: 0 };
+    layerDragDidMove.current = false;
 
     // Determine which layers to drag
     let ids: string[];
@@ -80,7 +82,8 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
 
     const handleMouseUp = () => {
       const delta = lastClampedDelta.current;
-      if (delta.dx !== 0 || delta.dy !== 0) {
+      layerDragDidMove.current = delta.dx !== 0 || delta.dy !== 0;
+      if (layerDragDidMove.current) {
         const draggedSet = new Set(draggingLayerIds);
         setNodes((prev) =>
           prev.map((n) =>
@@ -117,5 +120,5 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
     };
   }, [draggingLayerIds, toCanvasCoords, setNodes, setLayerManualSizes]);
 
-  return { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart };
+  return { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart, layerDragDidMove };
 }

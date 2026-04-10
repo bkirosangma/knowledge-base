@@ -104,8 +104,8 @@
       "label": "Authorization Filter",
       "sub": "FilterSecurityInterceptor",
       "icon": "Lock",
-      "x": 1260,
-      "y": 300,
+      "x": 1449,
+      "y": 294,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -114,8 +114,8 @@
       "label": "Exception Translation",
       "sub": "AuthenticationEntryPoint",
       "icon": "Zap",
-      "x": 1540,
-      "y": 440,
+      "x": 1803,
+      "y": 462,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -133,18 +133,19 @@
       "id": "el-cond-authenticated",
       "label": "Authenticated?",
       "icon": "GitBranch",
-      "x": 1085,
-      "y": 470,
+      "x": 1187,
+      "y": 376,
       "w": 120,
       "shape": "condition",
-      "conditionOutCount": 2
+      "conditionOutCount": 2,
+      "rotation": 270
     },
     {
       "id": "el-cond-tokentype",
       "label": "Token Type?",
       "icon": "GitBranch",
-      "x": 600,
-      "y": 530,
+      "x": 748,
+      "y": 460,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 2
@@ -439,7 +440,7 @@
       "id": "dl-cond-auth-yes",
       "from": "el-cond-authenticated",
       "to": "el-authz-filter",
-      "fromAnchor": "cond-out-0",
+      "fromAnchor": "cond-out-1",
       "toAnchor": "left-2",
       "color": "#10b981",
       "label": "Yes"
@@ -448,7 +449,7 @@
       "id": "dl-cond-auth-no",
       "from": "el-cond-authenticated",
       "to": "el-exception-filter",
-      "fromAnchor": "cond-out-1",
+      "fromAnchor": "cond-out-0",
       "toAnchor": "left-2",
       "color": "#ef4444",
       "label": "No → 401"
@@ -724,7 +725,12 @@
       "label": "401/403 Response"
     }
   ],
-  "layerManualSizes": {},
+  "layerManualSizes": {
+    "ly-authn": {
+      "top": 541,
+      "height": 308
+    }
+  },
   "lineCurve": "bezier",
   "flows": [
     {

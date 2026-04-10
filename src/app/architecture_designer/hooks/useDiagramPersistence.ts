@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
-import { loadDiagram, saveDiagram, saveDraft } from "../utils/persistence";
-import { scopedKey } from "../utils/directoryScope";
+import { saveDraft } from "../utils/persistence";
 
 /**
  * Hydrates diagram state from localStorage on mount, and auto-saves
@@ -51,18 +50,8 @@ export function useDiagramPersistence(
     setIsDirty(false);
   }, [takeSnapshot]);
 
-  // Hydrate from localStorage on mount
+  // Mark as hydrated on mount (diagram state comes from file open, not global localStorage)
   useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem(scopedKey("architecture-designer-data"))) {
-      const saved = loadDiagram();
-      setTitle(saved.title);
-      setLayerDefs(saved.layers);
-      setNodes(saved.nodes);
-      setConnections(saved.connections);
-      setLayerManualSizes(saved.layerManualSizes);
-      setLineCurve(saved.lineCurve);
-      setFlows(saved.flows);
-    }
     hydratedRef.current = true;
   }, []);
 
@@ -81,8 +70,6 @@ export function useDiagramPersistence(
           saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
           onDirtyChange?.(activeFile, true);
         }
-      } else {
-        saveDiagram(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
       }
     }, 500);
     return () => clearTimeout(timer);

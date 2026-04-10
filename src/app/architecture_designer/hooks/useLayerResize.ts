@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ResizeEdge } from "../components/Layer";
 import { LAYER_GAP } from "../utils/constants";
 
@@ -30,6 +30,8 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
     startBounds: { left: number; width: number; top: number; height: number };
   } | null>(null);
 
+  const resizeDidChange = useRef(false);
+
   const handleLayerResizeStart = useCallback(
     (layerId: string, edge: ResizeEdge, e: React.MouseEvent) => {
       if (isBlocked) return;
@@ -41,6 +43,7 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
       const isHorizontal = edge === "left" || edge === "right";
       const startMousePos = isHorizontal ? mouse.x : mouse.y;
 
+      resizeDidChange.current = false;
       setResizingLayer({
         layerId,
         edge,
@@ -60,6 +63,7 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
       const isHorizontal = edge === "left" || edge === "right";
       const mousePos = isHorizontal ? mouse.x : mouse.y;
       const delta = mousePos - startMousePos;
+      if (delta !== 0) resizeDidChange.current = true;
 
       setLayerManualSizes((prev) => {
         const existing = prev[layerId] || {};
@@ -109,7 +113,7 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
     };
   }, [resizingLayer, toCanvasCoords]);
 
-  return { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart };
+  return { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart, resizeDidChange };
 }
 
 function getObstacles(

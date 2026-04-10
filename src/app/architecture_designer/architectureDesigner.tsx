@@ -88,6 +88,7 @@ export default function ArchitectureDesigner() {
   const [editingLabel, setEditingLabel] = useState<{ type: "node" | "layer" | "line"; id: string } | null>(null);
   const [editingLabelValue, setEditingLabelValue] = useState("");
   const editingLabelBeforeRef = useRef("");
+  const labelDragStartT = useRef<number | null>(null);
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const fileExplorer = useFileExplorer();
@@ -252,7 +253,7 @@ export default function ArchitectureDesigner() {
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const { scrollToRect } = useCanvasEffects(canvasRef, worldRef, zoomRef);
 
-  const { draggingEndpoint, handleLineClick } = useEndpointDrag({
+  const { draggingEndpoint, handleLineClick, endpointDragDidMove } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
@@ -271,7 +272,8 @@ export default function ArchitectureDesigner() {
   });
 
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
-    isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta } = useNodeDrag({
+    isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta,
+    nodeDragDidMove, multiDragDidMove } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
     isBlocked: !!draggingEndpoint || !!creatingLine,
     setNodes,
@@ -282,13 +284,13 @@ export default function ArchitectureDesigner() {
     selection,
   });
 
-  const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart } = useLayerResize({
+  const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart, resizeDidChange } = useLayerResize({
     regionsRef, toCanvasCoords,
     isBlocked: !!draggingId || !!draggingEndpoint || !!creatingLine || isMultiDrag,
     initialManualSizes: defaults.current.layerManualSizes,
   });
 
-  const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart } = useLayerDrag({
+  const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart, layerDragDidMove } = useLayerDrag({
     toCanvasCoords,
     isBlocked: !!draggingEndpoint || !!creatingLine || !!draggingId || isMultiDrag,
     setNodes,
@@ -305,9 +307,9 @@ export default function ArchitectureDesigner() {
   );
 
   const handleLoadFile = useCallback(async (fileName: string) => {
-    const data = await fileExplorer.selectFile(fileName);
-    if (!data) return;
-    const diagramJson = JSON.stringify(data);
+    const result = await fileExplorer.selectFile(fileName);
+    if (!result) return;
+    const { data, diskJson, hasDraft } = result;
     const diagram = loadDiagramFromData(data);
     setTitle(diagram.title);
     setLayerDefs(diagram.layers);
@@ -319,17 +321,24 @@ export default function ArchitectureDesigner() {
     setSelection(null);
     setMeasuredSizes({});
     setPatches([{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }]);
-    setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
-    // Initialize history for this file
+    // Set snapshot to disk content so isDirty is correct when restoring a draft
+    if (hasDraft) {
+      const diskDiagram = loadDiagramFromData(JSON.parse(diskJson));
+      setLoadSnapshot(diskDiagram.title, diskDiagram.layers, diskDiagram.nodes, diskDiagram.connections, diskDiagram.layerManualSizes, diskDiagram.lineCurve, diskDiagram.flows);
+    } else {
+      setLoadSnapshot(diagram.title, diagram.layers, diagram.nodes, diagram.connections, diagram.layerManualSizes, diagram.lineCurve, diagram.flows);
+    }
+    // Initialize history using disk JSON for checksum consistency
     isRestoringRef.current = true;
-    await history.initHistory(diagramJson, {
-      title: data.title ?? "Untitled",
-      layerDefs: data.layers,
-      nodes: data.nodes,
-      connections: data.connections,
-      layerManualSizes: data.layerManualSizes ?? {},
-      lineCurve: data.lineCurve ?? "orthogonal",
-      flows: data.flows ?? [],
+    const diskData = JSON.parse(diskJson);
+    await history.initHistory(diskJson, {
+      title: diskData.title ?? "Untitled",
+      layerDefs: diskData.layers,
+      nodes: diskData.nodes,
+      connections: diskData.connections,
+      layerManualSizes: diskData.layerManualSizes ?? {},
+      lineCurve: diskData.lineCurve ?? "orthogonal",
+      flows: diskData.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, setLoadSnapshot, history.initHistory]);
@@ -817,34 +826,34 @@ export default function ArchitectureDesigner() {
     };
   }, [cancelSelectionRect, handleUndo, handleRedo]);
 
-  // ── Drag-end watchers for history recording ──
+  // ── Drag-end watchers for history recording (only record if something actually changed) ──
   const prevDraggingId = useRef<string | null>(null);
   useEffect(() => {
-    if (prevDraggingId.current && !draggingId) scheduleRecord("Move element");
+    if (prevDraggingId.current && !draggingId && nodeDragDidMove.current) scheduleRecord("Move element");
     prevDraggingId.current = draggingId;
   }, [draggingId, scheduleRecord]);
 
   const prevMultiDrag = useRef(false);
   useEffect(() => {
-    if (prevMultiDrag.current && !isMultiDrag) scheduleRecord("Move elements");
+    if (prevMultiDrag.current && !isMultiDrag && multiDragDidMove.current) scheduleRecord("Move elements");
     prevMultiDrag.current = isMultiDrag;
   }, [isMultiDrag, scheduleRecord]);
 
   const prevDraggingLayerId = useRef<string | null>(null);
   useEffect(() => {
-    if (prevDraggingLayerId.current && !draggingLayerId) scheduleRecord("Move layer");
+    if (prevDraggingLayerId.current && !draggingLayerId && layerDragDidMove.current) scheduleRecord("Move layer");
     prevDraggingLayerId.current = draggingLayerId;
   }, [draggingLayerId, scheduleRecord]);
 
   const prevResizingLayer = useRef<unknown>(null);
   useEffect(() => {
-    if (prevResizingLayer.current && !resizingLayer) scheduleRecord("Resize layer");
+    if (prevResizingLayer.current && !resizingLayer && resizeDidChange.current) scheduleRecord("Resize layer");
     prevResizingLayer.current = resizingLayer;
   }, [resizingLayer, scheduleRecord]);
 
   const prevDraggingEndpoint = useRef<unknown>(null);
   useEffect(() => {
-    if (prevDraggingEndpoint.current && !draggingEndpoint) scheduleRecord("Move connection endpoint");
+    if (prevDraggingEndpoint.current && !draggingEndpoint && endpointDragDidMove.current) scheduleRecord("Move connection endpoint");
     prevDraggingEndpoint.current = draggingEndpoint;
   }, [draggingEndpoint, scheduleRecord]);
 
@@ -1304,10 +1313,19 @@ export default function ArchitectureDesigner() {
                     onHoverEnd={() => { setHoveredLine((prev) => prev?.id === line.id ? null : prev); }}
                     onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; handleLineClick(id, e); }}
                     onLabelPositionChange={(connId, t) => {
+                      if (labelDragStartT.current === null) {
+                        const conn = connections.find((c) => c.id === connId);
+                        labelDragStartT.current = conn?.labelPosition ?? 0.5;
+                      }
                       setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, labelPosition: t } : c));
                     }}
-                    onLabelDragEnd={() => {
-                      scheduleRecord("Move label");
+                    onLabelDragEnd={(connId) => {
+                      const conn = connections.find((c) => c.id === connId);
+                      const endT = conn?.labelPosition ?? 0.5;
+                      if (labelDragStartT.current !== null && endT !== labelDragStartT.current) {
+                        scheduleRecord("Move label");
+                      }
+                      labelDragStartT.current = null;
                     }}
                     onDoubleClick={(connId) => {
                       const conn = connections.find((c) => c.id === connId);
@@ -1491,6 +1509,7 @@ export default function ArchitectureDesigner() {
                         e.preventDefault();
                         const svg = (e.target as SVGElement).closest("svg");
                         if (!svg) return;
+                        const startT = line.labelPosition;
                         const onMove = (ev: MouseEvent) => {
                           const pt = svg.createSVGPoint();
                           pt.x = ev.clientX;
@@ -1500,7 +1519,9 @@ export default function ArchitectureDesigner() {
                           setConnections((prev) => prev.map((c) => c.id === line.id ? { ...c, labelPosition: Math.max(0.05, Math.min(0.95, newT)) } : c));
                         };
                         const onUp = () => {
-                          scheduleRecord("Move label");
+                          const conn = connections.find((c) => c.id === line.id);
+                          const endT = conn?.labelPosition ?? startT;
+                          if (endT !== startT) scheduleRecord("Move label");
                           window.removeEventListener("mousemove", onMove);
                           window.removeEventListener("mouseup", onUp);
                         };

@@ -38,6 +38,7 @@ export function useEndpointDrag({
 }: UseEndpointDragOptions) {
   const [draggingEndpoint, setDraggingEndpoint] = useState<DraggingEndpoint | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endpointDragDidMove = useRef(false);
 
   const handleLineClick = useCallback(
     (connectionId: string, e: React.MouseEvent) => {
@@ -132,6 +133,11 @@ export function useEndpointDrag({
           anchorId: prev.originalAnchor,
         };
 
+        // Check if anchor actually changed
+        const changed = target.nodeId !== prev.originalNodeId || target.anchorId !== prev.originalAnchor;
+        endpointDragDidMove.current = changed;
+        if (!changed) return null;
+
         // Validate connection constraints for conditions
         const conn = connections.find((c) => c.id === prev.connectionId);
         if (conn) {
@@ -170,5 +176,5 @@ export function useEndpointDrag({
     };
   }, [draggingEndpoint, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections]);
 
-  return { draggingEndpoint, handleLineClick };
+  return { draggingEndpoint, handleLineClick, endpointDragDidMove };
 }
