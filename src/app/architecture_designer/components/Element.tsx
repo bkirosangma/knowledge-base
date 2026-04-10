@@ -29,6 +29,7 @@ interface ElementProps {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onResize?: (id: string, width: number, height: number) => void;
+  onDoubleClick?: (id: string) => void;
   measuredHeight?: number;
   dimmed?: boolean;
   borderColor?: string;
@@ -55,6 +56,7 @@ export default function Element({
   onMouseEnter,
   onMouseLeave,
   onResize,
+  onDoubleClick,
   measuredHeight,
   dimmed,
   borderColor,
@@ -109,6 +111,7 @@ export default function Element({
       }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
       {Icon && (
         <span className="mb-2" style={{ color: textColor ?? "#475569" }}>

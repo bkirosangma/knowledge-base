@@ -6,6 +6,17 @@ const MAX_ZOOM = 3;
 const BASE_SENSITIVITY = 0.008;
 const MAX_SENSITIVITY = 0.04;
 
+/** Snap points for zoom — when close enough, snap to these values */
+const SNAP_POINTS = [1, 1.5, 2];
+const SNAP_THRESHOLD = 0.04; // ±4% to snap
+
+function snapZoom(z: number): number {
+  for (const sp of SNAP_POINTS) {
+    if (Math.abs(z - sp) < SNAP_THRESHOLD) return sp;
+  }
+  return z;
+}
+
 export function useZoom(
   canvasRef: React.RefObject<HTMLDivElement | null>,
   worldRef: React.RefObject<{ x: number; y: number; w: number; h: number }>,
@@ -24,6 +35,41 @@ export function useZoom(
   const registerSetIsZooming = useCallback((fn: (z: boolean) => void) => {
     setIsZoomingState.current = fn;
   }, []);
+
+  /** Programmatically set zoom to a specific level, keeping the viewport center stable */
+  const setZoomTo = useCallback((targetZoom: number) => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const w = worldRef.current;
+    const oldZoom = zoomRef.current;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, targetZoom));
+    if (newZoom === oldZoom) return;
+
+    // Anchor on viewport center
+    const centerX = el.scrollLeft + el.clientWidth / 2;
+    const centerY = el.scrollTop + el.clientHeight / 2;
+    const worldX = (centerX - VIEWPORT_PADDING) / oldZoom;
+    const worldY = (centerY - VIEWPORT_PADDING) / oldZoom;
+
+    zoomRef.current = newZoom;
+
+    // Update DOM synchronously
+    const sizer = el.firstElementChild as HTMLElement;
+    if (sizer) {
+      sizer.style.width = `${VIEWPORT_PADDING * 2 + w.w * newZoom}px`;
+      sizer.style.height = `${VIEWPORT_PADDING * 2 + w.h * newZoom}px`;
+      const canvasWrapper = sizer.firstElementChild as HTMLElement;
+      if (canvasWrapper) {
+        canvasWrapper.style.transform = `scale(${newZoom})`;
+      }
+    }
+
+    // Keep the same world point at center
+    el.scrollLeft = VIEWPORT_PADDING + worldX * newZoom - el.clientWidth / 2;
+    el.scrollTop = VIEWPORT_PADDING + worldY * newZoom - el.clientHeight / 2;
+
+    setZoomState.current(newZoom);
+  }, [canvasRef, worldRef]);
 
   useEffect(() => {
     const el = canvasRef.current;
@@ -56,7 +102,8 @@ export function useZoom(
       const absDelta = Math.abs(e.deltaY);
       const sensitivity = Math.min(MAX_SENSITIVITY, BASE_SENSITIVITY + absDelta * 0.0003);
       const delta = -e.deltaY * sensitivity;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom * (1 + delta)));
+      const raw = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom * (1 + delta)));
+      const newZoom = snapZoom(raw);
       if (newZoom === oldZoom) return;
 
       const rect = el.getBoundingClientRect();
@@ -130,5 +177,5 @@ export function useZoom(
     };
   }, [canvasRef, worldRef]);
 
-  return { getZoom, zoomRef, isZoomingRef, registerSetZoom, registerSetIsZooming };
+  return { getZoom, zoomRef, isZoomingRef, registerSetZoom, registerSetIsZooming, setZoomTo };
 }

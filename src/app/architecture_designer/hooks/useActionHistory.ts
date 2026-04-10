@@ -124,7 +124,8 @@ export function useActionHistory() {
   const entries = entriesRef.current;
   const currentIndex = indexRef.current;
   const savedIndex = savedIndexRef.current;
-  const canUndo = indexRef.current > 0;
+  const minUndoIndex = (savedIndexRef.current === 0 && entriesRef.current.length > 1) ? 1 : 0;
+  const canUndo = indexRef.current > minUndoIndex;
   const canRedo = indexRef.current < entriesRef.current.length - 1;
 
   /** Schedule a debounced write of the history file to disk */
@@ -159,19 +160,34 @@ export function useActionHistory() {
     const next = [...base, entry];
     // Cap at MAX_HISTORY, keeping the most recent entries
     const pruned = Math.max(0, next.length - MAX_HISTORY);
-    const capped = pruned > 0 ? next.slice(pruned) : next;
-
-    entriesRef.current = capped;
-    indexRef.current = capped.length - 1;
-    // Adjust savedIndex for pruned entries; -1 means saved state was evicted
-    savedIndexRef.current = savedIndexRef.current - pruned < 0 ? -1 : savedIndexRef.current - pruned;
+    if (pruned > 0) {
+      const savedIdx = savedIndexRef.current;
+      if (savedIdx >= 0 && savedIdx < pruned) {
+        // Pin the saved entry at index 0 — it survives pruning
+        const savedEntry = next[savedIdx];
+        const capped = [savedEntry, ...next.slice(pruned)];
+        entriesRef.current = capped;
+        indexRef.current = capped.length - 1;
+        savedIndexRef.current = 0;
+      } else {
+        const capped = next.slice(pruned);
+        entriesRef.current = capped;
+        indexRef.current = capped.length - 1;
+        savedIndexRef.current = savedIdx - pruned < 0 ? -1 : savedIdx - pruned;
+      }
+    } else {
+      entriesRef.current = next;
+      indexRef.current = next.length - 1;
+    }
     tick();
     scheduleSave();
   }, [tick, scheduleSave]);
 
   /** Undo — returns snapshot to restore, or null if can't undo */
   const undo = useCallback((): DiagramSnapshot | null => {
-    if (indexRef.current <= 0) return null;
+    // If saved entry is pinned at index 0, undo stops at index 1
+    const minIndex = (savedIndexRef.current === 0 && entriesRef.current.length > 1) ? 1 : 0;
+    if (indexRef.current <= minIndex) return null;
     indexRef.current -= 1;
     const snapshot = entriesRef.current[indexRef.current]?.snapshot ?? null;
     tick();

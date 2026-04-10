@@ -1,5 +1,4 @@
-import { useState, type ComponentType } from "react";
-import { ChevronRight } from "lucide-react";
+import type { ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection } from "../../utils/types";
 import type { AnchorId } from "../../utils/anchors";
 import type { RegionBounds } from "./shared";
@@ -26,62 +25,66 @@ interface PropertiesPanelProps {
 }
 
 export default function PropertiesPanel({ selection, title, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve }: PropertiesPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
-
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
 
+  const sectionLabel = !selection
+    ? "Architecture"
+    : selection.type === "node"
+      ? "Element"
+      : selection.type === "layer"
+        ? "Layer"
+        : selection.type === "line"
+          ? "Connection"
+          : selection.type === "multi-node"
+            ? `${selection.ids.length} Elements`
+            : selection.type === "multi-layer"
+              ? `${selection.ids.length} Layers`
+              : `${selection.ids.length} Lines`;
+
   return (
     <div
-      className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
-      style={{ width: collapsed ? 36 : 280 }}
+      className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden"
+      style={{ width: 280 }}
     >
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-2 px-2.5 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
-      >
-        <ChevronRight
-          size={16}
-          className={`text-slate-500 transition-transform duration-200 ${collapsed ? "" : "rotate-180"}`}
-        />
-        {!collapsed && <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>}
-      </button>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
+        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+        <span className="text-[10px] text-slate-400 font-medium">{sectionLabel}</span>
+      </div>
 
-      {!collapsed && (
-        <div className="flex-1 overflow-y-auto px-4 py-3">
-          {!selection && (
-            <ArchitectureProperties
-              title={title}
-              regions={regions}
-              nodes={nodes}
-              onUpdateTitle={onUpdateTitle}
-              onSelectLayer={onSelectLayer}
-              onSelectNode={onSelectNode}
-              lineCurve={lineCurve}
-              onUpdateLineCurve={onUpdateLineCurve}
-            />
-          )}
-          {selection?.type === "node" && (
-            <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} />
-          )}
-          {selection?.type === "layer" && (
-            <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
-          )}
-          {selection?.type === "line" && (
-            <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} />
-          )}
-          {selection?.type === "multi-node" && (
-            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>
-          )}
-          {selection?.type === "multi-layer" && (
-            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} layers selected</div>
-          )}
-          {selection?.type === "multi-line" && (
-            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} lines selected</div>
-          )}
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto px-3 py-3">
+        {!selection && (
+          <ArchitectureProperties
+            title={title}
+            regions={regions}
+            nodes={nodes}
+            onUpdateTitle={onUpdateTitle}
+            onSelectLayer={onSelectLayer}
+            onSelectNode={onSelectNode}
+            lineCurve={lineCurve}
+            onUpdateLineCurve={onUpdateLineCurve}
+          />
+        )}
+        {selection?.type === "node" && (
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} />
+        )}
+        {selection?.type === "layer" && (
+          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />
+        )}
+        {selection?.type === "line" && (
+          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} />
+        )}
+        {selection?.type === "multi-node" && (
+          <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>
+        )}
+        {selection?.type === "multi-layer" && (
+          <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} layers selected</div>
+        )}
+        {selection?.type === "multi-line" && (
+          <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} lines selected</div>
+        )}
+      </div>
     </div>
   );
 }

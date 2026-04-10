@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { NodeData, Connection, LayerDef } from "../../utils/types";
-import { Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
+import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 
 export function NodeProperties({
   id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds,
@@ -15,7 +15,6 @@ export function NodeProperties({
   const node = nodes.find((n) => n.id === id);
   if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
 
-  const layer = regions.find((r) => r.id === node.layer);
   const Icon = node.icon;
   const iconName = (Icon as unknown as { displayName?: string }).displayName ?? Icon.name ?? "—";
 
@@ -34,8 +33,8 @@ export function NodeProperties({
     });
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-0">
+    <>
+      <Section title="Identity">
         <EditableIdRow
           label="ID" value={node.id} prefix="el-"
           onCommit={(newId) => {
@@ -47,12 +46,10 @@ export function NodeProperties({
         />
         <EditableRow label="Label" value={node.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
         <EditableRow label="Sub" value={node.sub ?? ""} onCommit={(v) => { onUpdate?.(id, { sub: v }); return true; }} onClear={() => onUpdate?.(id, { sub: "" })} />
-        <IconPickerRow
-          currentIcon={Icon}
-          currentName={iconName}
-          onSelect={(icon) => onUpdate?.(id, { icon })}
-        />
-        <div className="flex items-center py-1.5 border-b border-slate-100">
+      </Section>
+
+      <Section title="Connections">
+        <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
           <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Layer</span>
           <select
             className="text-[13px] text-slate-800 bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-blue-400 cursor-pointer min-w-0 truncate"
@@ -65,6 +62,16 @@ export function NodeProperties({
             ))}
           </select>
         </div>
+        <ExpandableListRow label="In" items={incomingItems} onSelect={onSelectNode} />
+        <ExpandableListRow label="Out" items={outgoingItems} onSelect={onSelectNode} />
+      </Section>
+
+      <Section title="Appearance">
+        <IconPickerRow
+          currentIcon={Icon}
+          currentName={iconName}
+          onSelect={(icon) => onUpdate?.(id, { icon })}
+        />
         <ColorSchemeRow
           type="node"
           currentColors={{ fill: node.bgColor ?? "#ffffff", border: node.borderColor ?? "#e2e8f0", text: node.textColor ?? "#1e293b" }}
@@ -73,11 +80,12 @@ export function NodeProperties({
         <ColorRow label="Fill" value={node.bgColor ?? "#ffffff"} onChange={(v) => onUpdate?.(id, { bgColor: v })} />
         <ColorRow label="Border" value={node.borderColor ?? "#e2e8f0"} onChange={(v) => onUpdate?.(id, { borderColor: v })} />
         <ColorRow label="Text" value={node.textColor ?? "#1e293b"} onChange={(v) => onUpdate?.(id, { textColor: v })} />
-        <ExpandableListRow label="In" items={incomingItems} onSelect={onSelectNode} />
-        <ExpandableListRow label="Out" items={outgoingItems} onSelect={onSelectNode} />
+      </Section>
+
+      <Section title="Layout">
         <Row label="Position" value={`${Math.round(node.x)}, ${Math.round(node.y)}`} />
         <Row label="Width" value={`${node.w}px`} />
-      </div>
-    </div>
+      </Section>
+    </>
   );
 }

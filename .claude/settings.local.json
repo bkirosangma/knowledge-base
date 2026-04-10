@@ -9,7 +9,10 @@
       "Bash(npx next:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(kill 39720)",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { NodeData, Connection } from "../../utils/types";
 import type { AnchorId } from "../../utils/anchors";
-import { Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow } from "./shared";
+import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow } from "./shared";
 
 function DurationRow({ value, defaultValue, onChange }: { value: number; defaultValue: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
@@ -24,7 +24,7 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
   if (!editing) {
     return (
       <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 cursor-text" onDoubleClick={() => setEditing(true)}>
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Flow Duration</span>
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Duration</span>
         <span className="text-[13px] text-slate-800 truncate pr-4">{value}s</span>
       </div>
     );
@@ -32,7 +32,7 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 
   return (
     <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
-      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Flow Duration</span>
+      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Duration</span>
       <div className="flex items-center pr-4 gap-1">
         <input
           ref={inputRef}
@@ -65,8 +65,8 @@ export function LineProperties({
   const toNode = nodes.find((n) => n.id === conn.to);
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-0">
+    <>
+      <Section title="Identity">
         <EditableIdRow
           label="ID" value={conn.id} prefix="dl-"
           onCommit={(newId) => {
@@ -77,10 +77,13 @@ export function LineProperties({
           }}
         />
         <EditableRow label="Label" value={conn.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
+      </Section>
+
+      <Section title="Route">
         <Row label="From" value={fromNode?.label ?? conn.from} />
         <Row label="To" value={toNode?.label ?? conn.to} />
-        <Row label="From Anchor" value={conn.fromAnchor} />
-        <Row label="To Anchor" value={conn.toAnchor} />
+        <Row label="From Pt" value={conn.fromAnchor} />
+        <Row label="To Pt" value={conn.toAnchor} />
         <div className="px-4 py-2">
           <button
             className="w-full px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
@@ -98,18 +101,24 @@ export function LineProperties({
             <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${conn.biDirectional ? "left-[16px]" : "left-[2px]"}`} />
           </button>
         </div>
-        <DurationRow
-          value={conn.flowDuration ?? 2.5}
-          defaultValue={2.5}
-          onChange={(v) => onUpdate?.(id, { flowDuration: v })}
-        />
+      </Section>
+
+      <Section title="Appearance">
         <ColorSchemeRow
           type="line"
           currentColors={{ color: conn.color }}
           onSelect={(s) => onUpdate?.(id, { color: s.line })}
         />
         <ColorRow label="Color" value={conn.color} onChange={(v) => onUpdate?.(id, { color: v })} />
-      </div>
-    </div>
+      </Section>
+
+      <Section title="Animation">
+        <DurationRow
+          value={conn.flowDuration ?? 2.5}
+          defaultValue={2.5}
+          onChange={(v) => onUpdate?.(id, { flowDuration: v })}
+        />
+      </Section>
+    </>
   );
 }

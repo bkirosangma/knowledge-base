@@ -7,7 +7,7 @@ import Canvas, {
 } from "./components/Canvas";
 import Layer from "./components/Layer";
 import Element from "./components/Element";
-import DataLine from "./components/DataLine";
+import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
 import FlowDots from "./components/FlowDots";
 import { getAnchorPosition, getAnchors } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
@@ -18,7 +18,7 @@ import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
-import { Save, RotateCcw, Undo2, Redo2 } from "lucide-react";
+import { Save, RotateCcw, Undo2, Redo2, Activity, Tag, Map } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -74,6 +74,14 @@ export default function ArchitectureDesigner() {
 
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleMeasureRef = useRef<HTMLSpanElement>(null);
+  const titleBeforeEdit = useRef(title);
+  const [editingLabel, setEditingLabel] = useState<{ type: "node" | "layer" | "line"; id: string } | null>(null);
+  const [editingLabelValue, setEditingLabelValue] = useState("");
+  const editingLabelBeforeRef = useRef("");
+  const [titleInputValue, setTitleInputValue] = useState(title);
+  const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const fileExplorer = useFileExplorer();
   const history = useActionHistory();
 
@@ -209,8 +217,18 @@ export default function ArchitectureDesigner() {
 
   const [zoom, setZoom] = useState(1);
   const [isZooming, setIsZooming] = useState(false);
-  const { zoomRef, registerSetZoom, registerSetIsZooming } = useZoom(canvasRef, worldRef);
+  const { zoomRef, registerSetZoom, registerSetIsZooming, setZoomTo } = useZoom(canvasRef, worldRef);
   useEffect(() => { registerSetZoom(setZoom); }, [registerSetZoom]);
+
+  // Title input: auto-width from hidden measurer
+  useEffect(() => {
+    if (titleMeasureRef.current) {
+      setTitleWidth(Math.min(400, titleMeasureRef.current.scrollWidth + 4));
+    }
+  }, [titleInputValue]);
+
+  // Sync title → titleInputValue on external changes (file load, undo)
+  useEffect(() => { setTitleInputValue(title); }, [title]);
   useEffect(() => { registerSetIsZooming(setIsZooming); }, [registerSetIsZooming]);
 
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
@@ -680,6 +698,7 @@ export default function ArchitectureDesigner() {
       label: conn.label,
       biDirectional: conn.biDirectional,
       flowDuration: conn.flowDuration,
+      labelPosition: conn.labelPosition ?? 0.5,
       fromPos,
       toPos,
     };
@@ -728,37 +747,136 @@ export default function ArchitectureDesigner() {
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-8 pt-6 pb-4 bg-white border-b border-slate-200 z-20">
-        <Link href="/" className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-sm transition-colors">
-          &larr; Back
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 bg-white border-b border-slate-200 z-20">
+        <Link href="/" className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors" title="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
         </Link>
-        <h1 className="text-2xl font-semibold text-slate-800 tracking-tight flex-1">
-          {title}
-        </h1>
+
+        <div className="h-5 w-px bg-slate-200" />
+
+        {/* Editable title — invisible input, click to edit, blur to save */}
+        <div className="relative flex items-center max-w-[400px]">
+          <span
+            ref={titleMeasureRef}
+            className="invisible absolute whitespace-pre text-sm font-semibold px-0.5"
+            aria-hidden="true"
+          >
+            {titleInputValue || " "}
+          </span>
+          <input
+            ref={titleInputRef}
+            value={titleInputValue}
+            onChange={(e) => setTitleInputValue(e.target.value)}
+            onFocus={(e) => { titleBeforeEdit.current = title; e.target.select(); }}
+            onBlur={() => {
+              const v = titleInputValue.trim();
+              if (v && v !== title) { setTitle(v); scheduleRecord("Edit title"); }
+              else { setTitleInputValue(title); }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              else if (e.key === "Escape") { setTitleInputValue(titleBeforeEdit.current); e.currentTarget.blur(); }
+            }}
+            maxLength={80}
+            className="text-sm font-semibold text-slate-800 bg-transparent border-none outline-none px-0.5 rounded hover:bg-slate-50 focus:bg-slate-50 focus:ring-1 focus:ring-blue-200 transition-colors cursor-pointer focus:cursor-text truncate"
+            style={{ width: titleWidth }}
+            title="Click to edit title"
+          />
+        </div>
+
+        {isDirty && (
+          <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" title="Unsaved changes" />
+        )}
+
+        <div className="flex-1" />
+
+        {/* View toggles */}
+        <div className="flex items-center gap-0.5 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
+          <button
+            onClick={() => setIsLive(!isLive)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+              isLive ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
+            }`}
+            title="Toggle live data flow animation"
+          >
+            <Activity size={13} />
+            <span className="hidden xl:inline">Live</span>
+          </button>
+          <button
+            onClick={() => setShowLabels(!showLabels)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+              showLabels ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
+            }`}
+            title="Toggle data line labels"
+          >
+            <Tag size={13} />
+            <span className="hidden xl:inline">Labels</span>
+          </button>
+        </div>
+        <button
+          onClick={() => setShowMinimap(!showMinimap)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+            showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+          }`}
+          title="Toggle minimap"
+        >
+            <Map size={13} />
+            <span className="hidden xl:inline">Minimap</span>
+        </button>
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
+          <button
+            onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))}
+            className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition-all"
+            title="Zoom out"
+          >
+            &minus;
+          </button>
+          <button
+            onClick={() => setZoomTo(1)}
+            className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
+              Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+            }`}
+            title="Reset zoom to 100%"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            onClick={() => setZoomTo(Math.min(3, zoom + 0.25))}
+            className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition-all"
+            title="Zoom in"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="h-5 w-px bg-slate-200" />
+
+        {/* Discard / Save */}
         <button
           onClick={(e) => handleDiscard(e)}
           disabled={!fileExplorer.activeFile || !isDirty}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className={`p-1.5 rounded-md transition-colors ${
             fileExplorer.activeFile && isDirty
-              ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
-              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              ? "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              : "text-slate-300 cursor-not-allowed"
           }`}
           title="Discard changes"
         >
           <RotateCcw size={16} />
-          Discard
         </button>
         <button
           onClick={handleSave}
           disabled={!fileExplorer.activeFile || !isDirty}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
             fileExplorer.activeFile && isDirty
               ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "bg-slate-100 text-slate-300 cursor-not-allowed"
           }`}
           title="Save (⌘S)"
         >
-          <Save size={16} />
+          <Save size={14} />
           Save
         </button>
       </div>
@@ -815,7 +933,14 @@ export default function ArchitectureDesigner() {
           onGoToEntry={handleGoToEntry}
           collapsed={historyCollapsed}
           sidebarCollapsed={explorerCollapsed}
-          onToggleCollapse={() => setHistoryCollapsed((c) => !c)}
+          onToggleCollapse={() => {
+            if (explorerCollapsed) {
+              setExplorerCollapsed(false);
+              setHistoryCollapsed(false);
+            } else {
+              setHistoryCollapsed((c) => !c);
+            }
+          }}
         />
       </div>
       {/* Viewport */}
@@ -862,6 +987,14 @@ export default function ArchitectureDesigner() {
                     isResizing={resizingLayer?.layerId === r.id}
                     isSelected={isItemSelected(selection, 'layer', r.id)}
                     dimmed={dimmed}
+                    onDoubleClick={(layerId) => {
+                      const ld = layerDefs.find((l) => l.id === layerId);
+                      if (ld) {
+                        setEditingLabel({ type: "layer", id: layerId });
+                        setEditingLabelValue(ld.title);
+                        editingLabelBeforeRef.current = ld.title;
+                      }
+                    }}
                   />
                 </React.Fragment>
               );
@@ -873,7 +1006,11 @@ export default function ArchitectureDesigner() {
               style={{ zIndex: 5, left: world.x, top: world.y, width: world.w, height: world.h }}
               viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
             >
-              {lines.map((line) => {
+              {[...lines].sort((a, b) => {
+                const aFront = (a.id === hoveredLine?.id || isItemSelected(selection, 'line', a.id)) ? 1 : 0;
+                const bFront = (b.id === hoveredLine?.id || isItemSelected(selection, 'line', b.id)) ? 1 : 0;
+                return aFront - bFront;
+              }).map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
                 const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag;
                 return (
@@ -882,15 +1019,29 @@ export default function ArchitectureDesigner() {
                     {...line}
                     isLive={isLive}
                     isHovered={hoveredLine?.id === line.id}
+                    showLabels={showLabels}
                     isDraggingEndpoint={isBeingDragged}
                     isSelected={isItemSelected(selection, 'line', line.id)}
                     dimmed={dimmed}
-                    onHoverStart={(id, label, x, y) => setHoveredLine({ id, label, x, y })}
-                    onHoverMove={(id, x, y) =>
-                      setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev))
-                    }
-                    onHoverEnd={() => setHoveredLine(null)}
+                    suppressLabel={showLabels}
+                    onHoverStart={(id, label, x, y) => { setHoveredLine({ id, label, x, y }); }}
+                    onHoverMove={(id, x, y) => { setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev)); }}
+                    onHoverEnd={() => { setHoveredLine((prev) => prev?.id === line.id ? null : prev); }}
                     onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; handleLineClick(id, e); }}
+                    onLabelPositionChange={(connId, t) => {
+                      setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, labelPosition: t } : c));
+                    }}
+                    onLabelDragEnd={() => {
+                      scheduleRecord("Move label");
+                    }}
+                    onDoubleClick={(connId) => {
+                      const conn = connections.find((c) => c.id === connId);
+                      if (conn) {
+                        setEditingLabel({ type: "line", id: connId });
+                        setEditingLabelValue(conn.label);
+                        editingLabelBeforeRef.current = conn.label;
+                      }
+                    }}
                   />
                 );
               })}
@@ -968,16 +1119,16 @@ export default function ArchitectureDesigner() {
               return (
                 <React.Fragment key={node.id}>
                   {isThisSingleDragged && elementDragRawPos && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
+                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels dimmed measuredHeight={dims.h} />
                   )}
                   {isThisMultiDragged && multiDragRawDelta && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels={showLabels} dimmed measuredHeight={dims.h} />
+                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels dimmed measuredHeight={dims.h} />
                   )}
                   <Element
                     {...node}
                     x={visualX}
                     y={visualY}
-                    showLabels={showLabels}
+                    showLabels
                     onDragStart={(id, e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); }}
                     isDragging={isThisDragged}
                     isSelected={isItemSelected(selection, 'node', node.id)}
@@ -990,10 +1141,89 @@ export default function ArchitectureDesigner() {
                     onMouseEnter={() => setHoveredNodeId(node.id)}
                     onMouseLeave={() => setHoveredNodeId(null)}
                     dimmed={dimmed}
+                    onDoubleClick={(nodeId) => {
+                      const n = nodes.find((nd) => nd.id === nodeId);
+                      if (n) {
+                        setEditingLabel({ type: "node", id: nodeId });
+                        setEditingLabelValue(n.label);
+                        editingLabelBeforeRef.current = n.label;
+                      }
+                    }}
                   />
                 </React.Fragment>
               );
             })}
+            {/* Data line label overlay — rendered above elements for z-order */}
+            {showLabels && (
+              <svg
+                className="absolute pointer-events-none"
+                style={{ zIndex: 15, left: world.x, top: world.y, width: world.w, height: world.h }}
+                viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
+              >
+                {[...lines].sort((a, b) => {
+                  const aFront = (a.id === hoveredLine?.id || isItemSelected(selection, 'line', a.id)) ? 1 : 0;
+                  const bFront = (b.id === hoveredLine?.id || isItemSelected(selection, 'line', b.id)) ? 1 : 0;
+                  return aFront - bFront;
+                }).map((line) => {
+                  if (!line.label) return null;
+                  const pt = interpolatePoints(line.points, line.labelPosition);
+                  const isHovered = hoveredLine?.id === line.id;
+                  const isSelected = isItemSelected(selection, 'line', line.id);
+                  const w = line.label.length * 6.5 + 8;
+                  return (
+                    <g
+                      key={line.id}
+                      style={{ pointerEvents: "auto", cursor: "grab" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const svg = (e.target as SVGElement).closest("svg");
+                        if (!svg) return;
+                        const onMove = (ev: MouseEvent) => {
+                          const pt = svg.createSVGPoint();
+                          pt.x = ev.clientX;
+                          pt.y = ev.clientY;
+                          const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+                          const newT = closestT(line.points, svgPt.x, svgPt.y);
+                          setConnections((prev) => prev.map((c) => c.id === line.id ? { ...c, labelPosition: Math.max(0.05, Math.min(0.95, newT)) } : c));
+                        };
+                        const onUp = () => {
+                          scheduleRecord("Move label");
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                    >
+                      <rect
+                        x={pt.x - w / 2}
+                        y={pt.y - 10}
+                        width={w}
+                        height={18}
+                        rx={4}
+                        fill="white"
+                        fillOpacity={0.9}
+                        stroke={isSelected || isHovered ? line.color : "#e2e8f0"}
+                        strokeWidth={0.8}
+                      />
+                      <text
+                        x={pt.x}
+                        y={pt.y + 3}
+                        textAnchor="middle"
+                        fontSize="11"
+                        fontWeight="600"
+                        fontFamily="system-ui, sans-serif"
+                        fill={line.color}
+                        style={{ pointerEvents: "none", userSelect: "none" }}
+                      >
+                        {line.label}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            )}
             {/* Selection Rectangle */}
             {selectionRect && (
               <div
@@ -1007,6 +1237,80 @@ export default function ArchitectureDesigner() {
                 }}
               />
             )}
+            {/* Inline label editor */}
+            {editingLabel && (() => {
+              let editX = 0, editY = 0;
+              if (editingLabel.type === "node") {
+                const n = nodes.find((nd) => nd.id === editingLabel.id);
+                if (n) { editX = n.x; editY = n.y; }
+              } else if (editingLabel.type === "layer") {
+                const r = regions.find((rg) => rg.id === editingLabel.id);
+                if (r) { editX = r.left + 12; editY = r.top + 12; }
+              } else if (editingLabel.type === "line") {
+                const line = lines.find((l) => l.id === editingLabel.id);
+                if (line) {
+                  const t = connections.find((c) => c.id === editingLabel.id)?.labelPosition ?? 0.5;
+                  // Interpolate along points
+                  const pts = line.points;
+                  if (pts.length >= 2) {
+                    let totalLen = 0;
+                    const segs: number[] = [];
+                    for (let i = 1; i < pts.length; i++) {
+                      const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+                      segs.push(Math.sqrt(dx*dx + dy*dy));
+                      totalLen += segs[i-1];
+                    }
+                    const target = t * totalLen;
+                    let acc = 0;
+                    for (let i = 0; i < segs.length; i++) {
+                      if (acc + segs[i] >= target) {
+                        const f = (target - acc) / segs[i];
+                        editX = pts[i].x + (pts[i+1].x - pts[i].x) * f;
+                        editY = pts[i].y + (pts[i+1].y - pts[i].y) * f;
+                        break;
+                      }
+                      acc += segs[i];
+                    }
+                  }
+                }
+              }
+              const commitLabel = () => {
+                const v = editingLabelValue.trim();
+                if (v && v !== editingLabelBeforeRef.current) {
+                  if (editingLabel.type === "node") {
+                    setNodes((prev) => prev.map((n) => n.id === editingLabel.id ? { ...n, label: v } : n));
+                  } else if (editingLabel.type === "layer") {
+                    setLayerDefs((prev) => prev.map((l) => l.id === editingLabel.id ? { ...l, title: v } : l));
+                  } else if (editingLabel.type === "line") {
+                    setConnections((prev) => prev.map((c) => c.id === editingLabel.id ? { ...c, label: v } : c));
+                  }
+                  scheduleRecord(`Edit ${editingLabel.type} label`);
+                }
+                setEditingLabel(null);
+              };
+              return (
+                <div
+                  className="absolute"
+                  style={{ left: editX, top: editY, transform: editingLabel.type === "node" ? "translate(-50%, -50%)" : undefined, zIndex: 60 }}
+                >
+                  <input
+                    autoFocus
+                    value={editingLabelValue}
+                    onChange={(e) => setEditingLabelValue(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={commitLabel}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      else if (e.key === "Escape") { setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }
+                    }}
+                    maxLength={80}
+                    className="text-sm font-semibold bg-white/90 backdrop-blur-sm border-none outline-none px-1.5 py-0.5 rounded shadow-sm ring-1 ring-blue-300 focus:ring-2 focus:ring-blue-400 transition-shadow min-w-[60px]"
+                    style={{ width: Math.max(60, editingLabelValue.length * 8 + 16) }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+              );
+            })()}
         </Canvas>
         </div>
         </div>
@@ -1107,8 +1411,8 @@ export default function ArchitectureDesigner() {
         </div>
       )}
 
-      {/* Tooltip */}
-      {hoveredLine && (
+      {/* Tooltip — only when labels are hidden (when labels visible, they're on the line itself) */}
+      {hoveredLine && !showLabels && (
         <div
           className="fixed z-50 bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
           style={{ left: hoveredLine.x, top: hoveredLine.y - 15 }}
@@ -1117,11 +1421,8 @@ export default function ArchitectureDesigner() {
         </div>
       )}
 
-      {/* Controls */}
+      {/* Footer status */}
       <DiagramControls
-        isLive={isLive} setIsLive={setIsLive}
-        showLabels={showLabels} setShowLabels={setShowLabels}
-        showMinimap={showMinimap} setShowMinimap={setShowMinimap}
         world={world} patches={patches} zoom={zoom}
       />
 

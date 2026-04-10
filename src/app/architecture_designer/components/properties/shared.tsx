@@ -8,6 +8,17 @@ export type { RegionBounds };
 
 export const KEY_COL = "w-[72px] shrink-0";
 
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-3">
+      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-0.5">{title}</div>
+      <div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-start py-1.5 border-b border-slate-100 last:border-b-0">

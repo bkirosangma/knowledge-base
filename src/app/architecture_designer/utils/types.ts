@@ -33,6 +33,8 @@ export interface Connection {
   label: string;
   biDirectional?: boolean;
   flowDuration?: number;
+  /** Position of the label along the path (0 = start, 1 = end, default 0.5 = midpoint) */
+  labelPosition?: number;
 }
 
 export interface SerializedNodeData {

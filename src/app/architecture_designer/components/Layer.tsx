@@ -14,6 +14,7 @@ interface LayerProps {
   textColor?: string;
   onDragStart?: (id: string, e: React.MouseEvent) => void;
   onResizeStart?: (id: string, edge: ResizeEdge, e: React.MouseEvent) => void;
+  onDoubleClick?: (id: string) => void;
   isDragging?: boolean;
   isResizing?: boolean;
   isSelected?: boolean;
@@ -34,6 +35,7 @@ export default function Layer({
   textColor,
   onDragStart,
   onResizeStart,
+  onDoubleClick,
   isDragging,
   isResizing,
   isSelected,
@@ -97,6 +99,7 @@ export default function Layer({
           e.preventDefault();
           onDragStart?.(id, e);
         }}
+        onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
       >
         {title}
       </span>

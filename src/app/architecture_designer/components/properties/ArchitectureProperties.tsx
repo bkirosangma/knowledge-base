@@ -1,5 +1,5 @@
 import type { NodeData, LineCurveAlgorithm } from "../../utils/types";
-import { EditableRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
+import { Section, EditableRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 
 export function ArchitectureProperties({
   title, regions, nodes, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
@@ -15,8 +15,8 @@ export function ArchitectureProperties({
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-0">
+    <>
+      <Section title="General">
         <EditableRow label="Title" value={title} onCommit={(v) => { onUpdateTitle?.(v); return true; }} />
         <DropdownRow<LineCurveAlgorithm>
           label="Lines"
@@ -28,9 +28,11 @@ export function ArchitectureProperties({
           ]}
           onChange={onUpdateLineCurve}
         />
+      </Section>
+      <Section title="Content">
         <ExpandableListRow label="Layers" items={layerItems} onSelect={onSelectLayer} />
         <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
-      </div>
-    </div>
+      </Section>
+    </>
   );
 }
