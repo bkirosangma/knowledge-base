@@ -3,6 +3,7 @@ import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
 import type { NodeData, Connection } from "../utils/types";
 import { getNodeDims } from "../utils/geometry";
+import { validateConnection } from "../utils/connectionConstraints";
 
 interface UseEndpointDragOptions {
   connections: Connection[];
@@ -99,7 +100,7 @@ export function useEndpointDrag({
       const nodesWithHeight = nodes.map((n) => {
         const dims = getNodeDims(n, measuredSizes);
         const shift = layerShiftsRef.current[n.layer] || 0;
-        return { id: n.id, x: n.x, y: n.y + shift, w: dims.w, h: dims.h };
+        return { id: n.id, x: n.x, y: n.y + shift, w: dims.w, h: dims.h, shape: n.shape, conditionOutCount: n.conditionOutCount, rotation: n.rotation };
       });
 
       const nearest = findNearestAnchor(mx, my, nodesWithHeight, 25);
@@ -130,6 +131,21 @@ export function useEndpointDrag({
           nodeId: prev.originalNodeId,
           anchorId: prev.originalAnchor,
         };
+
+        // Validate connection constraints for conditions
+        const conn = connections.find((c) => c.id === prev.connectionId);
+        if (conn) {
+          const newFrom = prev.end === "from" ? target.nodeId : conn.from;
+          const newFromAnchor = prev.end === "from" ? target.anchorId : conn.fromAnchor;
+          const newTo = prev.end === "to" ? target.nodeId : conn.to;
+          const newToAnchor = prev.end === "to" ? target.anchorId : conn.toAnchor;
+          const fromNode = nodes.find((n) => n.id === newFrom);
+          const toNode = nodes.find((n) => n.id === newTo);
+          // Exclude this connection from the check since we're modifying it
+          const otherConns = connections.filter((c) => c.id !== prev.connectionId);
+          const { valid } = validateConnection(fromNode, newFromAnchor, toNode, newToAnchor, otherConns);
+          if (!valid) return null; // Revert — don't update
+        }
 
         setConnections((conns) =>
           conns.map((c) => {

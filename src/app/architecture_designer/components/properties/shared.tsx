@@ -145,9 +145,11 @@ export function EditableIdRow({
 export function ListItem({
   item,
   onSelect,
+  onHoverItem,
 }: {
   item: { id: string; name: string; sub?: string };
   onSelect?: (id: string) => void;
+  onHoverItem?: (id: string | null) => void;
 }) {
   const nameRef = useRef<HTMLSpanElement>(null);
   const subRef = useRef<HTMLSpanElement>(null);
@@ -172,8 +174,8 @@ export function ListItem({
     <button
       className="block w-full text-left text-[12px] text-slate-600 hover:text-blue-600 hover:bg-slate-50 rounded px-1.5 py-0.5 transition-colors cursor-pointer relative"
       onClick={() => onSelect?.(item.id)}
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
+      onMouseEnter={() => { showTooltip(); onHoverItem?.(item.id); }}
+      onMouseLeave={() => { hideTooltip(); onHoverItem?.(null); }}
     >
       <span ref={nameRef} className="block truncate">{item.name}</span>
       {item.sub && <span ref={subRef} className="block text-[10px] text-slate-400 truncate">{item.sub}</span>}
@@ -190,10 +192,12 @@ export function ExpandableListRow({
   label,
   items,
   onSelect,
+  onHoverItem,
 }: {
   label: string;
   items: { id: string; name: string; sub?: string }[];
   onSelect?: (id: string) => void;
+  onHoverItem?: (id: string | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -215,7 +219,7 @@ export function ExpandableListRow({
       {expanded && (
         <div className="pl-[72px] pb-1.5 space-y-0.5">
           {items.map((item, idx) => (
-            <ListItem key={`${item.id}-${idx}`} item={item} onSelect={onSelect} />
+            <ListItem key={`${item.id}-${idx}`} item={item} onSelect={onSelect} onHoverItem={onHoverItem} />
           ))}
         </div>
       )}
@@ -290,12 +294,12 @@ export function IconPickerRow({
 }
 
 export const COLOR_SCHEMES = [
-  { name: "Default",  node: { fill: "#ffffff", border: "#e2e8f0", text: "#1e293b" }, layer: { fill: "#eff3f9", border: "#cdd6e4", text: "#334155" }, line: "#3b82f6" },
-  { name: "Ocean",    node: { fill: "#eff6ff", border: "#93c5fd", text: "#1e3a5f" }, layer: { fill: "#dbeafe", border: "#60a5fa", text: "#1e3a5f" }, line: "#2563eb" },
-  { name: "Emerald",  node: { fill: "#ecfdf5", border: "#6ee7b7", text: "#064e3b" }, layer: { fill: "#d1fae5", border: "#34d399", text: "#064e3b" }, line: "#059669" },
-  { name: "Amber",    node: { fill: "#fffbeb", border: "#fcd34d", text: "#78350f" }, layer: { fill: "#fef3c7", border: "#f59e0b", text: "#78350f" }, line: "#d97706" },
-  { name: "Rose",     node: { fill: "#fff1f2", border: "#fda4af", text: "#881337" }, layer: { fill: "#ffe4e6", border: "#fb7185", text: "#881337" }, line: "#e11d48" },
-  { name: "Slate",    node: { fill: "#f8fafc", border: "#94a3b8", text: "#0f172a" }, layer: { fill: "#f1f5f9", border: "#64748b", text: "#0f172a" }, line: "#475569" },
+  { name: "Default",  node: { fill: "#ffffff", border: "#e2e8f0", text: "#1e293b" }, layer: { fill: "#eff3f9", border: "#cdd6e4", text: "#334155" }, condition: { fill: "#fefce8", border: "#fbbf24", text: "#713f12" }, line: "#3b82f6" },
+  { name: "Ocean",    node: { fill: "#eff6ff", border: "#93c5fd", text: "#1e3a5f" }, layer: { fill: "#dbeafe", border: "#60a5fa", text: "#1e3a5f" }, condition: { fill: "#e0f2fe", border: "#38bdf8", text: "#0c4a6e" }, line: "#2563eb" },
+  { name: "Emerald",  node: { fill: "#ecfdf5", border: "#6ee7b7", text: "#064e3b" }, layer: { fill: "#d1fae5", border: "#34d399", text: "#064e3b" }, condition: { fill: "#dcfce7", border: "#4ade80", text: "#14532d" }, line: "#059669" },
+  { name: "Amber",    node: { fill: "#fffbeb", border: "#fcd34d", text: "#78350f" }, layer: { fill: "#fef3c7", border: "#f59e0b", text: "#78350f" }, condition: { fill: "#fef9c3", border: "#facc15", text: "#713f12" }, line: "#d97706" },
+  { name: "Rose",     node: { fill: "#fff1f2", border: "#fda4af", text: "#881337" }, layer: { fill: "#ffe4e6", border: "#fb7185", text: "#881337" }, condition: { fill: "#fce7f3", border: "#f472b6", text: "#831843" }, line: "#e11d48" },
+  { name: "Slate",    node: { fill: "#f8fafc", border: "#94a3b8", text: "#0f172a" }, layer: { fill: "#f1f5f9", border: "#64748b", text: "#0f172a" }, condition: { fill: "#f1f5f9", border: "#64748b", text: "#0f172a" }, line: "#475569" },
 ] as const;
 
 export function ColorSchemeRow({
@@ -303,7 +307,7 @@ export function ColorSchemeRow({
   currentColors,
   onSelect,
 }: {
-  type: "node" | "layer" | "line";
+  type: "node" | "layer" | "line" | "condition";
   currentColors: { fill: string; border: string; text: string } | { color: string };
   onSelect: (scheme: typeof COLOR_SCHEMES[number]) => void;
 }) {
@@ -312,13 +316,14 @@ export function ColorSchemeRow({
       <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Scheme</span>
       <div className="flex items-center gap-1.5">
         {COLOR_SCHEMES.map((scheme) => {
-          const swatchColor = type === "line" ? scheme.line : scheme[type].border;
+          const colorSet = type === "line" ? null : scheme[type];
+          const swatchColor = type === "line" ? scheme.line : colorSet!.border;
           const isActive = type === "line"
             ? "color" in currentColors && currentColors.color === scheme.line
-            : "fill" in currentColors
-              && currentColors.fill === scheme[type].fill
-              && currentColors.border === scheme[type].border
-              && currentColors.text === scheme[type].text;
+            : "fill" in currentColors && colorSet
+              && currentColors.fill === colorSet.fill
+              && currentColors.border === colorSet.border
+              && currentColors.text === colorSet.text;
           return (
             <button
               key={scheme.name}

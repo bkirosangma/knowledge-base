@@ -25,13 +25,14 @@ interface PropertiesPanelProps {
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
   flows: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
+  onHoverFlow?: (flowId: string | null) => void;
   onUpdateFlow?: (id: string, updates: Partial<{ id: string; name: string }>) => void;
   onDeleteFlow?: (id: string) => void;
   onCreateFlow?: (connectionIds: string[]) => void;
   onSelectLine?: (lineId: string) => void;
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -79,7 +80,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           />
         )}
         {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} />
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} />
         )}
         {selection?.type === "layer" && (
           <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />

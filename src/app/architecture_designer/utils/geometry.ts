@@ -1,4 +1,5 @@
 import type { NodeData } from "./types";
+import { getConditionDimensions } from "./conditionGeometry";
 
 /** Compute standard node height from its width */
 export function getNodeHeight(w: number): number {
@@ -11,6 +12,13 @@ export function getNodeDims(
   measuredSizes: Record<string, { w: number; h: number }>,
 ): { w: number; h: number } {
   const measured = measuredSizes[node.id];
+  if (node.shape === "condition") {
+    const dims = getConditionDimensions(node.conditionSize);
+    return {
+      w: measured?.w ?? dims.w,
+      h: measured?.h ?? dims.h,
+    };
+  }
   return {
     w: measured?.w ?? node.w,
     h: measured?.h ?? getNodeHeight(node.w),

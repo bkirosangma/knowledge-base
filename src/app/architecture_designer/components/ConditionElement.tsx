@@ -1,0 +1,237 @@
+import { useRef, useEffect, useState } from "react";
+import type { ComponentType } from "react";
+import { RotateCw, Plus } from "lucide-react";
+import type { AnchorId } from "../utils/anchors";
+import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
+
+interface ConditionElementProps {
+  id: string;
+  label: string;
+  icon?: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  outCount: number;
+  rotation: number;
+  showLabels: boolean;
+  onDragStart?: (id: string, e: React.MouseEvent) => void;
+  isDragging?: boolean;
+  isSelected?: boolean;
+  showAnchors?: boolean;
+  highlightedAnchor?: AnchorId | null;
+  onAnchorDragStart?: (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onResize?: (id: string, width: number, height: number) => void;
+  onDoubleClick?: (id: string) => void;
+  onAddOutAnchor?: () => void;
+  onRotationDragStart?: (id: string, e: React.MouseEvent) => void;
+  dimmed?: boolean;
+  borderColor?: string;
+  bgColor?: string;
+  textColor?: string;
+}
+
+export default function ConditionElement({
+  id,
+  label,
+  icon: Icon,
+  x,
+  y,
+  w,
+  h,
+  outCount,
+  rotation,
+  showLabels,
+  onDragStart,
+  isDragging,
+  isSelected,
+  showAnchors,
+  highlightedAnchor,
+  onAnchorDragStart,
+  onMouseEnter,
+  onMouseLeave,
+  onResize,
+  onDoubleClick,
+  onAddOutAnchor,
+  onRotationDragStart,
+  dimmed,
+  borderColor,
+  bgColor,
+  textColor,
+}: ConditionElementProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const effectiveH = getEffectiveConditionHeight(h, w, outCount);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    if (!onResize) return;
+    onResize(id, w, effectiveH);
+  }, [id, w, effectiveH, onResize]);
+
+  const path = getConditionPath(w, h, outCount);
+  const anchors = getConditionAnchors(x, y, w, h, outCount, rotation);
+
+  const fill = bgColor ?? "#ffffff";
+  const stroke = borderColor ?? "#e2e8f0";
+  const text = textColor ?? "#1e293b";
+
+  // Centroid-based text positioning for each rotation
+  // Triangle centroid is at 2/3 from vertex toward base
+  const centroidOffsets: Record<number, { left: string; top: string }> = {
+    0:   { left: '50%', top: '55%' },
+    90:  { left: '40%', top: '50%' },
+    180: { left: '50%', top: '42%' },
+    270: { left: '60%', top: '50%' },
+  };
+  const centroid = centroidOffsets[rotation] ?? centroidOffsets[0];
+
+  // Compute the "+" add button position: center of the base/arc (before rotation)
+  const addBtnLocalX = w / 2;
+  const addBtnLocalY = h + (outCount > 2 ? w * 0.12 * Math.min(outCount - 2, 5) : 0) + 12; // slightly below the convex apex
+  // Convert to effective-height local space then rotate
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const relX = addBtnLocalX - w / 2;
+  const relY = addBtnLocalY - effectiveH / 2;
+  const addBtnX = (relX * cos - relY * sin) + w / 2;
+  const addBtnY = (relX * sin + relY * cos) + effectiveH / 2;
+
+  return (
+    <div
+      ref={ref}
+      className={`absolute z-10 select-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+      style={{
+        left: x,
+        top: y,
+        width: w,
+        height: effectiveH,
+        transform: "translate(-50%, -50%)",
+        opacity: dimmed ? 0.55 : 1,
+        transitionProperty: "opacity",
+        transitionDuration: "150ms",
+        transitionDelay: dimmed ? "0.15s" : "0s",
+      }}
+      onMouseDown={(e) => { e.preventDefault(); onDragStart?.(id, e); }}
+      onMouseEnter={() => { setHovered(true); onMouseEnter?.(); }}
+      onMouseLeave={() => { setHovered(false); onMouseLeave?.(); }}
+      onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
+    >
+      {/* SVG shape */}
+      <svg
+        width={w}
+        height={effectiveH}
+        className="absolute inset-0"
+        style={{ transform: `rotate(${rotation}deg)`, transformOrigin: "center" }}
+      >
+        <path
+          d={path}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={isSelected || isDragging ? 2 : 1}
+          filter="drop-shadow(0 4px 15px rgb(0,0,0,0.06))"
+        />
+        {isSelected && (
+          <path
+            d={path}
+            fill="none"
+            stroke="#60a5fa"
+            strokeWidth={2}
+          />
+        )}
+      </svg>
+
+      {/* Icon + label (always upright, centroid-positioned) */}
+      <div
+        className="absolute flex flex-col items-center justify-center text-center pointer-events-none"
+        style={{
+          left: centroid.left,
+          top: centroid.top,
+          transform: "translate(-50%, -50%)",
+          maxWidth: w * 0.7,
+        }}
+      >
+        {Icon && (
+          <span className="mb-1" style={{ color: textColor ?? "#475569" }}>
+            <Icon size={16} strokeWidth={1.5} />
+          </span>
+        )}
+        <div
+          className="font-semibold text-[11px] leading-tight px-2"
+          style={{ color: text }}
+        >
+          {label}
+        </div>
+      </div>
+
+      {/* Anchor dots */}
+      {anchors.map((anchor) => {
+        const relAnchorX = anchor.x - x + w / 2;
+        const relAnchorY = anchor.y - y + effectiveH / 2;
+        const isIn = anchor.anchorType === 'in';
+        const isHighlighted = showAnchors && highlightedAnchor === anchor.id;
+        const anchorColor = isIn ? "#10b981" : "#f59e0b";
+        const anchorHighlightColor = isIn ? "#6ee7b7" : "#fcd34d";
+        return (
+          <div
+            key={anchor.id}
+            className={`absolute rounded-full ${
+              isHighlighted
+                ? "w-4 h-4 ring-2"
+                : "w-2.5 h-2.5 hover:w-4 hover:h-4 hover:opacity-100"
+            }`}
+            style={{
+              left: `${(relAnchorX / w) * 100}%`,
+              top: `${(relAnchorY / effectiveH) * 100}%`,
+              transform: "translate(-50%, -50%)",
+              backgroundColor: anchorColor,
+              opacity: showAnchors ? (isHighlighted ? 1 : 0.6) : 0,
+              transitionProperty: "all",
+              transitionDuration: "150ms",
+              transitionDelay: showAnchors ? "0s" : "0.15s",
+              pointerEvents: showAnchors && onAnchorDragStart ? "auto" : "none",
+              cursor: onAnchorDragStart ? "crosshair" : undefined,
+              boxShadow: isHighlighted ? `0 0 0 2px ${anchorHighlightColor}` : undefined,
+            }}
+            onMouseDown={
+              onAnchorDragStart
+                ? (e) => { e.stopPropagation(); e.preventDefault(); onAnchorDragStart(id, anchor.id as AnchorId, e); }
+                : undefined
+            }
+          />
+        );
+      })}
+
+      {/* "+" button to add out anchor — shown only when selected */}
+      {isSelected && onAddOutAnchor && (
+        <div
+          className="absolute flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 border border-amber-300 hover:bg-amber-200 cursor-pointer z-20 transition-opacity"
+          style={{
+            left: `${(addBtnX / w) * 100}%`,
+            top: `${(addBtnY / effectiveH) * 100}%`,
+            transform: "translate(-50%, -50%)",
+          }}
+          onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onAddOutAnchor(); }}
+        >
+          <Plus size={10} className="text-amber-600" />
+        </div>
+      )}
+
+      {/* Rotation handle — shown on hover or selected */}
+      {(hovered || isSelected) && onRotationDragStart && (
+        <div
+          className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
+          style={{
+            right: -12,
+            top: -12,
+          }}
+          onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotationDragStart(id, e); }}
+        >
+          <RotateCw size={12} className="text-slate-500" />
+        </div>
+      )}
+    </div>
+  );
+}

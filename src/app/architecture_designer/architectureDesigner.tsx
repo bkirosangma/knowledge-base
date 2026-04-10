@@ -9,7 +9,7 @@ import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
 import FlowDots from "./components/FlowDots";
-import { getAnchorPosition, getAnchors } from "./utils/anchors";
+import { getAnchorPosition, getAnchors, getAnchorDirection, getNodeAnchorPosition, getNodeAnchorDirection, pickBestTargetAnchor } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
@@ -18,7 +18,7 @@ import { isItemSelected, toggleItemInSelection } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
-import { Save, RotateCcw, Undo2, Redo2, Activity, Tag, Map } from "lucide-react";
+import { Save, RotateCcw, Undo2, Redo2, Activity, Tag, Map, GitBranch } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
@@ -40,6 +40,10 @@ import { detectContextMenuTarget } from "./utils/geometry";
 import DiagramControls from "./components/DiagramControls";
 import ExplorerPanel from "./components/explorer/ExplorerPanel";
 import ConfirmPopover from "./components/explorer/ConfirmPopover";
+import AnchorPopupMenu from "./components/AnchorPopupMenu";
+import ConditionElement from "./components/ConditionElement";
+import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
+import { getNodesByType } from "./utils/typeUtils";
 import HistoryPanel from "./components/HistoryPanel";
 import { useFileExplorer } from "./hooks/useFileExplorer";
 import { loadDiagramFromData } from "./utils/persistence";
@@ -70,6 +74,8 @@ export default function ArchitectureDesigner() {
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [contextMenu, setContextMenu] = useState<{ clientX: number; clientY: number; canvasX: number; canvasY: number; target: ContextMenuTarget } | null>(null);
+  const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("./utils/anchors").AnchorId } | null>(null);
+  const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null);
   const [patches, setPatches] = useState<CanvasPatch[]>([
     { id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 },
   ]);
@@ -200,8 +206,12 @@ export default function ArchitectureDesigner() {
     });
   }, []);
 
-  const getNodeDimensions = useCallback((node: { id: string; w: number }) => {
+  const getNodeDimensions = useCallback((node: { id: string; w: number; shape?: string; conditionSize?: number }) => {
     const measured = measuredSizes[node.id];
+    if (node.shape === "condition") {
+      const dims = getConditionDimensions(node.conditionSize as 1|2|3|4|5|undefined);
+      return { w: measured?.w ?? dims.w, h: measured?.h ?? dims.h };
+    }
     return {
       w: measured?.w ?? node.w,
       h: measured?.h ?? getNodeHeight(node.w),
@@ -246,9 +256,18 @@ export default function ArchitectureDesigner() {
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
 
+  const onAnchorClick = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
+    // For condition out-anchors or any anchor on regular elements, show popup
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    if (node.shape === "condition" && anchorId === "cond-in") return; // No popup for in-anchor
+    setAnchorPopup({ clientX, clientY, nodeId, anchorId });
+  }, [nodes]);
+
   const { creatingLine, handleAnchorDragStart } = useLineDrag({
     nodes, connections, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
     isBlocked: !!draggingEndpoint,
+    onAnchorClick,
   });
 
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
@@ -563,10 +582,140 @@ export default function ArchitectureDesigner() {
     setSelection({ type: 'line', id: lineId });
   }, []);
 
-  // Flow dimming: compute which items are "included" in the selected flow
+  // Anchor popup handlers
+  const handleAnchorConnectToElement = useCallback((targetNodeId: string) => {
+    if (!anchorPopup) return;
+    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
+    const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
+    if (!sourceNode || !targetNode) return;
+    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
+    const dims = getNodeDimensions(sourceNode);
+    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
+    const targetShift = layerShiftsRef.current[targetNode.layer] || 0;
+    const targetDims = getNodeDimensions(targetNode);
+    const toAnchor = pickBestTargetAnchor(fromPos, targetNode.x, targetNode.y + targetShift, targetDims.w, targetDims.h);
+    const conn = {
+      id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      from: anchorPopup.nodeId,
+      to: targetNodeId,
+      fromAnchor: anchorPopup.anchorId,
+      toAnchor,
+      color: "#3b82f6",
+      label: "",
+    };
+    setConnections((prev) => [...prev, conn]);
+    scheduleRecord("Connect to element");
+  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
+
+  const handleAnchorCreateCondition = useCallback(() => {
+    if (!anchorPopup) return;
+    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
+    if (!sourceNode) return;
+    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
+    const dims = getNodeDimensions(sourceNode);
+    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
+    const dir = getAnchorDirection(anchorPopup.anchorId);
+    const condX = fromPos.x + dir.dx * 150;
+    const condY = fromPos.y + dir.dy * 150;
+    const condId = `el-cond-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newNode = {
+      id: condId,
+      label: "Condition",
+      icon: GitBranch,
+      x: condX,
+      y: condY,
+      w: 120,
+      layer: "",
+      shape: "condition" as const,
+      conditionOutCount: 2,
+      rotation: 0 as const,
+    };
+    const conn = {
+      id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      from: anchorPopup.nodeId,
+      to: condId,
+      fromAnchor: anchorPopup.anchorId,
+      toAnchor: "cond-in" as import("./utils/anchors").AnchorId,
+      color: "#3b82f6",
+      label: "",
+    };
+    setNodes((prev) => [...prev, newNode]);
+    setConnections((prev) => [...prev, conn]);
+    setSelection({ type: 'node', id: condId });
+    scheduleRecord("Add condition");
+  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
+
+  const handleAnchorConnectToType = useCallback((type: string) => {
+    if (!anchorPopup) return;
+    const sourceNode = nodesRef.current.find((n) => n.id === anchorPopup.nodeId);
+    if (!sourceNode) return;
+    const targets = getNodesByType(nodesRef.current, type).filter((n) => n.id !== anchorPopup.nodeId);
+    if (targets.length === 0) return;
+    const shift = layerShiftsRef.current[sourceNode.layer] || 0;
+    const dims = getNodeDimensions(sourceNode);
+    const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
+    const newConns = targets.map((t) => {
+      const tShift = layerShiftsRef.current[t.layer] || 0;
+      const tDims = getNodeDimensions(t);
+      const toAnchor = pickBestTargetAnchor(fromPos, t.x, t.y + tShift, tDims.w, tDims.h);
+      return {
+        id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${t.id}`,
+        from: anchorPopup.nodeId,
+        to: t.id,
+        fromAnchor: anchorPopup.anchorId,
+        toAnchor,
+        color: "#3b82f6",
+        label: "",
+      };
+    });
+    setConnections((prev) => [...prev, ...newConns]);
+    scheduleRecord("Connect to type");
+  }, [anchorPopup, scheduleRecord, getNodeDimensions]);
+
+  // Drag-to-rotate for condition elements
+  const handleRotationDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node) return;
+    const initialRotation = node.rotation ?? 0;
+
+    // Get the element's center in client coords from the parent container
+    const parentEl = (e.currentTarget.parentElement) as HTMLElement;
+    const rect = parentEl.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const baseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+
+    let lastSnapped = initialRotation;
+    const onMove = (ev: MouseEvent) => {
+      const currentAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180 / Math.PI;
+      const delta = currentAngle - baseAngle;
+      const raw = initialRotation + delta;
+      // Normalize to 0-360
+      const normalized = ((raw % 360) + 360) % 360;
+      // Only snap when within 15° of a 90° boundary
+      const nearest90 = (Math.round(normalized / 90) * 90 % 360) as 0 | 90 | 180 | 270;
+      const distTo90 = Math.abs(normalized - nearest90) <= 180 ? Math.abs(normalized - nearest90) : 360 - Math.abs(normalized - nearest90);
+      if (distTo90 <= 15) {
+        lastSnapped = nearest90;
+      }
+      setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, rotation: lastSnapped as 0 | 90 | 180 | 270 } : n));
+    };
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      scheduleRecord("Rotate condition");
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [scheduleRecord]);
+
+  // Flow dimming: compute which items are "included" in the selected or hovered flow
   const flowDimSets = useMemo(() => {
-    if (selection?.type !== 'flow') return null;
-    const flow = flows.find((f) => f.id === selection.id);
+    const activeFlowId = hoveredFlowId ?? (selection?.type === 'flow' ? selection.id : null);
+    if (!activeFlowId) return null;
+    const flow = flows.find((f) => f.id === activeFlowId);
     if (!flow) return null;
     const connIds = new Set(flow.connectionIds);
     const nodeIds = new Set<string>();
@@ -580,7 +729,7 @@ export default function ArchitectureDesigner() {
       if (node?.layer) layerIds.add(node.layer);
     }
     return { connIds, nodeIds, layerIds };
-  }, [selection, flows, connections, nodes]);
+  }, [selection, hoveredFlowId, flows, connections, nodes]);
 
   // Compute layer bounds from contained nodes
   const naturalBounds = computeRegions(layerDefs, nodes, getNodeDimensions, layerManualSizes, draggingId, elementDragPos, multiDragIds, multiDragDelta);
@@ -779,14 +928,32 @@ export default function ArchitectureDesigner() {
     return { id: n.id, x: n.x, y: n.y, w: dims.w, h: dims.h };
   });
 
+  /** Resolve anchor position for a node, handling conditions. */
+  const resolveAnchorPos = (anchorId: string, node: typeof displayNodes[0], dims: { w: number; h: number }) => {
+    if (node.shape === "condition") {
+      return getNodeAnchorPosition(anchorId, node.x, node.y, dims.w, dims.h, node.shape, node.conditionOutCount, node.rotation);
+    }
+    return getAnchorPosition(anchorId as import("./utils/anchors").AnchorId, node.x, node.y, dims.w, dims.h);
+  };
+
+  /** Resolve anchor direction for a node, handling conditions. */
+  const resolveAnchorDir = (anchorId: string, node: typeof displayNodes[0], dims: { w: number; h: number }) => {
+    if (node.shape === "condition") {
+      return getNodeAnchorDirection(anchorId, node.x, node.y, dims.w, dims.h, node.shape, node.conditionOutCount, node.rotation);
+    }
+    return getAnchorDirection(anchorId as import("./utils/anchors").AnchorId);
+  };
+
   const lines = connections.map((conn) => {
     const fromNode = nodeMap[conn.from];
     const toNode = nodeMap[conn.to];
     const fromDims = getNodeDimensions(fromNode);
     const toDims = getNodeDimensions(toNode);
-    const fromPos = getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
-    const toPos = getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h);
+    const fromPos = resolveAnchorPos(conn.fromAnchor, fromNode, fromDims);
+    const toPos = resolveAnchorPos(conn.toAnchor, toNode, toDims);
     const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
+    const fromDir = resolveAnchorDir(conn.fromAnchor, fromNode, fromDims);
+    const toDir = resolveAnchorDir(conn.toAnchor, toNode, toDims);
     const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles);
     return {
       id: conn.id,
@@ -814,8 +981,8 @@ export default function ArchitectureDesigner() {
       const fromDims = getNodeDimensions(fromNode);
       const toDims = getNodeDimensions(toNode);
       const fixedPos = draggingEndpoint.end === "from"
-        ? getAnchorPosition(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h)
-        : getAnchorPosition(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h);
+        ? resolveAnchorPos(conn.toAnchor, toNode, toDims)
+        : resolveAnchorPos(conn.fromAnchor, fromNode, fromDims);
       const dragPos = draggingEndpoint.snappedAnchor
         ? { x: draggingEndpoint.snappedAnchor.x, y: draggingEndpoint.snappedAnchor.y }
         : draggingEndpoint.currentPos;
@@ -1059,6 +1226,15 @@ export default function ArchitectureDesigner() {
           setContextMenu({ clientX: e.clientX, clientY: e.clientY, canvasX: cx, canvasY: cy, target });
         }}
       >
+        {!fileExplorer.activeFile ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e8ecf0] z-50">
+            <div className="flex flex-col items-center gap-3 text-slate-400">
+              <Map size={48} strokeWidth={1} className="text-slate-300" />
+              <p className="text-sm font-medium">No file open</p>
+              <p className="text-xs text-slate-400">Open a file from the explorer to start editing</p>
+            </div>
+          </div>
+        ) : <>
         <div style={{
           width: VIEWPORT_PADDING * 2 + world.w * zoom,
           height: VIEWPORT_PADDING * 2 + world.h * zoom,
@@ -1182,7 +1358,10 @@ export default function ArchitectureDesigner() {
               const isThisMultiDragged = isMultiDrag && multiDragIds.includes(node.id);
               const isThisDragged = isThisSingleDragged || isThisMultiDragged;
               const dims = getNodeDimensions(node);
-              const anchors = getAnchors(node.x, node.y, dims.w, dims.h);
+              const isCondition = node.shape === "condition";
+              const anchors = isCondition
+                ? getConditionAnchors(node.x, node.y, dims.w, dims.h, node.conditionOutCount ?? 2, node.rotation ?? 0).map((a) => ({ id: a.id as import("./utils/anchors").AnchorId, x: a.x, y: a.y }))
+                : getAnchors(node.x, node.y, dims.w, dims.h);
               const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id
                 || creatingLine?.snappedAnchor?.nodeId === node.id;
 
@@ -1216,6 +1395,54 @@ export default function ArchitectureDesigner() {
                 visualY = node.y + layerDragDelta.dy;
               }
 
+              const commonDragStart = (id: string, e: React.MouseEvent) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); };
+              const commonDoubleClick = (nodeId: string) => {
+                const n = nodes.find((nd) => nd.id === nodeId);
+                if (n) { setEditingLabel({ type: "node", id: nodeId }); setEditingLabelValue(n.label); editingLabelBeforeRef.current = n.label; }
+              };
+              const commonProps = {
+                isDragging: isThisDragged,
+                isSelected: isItemSelected(selection, 'node', node.id),
+                showAnchors,
+                highlightedAnchor: isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null,
+                onAnchorDragStart: handleAnchorDragStart,
+                onResize: handleElementResize,
+                onMouseEnter: () => setHoveredNodeId(node.id),
+                onMouseLeave: () => setHoveredNodeId(null),
+                dimmed,
+                onDoubleClick: commonDoubleClick,
+              };
+
+              if (isCondition) {
+                const condDims = getConditionDimensions(node.conditionSize);
+                return (
+                  <React.Fragment key={node.id}>
+                    <ConditionElement
+                      id={node.id}
+                      label={node.label}
+                      icon={node.icon}
+                      x={visualX}
+                      y={visualY}
+                      w={condDims.w}
+                      h={condDims.h}
+                      outCount={node.conditionOutCount ?? 2}
+                      rotation={node.rotation ?? 0}
+                      showLabels
+                      onDragStart={commonDragStart}
+                      {...commonProps}
+                      onAddOutAnchor={() => {
+                        setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
+                        scheduleRecord("Add out anchor");
+                      }}
+                      onRotationDragStart={handleRotationDragStart}
+                      borderColor={node.borderColor}
+                      bgColor={node.bgColor}
+                      textColor={node.textColor}
+                    />
+                  </React.Fragment>
+                );
+              }
+
               return (
                 <React.Fragment key={node.id}>
                   {isThisSingleDragged && elementDragRawPos && (
@@ -1229,26 +1456,10 @@ export default function ArchitectureDesigner() {
                     x={visualX}
                     y={visualY}
                     showLabels
-                    onDragStart={(id, e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'node', id, x: e.clientX, y: e.clientY }; handleDragStart(id, e); }}
-                    isDragging={isThisDragged}
-                    isSelected={isItemSelected(selection, 'node', node.id)}
-                    showAnchors={showAnchors}
-                    highlightedAnchor={isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null}
+                    onDragStart={commonDragStart}
+                    {...commonProps}
                     anchors={anchors}
-                    onAnchorDragStart={handleAnchorDragStart}
                     measuredHeight={dims.h}
-                    onResize={handleElementResize}
-                    onMouseEnter={() => setHoveredNodeId(node.id)}
-                    onMouseLeave={() => setHoveredNodeId(null)}
-                    dimmed={dimmed}
-                    onDoubleClick={(nodeId) => {
-                      const n = nodes.find((nd) => nd.id === nodeId);
-                      if (n) {
-                        setEditingLabel({ type: "node", id: nodeId });
-                        setEditingLabelValue(n.label);
-                        editingLabelBeforeRef.current = n.label;
-                      }
-                    }}
                   />
                 </React.Fragment>
               );
@@ -1414,6 +1625,7 @@ export default function ArchitectureDesigner() {
         </Canvas>
         </div>
         </div>
+        </>}
 
       </div>
 
@@ -1428,6 +1640,19 @@ export default function ArchitectureDesigner() {
           onDeleteElement={(nodeId) => { const p = deleteSelection({ type: 'node', id: nodeId }); if (p) setPendingDeletion(p); }}
           onDeleteLayer={(layerId) => { const p = deleteSelection({ type: 'layer', id: layerId }); if (p) setPendingDeletion(p); }}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {anchorPopup && (
+        <AnchorPopupMenu
+          x={anchorPopup.clientX}
+          y={anchorPopup.clientY}
+          sourceNodeId={anchorPopup.nodeId}
+          nodes={nodes}
+          onClose={() => setAnchorPopup(null)}
+          onConnectToElement={handleAnchorConnectToElement}
+          onCreateCondition={handleAnchorCreateCondition}
+          onConnectToType={handleAnchorConnectToType}
         />
       )}
 
@@ -1510,6 +1735,7 @@ export default function ArchitectureDesigner() {
         onUpdateLineCurve={(alg) => { setLineCurve(alg); scheduleRecord("Change line curve"); }}
         flows={flows}
         onSelectFlow={handleSelectFlow}
+        onHoverFlow={setHoveredFlowId}
         onUpdateFlow={handleUpdateFlow}
         onDeleteFlow={handleDeleteFlow}
         onCreateFlow={handleCreateFlow}
@@ -1518,7 +1744,7 @@ export default function ArchitectureDesigner() {
       </div>
 
       {/* Minimap — overlays viewport from outside the scroll container */}
-      {showMinimap && (
+      {showMinimap && fileExplorer.activeFile && (
         <div className="absolute bottom-16 z-30 transition-[left] duration-200" style={{ left: explorerCollapsed ? 52 : 276 }}>
           <Minimap
             world={world}

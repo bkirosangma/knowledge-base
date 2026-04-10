@@ -3,6 +3,7 @@ import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
 import type { NodeData, Connection } from "../utils/types";
 import { getNodeDims } from "../utils/geometry";
+import { validateConnection } from "../utils/connectionConstraints";
 
 interface UseLineDragOptions {
   nodes: NodeData[];
@@ -12,6 +13,7 @@ interface UseLineDragOptions {
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>;
   isBlocked: boolean;
+  onAnchorClick?: (nodeId: string, anchorId: AnchorId, clientX: number, clientY: number) => void;
 }
 
 export interface CreatingLine {
@@ -35,6 +37,7 @@ export function useLineDrag({
   toCanvasCoords,
   setConnections,
   isBlocked,
+  onAnchorClick,
 }: UseLineDragOptions) {
   const [creatingLine, setCreatingLine] = useState<CreatingLine | null>(null);
   const creatingLineRef = useRef(creatingLine);
@@ -44,7 +47,11 @@ export function useLineDrag({
   nodesRef.current = nodes;
   const measuredSizesRef = useRef(measuredSizes);
   measuredSizesRef.current = measuredSizes;
+  const connectionsRef = useRef(connections);
+  connectionsRef.current = connections;
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorClickRef = useRef(onAnchorClick);
+  anchorClickRef.current = onAnchorClick;
 
   const handleAnchorDragStart = useCallback(
     (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => {
@@ -56,6 +63,11 @@ export function useLineDrag({
       const shift = layerShiftsRef.current[node.layer] || 0;
       const dims = getNodeDims(node, measuredSizes);
       const fromPos = getAnchorPosition(anchorId, node.x, node.y + shift, dims.w, dims.h);
+
+      // Track mouseDown position + time for click detection
+      const downX = e.clientX;
+      const downY = e.clientY;
+      const downTime = Date.now();
 
       // Delay drag initiation by 100ms to avoid accidental drags
       if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -70,11 +82,20 @@ export function useLineDrag({
         });
       }, 100);
 
-      // Cancel if mouse released before timer fires
-      const cancelOnUp = () => {
+      // Cancel if mouse released before timer fires — detect click vs drag
+      const cancelOnUp = (upEvent: MouseEvent) => {
         if (holdTimer.current) {
           clearTimeout(holdTimer.current);
           holdTimer.current = null;
+
+          // Check if this qualifies as a click (short time, small movement)
+          const elapsed = Date.now() - downTime;
+          const dx = upEvent.clientX - downX;
+          const dy = upEvent.clientY - downY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (elapsed < 300 && distance < 5 && anchorClickRef.current) {
+            anchorClickRef.current(nodeId, anchorId, upEvent.clientX, upEvent.clientY);
+          }
         }
         window.removeEventListener("mouseup", cancelOnUp);
       };
@@ -96,7 +117,7 @@ export function useLineDrag({
         .map((n) => {
           const dims = getNodeDims(n, measuredSizesRef.current);
           const shift = layerShiftsRef.current[n.layer] || 0;
-          return { id: n.id, x: n.x, y: n.y + shift, w: dims.w, h: dims.h };
+          return { id: n.id, x: n.x, y: n.y + shift, w: dims.w, h: dims.h, shape: n.shape, conditionOutCount: n.conditionOutCount, rotation: n.rotation };
         });
 
       const nearest = findNearestAnchor(mx, my, nodesWithHeight, 25);
@@ -124,6 +145,13 @@ export function useLineDrag({
       if (!cur) return;
 
       if (cur.snappedAnchor && cur.snappedAnchor.nodeId !== cur.fromNodeId) {
+        const fromNode = nodesRef.current.find((n) => n.id === cur.fromNodeId);
+        const toNode = nodesRef.current.find((n) => n.id === cur.snappedAnchor!.nodeId);
+        const { valid } = validateConnection(fromNode, cur.fromAnchorId, toNode, cur.snappedAnchor.anchorId, connectionsRef.current);
+        if (!valid) {
+          setCreatingLine(null);
+          return;
+        }
         const newConnection: Connection = {
           id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           from: cur.fromNodeId,

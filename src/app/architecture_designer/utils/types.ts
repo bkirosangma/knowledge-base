@@ -10,6 +10,11 @@ export interface NodeData {
   y: number;
   w: number;
   layer: string;
+  type?: string;
+  shape?: 'rect' | 'condition';
+  conditionOutCount?: number;
+  conditionSize?: 1 | 2 | 3 | 4 | 5;
+  rotation?: 0 | 90 | 180 | 270;
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
@@ -52,6 +57,11 @@ export interface SerializedNodeData {
   y: number;
   w: number;
   layer: string;
+  type?: string;
+  shape?: 'rect' | 'condition';
+  conditionOutCount?: number;
+  conditionSize?: 1 | 2 | 3 | 4 | 5;
+  rotation?: 0 | 90 | 180 | 270;
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
