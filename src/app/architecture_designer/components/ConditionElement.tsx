@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
+import DocInfoBadge from "./DocInfoBadge";
 
 interface ConditionElementProps {
   id: string;
@@ -31,6 +32,9 @@ interface ConditionElementProps {
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
+  hasDocuments?: boolean;
+  documentPaths?: string[];
+  onDocNavigate?: (path: string) => void;
 }
 
 function ConditionElement({
@@ -60,6 +64,9 @@ function ConditionElement({
   borderColor,
   bgColor,
   textColor,
+  hasDocuments,
+  documentPaths,
+  onDocNavigate,
 }: ConditionElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const effectiveH = getEffectiveConditionHeight(h, w, outCount);
@@ -218,6 +225,15 @@ function ConditionElement({
         >
           <Plus size={10} className="text-amber-600" />
         </div>
+      )}
+
+      {hovered && hasDocuments && documentPaths && onDocNavigate && (
+        <DocInfoBadge
+          color={borderColor ?? "#a855f7"}
+          position={{ x: w - 4, y: -8 }}
+          documentPaths={documentPaths}
+          onNavigate={onDocNavigate}
+        />
       )}
 
       {/* Rotation handle — shown on hover or selected, positioned above cond-in anchor */}

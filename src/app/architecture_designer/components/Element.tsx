@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
+import DocInfoBadge from "./DocInfoBadge";
 
 interface ElementProps {
   id: string;
@@ -37,6 +38,9 @@ interface ElementProps {
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
+  hasDocuments?: boolean;
+  documentPaths?: string[];
+  onDocNavigate?: (path: string) => void;
 }
 
 function Element({
@@ -66,8 +70,12 @@ function Element({
   borderColor,
   bgColor,
   textColor,
+  hasDocuments,
+  documentPaths,
+  onDocNavigate,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const minH = w === 110 || w === 130 ? 60 : 70;
 
   useEffect(() => {
@@ -113,8 +121,8 @@ function Element({
         e.preventDefault();
         onDragStart?.(id, e);
       }}
-      onMouseEnter={onMouseEnter ? () => onMouseEnter(id) : undefined}
-      onMouseLeave={onMouseLeave ? () => onMouseLeave(id) : undefined}
+      onMouseEnter={() => { setIsHovered(true); onMouseEnter?.(id); }}
+      onMouseLeave={() => { setIsHovered(false); onMouseLeave?.(id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
       {Icon && (
@@ -135,6 +143,15 @@ function Element({
         >
           {sub}
         </div>
+      )}
+
+      {isHovered && hasDocuments && documentPaths && onDocNavigate && (
+        <DocInfoBadge
+          color={borderColor ?? "#3b82f6"}
+          position={{ x: w - 4, y: -8 }}
+          documentPaths={documentPaths}
+          onNavigate={onDocNavigate}
+        />
       )}
 
       {/* Anchor points */}

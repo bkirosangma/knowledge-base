@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
+import DocInfoBadge from "./DocInfoBadge";
 
 /** Interpolate a point along a polyline at parameter t (0..1) */
 export function interpolatePoints(points: { x: number; y: number }[], t: number): { x: number; y: number } {
@@ -101,6 +102,9 @@ interface DataLineProps {
   connectionType?: 'synchronous' | 'asynchronous';
   onSegmentDragStart?: (connectionId: string, points: { x: number; y: number }[], segmentIndex: number, e: React.MouseEvent) => void;
   isOrthogonal?: boolean;
+  hasDocuments?: boolean;
+  documentPaths?: string[];
+  onDocNavigate?: (path: string) => void;
 }
 
 function DataLine({
@@ -130,6 +134,9 @@ function DataLine({
   connectionType,
   onSegmentDragStart,
   isOrthogonal,
+  hasDocuments,
+  documentPaths,
+  onDocNavigate,
 }: DataLineProps) {
   const [isDraggingLabel, setIsDraggingLabel] = useState(false);
   const dragRef = useRef({ startT: labelPosition, points });
@@ -166,6 +173,8 @@ function DataLine({
 
   // Compute label position
   const labelPt = showLabels && label && !suppressLabel ? interpolatePoints(points, labelPosition) : null;
+  // Badge position: use label point if available, otherwise midpoint of the line
+  const badgePt = labelPt ?? interpolatePoints(points, 0.5);
 
   return (
     <g
@@ -297,6 +306,16 @@ function DataLine({
             {label}
           </text>
         </g>
+      )}
+      {isHovered && hasDocuments && documentPaths && onDocNavigate && (
+        <foreignObject x={badgePt.x} y={badgePt.y - 20} width={30} height={30} style={{ overflow: 'visible' }}>
+          <DocInfoBadge
+            color={color}
+            position={{ x: 0, y: 0 }}
+            documentPaths={documentPaths}
+            onNavigate={onDocNavigate}
+          />
+        </foreignObject>
       )}
     </g>
   );
