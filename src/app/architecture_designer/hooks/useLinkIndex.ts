@@ -13,6 +13,30 @@ function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
 }
 
+// Fix 4: Extract repeated docDir computation
+function getDocDir(docPath: string): string {
+  return docPath.includes("/") ? docPath.substring(0, docPath.lastIndexOf("/")) : "";
+}
+
+// Fix 2: Extract duplicated link-parsing logic
+function buildDocumentEntry(
+  content: string,
+  docDir: string,
+): { outboundLinks: string[]; sectionLinks: { targetPath: string; section: string }[] } {
+  const parsed = parseWikiLinks(content);
+  const outboundLinks: string[] = [];
+  const sectionLinks: { targetPath: string; section: string }[] = [];
+  for (const link of parsed) {
+    const resolved = resolveWikiLinkPath(link.path, docDir);
+    if (link.section) {
+      sectionLinks.push({ targetPath: resolved, section: link.section });
+    } else {
+      outboundLinks.push(resolved);
+    }
+  }
+  return { outboundLinks, sectionLinks };
+}
+
 function rebuildBacklinks(index: LinkIndex): void {
   index.backlinks = {};
   for (const [sourcePath, entry] of Object.entries(index.documents)) {
@@ -42,9 +66,13 @@ export function useLinkIndex() {
       const configDir = await getSubdirectoryHandle(rootHandle, CONFIG_DIR);
       const fileHandle = await configDir.getFileHandle(LINKS_FILE);
       const text = await readTextFile(fileHandle);
-      const parsed: LinkIndex = JSON.parse(text);
-      setLinkIndex(parsed);
-      return parsed;
+      // Fix 3: Add JSON shape validation
+      const parsed = JSON.parse(text);
+      if (!parsed.documents || !parsed.backlinks) {
+        throw new Error("Invalid link index format");
+      }
+      setLinkIndex(parsed as LinkIndex);
+      return parsed as LinkIndex;
     } catch {
       const fresh = emptyIndex();
       setLinkIndex(fresh);
@@ -56,9 +84,10 @@ export function useLinkIndex() {
     rootHandle: FileSystemDirectoryHandle,
     index: LinkIndex,
   ) => {
-    index.updatedAt = new Date().toISOString();
-    await writeTextFile(rootHandle, `${CONFIG_DIR}/${LINKS_FILE}`, JSON.stringify(index, null, 2));
-    setLinkIndex({ ...index });
+    // Fix 1: Don't mutate the argument; clone with updated timestamp
+    const updated = { ...index, updatedAt: new Date().toISOString() };
+    await writeTextFile(rootHandle, `${CONFIG_DIR}/${LINKS_FILE}`, JSON.stringify(updated, null, 2));
+    setLinkIndex(updated);
   }, []);
 
   const updateDocumentLinks = useCallback(async (
@@ -68,22 +97,9 @@ export function useLinkIndex() {
     currentIndex?: LinkIndex,
   ) => {
     const index = currentIndex ?? { ...linkIndex };
-    const docDir = docPath.includes("/") ? docPath.substring(0, docPath.lastIndexOf("/")) : "";
-    const parsed = parseWikiLinks(markdownContent);
-
-    const outboundLinks: string[] = [];
-    const sectionLinks: { targetPath: string; section: string }[] = [];
-
-    for (const link of parsed) {
-      const resolved = resolveWikiLinkPath(link.path, docDir);
-      if (link.section) {
-        sectionLinks.push({ targetPath: resolved, section: link.section });
-      } else {
-        outboundLinks.push(resolved);
-      }
-    }
-
-    index.documents[docPath] = { outboundLinks, sectionLinks };
+    // Fix 2 & 4: use shared helpers
+    const docDir = getDocDir(docPath);
+    index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     return index;
@@ -143,20 +159,9 @@ export function useLinkIndex() {
         }
         const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
         const content = await readTextFile(fileHandle);
-        const docDir = docPath.includes("/") ? docPath.substring(0, docPath.lastIndexOf("/")) : "";
-        const parsed = parseWikiLinks(content);
-
-        const outboundLinks: string[] = [];
-        const sectionLinks: { targetPath: string; section: string }[] = [];
-        for (const link of parsed) {
-          const resolved = resolveWikiLinkPath(link.path, docDir);
-          if (link.section) {
-            sectionLinks.push({ targetPath: resolved, section: link.section });
-          } else {
-            outboundLinks.push(resolved);
-          }
-        }
-        index.documents[docPath] = { outboundLinks, sectionLinks };
+        // Fix 2 & 4: use shared helpers
+        const docDir = getDocDir(docPath);
+        index.documents[docPath] = buildDocumentEntry(content, docDir);
       } catch {
         // File read failed — skip
       }
