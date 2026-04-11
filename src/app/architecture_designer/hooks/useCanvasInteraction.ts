@@ -24,18 +24,19 @@ export function useCanvasInteraction(
     const centerY = rect.top + rect.height / 2;
     const baseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
 
-    let lastSnapped = initialRotation;
     const onMove = (ev: MouseEvent) => {
       const currentAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180 / Math.PI;
       const delta = currentAngle - baseAngle;
       const raw = initialRotation + delta;
       const normalized = ((raw % 360) + 360) % 360;
-      const nearest90 = (Math.round(normalized / 90) * 90 % 360) as 0 | 90 | 180 | 270;
-      const distTo90 = Math.abs(normalized - nearest90) <= 180 ? Math.abs(normalized - nearest90) : 360 - Math.abs(normalized - nearest90);
-      if (distTo90 <= 15) {
-        lastSnapped = nearest90;
+      // Soft snap: within 5° of a 90° increment, snap unless Shift is held
+      let finalRotation = Math.round(normalized * 10) / 10;
+      if (!ev.shiftKey) {
+        const nearest90 = Math.round(normalized / 90) * 90 % 360;
+        const distTo90 = Math.min(Math.abs(normalized - nearest90), 360 - Math.abs(normalized - nearest90));
+        if (distTo90 <= 5) finalRotation = nearest90;
       }
-      setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, rotation: lastSnapped as 0 | 90 | 180 | 270 } : n));
+      setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, rotation: finalRotation } : n));
     };
 
     const onUp = () => {

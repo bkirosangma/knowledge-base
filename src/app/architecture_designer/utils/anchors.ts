@@ -74,6 +74,14 @@ export function getAnchors(cx: number, cy: number, w: number, h: number): Anchor
   }));
 }
 
+export function getAnchorEdge(anchorId: AnchorId | string): "top" | "right" | "bottom" | "left" {
+  if (anchorId.startsWith("top")) return "top";
+  if (anchorId.startsWith("bottom")) return "bottom";
+  if (anchorId.startsWith("left")) return "left";
+  if (anchorId.startsWith("right")) return "right";
+  return "top";
+}
+
 export function getAnchorDirection(anchorId: AnchorId | string): { dx: number; dy: number } {
   if (anchorId.startsWith("top")) return { dx: 0, dy: -1 };
   if (anchorId.startsWith("bottom")) return { dx: 0, dy: 1 };

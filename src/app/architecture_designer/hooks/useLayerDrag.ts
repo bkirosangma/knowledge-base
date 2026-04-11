@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData, Selection } from "../utils/types";
 import { clampLayerDelta, type LayerBounds } from "../utils/collisionUtils";
 import { LAYER_GAP } from "../utils/constants";
+import { snapToGrid } from "../utils/gridSnap";
 import { isItemSelected } from "../utils/selectionUtils";
 
 export type { LayerBounds };
@@ -75,6 +76,8 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
         }
       }
 
+      dx = snapToGrid(dx);
+      dy = snapToGrid(dy);
       lastClampedDelta.current = { dx, dy };
       setLayerDragDelta({ dx, dy });
       setLayerDragRawDelta({ dx: rawDx, dy: rawDy });

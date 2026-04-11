@@ -28,6 +28,8 @@ interface ElementProps {
   ) => void;
   onMouseEnter?: (id: string) => void;
   onMouseLeave?: (id: string) => void;
+  onAnchorHover?: (nodeId: string, anchorId: AnchorId, clientX: number, clientY: number) => void;
+  onAnchorHoverEnd?: () => void;
   onResize?: (id: string, width: number, height: number) => void;
   onDoubleClick?: (id: string) => void;
   measuredHeight?: number;
@@ -55,6 +57,8 @@ function Element({
   onAnchorDragStart,
   onMouseEnter,
   onMouseLeave,
+  onAnchorHover,
+  onAnchorHoverEnd,
   onResize,
   onDoubleClick,
   measuredHeight,
@@ -157,6 +161,12 @@ function Element({
               pointerEvents: showAnchors && onAnchorDragStart ? "auto" : "none",
               cursor: onAnchorDragStart ? "crosshair" : undefined,
             }}
+            onMouseEnter={
+              onAnchorHover
+                ? (e) => onAnchorHover(id, anchor.id, e.clientX, e.clientY)
+                : undefined
+            }
+            onMouseLeave={onAnchorHoverEnd}
             onMouseDown={
               onAnchorDragStart
                 ? (e) => {

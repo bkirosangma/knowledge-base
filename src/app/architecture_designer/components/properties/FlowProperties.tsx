@@ -11,7 +11,7 @@ export function FlowProperties({
   flows: FlowDef[];
   connections: Connection[];
   nodes: NodeData[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; name: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
   onDelete?: (id: string) => void;
   onSelectLine?: (lineId: string) => void;
   onSelectNode?: (nodeId: string) => void;
@@ -71,6 +71,12 @@ export function FlowProperties({
           label="Name"
           value={flow.name}
           onCommit={(v) => { onUpdate?.(id, { name: v }); return true; }}
+        />
+        <EditableRow
+          label="Category"
+          value={flow.category ?? ""}
+          onCommit={(v) => { onUpdate?.(id, { category: v }); return true; }}
+          onClear={() => onUpdate?.(id, { category: "" })}
         />
       </Section>
 

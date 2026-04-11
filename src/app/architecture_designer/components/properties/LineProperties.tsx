@@ -52,13 +52,14 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 }
 
 export function LineProperties({
-  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow,
+  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
   allConnectionIds: string[];
   flows?: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
+  onHoverFlow?: (flowId: string | null) => void;
 }) {
   const conn = connections.find((c) => c.id === id);
   if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
@@ -139,7 +140,7 @@ export function LineProperties({
 
       {memberFlows.length > 0 && (
         <Section title="Flows">
-          <ExpandableListRow label="Flows" items={memberFlows} onSelect={onSelectFlow} />
+          <ExpandableListRow label="Flows" items={memberFlows} onSelect={onSelectFlow} onHoverItem={onHoverFlow} />
         </Section>
       )}
 

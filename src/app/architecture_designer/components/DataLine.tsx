@@ -99,6 +99,8 @@ interface DataLineProps {
   dimmed?: boolean;
   suppressLabel?: boolean;
   connectionType?: 'synchronous' | 'asynchronous';
+  onSegmentDragStart?: (connectionId: string, points: { x: number; y: number }[], segmentIndex: number, e: React.MouseEvent) => void;
+  isOrthogonal?: boolean;
 }
 
 function DataLine({
@@ -126,6 +128,8 @@ function DataLine({
   dimmed,
   suppressLabel,
   connectionType,
+  onSegmentDragStart,
+  isOrthogonal,
 }: DataLineProps) {
   const [isDraggingLabel, setIsDraggingLabel] = useState(false);
   const dragRef = useRef({ startT: labelPosition, points });
@@ -166,8 +170,8 @@ function DataLine({
   return (
     <g
       style={{ pointerEvents: dimmed ? "none" : "auto", cursor: "pointer" }}
-      onPointerEnter={(e) => onHoverStart(id, label, e.clientX, e.clientY)}
-      onPointerMove={(e) => onHoverMove(id, e.clientX, e.clientY)}
+      onPointerEnter={(e) => { e.stopPropagation(); onHoverStart(id, label, e.clientX, e.clientY); }}
+      onPointerMove={(e) => { e.stopPropagation(); onHoverMove(id, e.clientX, e.clientY); }}
       onPointerLeave={onHoverEnd}
       onMouseDown={(e) => {
         e.stopPropagation();
@@ -233,10 +237,40 @@ function DataLine({
           />
         </>
       )}
+      {/* Vertex handles for orthogonal segment dragging */}
+      {isOrthogonal && (isHovered || isSelected) && !dimmed && !isDraggingEndpoint && points.length > 2 && (
+        <>
+          {/* Per-segment invisible hit areas */}
+          {points.slice(0, -1).map((p, i) => {
+            const next = points[i + 1];
+            const isH = Math.abs(p.y - next.y) < Math.abs(p.x - next.x);
+            // Skip first and last segments (anchor to stub)
+            if (i === 0 || i === points.length - 2) return null;
+            return (
+              <line
+                key={`seg-${i}`}
+                x1={p.x} y1={p.y} x2={next.x} y2={next.y}
+                stroke="transparent" strokeWidth={12}
+                style={{ cursor: isH ? "ns-resize" : "ew-resize", pointerEvents: "auto" }}
+                onMouseDown={onSegmentDragStart ? (e) => { e.stopPropagation(); onSegmentDragStart(id, points, i, e); } : undefined}
+              />
+            );
+          })}
+          {/* Vertex circles at interior points */}
+          {points.slice(2, -2).map((pt, i) => (
+            <circle
+              key={`vtx-${i}`}
+              cx={pt.x} cy={pt.y} r={3.5}
+              fill="white" stroke={color} strokeWidth={1.5}
+              style={{ pointerEvents: "none" }}
+            />
+          ))}
+        </>
+      )}
       {/* Label rendered on the path */}
       {labelPt && (
         <g
-          style={{ cursor: isDraggingLabel ? "grabbing" : "grab", pointerEvents: "auto" }}
+          style={{ cursor: isDraggingLabel ? "grabbing" : "grab", pointerEvents: dimmed ? "none" : "auto", opacity: dimmed ? 0.1 : 1, transition: "opacity 150ms" }}
           onMouseDown={handleLabelMouseDown}
         >
           <rect

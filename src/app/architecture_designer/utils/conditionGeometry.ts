@@ -1,4 +1,4 @@
-/** Geometry calculations for condition elements (triangle with convex segmented base). */
+/** Geometry calculations for condition elements (triangle with circular arc base). */
 
 /** Rotate a point (px, py) around center (cx, cy) by angleDeg degrees. */
 export function rotatePoint(px: number, py: number, cx: number, cy: number, angleDeg: number): { x: number; y: number } {
@@ -26,9 +26,36 @@ function rotateDir(dx: number, dy: number, angleDeg: number): { dx: number; dy: 
   };
 }
 
-/** Default condition element dimensions. */
-export const CONDITION_WIDTH = 120;
-export const CONDITION_HEIGHT = 100;
+export interface ConditionAnchor {
+  id: string;
+  x: number;
+  y: number;
+  anchorType: 'in' | 'out';
+}
+
+/** Fixed isosceles side length (vertex to base corner), equal to the side at 7+ anchors (120°) with w=140. */
+const SIDE_LENGTH = 70 / Math.sin(60 * Math.PI / 180); // ≈ 80.83
+
+/** Compute vertex angle (degrees) based on out-anchor count. Starts at 45°, increases per anchor, caps at 120°. */
+function getVertexAngle(outCount: number): number {
+  const base = 60;
+  const perAnchor = 12;
+  return Math.min(120, base + Math.max(0, outCount - 2) * perAnchor);
+}
+
+/** Compute width and height from fixed side length and vertex angle. */
+function computeDimensions(outCount: number): { w: number; h: number } {
+  const angle = getVertexAngle(outCount);
+  const halfRad = (angle / 2) * Math.PI / 180;
+  const w = Math.round(2 * SIDE_LENGTH * Math.sin(halfRad));
+  const h = Math.round(SIDE_LENGTH * Math.cos(halfRad));
+  return { w, h };
+}
+
+/** Default width at max vertex angle (used for scale reference). */
+export const CONDITION_WIDTH = Math.round(2 * SIDE_LENGTH * Math.sin(60 * Math.PI / 180)); // 140
+/** Default height at 2 anchors (60°). */
+export const CONDITION_HEIGHT = Math.round(SIDE_LENGTH * Math.cos(30 * Math.PI / 180)); // ~70
 
 /** Get the scale factor for a condition size level (1-5). */
 export function getConditionScale(size?: number): number {
@@ -36,36 +63,54 @@ export function getConditionScale(size?: number): number {
   return 1 + (s - 1) * 0.25; // 1.0, 1.25, 1.50, 1.75, 2.0
 }
 
-/** Get the dimensions for a condition at a given size level. */
-export function getConditionDimensions(size?: number): { w: number; h: number } {
+/** Get the dimensions for a condition at a given size level and out-anchor count. */
+export function getConditionDimensions(size?: number, outCount?: number): { w: number; h: number } {
   const scale = getConditionScale(size);
-  return { w: Math.round(CONDITION_WIDTH * scale), h: Math.round(CONDITION_HEIGHT * scale) };
+  const dims = computeDimensions(outCount ?? 2);
+  return { w: Math.round(dims.w * scale), h: Math.round(dims.h * scale) };
 }
 
-/** Compute the convex bulge amount for a given width and out-anchor count. */
-function getBulge(w: number, outCount: number): number {
-  if (outCount <= 2) return 0;
-  return w * 0.12 * Math.min(outCount - 2, 5);
+/** Compute circular arc parameters for the base. Returns null for outCount <= 2. */
+function getArcParams(w: number, outCount: number): { R: number; sagitta: number; arcCenterY: number; halfAngle: number } | null {
+  if (outCount <= 2) return null;
+  const sagitta = w * 0.10 * Math.min(outCount - 2, 5);
+  const R = (w * w) / (8 * sagitta) + sagitta / 2;
+  const halfAngle = Math.asin(Math.min(1, w / (2 * R)));
+  const arcCenterY = -R + sagitta; // relative to base line (y=h)
+  return { R, sagitta, arcCenterY, halfAngle };
 }
 
-/** Get the effective bounding height including convex bulge. */
+/** Get the effective bounding height including arc sagitta. */
 export function getEffectiveConditionHeight(h: number, w: number, outCount: number): number {
-  return h + getBulge(w, outCount);
+  const arc = getArcParams(w, outCount);
+  return h + (arc ? arc.sagitta : 0);
 }
 
 /**
  * Compute local-space anchor positions along the base (unrotated).
- * Returns points from left to right in local SVG coordinates (0,0 to w,h+bulge).
+ * Returns points from left to right in local SVG coordinates (0,0 to w,effectiveH).
  */
 function getLocalBasePoints(w: number, h: number, outCount: number): { x: number; y: number }[] {
   const count = Math.max(2, outCount);
-  const bulge = getBulge(w, outCount);
+  const arc = getArcParams(w, outCount);
+
+  if (!arc) {
+    // No arc for outCount <= 2: just the two base corners
+    return [{ x: 0, y: h }, { x: w, y: h }];
+  }
+
+  // Distribute points along the circular arc
+  const { R, arcCenterY, halfAngle } = arc;
+  const cxLocal = w / 2;
+  const cyLocal = h + arcCenterY; // arc circle center in local coords
   const points: { x: number; y: number }[] = [];
+
   for (let i = 0; i < count; i++) {
-    const t = count === 1 ? 0.5 : i / (count - 1); // 0 = left, 1 = right
-    const x = t * w;
-    // Convex: y bulges outward (below the base line)
-    const y = h + bulge * 4 * t * (1 - t);
+    const t = count === 1 ? 0.5 : i / (count - 1); // 0=left, 1=right
+    // Angle goes from (PI/2 + halfAngle) at left to (PI/2 - halfAngle) at right
+    const angle = (Math.PI / 2 + halfAngle) - t * (2 * halfAngle);
+    const x = cxLocal + R * Math.cos(angle);
+    const y = cyLocal + R * Math.sin(angle);
     points.push({ x, y });
   }
   return points;
@@ -73,8 +118,7 @@ function getLocalBasePoints(w: number, h: number, outCount: number): { x: number
 
 /**
  * Get the SVG path for a condition shape in local coordinates.
- * The in-anchor vertex is at the top center. The base has straight-line segments
- * connecting each out-anchor position, with a convex bulge for 3+ anchors.
+ * The in-anchor vertex is at the top center. The base uses a circular arc for 3+ anchors.
  */
 export function getConditionPath(w: number, h: number, outCount: number): string {
   const topX = w / 2;
@@ -85,30 +129,24 @@ export function getConditionPath(w: number, h: number, outCount: number): string
     return `M ${topX} ${topY} L ${w} ${h} L 0 ${h} Z`;
   }
 
-  // Triangle with straight-line segments along convex base
-  const basePoints = getLocalBasePoints(w, h, outCount);
-  // Path: top vertex → right corner (last base point) → intermediate points right-to-left → left corner (first base point) → close
-  let path = `M ${topX} ${topY}`;
-  // Go from rightmost to leftmost
-  for (let i = basePoints.length - 1; i >= 0; i--) {
-    path += ` L ${basePoints[i].x} ${basePoints[i].y}`;
-  }
-  path += ' Z';
-  return path;
-}
+  // Triangle with circular arc base
+  const arc = getArcParams(w, outCount);
+  if (!arc) return `M ${topX} ${topY} L ${w} ${h} L 0 ${h} Z`;
 
-export interface ConditionAnchor {
-  id: string;
-  x: number;
-  y: number;
-  anchorType: 'in' | 'out';
+  const basePoints = getLocalBasePoints(w, h, outCount);
+  const rightCorner = basePoints[basePoints.length - 1];
+  const leftCorner = basePoints[0];
+
+  // Path: top vertex → right corner → circular arc to left corner → close
+  // SVG arc: A rx ry x-rotation large-arc-flag sweep-flag x y
+  // sweep-flag=1 for clockwise (bulging downward from right to left)
+  return `M ${topX} ${topY} L ${rightCorner.x} ${rightCorner.y} A ${arc.R} ${arc.R} 0 0 1 ${leftCorner.x} ${leftCorner.y} Z`;
 }
 
 /**
  * Get anchor positions for a condition element.
  * All positions are in absolute (canvas) coordinates.
- * `h` should be the **base** height (before convex bulge).
- * The function internally computes the effective height for positioning.
+ * `h` should be the **base** height (before arc sagitta).
  */
 export function getConditionAnchors(
   cx: number, cy: number, w: number, h: number,
@@ -124,7 +162,7 @@ export function getConditionAnchors(
   const inRotated = rotatePoint(inLocal.x, inLocal.y, cx, cy, rotation);
   anchors.push({ id: "cond-in", x: inRotated.x, y: inRotated.y, anchorType: 'in' });
 
-  // Out-anchors: distributed along the base with convex bulge
+  // Out-anchors: distributed along the base (or arc)
   const basePoints = getLocalBasePoints(w, h, outCount);
   const count = Math.max(2, outCount);
   for (let i = 0; i < count; i++) {

@@ -25,10 +25,13 @@ export function computeOrthogonalPath(
   toPos: Point,
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
-  obstacles: Rect[]
+  obstacles: Rect[],
+  userWaypoints?: Point[],
+  fromDirOverride?: { dx: number; dy: number },
+  toDirOverride?: { dx: number; dy: number },
 ): { path: string; points: Point[] } {
-  const fromDir = getAnchorDirection(fromAnchor);
-  const toDir = getAnchorDirection(toAnchor);
+  const fromDir = fromDirOverride ?? getAnchorDirection(fromAnchor);
+  const toDir = toDirOverride ?? getAnchorDirection(toAnchor);
 
   // Stub: extend from the anchor outward so the line exits perpendicular to the edge
   const stubFrom: Point = {
@@ -40,11 +43,16 @@ export function computeOrthogonalPath(
     y: toPos.y + toDir.dy * STUB_LENGTH,
   };
 
-  // Build the waypoints between the two stubs using simple orthogonal routing
-  const waypoints = routeBetween(stubFrom, stubTo, fromDir, toDir, obstacles);
-
-  // Full point sequence: start → stubFrom → waypoints → stubTo → end
-  const allPoints: Point[] = [fromPos, stubFrom, ...waypoints, stubTo, toPos];
+  let allPoints: Point[];
+  if (userWaypoints && userWaypoints.length > 0) {
+    // User-defined waypoints override automatic routing
+    allPoints = [fromPos, stubFrom, ...userWaypoints, stubTo, toPos];
+  } else {
+    // Build the waypoints between the two stubs using simple orthogonal routing
+    const waypoints = routeBetween(stubFrom, stubTo, fromDir, toDir, obstacles);
+    // Full point sequence: start → stubFrom → waypoints → stubTo → end
+    allPoints = [fromPos, stubFrom, ...waypoints, stubTo, toPos];
+  }
 
   // Deduplicate consecutive identical points
   const pts = dedup(allPoints);

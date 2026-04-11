@@ -23,9 +23,11 @@ function computeBezierControlPoints(
   to: Point,
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
+  fromDirOverride?: { dx: number; dy: number },
+  toDirOverride?: { dx: number; dy: number },
 ): { cp1: Point; cp2: Point } {
-  const fromDir = getAnchorDirection(fromAnchor);
-  const toDir = getAnchorDirection(toAnchor);
+  const fromDir = fromDirOverride ?? getAnchorDirection(fromAnchor);
+  const toDir = toDirOverride ?? getAnchorDirection(toAnchor);
 
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -43,8 +45,10 @@ function computeBezierPath(
   to: Point,
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
+  fromDirOverride?: { dx: number; dy: number },
+  toDirOverride?: { dx: number; dy: number },
 ): string {
-  const { cp1, cp2 } = computeBezierControlPoints(from, to, fromAnchor, toAnchor);
+  const { cp1, cp2 } = computeBezierControlPoints(from, to, fromAnchor, toAnchor, fromDirOverride, toDirOverride);
   return `M ${from.x} ${from.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${to.x} ${to.y}`;
 }
 
@@ -68,19 +72,22 @@ export function computePath(
   fromAnchor: AnchorId,
   toAnchor: AnchorId,
   obstacles: Rect[],
+  waypoints?: { x: number; y: number }[],
+  fromDir?: { dx: number; dy: number },
+  toDir?: { dx: number; dy: number },
 ): { path: string; points: Point[] } {
   switch (algorithm) {
     case "straight":
       return { path: computeStraightPath(fromPos, toPos), points: [fromPos, toPos] };
     case "bezier": {
-      const { cp1, cp2 } = computeBezierControlPoints(fromPos, toPos, fromAnchor, toAnchor);
+      const { cp1, cp2 } = computeBezierControlPoints(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir);
       return {
-        path: computeBezierPath(fromPos, toPos, fromAnchor, toAnchor),
+        path: computeBezierPath(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir),
         points: sampleCubicBezier(fromPos, cp1, cp2, toPos, 16),
       };
     }
     case "orthogonal":
     default:
-      return computeOrthogonalPath(fromPos, toPos, fromAnchor, toAnchor, obstacles);
+      return computeOrthogonalPath(fromPos, toPos, fromAnchor, toAnchor, obstacles, waypoints, fromDir, toDir);
   }
 }

@@ -13,11 +13,9 @@ export function getNodeDims(
 ): { w: number; h: number } {
   const measured = measuredSizes[node.id];
   if (node.shape === "condition") {
-    const dims = getConditionDimensions(node.conditionSize);
-    return {
-      w: measured?.w ?? dims.w,
-      h: measured?.h ?? dims.h,
-    };
+    // Always use computed dimensions — measured height includes arc sagitta
+    // which getConditionAnchors adds internally
+    return getConditionDimensions(node.conditionSize, node.conditionOutCount);
   }
   return {
     w: measured?.w ?? node.w,

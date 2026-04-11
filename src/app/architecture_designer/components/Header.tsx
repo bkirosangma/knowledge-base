@@ -1,6 +1,53 @@
 import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { Save, RotateCcw, Activity, Tag, Map } from "lucide-react";
+import { Save, RotateCcw, Activity, Tag, Map, LayoutGrid } from "lucide-react";
+
+type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
+
+function AutoArrangeDropdown({ onSelect }: { onSelect: (algo: ArrangeAlgorithm) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const items: { key: ArrangeAlgorithm; label: string }[] = [
+    { key: "hierarchical-tb", label: "Hierarchical (Top → Bottom)" },
+    { key: "hierarchical-lr", label: "Hierarchical (Left → Right)" },
+    { key: "force", label: "Force-Directed" },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        title="Auto Arrange"
+        onClick={() => setOpen(!open)}
+      >
+        <LayoutGrid size={16} />
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              className="block w-full text-left px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={() => { onSelect(item.key); setOpen(false); }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const toggleClass = (active: boolean) =>
   `flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
@@ -26,6 +73,7 @@ interface HeaderProps {
   onZoomChange: (zoom: number) => void;
   onDiscard: (e: React.MouseEvent) => void;
   onSave: () => void;
+  onAutoArrange?: (algorithm: "hierarchical-tb" | "hierarchical-lr" | "force") => void;
 }
 
 export default function Header({
@@ -47,6 +95,7 @@ export default function Header({
   onZoomChange,
   onDiscard,
   onSave,
+  onAutoArrange,
 }: HeaderProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleMeasureRef = useRef<HTMLSpanElement>(null);
@@ -135,6 +184,13 @@ export default function Header({
         </button>
         <button onClick={() => onZoomChange(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition-all" title="Zoom in">+</button>
       </div>
+
+      {onAutoArrange && (
+        <>
+          <div className="h-5 w-px bg-slate-200" />
+          <AutoArrangeDropdown onSelect={onAutoArrange} />
+        </>
+      )}
 
       <div className="h-5 w-px bg-slate-200" />
 

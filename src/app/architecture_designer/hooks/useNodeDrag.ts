@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData, Selection } from "../utils/types";
 import { clampNodePosition, clampMultiNodeDelta, type Rect, type LayerBounds } from "../utils/collisionUtils";
 import { LAYER_GAP } from "../utils/constants";
+import { snapToGrid } from "../utils/gridSnap";
 import { isItemSelected } from "../utils/selectionUtils";
 
 interface UseNodeDragOptions {
@@ -162,6 +163,8 @@ export function useNodeDrag({
         y = clamped.y;
       }
 
+      x = snapToGrid(x);
+      y = snapToGrid(y);
       lastValidPos.current = { x, y };
       setElementDragPos({ x, y });
       setElementDragRawPos({ x: rawX, y: rawY });
@@ -259,6 +262,8 @@ export function useNodeDrag({
         dy = clamped.dy;
       }
 
+      dx = snapToGrid(dx);
+      dy = snapToGrid(dy);
       lastClampedDelta.current = { dx, dy };
       setMultiDragDelta({ dx, dy });
       setMultiDragRawDelta({ dx: rawDx, dy: rawDy });

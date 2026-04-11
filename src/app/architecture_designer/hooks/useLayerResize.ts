@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ResizeEdge } from "../components/Layer";
 import { LAYER_GAP } from "../utils/constants";
+import { snapToGrid } from "../utils/gridSnap";
 
 interface RegionBounds {
   id: string;
@@ -74,25 +75,27 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
         if (edge === "right") {
           const rawRight = startBounds.left + startBounds.width + delta;
           const maxRight = obstacles.reduce((acc, obs) => Math.min(acc, obs.left - LAYER_GAP), rawRight);
-          next.width = Math.max(100, maxRight - startBounds.left);
+          next.width = snapToGrid(Math.max(100, maxRight - startBounds.left));
         } else if (edge === "left") {
           const rawLeft = startBounds.left + delta;
           const minLeft = obstacles.reduce((acc, obs) => Math.max(acc, obs.left + obs.width + LAYER_GAP), rawLeft);
-          const newWidth = startBounds.left + startBounds.width - minLeft;
+          const snappedLeft = snapToGrid(minLeft);
+          const newWidth = startBounds.left + startBounds.width - snappedLeft;
           if (newWidth >= 100) {
-            next.left = minLeft;
+            next.left = snappedLeft;
             next.width = newWidth;
           }
         } else if (edge === "bottom") {
           const rawBottom = startBounds.top + startBounds.height + delta;
           const maxBottom = obstacles.reduce((acc, obs) => Math.min(acc, obs.top - LAYER_GAP), rawBottom);
-          next.height = Math.max(60, maxBottom - startBounds.top);
+          next.height = snapToGrid(Math.max(60, maxBottom - startBounds.top));
         } else if (edge === "top") {
           const rawTop = startBounds.top + delta;
           const minTop = obstacles.reduce((acc, obs) => Math.max(acc, obs.top + obs.height + LAYER_GAP), rawTop);
-          const newHeight = startBounds.top + startBounds.height - minTop;
+          const snappedTop = snapToGrid(minTop);
+          const newHeight = startBounds.top + startBounds.height - snappedTop;
           if (newHeight >= 60) {
-            next.top = minTop;
+            next.top = snappedTop;
             next.height = newHeight;
           }
         }

@@ -176,5 +176,24 @@ export function useEndpointDrag({
     };
   }, [draggingEndpoint, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections]);
 
-  return { draggingEndpoint, handleLineClick, endpointDragDidMove };
+  const handleConnectedAnchorDrag = useCallback(
+    (connectionId: string, end: "from" | "to", e: MouseEvent) => {
+      const { x: mx, y: my } = toCanvasCoords(e.clientX, e.clientY);
+      const conn = connections.find((c) => c.id === connectionId);
+      if (!conn) return;
+      const originalNodeId = end === "from" ? conn.from : conn.to;
+      const originalAnchor = end === "from" ? conn.fromAnchor : conn.toAnchor;
+      setDraggingEndpoint({
+        connectionId,
+        end,
+        currentPos: { x: mx, y: my },
+        snappedAnchor: null,
+        originalNodeId,
+        originalAnchor,
+      });
+    },
+    [connections, toCanvasCoords]
+  );
+
+  return { draggingEndpoint, handleLineClick, handleConnectedAnchorDrag, endpointDragDidMove };
 }

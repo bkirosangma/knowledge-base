@@ -14,6 +14,7 @@ interface UseLineDragOptions {
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>;
   isBlocked: boolean;
   onAnchorClick?: (nodeId: string, anchorId: AnchorId, clientX: number, clientY: number) => void;
+  onConnectedAnchorDrag?: (connectionId: string, end: "from" | "to", e: MouseEvent) => void;
 }
 
 export interface CreatingLine {
@@ -38,6 +39,7 @@ export function useLineDrag({
   setConnections,
   isBlocked,
   onAnchorClick,
+  onConnectedAnchorDrag,
 }: UseLineDragOptions) {
   const [creatingLine, setCreatingLine] = useState<CreatingLine | null>(null);
   const creatingLineRef = useRef(creatingLine);
@@ -52,6 +54,8 @@ export function useLineDrag({
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorClickRef = useRef(onAnchorClick);
   anchorClickRef.current = onAnchorClick;
+  const connectedDragRef = useRef(onConnectedAnchorDrag);
+  connectedDragRef.current = onConnectedAnchorDrag;
 
   const handleAnchorDragStart = useCallback(
     (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => {
@@ -69,18 +73,29 @@ export function useLineDrag({
       const downY = e.clientY;
       const downTime = Date.now();
 
-      // Delay drag initiation by 100ms to avoid accidental drags
+      // Delay drag initiation by 150ms to avoid accidental drags
       if (holdTimer.current) clearTimeout(holdTimer.current);
       holdTimer.current = setTimeout(() => {
         holdTimer.current = null;
-        setCreatingLine({
-          fromNodeId: nodeId,
-          fromAnchorId: anchorId,
-          fromPos,
-          currentPos: fromPos,
-          snappedAnchor: null,
-        });
-      }, 100);
+        // Check if this anchor has an existing connection — if so, trigger endpoint drag
+        const connAsFrom = connectionsRef.current.find((c) => c.from === nodeId && c.fromAnchor === anchorId);
+        const connAsTo = connectionsRef.current.find((c) => c.to === nodeId && c.toAnchor === anchorId);
+        if ((connAsFrom || connAsTo) && connectedDragRef.current) {
+          // Create a synthetic MouseEvent at the anchor position for endpoint drag
+          const conn = connAsFrom ?? connAsTo!;
+          const end = connAsFrom ? "from" : "to";
+          const syntheticEvent = new MouseEvent("mousedown", { clientX: downX, clientY: downY });
+          connectedDragRef.current(conn.id, end, syntheticEvent);
+        } else {
+          setCreatingLine({
+            fromNodeId: nodeId,
+            fromAnchorId: anchorId,
+            fromPos,
+            currentPos: fromPos,
+            snappedAnchor: null,
+          });
+        }
+      }, 150);
 
       // Cancel if mouse released before timer fires — detect click vs drag
       const cancelOnUp = (upEvent: MouseEvent) => {

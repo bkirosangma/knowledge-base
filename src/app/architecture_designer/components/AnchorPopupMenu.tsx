@@ -24,6 +24,9 @@ export default function AnchorPopupMenu({
   onConnectToElement,
   onCreateCondition,
   onConnectToType,
+  anchorEdge,
+  onMenuEnter,
+  onMenuLeave,
 }: {
   x: number;
   y: number;
@@ -33,6 +36,9 @@ export default function AnchorPopupMenu({
   onConnectToElement: (targetNodeId: string) => void;
   onCreateCondition: () => void;
   onConnectToType: (type: string) => void;
+  anchorEdge?: "top" | "right" | "bottom" | "left";
+  onMenuEnter?: () => void;
+  onMenuLeave?: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [subPanel, setSubPanel] = useState<"element" | "type" | null>(null);
@@ -80,20 +86,20 @@ export default function AnchorPopupMenu({
     };
   }, [onClose, subPanel]);
 
-  // Branch definitions
-  const branches: BranchDef[] = [
-    { key: "element", angle: -45, icon: Box, color: "#64748b", hoverColor: "#3b82f6" },
-    { key: "condition", angle: 0, icon: Diamond, color: "#64748b", hoverColor: "#f59e0b" },
+  // Branch definitions — angles are perpendicular to the anchor's edge
+  const baseAngle = anchorEdge === "top" ? -90 : anchorEdge === "bottom" ? 90 : anchorEdge === "left" ? 180 : 0;
+  const branchDefs: Omit<BranchDef, "angle">[] = [
+    { key: "element", icon: Box, color: "#64748b", hoverColor: "#3b82f6" },
+    { key: "condition", icon: Diamond, color: "#64748b", hoverColor: "#f59e0b" },
   ];
   if (hasTypes) {
-    branches.push({ key: "type", angle: 45, icon: Boxes, color: "#64748b", hoverColor: "#8b5cf6" });
+    branchDefs.push({ key: "type", icon: Boxes, color: "#64748b", hoverColor: "#8b5cf6" });
   }
-
-  // Adjust angles when only 2 branches
-  if (branches.length === 2) {
-    branches[0].angle = -30;
-    branches[1].angle = 30;
-  }
+  const spread = branchDefs.length === 2 ? 40 : 45;
+  const branches: BranchDef[] = branchDefs.map((b, i) => {
+    const offset = branchDefs.length === 1 ? 0 : (i - (branchDefs.length - 1) / 2) * spread;
+    return { ...b, angle: baseAngle + offset };
+  });
 
   // Compute branch endpoint positions
   const branchEndpoints = branches.map((b) => {
@@ -105,9 +111,7 @@ export default function AnchorPopupMenu({
     };
   });
 
-  // Determine if the menu should flip left (near right viewport edge)
-  const flipX = x + BRANCH_LEN + OPTION_R + 20 > window.innerWidth;
-  const flipY = y - BRANCH_LEN - OPTION_R - 20 < 0;
+  // No flip needed — perpendicular direction naturally points away from node
 
   // SVG viewbox needs to encompass center + all branch endpoints + option circles
   const padding = OPTION_R + 4;
@@ -139,7 +143,7 @@ export default function AnchorPopupMenu({
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors text-slate-700 hover:bg-slate-100";
 
   return (
-    <div ref={menuRef}>
+    <div ref={menuRef} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
       {/* Radial menu */}
       {!subPanel && (
         <div
@@ -155,7 +159,7 @@ export default function AnchorPopupMenu({
           <svg
             width={svgSize}
             height={svgSize}
-            style={{ pointerEvents: "none", transform: flipX ? "scaleX(-1)" : flipY ? "scaleY(-1)" : undefined }}
+            style={{ pointerEvents: "none" }}
           >
             {/* Branch lines */}
             {branchEndpoints.map((b) => (

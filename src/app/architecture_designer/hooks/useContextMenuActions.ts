@@ -4,6 +4,7 @@ import type { NodeData, LayerDef, Selection, RegionBounds } from "../utils/types
 import { getNodeHeight } from "../utils/types";
 import { DEFAULT_NODE_WIDTH, DEFAULT_LAYER_WIDTH, DEFAULT_LAYER_HEIGHT } from "../utils/constants";
 import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } from "../utils/collisionUtils";
+import { snapToGrid } from "../utils/gridSnap";
 import { predictLayerBounds } from "../utils/layerBounds";
 import type { ContextMenuTarget } from "../utils/geometry";
 
@@ -93,6 +94,8 @@ export function useContextMenuActions(
       }
     }
 
+    finalX = snapToGrid(finalX);
+    finalY = snapToGrid(finalY);
     const newId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: finalX, y: finalY, w: newW, layer: targetLayer }]);
     setSelection({ type: "node", id: newId });
@@ -112,12 +115,12 @@ export function useContextMenuActions(
       { left: cx - newW / 2, top: cy - newH / 2, width: newW, height: newH },
       regions,
     );
-    const placeLeft = pos.left;
-    const placeTop = pos.top;
+    const placeLeft = snapToGrid(pos.left);
+    const placeTop = snapToGrid(pos.top);
 
     const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setLayerDefs((prev) => [...prev, { id: newId, title: "NEW LAYER", bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
-    setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: newW, top: placeTop, height: newH } }));
+    setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: snapToGrid(newW), top: placeTop, height: snapToGrid(newH) } }));
     setSelection({ type: "layer", id: newId });
     setContextMenu(null);
     onActionComplete?.("Add layer");

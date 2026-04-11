@@ -77,19 +77,20 @@ function ConditionElement({
   const stroke = borderColor ?? "#e2e8f0";
   const text = textColor ?? "#1e293b";
 
-  // Centroid-based text positioning for each rotation
-  // Triangle centroid is at 2/3 from vertex toward base
-  const centroidOffsets: Record<number, { left: string; top: string }> = {
-    0:   { left: '50%', top: '55%' },
-    90:  { left: '40%', top: '50%' },
-    180: { left: '50%', top: '42%' },
-    270: { left: '60%', top: '50%' },
+  // Dynamic centroid positioning — triangle centroid is ~55% down from top in unrotated space
+  // Rotate this offset around the center for arbitrary rotation
+  const centroidRelY = effectiveH * 0.05; // offset from center (centroid is slightly below center)
+  const centroidRad = (rotation * Math.PI) / 180;
+  const centroidX = -centroidRelY * Math.sin(centroidRad);
+  const centroidY = centroidRelY * Math.cos(centroidRad);
+  const centroid = {
+    left: `${50 + (centroidX / w) * 100}%`,
+    top: `${50 + (centroidY / effectiveH) * 100}%`,
   };
-  const centroid = centroidOffsets[rotation] ?? centroidOffsets[0];
 
   // Compute the "+" add button position: center of the base/arc (before rotation)
   const addBtnLocalX = w / 2;
-  const addBtnLocalY = h + (outCount > 2 ? w * 0.12 * Math.min(outCount - 2, 5) : 0) + 12; // slightly below the convex apex
+  const addBtnLocalY = getEffectiveConditionHeight(h, w, outCount) + 28;
   // Convert to effective-height local space then rotate
   const rad = (rotation * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -219,19 +220,30 @@ function ConditionElement({
         </div>
       )}
 
-      {/* Rotation handle — shown on hover or selected */}
-      {(hovered || isSelected) && onRotationDragStart && (
-        <div
-          className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
-          style={{
-            right: -12,
-            top: -12,
-          }}
-          onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotationDragStart(id, e); }}
-        >
-          <RotateCw size={12} className="text-slate-500" />
-        </div>
-      )}
+      {/* Rotation handle — shown on hover or selected, positioned above cond-in anchor */}
+      {(hovered || isSelected) && onRotationDragStart && (() => {
+        const inAnchor = anchors.find((a) => a.id === "cond-in");
+        if (!inAnchor) return null;
+        const dirX = inAnchor.x - x;
+        const dirY = inAnchor.y - y;
+        const len = Math.sqrt(dirX * dirX + dirY * dirY);
+        const offset = 20;
+        const hx = (inAnchor.x - x) + (len > 0.01 ? (dirX / len) * offset : 0);
+        const hy = (inAnchor.y - y) + (len > 0.01 ? (dirY / len) * offset : -offset);
+        return (
+          <div
+            className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
+            style={{
+              left: `calc(50% + ${hx}px)`,
+              top: `calc(50% + ${hy}px)`,
+              transform: "translate(-50%, -50%)",
+            }}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotationDragStart(id, e); }}
+          >
+            <RotateCw size={12} className="text-slate-500" />
+          </div>
+        );
+      })()}
     </div>
   );
 }

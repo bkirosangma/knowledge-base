@@ -3,7 +3,12 @@ import type { NodeData, Connection, Selection } from "../utils/types";
 import type { AnchorId } from "../utils/anchors";
 import { getNodeAnchorPosition, getAnchorDirection, pickBestTargetAnchor } from "../utils/anchors";
 import { getNodesByType } from "../utils/typeUtils";
+import { getConditionDimensions, getEffectiveConditionHeight } from "../utils/conditionGeometry";
+import { clampNodePosition, type Rect } from "../utils/collisionUtils";
+import { snapToGrid } from "../utils/gridSnap";
 import { GitBranch } from "lucide-react";
+
+type RegionBounds = { id: string; left: number; width: number; top: number; height: number; empty: boolean };
 
 interface AnchorPopup {
   clientX: number;
@@ -16,11 +21,12 @@ export function useAnchorConnections(
   anchorPopup: AnchorPopup | null,
   nodesRef: MutableRefObject<NodeData[]>,
   layerShiftsRef: MutableRefObject<Record<string, number>>,
-  getNodeDimensions: (node: { id: string; w: number; shape?: string; conditionSize?: number }) => { w: number; h: number },
+  getNodeDimensions: (node: { id: string; w: number; shape?: string; conditionSize?: number; conditionOutCount?: number }) => { w: number; h: number },
   setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>,
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
   setSelection: React.Dispatch<React.SetStateAction<Selection>>,
   scheduleRecord: (description: string) => void,
+  regionsRef?: MutableRefObject<RegionBounds[] | null>,
 ) {
   const handleAnchorConnectToElement = useCallback((targetNodeId: string) => {
     if (!anchorPopup) return;
@@ -54,8 +60,41 @@ export function useAnchorConnections(
     const dims = getNodeDimensions(sourceNode);
     const fromPos = getNodeAnchorPosition(anchorPopup.anchorId, sourceNode.x, sourceNode.y + shift, dims.w, dims.h, sourceNode.shape, sourceNode.conditionOutCount, sourceNode.rotation);
     const dir = getAnchorDirection(anchorPopup.anchorId);
-    const condX = fromPos.x + dir.dx * 150;
-    const condY = fromPos.y + dir.dy * 150;
+    let condX = snapToGrid(fromPos.x + dir.dx * 150);
+    let condY = snapToGrid(fromPos.y + dir.dy * 150);
+
+    // Collision avoidance for condition placement
+    const condDims = getConditionDimensions(1, 2);
+    const condEH = getEffectiveConditionHeight(condDims.h, condDims.w, 2);
+    const halfW = condDims.w / 2;
+    const halfH = condEH / 2;
+    const regions = regionsRef?.current;
+
+    if (sourceNode.layer && regions) {
+      // Source is in a layer — use layer-aware collision: check if condition fits within or near the layer
+      const region = regions.find((r) => r.id === sourceNode.layer);
+      if (region && !region.empty) {
+        // Clamp to stay within or near the source layer bounds
+        condX = Math.max(region.left + halfW + 10, Math.min(region.left + region.width - halfW - 10, condX));
+        condY = Math.max(region.top + halfH + 25, Math.min(region.top + region.height - halfH - 10, condY));
+      }
+    }
+
+    // Element-level collision: avoid overlapping sibling nodes
+    const siblingRects: Rect[] = nodesRef.current
+      .filter((n) => n.id !== anchorPopup.nodeId)
+      .map((n) => {
+        const d = getNodeDimensions(n);
+        const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+        return { left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h };
+      });
+
+    if (siblingRects.length > 0) {
+      const clamped = clampNodePosition(condX, condY, halfW, halfH, condX, condY, siblingRects);
+      condX = snapToGrid(clamped.x);
+      condY = snapToGrid(clamped.y);
+    }
+
     const condId = `el-cond-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const newNode = {
       id: condId,
@@ -63,11 +102,11 @@ export function useAnchorConnections(
       icon: GitBranch,
       x: condX,
       y: condY,
-      w: 120,
+      w: condDims.w,
       layer: "",
       shape: "condition" as const,
       conditionOutCount: 2,
-      rotation: 0 as const,
+      rotation: 0,
     };
     const conn = {
       id: `dl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

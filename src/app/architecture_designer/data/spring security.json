@@ -133,22 +133,22 @@
       "id": "el-cond-authenticated",
       "label": "Authenticated?",
       "icon": "GitBranch",
-      "x": 1187,
-      "y": 376,
+      "x": 1220,
+      "y": 360,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 2,
-      "rotation": 270
+      "rotation": 297.4
     },
     {
       "id": "el-cond-tokentype",
       "label": "Token Type?",
       "icon": "GitBranch",
-      "x": 748,
-      "y": 460,
+      "x": 660,
+      "y": 440,
       "w": 120,
       "shape": "condition",
-      "conditionOutCount": 2
+      "conditionOutCount": 4
     },
     {
       "id": "el-authn-manager",
@@ -274,8 +274,8 @@
       "id": "el-cond-hasrole",
       "label": "Has Role?",
       "icon": "GitBranch",
-      "x": 850,
-      "y": 1260,
+      "x": 1040,
+      "y": 1220,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 2
@@ -485,7 +485,7 @@
       "id": "dl-cond-token-jwt",
       "from": "el-cond-tokentype",
       "to": "el-jwt-validator",
-      "fromAnchor": "cond-out-1",
+      "fromAnchor": "cond-out-3",
       "toAnchor": "top-1",
       "color": "#10b981",
       "label": "Bearer Token"
@@ -729,6 +729,9 @@
     "ly-authn": {
       "top": 541,
       "height": 308
+    },
+    "ly-authz": {
+      "height": 290
     }
   },
   "lineCurve": "bezier",
@@ -736,6 +739,7 @@
     {
       "id": "flow-browser-happy-path",
       "name": "Browser Happy Path",
+      "category": "End-to-End Paths",
       "connectionIds": [
         "dl-browser-secfilter",
         "dl-secfilter-cors",
@@ -753,6 +757,7 @@
     {
       "id": "flow-mobile-request",
       "name": "Mobile API Request",
+      "category": "End-to-End Paths",
       "connectionIds": [
         "dl-mobile-authnfilter",
         "dl-authnf-cond-auth",
@@ -767,6 +772,7 @@
     {
       "id": "flow-filter-chain",
       "name": "Servlet Filter Chain",
+      "category": "Request Pipeline",
       "connectionIds": [
         "dl-secfilter-cors",
         "dl-cors-csrf",
@@ -778,6 +784,7 @@
     {
       "id": "flow-dao-authentication",
       "name": "DAO Authentication",
+      "category": "Authentication",
       "connectionIds": [
         "dl-authnf-cond-token",
         "dl-cond-token-session",
@@ -789,6 +796,7 @@
     {
       "id": "flow-ldap-authentication",
       "name": "LDAP Authentication",
+      "category": "Authentication",
       "connectionIds": [
         "dl-authnf-cond-token",
         "dl-cond-token-session",
@@ -799,6 +807,7 @@
     {
       "id": "flow-oauth2-authentication",
       "name": "OAuth2 Authentication",
+      "category": "Authentication",
       "connectionIds": [
         "dl-authnf-cond-token",
         "dl-cond-token-session",
@@ -809,6 +818,7 @@
     {
       "id": "flow-authorization-decision",
       "name": "Authorization Decision",
+      "category": "Authorization",
       "connectionIds": [
         "dl-authzf-accessdec",
         "dl-accessdec-rolevoter",
@@ -820,6 +830,7 @@
     {
       "id": "flow-request-processing",
       "name": "Request Processing",
+      "category": "Request Pipeline",
       "connectionIds": [
         "dl-authzf-dispatcher",
         "dl-dispatcher-controller",
@@ -831,6 +842,7 @@
     {
       "id": "flow-exception-handling",
       "name": "Exception Handling",
+      "category": "Error Flows",
       "connectionIds": [
         "dl-authzf-exception",
         "dl-exception-browser"
@@ -839,6 +851,7 @@
     {
       "id": "flow-session-management",
       "name": "Session Management",
+      "category": "Request Pipeline",
       "connectionIds": [
         "dl-authnf-secctx",
         "dl-secctx-session"
@@ -847,6 +860,7 @@
     {
       "id": "flow-jwt-auth",
       "name": "JWT Bearer Authentication",
+      "category": "Authentication",
       "connectionIds": [
         "dl-mobile-authnfilter",
         "dl-authnf-cond-token",
@@ -858,6 +872,7 @@
     {
       "id": "flow-auth-failure",
       "name": "Authentication Failure",
+      "category": "Error Flows",
       "connectionIds": [
         "dl-browser-secfilter",
         "dl-secfilter-cors",
@@ -871,6 +886,7 @@
     {
       "id": "flow-authz-denied",
       "name": "Authorization Denied (403)",
+      "category": "Error Flows",
       "connectionIds": [
         "dl-browser-secfilter",
         "dl-secfilter-cors",

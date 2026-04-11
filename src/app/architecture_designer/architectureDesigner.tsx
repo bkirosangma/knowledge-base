@@ -8,7 +8,7 @@ import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
 import FlowDots from "./components/FlowDots";
-import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection } from "./utils/anchors";
+import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
@@ -27,6 +27,8 @@ import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
+import { useSegmentDrag } from "./hooks/useSegmentDrag";
+import { hierarchicalLayout, forceDirectedLayout } from "./utils/autoArrange";
 import { useLineDrag } from "./hooks/useLineDrag";
 import Minimap from "./components/Minimap";
 import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
@@ -84,8 +86,12 @@ export default function ArchitectureDesigner() {
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [contextMenu, setContextMenu] = useState<{ clientX: number; clientY: number; canvasX: number; canvasY: number; target: ContextMenuTarget } | null>(null);
-  const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("./utils/anchors").AnchorId } | null>(null);
+  const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("./utils/anchors").AnchorId; edge: "top" | "right" | "bottom" | "left" } | null>(null);
+  const anchorHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null);
+  const [hoveredType, setHoveredType] = useState<string | null>(null);
+  const [expandedTypeInPanel, setExpandedTypeInPanel] = useState<string | null>(null);
   const [patches, setPatches] = useState<CanvasPatch[]>(DEFAULT_PATCHES);
 
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
@@ -154,11 +160,13 @@ export default function ArchitectureDesigner() {
     });
   }, []);
 
-  const getNodeDimensions = useCallback((node: { id: string; w: number; shape?: string; conditionSize?: number }) => {
+  const getNodeDimensions = useCallback((node: { id: string; w: number; shape?: string; conditionSize?: number; conditionOutCount?: number }) => {
     const measured = measuredSizes[node.id];
     if (node.shape === "condition") {
-      const dims = getConditionDimensions(node.conditionSize as 1|2|3|4|5|undefined);
-      return { w: measured?.w ?? dims.w, h: measured?.h ?? dims.h };
+      // Always use computed dimensions for conditions — measured height includes arc sagitta
+      // which getConditionAnchors adds internally, causing double-counting
+      const dims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
+      return dims;
     }
     return {
       w: measured?.w ?? node.w,
@@ -189,8 +197,12 @@ export default function ArchitectureDesigner() {
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const { scrollToRect } = useCanvasEffects(canvasRef, worldRef, zoomRef);
 
-  const { draggingEndpoint, handleLineClick, endpointDragDidMove } = useEndpointDrag({
+  const { draggingEndpoint, handleLineClick, handleConnectedAnchorDrag, endpointDragDidMove } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
+  });
+
+  const { handleSegmentDragStart } = useSegmentDrag({
+    toCanvasCoords, setConnections, scheduleRecord,
   });
 
   const onAnchorClick = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
@@ -198,13 +210,38 @@ export default function ArchitectureDesigner() {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
     if (node.shape === "condition" && anchorId === "cond-in") return; // No popup for in-anchor
-    setAnchorPopup({ clientX, clientY, nodeId, anchorId });
+    setAnchorPopup({ clientX, clientY, nodeId, anchorId, edge: getAnchorEdge(anchorId) });
   }, [nodes]);
+
+  const handleAnchorHover = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
+    if (anchorDismissTimer.current) { clearTimeout(anchorDismissTimer.current); anchorDismissTimer.current = null; }
+    if (anchorHoverTimer.current) clearTimeout(anchorHoverTimer.current);
+    anchorHoverTimer.current = setTimeout(() => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      if (node.shape === "condition" && anchorId === "cond-in") return;
+      setAnchorPopup({ clientX, clientY, nodeId, anchorId, edge: getAnchorEdge(anchorId) });
+    }, 100);
+  }, [nodes]);
+
+  const handleAnchorHoverEnd = useCallback(() => {
+    if (anchorHoverTimer.current) { clearTimeout(anchorHoverTimer.current); anchorHoverTimer.current = null; }
+    anchorDismissTimer.current = setTimeout(() => setAnchorPopup(null), 200);
+  }, []);
+
+  const handleAnchorMenuEnter = useCallback(() => {
+    if (anchorDismissTimer.current) { clearTimeout(anchorDismissTimer.current); anchorDismissTimer.current = null; }
+  }, []);
+
+  const handleAnchorMenuLeave = useCallback(() => {
+    anchorDismissTimer.current = setTimeout(() => setAnchorPopup(null), 200);
+  }, []);
 
   const { creatingLine, handleAnchorDragStart } = useLineDrag({
     nodes, connections, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
     isBlocked: !!draggingEndpoint,
     onAnchorClick,
+    onConnectedAnchorDrag: handleConnectedAnchorDrag,
   });
 
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
@@ -342,6 +379,54 @@ export default function ArchitectureDesigner() {
     connectionsRef, flowsRef, flowCounter, setFlows, setSelection, scheduleRecord,
   );
 
+  const handleCreateLayer = useCallback((layerTitle: string): string => {
+    const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setLayerDefs((prev) => [...prev, { id: newId, title: layerTitle.toUpperCase(), bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
+    setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: 0, width: 400, top: 0, height: 200 } }));
+    scheduleRecord("Create layer from property");
+    return newId;
+  }, [scheduleRecord]);
+
+  const handleDeleteAnchor = useCallback((nodeId: string, anchorIndex: number) => {
+    const anchorId = `cond-out-${anchorIndex}`;
+    // Remove connections attached to this anchor
+    setConnections((prev) => prev
+      .filter((c) => !(c.from === nodeId && c.fromAnchor === anchorId))
+      .map((c) => {
+        // Renumber higher-indexed out-anchors
+        if (c.from === nodeId && c.fromAnchor.startsWith("cond-out-")) {
+          const idx = parseInt(c.fromAnchor.split("-")[2]);
+          if (idx > anchorIndex) return { ...c, fromAnchor: `cond-out-${idx - 1}` as import("./utils/anchors").AnchorId };
+        }
+        return c;
+      })
+    );
+    // Decrement out count
+    setNodes((prev) => prev.map((n) =>
+      n.id === nodeId ? { ...n, conditionOutCount: Math.max(2, (n.conditionOutCount ?? 2) - 1) } : n
+    ));
+    scheduleRecord("Delete condition anchor");
+  }, [scheduleRecord]);
+
+  const handleAutoArrange = useCallback((algorithm: "hierarchical-tb" | "hierarchical-lr" | "force") => {
+    let newPositions: Map<string, { x: number; y: number }>;
+    if (algorithm === "force") {
+      newPositions = forceDirectedLayout(nodes, connections);
+    } else {
+      const direction = algorithm === "hierarchical-lr" ? "LR" : "TB";
+      newPositions = hierarchicalLayout(nodes, connections, { direction });
+    }
+    setNodes((prev) =>
+      prev.map((n) => {
+        const pos = newPositions.get(n.id);
+        return pos ? { ...n, x: pos.x, y: pos.y } : n;
+      })
+    );
+    // Clear user waypoints so lines re-route automatically
+    setConnections((prev) => prev.map((c) => ({ ...c, waypoints: undefined })));
+    scheduleRecord(`Auto-arrange: ${algorithm}`);
+  }, [nodes, connections, scheduleRecord]);
+
   const { commitLabel } = useLabelEditing(
     editingLabelBeforeRef, setNodes, setLayerDefs, setConnections, setEditingLabel, scheduleRecord,
   );
@@ -349,7 +434,7 @@ export default function ArchitectureDesigner() {
   // Anchor popup handlers
   const { handleAnchorConnectToElement, handleAnchorCreateCondition, handleAnchorConnectToType } = useAnchorConnections(
     anchorPopup, nodesRef, layerShiftsRef, getNodeDimensions,
-    setNodes, setConnections, setSelection, scheduleRecord,
+    setNodes, setConnections, setSelection, scheduleRecord, regionsRef,
   );
 
   // Flow dimming: compute which items are "included" in the selected or hovered flow
@@ -371,6 +456,38 @@ export default function ArchitectureDesigner() {
     }
     return { connIds, nodeIds, layerIds };
   }, [selection, hoveredFlowId, flows, connections, nodes]);
+
+  // Type focus: compute which items are included when a type is hovered
+  const typeDimSets = useMemo(() => {
+    if (!hoveredType) return null;
+    const nodeIds = new Set(nodes.filter((n) => n.type === hoveredType).map((n) => n.id));
+    if (nodeIds.size === 0) return null;
+    const connIds = new Set(connections.filter((c) => nodeIds.has(c.from) || nodeIds.has(c.to)).map((c) => c.id));
+    const layerIds = new Set<string>();
+    for (const nid of nodeIds) {
+      const node = nodes.find((n) => n.id === nid);
+      if (node?.layer) layerIds.add(node.layer);
+    }
+    return { connIds, nodeIds, layerIds };
+  }, [hoveredType, nodes, connections]);
+
+  const handleSelectType = useCallback((type: string) => {
+    const typeNodes = nodes.filter((n) => n.type === type);
+    if (typeNodes.length === 0) return;
+    if (typeNodes.length === 1) {
+      setSelection({ type: 'node', id: typeNodes[0].id });
+    } else {
+      setSelection({ type: 'multi-node', ids: typeNodes.map((n) => n.id), layer: typeNodes[0].layer });
+    }
+  }, [nodes]);
+
+  // Clear focus states when selection changes (e.g. clicking empty canvas)
+  useEffect(() => {
+    if (selection === null) {
+      setHoveredType(null);
+      setExpandedTypeInPanel(null);
+    }
+  }, [selection]);
 
   // Compute layer bounds from contained nodes (memoized)
   const regions = useMemo(
@@ -513,7 +630,9 @@ export default function ArchitectureDesigner() {
       const fromPos = resolveAnchorPos(conn.fromAnchor, fromNode, fromDims);
       const toPos = resolveAnchorPos(conn.toAnchor, toNode, toDims);
       const obstacles = buildObstacles(allNodeRects, [conn.from, conn.to]);
-      const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles);
+      const fromDir = getNodeAnchorDirection(conn.fromAnchor, fromNode.x, fromNode.y, fromDims.w, fromDims.h, fromNode.shape, fromNode.conditionOutCount, fromNode.rotation);
+      const toDir = getNodeAnchorDirection(conn.toAnchor, toNode.x, toNode.y, toDims.w, toDims.h, toNode.shape, toNode.conditionOutCount, toNode.rotation);
+      const { path, points } = computePath(lineCurve, fromPos, toPos, conn.fromAnchor, conn.toAnchor, obstacles, conn.waypoints, fromDir, toDir);
       return {
         id: conn.id, path, points, color: conn.color, label: conn.label,
         biDirectional: conn.biDirectional, flowDuration: conn.flowDuration,
@@ -592,6 +711,7 @@ export default function ArchitectureDesigner() {
         onZoomChange={setZoomTo}
         onDiscard={handleDiscard}
         onSave={handleSave}
+        onAutoArrange={handleAutoArrange}
       />
 
       {/* Hidden fallback input for browsers without File System Access API */}
@@ -694,7 +814,7 @@ export default function ArchitectureDesigner() {
             {/* Layers */}
             {regions.map((r) => {
               const isThisLayerDragged = draggingLayerIds.includes(r.id);
-              const dimmed = (draggingLayerIds.length > 0 && !isThisLayerDragged) || !!draggingId || isMultiDrag || (flowDimSets != null && !flowDimSets.layerIds.has(r.id));
+              const dimmed = (draggingLayerIds.length > 0 && !isThisLayerDragged) || !!draggingId || isMultiDrag || (flowDimSets != null && !flowDimSets.layerIds.has(r.id)) || (typeDimSets != null && !typeDimSets.layerIds.has(r.id));
               return (
                 <React.Fragment key={r.id}>
                   {isThisLayerDragged && layerDragRawDelta && (
@@ -731,11 +851,13 @@ export default function ArchitectureDesigner() {
             >
               {sortedLines.map((line) => {
                 const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id));
+                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id)) || (typeDimSets != null && !typeDimSets.connIds.has(line.id));
                 return (
                   <DataLine
                     key={line.id}
                     {...line}
+                    isOrthogonal={lineCurve === "orthogonal" || !lineCurve}
+                    onSegmentDragStart={handleSegmentDragStart}
                     isLive={isLive}
                     isHovered={hoveredLine?.id === line.id}
                     showLabels={showLabels}
@@ -835,6 +957,7 @@ export default function ArchitectureDesigner() {
               const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
               if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
               if (flowDimSets != null && !flowDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
+              if (typeDimSets != null && !typeDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
 
               let visualX = node.x;
               let visualY = node.y;
@@ -855,6 +978,8 @@ export default function ArchitectureDesigner() {
                 showAnchors,
                 highlightedAnchor: isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null,
                 onAnchorDragStart: handleAnchorDragStart,
+                onAnchorHover: handleAnchorHover,
+                onAnchorHoverEnd: handleAnchorHoverEnd,
                 onResize: handleElementResize,
                 onMouseEnter: handleNodeMouseEnter,
                 onMouseLeave: handleNodeMouseLeave,
@@ -863,7 +988,7 @@ export default function ArchitectureDesigner() {
               };
 
               if (isCondition) {
-                const condDims = getConditionDimensions(node.conditionSize);
+                const condDims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
                 return (
                   <React.Fragment key={node.id}>
                     <ConditionElement
@@ -1088,6 +1213,9 @@ export default function ArchitectureDesigner() {
           onConnectToElement={handleAnchorConnectToElement}
           onCreateCondition={handleAnchorCreateCondition}
           onConnectToType={handleAnchorConnectToType}
+          anchorEdge={anchorPopup.edge}
+          onMenuEnter={handleAnchorMenuEnter}
+          onMenuLeave={handleAnchorMenuLeave}
         />
       )}
 
@@ -1175,6 +1303,12 @@ export default function ArchitectureDesigner() {
         onDeleteFlow={handleDeleteFlow}
         onCreateFlow={handleCreateFlow}
         onSelectLine={handleSelectLine}
+        onCreateLayer={handleCreateLayer}
+        onDeleteAnchor={handleDeleteAnchor}
+        onSelectType={handleSelectType}
+        onHoverType={setHoveredType}
+        expandedType={expandedTypeInPanel}
+        onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
       />
       </div>
 

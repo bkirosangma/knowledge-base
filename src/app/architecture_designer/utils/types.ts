@@ -14,7 +14,7 @@ export interface NodeData {
   shape?: 'rect' | 'condition';
   conditionOutCount?: number;
   conditionSize?: 1 | 2 | 3 | 4 | 5;
-  rotation?: 0 | 90 | 180 | 270;
+  rotation?: number;
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
@@ -32,6 +32,7 @@ export interface FlowDef {
   id: string;
   name: string;
   connectionIds: string[];
+  category?: string;
 }
 
 export interface Connection {
@@ -47,6 +48,7 @@ export interface Connection {
   /** Position of the label along the path (0 = start, 1 = end, default 0.5 = midpoint) */
   labelPosition?: number;
   connectionType?: 'synchronous' | 'asynchronous';
+  waypoints?: { x: number; y: number }[];
 }
 
 export interface SerializedNodeData {
@@ -62,7 +64,7 @@ export interface SerializedNodeData {
   shape?: 'rect' | 'condition';
   conditionOutCount?: number;
   conditionSize?: 1 | 2 | 3 | 4 | 5;
-  rotation?: 0 | 90 | 180 | 270;
+  rotation?: number;
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
