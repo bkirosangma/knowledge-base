@@ -68,6 +68,8 @@ import { useDocuments } from "./hooks/useDocuments";
 import { useLinkIndex } from "./hooks/useLinkIndex";
 import DocumentPicker from "./components/DocumentPicker";
 import { readVaultConfig, initVault, updateVaultLastOpened } from "./utils/vaultConfig";
+import { updateWikiLinkPaths } from "./utils/wikiLinkParser";
+import { readTextFile, writeTextFile } from "./hooks/useFileExplorer";
 
 const SKIP_DISCARD_CONFIRM_KEY = "architecture-designer-skip-discard-confirm";
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
@@ -363,6 +365,46 @@ export default function ArchitectureDesigner() {
     docManager.documents,
     docManager.setDocuments,
   );
+
+  // Rename wrapper: updates wiki-links in all documents that reference the renamed file
+  const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
+    handleRenameFile(oldPath, newName);
+
+    if (!oldPath.endsWith(".md")) return;
+
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+
+    const dir = oldPath.includes("/") ? oldPath.substring(0, oldPath.lastIndexOf("/")) : "";
+    const newPath = dir ? `${dir}/${newName}` : newName;
+
+    // Update link index
+    await linkManager.renameDocumentInIndex(rootHandle, oldPath, newPath);
+
+    // Update wiki-links in all documents that reference the old path
+    const backlinks = linkManager.getBacklinksFor(oldPath);
+    for (const bl of backlinks) {
+      try {
+        const parts = bl.sourcePath.split("/");
+        let dh: FileSystemDirectoryHandle = rootHandle;
+        for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+        const fh = await dh.getFileHandle(parts[parts.length - 1]);
+        const content = await readTextFile(fh);
+        const updated = updateWikiLinkPaths(content, oldPath, newPath);
+        if (updated !== content) {
+          await writeTextFile(rootHandle, bl.sourcePath, updated);
+        }
+      } catch { /* skip files that can't be read */ }
+    }
+  }, [handleRenameFile, fileExplorer.dirHandleRef, linkManager]);
+
+  // Delete wrapper: removes document from link index after deletion
+  const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
+    handleDeleteFile(path, event);
+    if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
+      await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
+    }
+  }, [handleDeleteFile, fileExplorer.dirHandleRef, linkManager]);
 
   // Document open handler — auto-saves dirty doc, opens new doc, switches to split view
   const handleOpenDocument = useCallback(async (path: string) => {
@@ -818,9 +860,9 @@ export default function ArchitectureDesigner() {
           onSelectFile={handleLoadFile}
           onCreateFile={handleCreateFile}
           onCreateFolder={handleCreateFolder}
-          onDeleteFile={handleDeleteFile}
+          onDeleteFile={handleDeleteFileWithLinks}
           onDeleteFolder={handleDeleteFolder}
-          onRenameFile={handleRenameFile}
+          onRenameFile={handleRenameFileWithLinks}
           onRenameFolder={handleRenameFolder}
           onDuplicateFile={handleDuplicateFile}
           onMoveItem={handleMoveItem}
