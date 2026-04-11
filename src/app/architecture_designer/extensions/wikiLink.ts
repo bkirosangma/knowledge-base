@@ -164,7 +164,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
               items = props.items as string[];
               popup = document.createElement("div");
               popup.className = "bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-48 overflow-auto z-50";
-              popup.style.position = "absolute";
+              popup.style.position = "fixed";
               updatePopup();
               const { view } = props.editor;
               const coords = view.coordsAtPos(props.range.from);

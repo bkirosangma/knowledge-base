@@ -146,7 +146,7 @@ export function markdownToHtml(markdown: string): string {
   // Ordered lists
   html = html.replace(/^\d+\.\s+(.+)$/gm, "<ol><li>$1</li></ol>");
   // Paragraphs (lines not already wrapped)
-  html = html.replace(/^(?!<[a-z])(.*[^\n])$/gm, (_, content) => {
+  html = html.replace(/^(?!<(?:h[1-6]|p|ul|ol|pre|blockquote|hr|div|table)[\s>])(.*[^\n])$/gm, (_, content) => {
     if (!content.trim()) return "";
     return `<p>${content}</p>`;
   });

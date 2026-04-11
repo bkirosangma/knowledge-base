@@ -89,6 +89,7 @@ export default function MarkdownEditor({
           ext.options.allDocPaths = allDocPaths;
         }
       });
+      editor.view.dispatch(editor.state.tr);
     }
   }, [editor, existingDocPaths, allDocPaths]);
 
@@ -135,6 +136,7 @@ export default function MarkdownEditor({
           <textarea
             value={rawContent}
             onChange={handleRawChange}
+            readOnly={readOnly}
             className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-slate-100 resize-none outline-none"
             spellCheck={false}
           />
