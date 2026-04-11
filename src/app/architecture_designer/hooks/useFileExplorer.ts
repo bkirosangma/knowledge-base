@@ -8,12 +8,13 @@ import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope"
 /* ── Tree types ── */
 
 export interface TreeNode {
-  type: "file" | "folder";
   name: string;
   path: string; // relative path from root, e.g. "data/thanos.json"
+  type: "file" | "folder";
+  fileType?: "diagram" | "document"; // derived from extension
+  children?: TreeNode[];
   handle?: FileSystemFileHandle;
   dirHandle?: FileSystemDirectoryHandle;
-  children?: TreeNode[];
   lastModified?: number;
 }
 
@@ -89,7 +90,7 @@ function isDiagramData(data: unknown): data is DiagramData {
   return Array.isArray(d.layers) && Array.isArray(d.nodes) && Array.isArray(d.connections);
 }
 
-/** Recursively scan a directory and build a tree. Only include .json files. */
+/** Recursively scan a directory and build a tree. Include .json and .md files. */
 async function scanTree(handle: FileSystemDirectoryHandle, prefix: string): Promise<TreeNode[]> {
   const folders: TreeNode[] = [];
   const files: TreeNode[] = [];
@@ -101,8 +102,11 @@ async function scanTree(handle: FileSystemDirectoryHandle, prefix: string): Prom
       const children = await scanTree(dirHandle, path);
       // Folder lastModified = max of children's lastModified
       const maxMod = children.reduce((max, c) => Math.max(max, c.lastModified ?? 0), 0);
-      folders.push({ type: "folder", name: entry.name, path, dirHandle, children, lastModified: maxMod || undefined });
-    } else if (entry.kind === "file" && entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name)) {
+      folders.push({ name: entry.name, path, type: "folder", dirHandle, children, lastModified: maxMod || undefined });
+    } else if (entry.kind === "file") {
+      const isJson = entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name);
+      const isMd = entry.name.endsWith(".md");
+      if (!isJson && !isMd) continue;
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const fileHandle = entry as FileSystemFileHandle;
       let lastModified: number | undefined;
@@ -110,7 +114,8 @@ async function scanTree(handle: FileSystemDirectoryHandle, prefix: string): Prom
         const file = await fileHandle.getFile();
         lastModified = file.lastModified;
       } catch { /* ignore */ }
-      files.push({ type: "file", name: entry.name, path, handle: fileHandle, lastModified });
+      const fileType: "diagram" | "document" = isJson ? "diagram" : "document";
+      files.push({ name: entry.name, path, type: "file", fileType, handle: fileHandle, lastModified });
     }
   }
 
@@ -219,6 +224,42 @@ async function copyDirContents(src: FileSystemDirectoryHandle, dest: FileSystemD
       await copyDirContents(dirHandle, newDir);
     }
   }
+}
+
+/* ── File system utilities ── */
+
+export async function readTextFile(handle: FileSystemFileHandle): Promise<string> {
+  const file = await handle.getFile();
+  return file.text();
+}
+
+export async function writeTextFile(
+  dirHandle: FileSystemDirectoryHandle,
+  path: string,
+  content: string,
+): Promise<FileSystemFileHandle> {
+  const parts = path.split("/");
+  let current = dirHandle;
+  for (const part of parts.slice(0, -1)) {
+    current = await current.getDirectoryHandle(part, { create: true });
+  }
+  const fileHandle = await current.getFileHandle(parts[parts.length - 1], { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(content);
+  await writable.close();
+  return fileHandle;
+}
+
+export async function getSubdirectoryHandle(
+  rootHandle: FileSystemDirectoryHandle,
+  path: string,
+  create = false,
+): Promise<FileSystemDirectoryHandle> {
+  let current = rootHandle;
+  for (const part of path.split("/").filter(Boolean)) {
+    current = await current.getDirectoryHandle(part, { create });
+  }
+  return current;
 }
 
 /* ── Hook ── */
