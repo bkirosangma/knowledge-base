@@ -7,6 +7,7 @@ import Canvas, {
 import Layer from "./components/Layer";
 import Element from "./components/Element";
 import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
+import { rectsOverlap } from "./utils/collisionUtils";
 import FlowDots from "./components/FlowDots";
 import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
@@ -101,6 +102,9 @@ export default function ArchitectureDesigner() {
   const [editingLabelValue, setEditingLabelValue] = useState("");
   const editingLabelBeforeRef = useRef("");
   const labelDragStartT = useRef<number | null>(null);
+  const labelDragNodeRects = useRef<{ left: number; top: number; width: number; height: number }[]>([]);
+  const labelLastValidT = useRef<number>(0.5);
+  const [labelDragGhost, setLabelDragGhost] = useState<{ lineId: string; rawT: number } | null>(null);
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const fileExplorer = useFileExplorer();
@@ -1004,6 +1008,36 @@ export default function ArchitectureDesigner() {
                 const condDims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
                 return (
                   <React.Fragment key={node.id}>
+                    {isThisSingleDragged && elementDragRawPos && (
+                      <ConditionElement
+                        id={`${node.id}-ghost`}
+                        label={node.label}
+                        icon={node.icon}
+                        x={elementDragRawPos.x}
+                        y={elementDragRawPos.y}
+                        w={condDims.w}
+                        h={condDims.h}
+                        outCount={node.conditionOutCount ?? 2}
+                        rotation={node.rotation ?? 0}
+                        showLabels
+                        dimmed
+                      />
+                    )}
+                    {isThisMultiDragged && multiDragRawDelta && (
+                      <ConditionElement
+                        id={`${node.id}-ghost`}
+                        label={node.label}
+                        icon={node.icon}
+                        x={node.x + multiDragRawDelta.dx}
+                        y={node.y + multiDragRawDelta.dy}
+                        w={condDims.w}
+                        h={condDims.h}
+                        outCount={node.conditionOutCount ?? 2}
+                        rotation={node.rotation ?? 0}
+                        showLabels
+                        dimmed
+                      />
+                    )}
                     <ConditionElement
                       id={node.id}
                       label={node.label}
@@ -1074,18 +1108,58 @@ export default function ArchitectureDesigner() {
                         const svg = (e.target as SVGElement).closest("svg");
                         if (!svg) return;
                         const startT = line.labelPosition;
+                        labelLastValidT.current = startT;
+                        // Cache element/condition rects for collision
+                        labelDragNodeRects.current = nodes.map(n => {
+                          const dims = getNodeDimensions(n);
+                          const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+                          return { left: n.x - dims.w / 2, top: sy - dims.h / 2, width: dims.w, height: dims.h };
+                        });
+                        const labelW = line.label!.length * 6.5 + 8;
+                        const linePoints = line.points;
+                        const lineId = line.id;
+
                         const onMove = (ev: MouseEvent) => {
                           const pt = svg.createSVGPoint();
                           pt.x = ev.clientX;
                           pt.y = ev.clientY;
                           const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
-                          const newT = closestT(line.points, svgPt.x, svgPt.y);
-                          setConnections((prev) => prev.map((c) => c.id === line.id ? { ...c, labelPosition: Math.max(0.05, Math.min(0.95, newT)) } : c));
+                          const rawT = Math.max(0.05, Math.min(0.95, closestT(linePoints, svgPt.x, svgPt.y)));
+
+                          // Check collision at rawT
+                          const rawPt = interpolatePoints(linePoints, rawT);
+                          const labelRect = { left: rawPt.x - labelW / 2, top: rawPt.y - 10, width: labelW, height: 18 };
+                          const hasOverlap = labelDragNodeRects.current.some(r => rectsOverlap(labelRect, r, 4));
+
+                          if (!hasOverlap) {
+                            setConnections(prev => prev.map(c => c.id === lineId ? { ...c, labelPosition: rawT } : c));
+                            labelLastValidT.current = rawT;
+                            setLabelDragGhost(null);
+                          } else {
+                            // Binary search for nearest valid T between last valid and raw
+                            let loT = labelLastValidT.current, hiT = rawT;
+                            for (let i = 0; i < 15; i++) {
+                              const midT = (loT + hiT) / 2;
+                              const midPt = interpolatePoints(linePoints, midT);
+                              const midRect = { left: midPt.x - labelW / 2, top: midPt.y - 10, width: labelW, height: 18 };
+                              if (labelDragNodeRects.current.some(r => rectsOverlap(midRect, r, 4))) {
+                                hiT = midT;
+                              } else {
+                                loT = midT;
+                              }
+                            }
+                            const clampedT = Math.max(0.05, Math.min(0.95, loT));
+                            setConnections(prev => prev.map(c => c.id === lineId ? { ...c, labelPosition: clampedT } : c));
+                            labelLastValidT.current = clampedT;
+                            setLabelDragGhost({ lineId, rawT });
+                          }
                         };
                         const onUp = () => {
-                          const conn = connections.find((c) => c.id === line.id);
+                          const conn = connections.find((c) => c.id === lineId);
                           const endT = conn?.labelPosition ?? startT;
                           if (endT !== startT) scheduleRecord("Move label");
+                          setLabelDragGhost(null);
+                          labelDragNodeRects.current = [];
                           window.removeEventListener("mousemove", onMove);
                           window.removeEventListener("mouseup", onUp);
                         };
@@ -1119,6 +1193,18 @@ export default function ArchitectureDesigner() {
                     </g>
                   );
                 })}
+                {labelDragGhost && (() => {
+                  const ghostLine = sortedLines.find(l => l.id === labelDragGhost.lineId);
+                  if (!ghostLine?.label) return null;
+                  const gpt = interpolatePoints(ghostLine.points, labelDragGhost.rawT);
+                  const gw = ghostLine.label.length * 6.5 + 8;
+                  return (
+                    <g style={{ opacity: 0.35, pointerEvents: "none" }}>
+                      <rect x={gpt.x - gw / 2} y={gpt.y - 10} width={gw} height={18} rx={4} fill="white" fillOpacity={0.9} stroke="#e2e8f0" strokeWidth={0.8} />
+                      <text x={gpt.x} y={gpt.y + 3} textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="system-ui, sans-serif" fill={ghostLine.color} style={{ pointerEvents: "none", userSelect: "none" }}>{ghostLine.label}</text>
+                    </g>
+                  );
+                })()}
               </svg>
             )}
             {/* Selection Rectangle */}

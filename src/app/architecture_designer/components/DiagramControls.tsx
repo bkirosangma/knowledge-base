@@ -11,16 +11,27 @@ export default function DiagramControls({
 }: DiagramControlsProps) {
   return (
     <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 px-4 py-1 z-20">
-      <div className="flex items-center gap-4">
-        <span className="text-[11px] text-slate-400 font-mono">
-          {world.w}&times;{world.h}px
-        </span>
-        <span className="text-[11px] text-slate-400 font-mono">
-          {patches.length} patch{patches.length !== 1 ? "es" : ""}
-        </span>
-        <span className="text-[11px] text-slate-400 font-mono">
-          {Math.round(zoom * 100)}%
-        </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="text-[11px] text-slate-400 font-mono">
+            {world.w}&times;{world.h}px
+          </span>
+          <span className="text-[11px] text-slate-400 font-mono">
+            {patches.length} patch{patches.length !== 1 ? "es" : ""}
+          </span>
+          <span className="text-[11px] text-slate-400 font-mono">
+            {Math.round(zoom * 100)}%
+          </span>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          className="text-[11px] text-red-400 hover:text-red-600 font-mono cursor-pointer transition-colors"
+        >
+          Reset App
+        </button>
       </div>
     </div>
   );

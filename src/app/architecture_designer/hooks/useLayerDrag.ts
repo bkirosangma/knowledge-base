@@ -31,6 +31,8 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
   const dragStartRegions = useRef<LayerBounds[] | null>(null);
   const lastClampedDelta = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const layerDragDidMove = useRef(false);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
 
   // Backwards-compatible single-layer accessor
   const draggingLayerId = draggingLayerIds.length > 0 ? draggingLayerIds[0] : null;
@@ -66,16 +68,18 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
       const regions = dragStartRegions.current;
       const prev = lastClampedDelta.current;
 
-      // Clamp delta for each dragged layer individually, take the most restrictive
-      let dx = rawDx;
-      let dy = rawDy;
+      // Snap raw delta to grid first, then clamp to avoid overlaps.
+      // Grid-snapping after clamping can push the layer past obstacle edges,
+      // making prev invalid and breaking edge-sliding on subsequent frames.
+      let dx = snapToGrid(rawDx);
+      let dy = snapToGrid(rawDy);
       for (const lid of draggingLayerIds) {
         const draggedRegion = regions?.find((r) => r.id === lid);
         if (draggedRegion && regions) {
           // For multi-layer drag, exclude all dragged layers from obstacles
           const obstacles: LayerBounds[] = regions.filter(r => !draggingLayerIds.includes(r.id));
           // Include level 1/canvas nodes as obstacles
-          for (const n of nodes) {
+          for (const n of nodesRef.current) {
             const nLevel = levelMapRef.current.get(n.id);
             if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
               const d = getNodeDimensions(n);
@@ -89,9 +93,6 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
           dy = clamped.dy;
         }
       }
-
-      dx = snapToGrid(dx);
-      dy = snapToGrid(dy);
       lastClampedDelta.current = { dx, dy };
       setLayerDragDelta({ dx, dy });
       setLayerDragRawDelta({ dx: rawDx, dy: rawDy });

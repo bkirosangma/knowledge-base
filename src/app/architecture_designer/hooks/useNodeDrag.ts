@@ -46,6 +46,8 @@ export function useNodeDrag({
   // Snapshot of dragged nodes at drag start for bounding box computation
   const multiDragNodesSnapshot = useRef<NodeData[]>([]);
   const multiDragDidMove = useRef(false);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
 
   const isMultiDrag = multiDragIds.length > 0;
 
@@ -139,10 +141,12 @@ export function useNodeDrag({
 
     const handleMouseMove = (e: MouseEvent) => {
       const mouse = toCanvasCoords(e.clientX, e.clientY);
-      let x = mouse.x - dragOffset.current.x;
-      let y = mouse.y - dragOffset.current.y;
-      const rawX = x;
-      const rawY = y;
+      const rawX = mouse.x - dragOffset.current.x;
+      const rawY = mouse.y - dragOffset.current.y;
+      // Snap to grid before clamping so the clamped position doesn't get
+      // pushed past obstacle edges by a post-clamp snap.
+      let x = snapToGrid(rawX);
+      let y = snapToGrid(rawY);
 
       // Clamp: allow layer expansion but prevent collision with other layers and canvas-level nodes
       const info = dragNodeInfo.current;
@@ -152,7 +156,7 @@ export function useNodeDrag({
         if (region && !region.empty) {
           const others: { left: number; top: number; width: number; height: number }[] = regions.filter(r => r.id !== info.layer && !r.empty);
           // Include level 1/canvas nodes as obstacles (they share the same level as layers)
-          for (const n of nodes) {
+          for (const n of nodesRef.current) {
             if (n.id === draggingId) continue;
             const nLevel = levelMapRef.current.get(n.id);
             if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
@@ -199,8 +203,6 @@ export function useNodeDrag({
         y = clamped.y;
       }
 
-      x = snapToGrid(x);
-      y = snapToGrid(y);
       lastValidPos.current = { x, y };
       setElementDragPos({ x, y });
       setElementDragRawPos({ x: rawX, y: rawY });
@@ -240,9 +242,9 @@ export function useNodeDrag({
       const rawDx = mouse.x - multiDragStart.current.x;
       const rawDy = mouse.y - multiDragStart.current.y;
 
-      // Clamp delta so no dragged node crosses into another layer or canvas-level node
-      let dx = rawDx;
-      let dy = rawDy;
+      // Snap raw delta to grid before clamping
+      let dx = snapToGrid(rawDx);
+      let dy = snapToGrid(rawDy);
       const regions = regionsRef.current;
       const layer = multiDragLayer.current;
       if (regions) {
@@ -251,7 +253,7 @@ export function useNodeDrag({
           const others: { left: number; top: number; width: number; height: number }[] = regions.filter(r => r.id !== layer && !r.empty);
           // Include level 1/canvas nodes as obstacles
           const dragSet = new Set(multiDragIds);
-          for (const n of nodes) {
+          for (const n of nodesRef.current) {
             if (dragSet.has(n.id)) continue;
             const nLevel = levelMapRef.current.get(n.id);
             if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
@@ -309,8 +311,6 @@ export function useNodeDrag({
         dy = clamped.dy;
       }
 
-      dx = snapToGrid(dx);
-      dy = snapToGrid(dy);
       lastClampedDelta.current = { dx, dy };
       setMultiDragDelta({ dx, dy });
       setMultiDragRawDelta({ dx: rawDx, dy: rawDy });

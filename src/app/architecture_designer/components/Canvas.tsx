@@ -64,13 +64,12 @@ export function fitToContent(
 ): CanvasPatch[] {
   let changed = false;
   const result = patches.map((p) => {
-    // Compute the unit-snapped bounding box that covers `bounds`
-    const newCol = Math.floor(bounds.x / CANVAS_UNIT);
-    const newRow = Math.floor(bounds.y / CANVAS_UNIT);
-    const right = bounds.x + bounds.w;
-    const bottom = bounds.y + bounds.h;
-    let newW = Math.ceil(right / CANVAS_UNIT) - newCol;
-    let newH = Math.ceil(bottom / CANVAS_UNIT) - newRow;
+    // Use exact content bounds instead of snapping to unit grid.
+    // This prevents empty rows/columns when content doesn't align to 800px boundaries.
+    const newCol = bounds.x / CANVAS_UNIT;
+    const newRow = bounds.y / CANVAS_UNIT;
+    let newW = bounds.w / CANVAS_UNIT;
+    let newH = bounds.h / CANVAS_UNIT;
 
     // Enforce minimum size
     if (newW < minWidthUnits) newW = minWidthUnits;

@@ -44,8 +44,8 @@
       "label": "Browser Client",
       "sub": "HTTP/HTTPS Requests",
       "icon": "Monitor",
-      "x": 401,
-      "y": 126,
+      "x": 480,
+      "y": 120,
       "w": 210,
       "layer": "ly-client"
     },
@@ -54,8 +54,8 @@
       "label": "Mobile Client",
       "sub": "REST API / JWT Bearer",
       "icon": "Smartphone",
-      "x": 1010,
-      "y": 110,
+      "x": 1020,
+      "y": 120,
       "w": 210,
       "layer": "ly-client"
     },
@@ -64,7 +64,7 @@
       "label": "SecurityFilterChain",
       "sub": "DelegatingFilterProxy",
       "icon": "Shield",
-      "x": 150,
+      "x": 180,
       "y": 310,
       "w": 210,
       "layer": "ly-filter"
@@ -74,7 +74,7 @@
       "label": "CORS Filter",
       "sub": "Cross-Origin Handling",
       "icon": "Globe",
-      "x": 430,
+      "x": 410,
       "y": 310,
       "w": 180,
       "layer": "ly-filter"
@@ -84,7 +84,7 @@
       "label": "CSRF Filter",
       "sub": "Token Validation",
       "icon": "ShieldCheck",
-      "x": 680,
+      "x": 640,
       "y": 310,
       "w": 180,
       "layer": "ly-filter"
@@ -94,7 +94,7 @@
       "label": "Authentication Filter",
       "sub": "UsernamePassword / Bearer",
       "icon": "Database",
-      "x": 930,
+      "x": 870,
       "y": 310,
       "w": 210,
       "layer": "ly-filter"
@@ -104,8 +104,8 @@
       "label": "Authorization Filter",
       "sub": "FilterSecurityInterceptor",
       "icon": "Lock",
-      "x": 1390,
-      "y": 300,
+      "x": 1310,
+      "y": 310,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -114,8 +114,8 @@
       "label": "Exception Translation",
       "sub": "AuthenticationEntryPoint",
       "icon": "Zap",
-      "x": 1740,
-      "y": 390,
+      "x": 1570,
+      "y": 310,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -124,7 +124,7 @@
       "label": "Rate Limiter",
       "sub": "Request Throttling",
       "icon": "Database",
-      "x": 150,
+      "x": 180,
       "y": 450,
       "w": 180,
       "layer": "ly-filter"
@@ -133,7 +133,7 @@
       "id": "el-cond-authenticated",
       "label": "Authenticated?",
       "icon": "GitBranch",
-      "x": 1170,
+      "x": 1100,
       "y": 370,
       "w": 120,
       "layer": "ly-filter",
@@ -145,8 +145,8 @@
       "id": "el-cond-tokentype",
       "label": "Token Type?",
       "icon": "GitBranch",
-      "x": 1950,
-      "y": 470,
+      "x": 750,
+      "y": 615,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 4
@@ -156,8 +156,8 @@
       "label": "AuthenticationManager",
       "sub": "ProviderManager",
       "icon": "Cog",
-      "x": 620,
-      "y": 640,
+      "x": 550,
+      "y": 750,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -166,8 +166,8 @@
       "label": "JWT Token Validator",
       "sub": "Bearer Token Verification",
       "icon": "Key",
-      "x": 920,
-      "y": 640,
+      "x": 950,
+      "y": 750,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -176,8 +176,8 @@
       "label": "DaoAuthProvider",
       "sub": "Password Encoding",
       "icon": "Key",
-      "x": 350,
-      "y": 790,
+      "x": 330,
+      "y": 900,
       "w": 190,
       "layer": "ly-authn"
     },
@@ -186,8 +186,8 @@
       "label": "LdapAuthProvider",
       "sub": "Bind Authentication",
       "icon": "Network",
-      "x": 610,
-      "y": 790,
+      "x": 550,
+      "y": 900,
       "w": 190,
       "layer": "ly-authn"
     },
@@ -196,8 +196,8 @@
       "label": "OAuth2LoginProvider",
       "sub": "Authorization Code Flow",
       "icon": "Globe",
-      "x": 870,
-      "y": 790,
+      "x": 780,
+      "y": 900,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -206,8 +206,8 @@
       "label": "UserDetailsService",
       "sub": "loadUserByUsername()",
       "icon": "User",
-      "x": 1170,
-      "y": 660,
+      "x": 1200,
+      "y": 770,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -217,7 +217,7 @@
       "sub": "ThreadLocal Strategy",
       "icon": "Layers",
       "x": 1450,
-      "y": 660,
+      "y": 770,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -226,8 +226,8 @@
       "label": "AccessDecisionManager",
       "sub": "AffirmativeBased",
       "icon": "ShieldCheck",
-      "x": 600,
-      "y": 1000,
+      "x": 650,
+      "y": 1110,
       "w": 220,
       "layer": "ly-authz"
     },
@@ -236,8 +236,8 @@
       "label": "RoleVoter",
       "sub": "ROLE_ prefix matching",
       "icon": "Users",
-      "x": 350,
-      "y": 1150,
+      "x": 405,
+      "y": 1260,
       "w": 180,
       "layer": "ly-authz"
     },
@@ -246,8 +246,8 @@
       "label": "Web Expression Voter",
       "sub": "SpEL Authorization",
       "icon": "Code",
-      "x": 600,
-      "y": 1150,
+      "x": 650,
+      "y": 1260,
       "w": 210,
       "layer": "ly-authz"
     },
@@ -256,8 +256,8 @@
       "label": "Method Security",
       "sub": "@PreAuthorize / @Secured",
       "icon": "FileCode",
-      "x": 880,
-      "y": 1150,
+      "x": 910,
+      "y": 1260,
       "w": 210,
       "layer": "ly-authz"
     },
@@ -267,7 +267,7 @@
       "sub": "Domain Object ACL",
       "icon": "Lock",
       "x": 1150,
-      "y": 1050,
+      "y": 1160,
       "w": 210,
       "layer": "ly-authz"
     },
@@ -275,8 +275,8 @@
       "id": "el-cond-hasrole",
       "label": "Has Role?",
       "icon": "GitBranch",
-      "x": 1370,
-      "y": 1100,
+      "x": 750,
+      "y": 1400,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 2
@@ -287,7 +287,7 @@
       "sub": "Front Controller Pattern",
       "icon": "Router",
       "x": 750,
-      "y": 1370,
+      "y": 1560,
       "w": 210,
       "layer": "ly-app"
     },
@@ -297,7 +297,7 @@
       "sub": "Security Event Logging",
       "icon": "Database",
       "x": 1200,
-      "y": 1370,
+      "y": 1560,
       "w": 210,
       "layer": "ly-app"
     },
@@ -306,8 +306,8 @@
       "label": "@RestController",
       "sub": "Request Handling & Mapping",
       "icon": "Terminal",
-      "x": 400,
-      "y": 1520,
+      "x": 480,
+      "y": 1710,
       "w": 210,
       "layer": "ly-app"
     },
@@ -316,8 +316,8 @@
       "label": "@Service Layer",
       "sub": "@Transactional Business Logic",
       "icon": "Cog",
-      "x": 680,
-      "y": 1520,
+      "x": 750,
+      "y": 1710,
       "w": 210,
       "layer": "ly-app"
     },
@@ -326,8 +326,8 @@
       "label": "@Repository",
       "sub": "Spring Data JPA",
       "icon": "Database",
-      "x": 960,
-      "y": 1520,
+      "x": 1020,
+      "y": 1710,
       "w": 210,
       "layer": "ly-app"
     },
@@ -336,8 +336,8 @@
       "label": "Application Database",
       "sub": "PostgreSQL / MySQL",
       "icon": "DatabaseZap",
-      "x": 960,
-      "y": 1740,
+      "x": 860,
+      "y": 1930,
       "w": 210,
       "layer": "ly-data"
     },
@@ -346,8 +346,8 @@
       "label": "User Database",
       "sub": "Credentials & Roles",
       "icon": "Database",
-      "x": 1240,
-      "y": 1740,
+      "x": 1110,
+      "y": 1930,
       "w": 210,
       "layer": "ly-data"
     },
@@ -356,8 +356,8 @@
       "label": "LDAP Server",
       "sub": "Active Directory",
       "icon": "Server",
-      "x": 350,
-      "y": 1740,
+      "x": 370,
+      "y": 1930,
       "w": 190,
       "layer": "ly-data"
     },
@@ -367,7 +367,7 @@
       "sub": "Google / GitHub / Okta",
       "icon": "Cloud",
       "x": 610,
-      "y": 1740,
+      "y": 1930,
       "w": 210,
       "layer": "ly-data"
     },
@@ -376,8 +376,8 @@
       "label": "Session Store",
       "sub": "Redis / JDBC",
       "icon": "HardDrive",
-      "x": 1520,
-      "y": 1740,
+      "x": 1350,
+      "y": 1930,
       "w": 190,
       "layer": "ly-data"
     }
@@ -444,7 +444,8 @@
       "fromAnchor": "cond-out-1",
       "toAnchor": "left-2",
       "color": "#10b981",
-      "label": "Yes"
+      "label": "Yes",
+      "labelPosition": 0.35
     },
     {
       "id": "dl-cond-auth-no",
@@ -453,7 +454,8 @@
       "fromAnchor": "cond-out-0",
       "toAnchor": "left-2",
       "color": "#ef4444",
-      "label": "No → 401"
+      "label": "No \u2192 401",
+      "labelPosition": 0.35
     },
     {
       "id": "dl-authzf-exception",
@@ -480,7 +482,8 @@
       "fromAnchor": "cond-out-0",
       "toAnchor": "top-1",
       "color": "#10b981",
-      "label": "Session/Password"
+      "label": "Session/Password",
+      "labelPosition": 0.7
     },
     {
       "id": "dl-cond-token-jwt",
@@ -489,7 +492,8 @@
       "fromAnchor": "cond-out-3",
       "toAnchor": "top-1",
       "color": "#10b981",
-      "label": "Bearer Token"
+      "label": "Bearer Token",
+      "labelPosition": 0.7
     },
     {
       "id": "dl-authnmgr-dao",
@@ -498,7 +502,8 @@
       "fromAnchor": "bottom-0",
       "toAnchor": "top-2",
       "color": "#10b981",
-      "label": "Delegates"
+      "label": "Delegates",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-authnmgr-ldap",
@@ -507,7 +512,8 @@
       "fromAnchor": "bottom-1",
       "toAnchor": "top-1",
       "color": "#10b981",
-      "label": "Delegates"
+      "label": "Delegates",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-authnmgr-oauth2",
@@ -516,7 +522,8 @@
       "fromAnchor": "bottom-2",
       "toAnchor": "top-0",
       "color": "#10b981",
-      "label": "Delegates"
+      "label": "Delegates",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-dao-userdetails",
@@ -525,7 +532,8 @@
       "fromAnchor": "top-1",
       "toAnchor": "left-2",
       "color": "#10b981",
-      "label": "loadUserByUsername()"
+      "label": "loadUserByUsername()",
+      "labelPosition": 0.7
     },
     {
       "id": "dl-authnf-secctx",
@@ -534,7 +542,8 @@
       "fromAnchor": "bottom-2",
       "toAnchor": "top-1",
       "color": "#10b981",
-      "label": "Store Authentication"
+      "label": "Store Authentication",
+      "labelPosition": 0.3
     },
     {
       "id": "dl-jwt-secctx",
@@ -543,7 +552,8 @@
       "fromAnchor": "right-1",
       "toAnchor": "left-1",
       "color": "#10b981",
-      "label": "Store JWT Principal"
+      "label": "Store JWT Principal",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-authzf-accessdec",
@@ -552,7 +562,8 @@
       "fromAnchor": "bottom-0",
       "toAnchor": "top-2",
       "color": "#f59e0b",
-      "label": "decide()"
+      "label": "decide()",
+      "labelPosition": 0.25
     },
     {
       "id": "dl-accessdec-rolevoter",
@@ -561,7 +572,8 @@
       "fromAnchor": "bottom-0",
       "toAnchor": "top-1",
       "color": "#f59e0b",
-      "label": "vote()"
+      "label": "vote()",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-accessdec-webvoter",
@@ -570,7 +582,8 @@
       "fromAnchor": "bottom-1",
       "toAnchor": "top-1",
       "color": "#f59e0b",
-      "label": "vote()"
+      "label": "vote()",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-accessdec-method",
@@ -579,7 +592,8 @@
       "fromAnchor": "bottom-2",
       "toAnchor": "top-0",
       "color": "#f59e0b",
-      "label": "AOP Intercept"
+      "label": "AOP Intercept",
+      "labelPosition": 0.6
     },
     {
       "id": "dl-method-permeval",
@@ -594,10 +608,11 @@
       "id": "dl-accessdec-cond-role",
       "from": "el-access-decision",
       "to": "el-cond-hasrole",
-      "fromAnchor": "bottom-1",
+      "fromAnchor": "right-2",
       "toAnchor": "cond-in",
       "color": "#f59e0b",
-      "label": "Evaluate roles"
+      "label": "Evaluate roles",
+      "labelPosition": 0.3
     },
     {
       "id": "dl-cond-role-granted",
@@ -606,7 +621,8 @@
       "fromAnchor": "cond-out-0",
       "toAnchor": "top-0",
       "color": "#10b981",
-      "label": "Granted"
+      "label": "Granted",
+      "labelPosition": 0.35
     },
     {
       "id": "dl-cond-role-denied",
@@ -615,7 +631,8 @@
       "fromAnchor": "cond-out-1",
       "toAnchor": "bottom-1",
       "color": "#ef4444",
-      "label": "Denied → 403"
+      "label": "Denied \u2192 403",
+      "labelPosition": 0.15
     },
     {
       "id": "dl-authzf-dispatcher",
@@ -624,7 +641,8 @@
       "fromAnchor": "bottom-2",
       "toAnchor": "top-2",
       "color": "#3b82f6",
-      "label": "Request Authorized"
+      "label": "Request Authorized",
+      "labelPosition": 0.2
     },
     {
       "id": "dl-secfilter-ratelimit",
@@ -723,12 +741,13 @@
       "fromAnchor": "top-2",
       "toAnchor": "right-2",
       "color": "#f59e0b",
-      "label": "401/403 Response"
+      "label": "401/403 Response",
+      "labelPosition": 0.2
     }
   ],
   "layerManualSizes": {
     "ly-authn": {
-      "top": 550,
+      "top": 670,
       "height": 309
     },
     "ly-authz": {
