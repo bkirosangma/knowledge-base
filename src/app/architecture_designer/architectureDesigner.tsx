@@ -13,7 +13,7 @@ import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDire
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
-import type { LineCurveAlgorithm, Selection, FlowDef, ViewMode } from "./utils/types";
+import type { LineCurveAlgorithm, Selection, FlowDef, ViewMode, ExplorerFilter } from "./utils/types";
 import SplitPane from "./components/SplitPane";
 import MarkdownPane from "./components/MarkdownPane";
 import { isItemSelected } from "./utils/selectionUtils";
@@ -112,6 +112,7 @@ export default function ArchitectureDesigner() {
   const [viewMode, setViewMode] = useState<ViewMode>("diagram");
   const [activeDocPath, setActiveDocPath] = useState<string | null>(null);
   const [activeDocContent, setActiveDocContent] = useState("");
+  const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
   const fileExplorer = useFileExplorer();
   const history = useActionHistory();
 
@@ -778,6 +779,12 @@ export default function ArchitectureDesigner() {
           sortDirection={sortPrefs.direction}
           sortGrouping={sortPrefs.grouping}
           onSortChange={handleSortChange}
+          explorerFilter={explorerFilter}
+          onFilterChange={setExplorerFilter}
+          onSelectDocument={(path) => {
+            setActiveDocPath(path);
+            if (viewMode === "diagram") setViewMode("split");
+          }}
         />
         <HistoryPanel
           entries={history.entries}

@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  ChevronLeft, ChevronRight, ChevronDown, FolderOpen, Folder, FileJson,
+  ChevronLeft, ChevronRight, ChevronDown, FolderOpen, Folder, FileJson, FileText,
   RefreshCw, FilePlus, FolderPlus, Trash2, Pencil, Copy,
   EllipsisVertical, ArrowUp, ArrowDown, Check,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
+import type { ExplorerFilter } from "../../utils/types";
 
 export type SortField = "name" | "created" | "modified";
 export type SortDirection = "asc" | "desc";
@@ -43,6 +44,9 @@ interface ExplorerPanelProps {
   sortDirection: SortDirection;
   sortGrouping: SortGrouping;
   onSortChange: (field: SortField, direction: SortDirection, grouping: SortGrouping) => void;
+  explorerFilter?: ExplorerFilter;
+  onFilterChange?: (filter: ExplorerFilter) => void;
+  onSelectDocument?: (path: string) => void;
 }
 
 /* ── Sorting utility ── */
@@ -101,6 +105,9 @@ export default function ExplorerPanel({
   sortDirection,
   sortGrouping,
   onSortChange,
+  explorerFilter,
+  onFilterChange,
+  onSelectDocument,
 }: ExplorerPanelProps) {
   const [contextMenu, setContextMenu] = useState<ExplorerContextMenu | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -116,6 +123,25 @@ export default function ExplorerPanel({
   const dragCounterRef = useRef(0);
 
   const sortedTree = useMemo(() => sortTree(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
+
+  const filteredTree = useMemo(() => {
+    if (!explorerFilter || explorerFilter === "all") return sortedTree;
+    function filterNodes(nodes: TreeNode[]): TreeNode[] {
+      return nodes
+        .map(node => {
+          if (node.type === "folder") {
+            const children = filterNodes(node.children ?? []);
+            if (children.length === 0) return null;
+            return { ...node, children };
+          }
+          if (explorerFilter === "diagrams") return node.fileType === "diagram" ? node : null;
+          if (explorerFilter === "documents") return node.fileType === "document" ? node : null;
+          return node;
+        })
+        .filter((n): n is TreeNode => n !== null);
+    }
+    return filterNodes(sortedTree);
+  }, [sortedTree, explorerFilter]);
 
   // Close context menu on outside click / Escape
   useEffect(() => {
@@ -358,7 +384,10 @@ export default function ExplorerPanel({
             className="flex items-center gap-1.5 py-1"
             style={{ paddingLeft: indent + 22 }}
           >
-            <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+            {node.fileType === "document"
+              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
+              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+            }
             <input
               ref={editInputRef}
               value={editValue}
@@ -379,7 +408,13 @@ export default function ExplorerPanel({
                 : "text-slate-700 hover:bg-slate-50"
             } ${dirty ? "font-semibold" : ""}`}
             style={{ paddingLeft: indent + 22 }}
-            onClick={() => onSelectFile(node.path)}
+            onClick={() => {
+              if (node.fileType === "document" && onSelectDocument) {
+                onSelectDocument(node.path);
+              } else {
+                onSelectFile(node.path);
+              }
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -388,7 +423,10 @@ export default function ExplorerPanel({
             draggable
             onDragStart={(e) => handleDragStart(e, node.path, "file")}
           >
-            <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+            {node.fileType === "document"
+              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
+              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+            }
             <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
             <div className="ml-auto flex items-center gap-0.5 pr-1">
               {hoverBtn(() => startRename(node.path, node.name, "file"), "Rename", <Pencil size={13} className="text-slate-400 hover:text-slate-600" />)}
@@ -541,6 +579,23 @@ export default function ExplorerPanel({
                 )}
               </div>
 
+              {/* Filter toggles */}
+              {onFilterChange && (
+                <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-slate-100">
+                  {(["all", "diagrams", "documents"] as ExplorerFilter[]).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => onFilterChange(f)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                        explorerFilter === f ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      {f === "all" ? "All" : f === "diagrams" ? "Diagrams" : "Documents"}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Tree */}
               <div className="flex-1 overflow-y-auto py-1">
                 {isLoading ? (
@@ -548,7 +603,7 @@ export default function ExplorerPanel({
                 ) : tree.length === 0 ? (
                   <div className="px-3 py-4 text-xs text-slate-400 text-center">Empty folder</div>
                 ) : (
-                  sortedTree.map((node) => renderNode(node, 0))
+                  filteredTree.map((node) => renderNode(node, 0))
                 )}
               </div>
             </>
