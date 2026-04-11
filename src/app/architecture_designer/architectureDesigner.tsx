@@ -64,6 +64,10 @@ import { useSyncRef } from "./hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
 import type { SortField, SortDirection, SortGrouping } from "./components/explorer/ExplorerPanel";
+import { useDocuments } from "./hooks/useDocuments";
+import { useLinkIndex } from "./hooks/useLinkIndex";
+import DocumentPicker from "./components/DocumentPicker";
+import { readVaultConfig, initVault, updateVaultLastOpened } from "./utils/vaultConfig";
 
 const SKIP_DISCARD_CONFIRM_KEY = "architecture-designer-skip-discard-confirm";
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
@@ -110,11 +114,12 @@ export default function ArchitectureDesigner() {
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const [viewMode, setViewMode] = useState<ViewMode>("diagram");
-  const [activeDocPath, setActiveDocPath] = useState<string | null>(null);
-  const [activeDocContent, setActiveDocContent] = useState("");
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
   const fileExplorer = useFileExplorer();
   const history = useActionHistory();
+  const docManager = useDocuments();
+  const linkManager = useLinkIndex();
+  const [pickerTarget, setPickerTarget] = useState<{ type: string; id: string } | null>(null);
 
   // Sort preferences (single state instead of 3 separate)
   const SORT_PREFS_KEY = "architecture-designer-sort-prefs";
@@ -355,19 +360,48 @@ export default function ArchitectureDesigner() {
     fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
     confirmAction, setConfirmAction, canvasRef,
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
+    docManager.documents,
+    docManager.setDocuments,
   );
+
+  // Document open handler — auto-saves dirty doc, opens new doc, switches to split view
+  const handleOpenDocument = useCallback(async (path: string) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    // Auto-save current dirty doc before switching
+    if (docManager.docDirty && docManager.activeDocPath) {
+      await docManager.saveDocument(rootHandle);
+    }
+    // Open the new document
+    await docManager.openDocument(rootHandle, path);
+    // Switch to split mode if currently in diagram mode
+    if (viewMode === "diagram") setViewMode("split");
+  }, [fileExplorer.dirHandleRef, docManager.docDirty, docManager.activeDocPath, docManager.saveDocument, docManager.openDocument, viewMode]);
 
   // Cmd+S / Ctrl+S keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        handleSave();
+        if (viewMode === "diagram") {
+          handleSave();
+        } else {
+          // Save document in split/document modes
+          const rootHandle = fileExplorer.dirHandleRef.current;
+          if (rootHandle && docManager.docDirty && docManager.activeDocPath) {
+            docManager.saveDocument(rootHandle).then(() => {
+              // Also update link index for the saved document
+              linkManager.updateDocumentLinks(rootHandle, docManager.activeDocPath!, docManager.activeDocContent);
+            });
+          }
+          // Also save diagram if in split mode
+          if (viewMode === "split") handleSave();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleSave]);
+  }, [handleSave, viewMode, fileExplorer.dirHandleRef, docManager.docDirty, docManager.activeDocPath, docManager.activeDocContent, docManager.saveDocument, linkManager.updateDocumentLinks]);
 
   // Auto-load last opened file on restore
   useEffect(() => {
@@ -376,6 +410,23 @@ export default function ArchitectureDesigner() {
       fileExplorer.clearPendingFile();
     }
   }, [fileExplorer.pendingFile, fileExplorer.clearPendingFile, handleLoadFile]);
+
+  // Vault initialization — check/init vault config and load link index when a directory is opened
+  useEffect(() => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle || fileExplorer.tree.length === 0) return;
+    (async () => {
+      const config = await readVaultConfig(rootHandle);
+      if (config) {
+        await updateVaultLastOpened(rootHandle);
+      } else if (fileExplorer.directoryName) {
+        await initVault(rootHandle, fileExplorer.directoryName);
+      }
+      // Load link index
+      await linkManager.loadIndex(rootHandle);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.directoryName]);
 
   const { deleteSelection, confirmDeletion } = useDeletion(nodesRef, connectionsRef, flowsRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
@@ -781,10 +832,7 @@ export default function ArchitectureDesigner() {
           onSortChange={handleSortChange}
           explorerFilter={explorerFilter}
           onFilterChange={setExplorerFilter}
-          onSelectDocument={(path) => {
-            setActiveDocPath(path);
-            if (viewMode === "diagram") setViewMode("split");
-          }}
+          onSelectDocument={handleOpenDocument}
         />
         <HistoryPanel
           entries={history.entries}
@@ -923,6 +971,9 @@ export default function ArchitectureDesigner() {
                         editingLabelBeforeRef.current = conn.label;
                       }
                     }}
+                    hasDocuments={docManager.hasDocuments("connection", line.id)}
+                    documentPaths={docManager.getDocumentsForEntity("connection", line.id).map(d => d.filename)}
+                    onDocNavigate={handleOpenDocument}
                   />
                 );
               })}
@@ -1073,6 +1124,9 @@ export default function ArchitectureDesigner() {
                       borderColor={node.borderColor}
                       bgColor={node.bgColor}
                       textColor={node.textColor}
+                      hasDocuments={docManager.hasDocuments("node", node.id)}
+                      documentPaths={docManager.getDocumentsForEntity("node", node.id).map(d => d.filename)}
+                      onDocNavigate={handleOpenDocument}
                     />
                   </React.Fragment>
                 );
@@ -1095,6 +1149,9 @@ export default function ArchitectureDesigner() {
                     {...commonProps}
                     anchors={anchors}
                     measuredHeight={dims.h}
+                    hasDocuments={docManager.hasDocuments("node", node.id)}
+                    documentPaths={docManager.getDocumentsForEntity("node", node.id).map(d => d.filename)}
+                    onDocNavigate={handleOpenDocument}
                   />
                 </React.Fragment>
               );
@@ -1313,10 +1370,10 @@ export default function ArchitectureDesigner() {
           <div className="w-px bg-slate-300 flex-shrink-0" />
           <div className="flex-1 min-h-0">
             <MarkdownPane
-              filePath={activeDocPath}
-              content={activeDocContent}
-              title={activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
-              onChange={(md) => setActiveDocContent(md)}
+              filePath={docManager.activeDocPath}
+              content={docManager.activeDocContent}
+              title={docManager.activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
+              onChange={docManager.updateContent}
             />
           </div>
         </div>
@@ -1325,10 +1382,10 @@ export default function ArchitectureDesigner() {
       {viewMode === "document" && (
         <div className="flex-1 min-h-0">
           <MarkdownPane
-            filePath={activeDocPath}
-            content={activeDocContent}
-            title={activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
-            onChange={(md) => setActiveDocContent(md)}
+            filePath={docManager.activeDocPath}
+            content={docManager.activeDocContent}
+            title={docManager.activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
+            onChange={docManager.updateContent}
           />
         </div>
       )}
@@ -1455,6 +1512,14 @@ export default function ArchitectureDesigner() {
         onHoverType={setHoveredType}
         expandedType={expandedTypeInPanel}
         onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
+        documents={docManager.documents}
+        onOpenDocument={handleOpenDocument}
+        onAttachDocument={(entityType, entityId) => {
+          setPickerTarget({ type: entityType, id: entityId });
+        }}
+        onDetachDocument={(docPath, entityType, entityId) => {
+          docManager.detachDocument(docPath, entityType, entityId);
+        }}
       />
       </div>
 
@@ -1531,6 +1596,25 @@ export default function ArchitectureDesigner() {
             scheduleRecord("Edit connection");
             setPendingReconnect(null);
           }}
+        />
+      )}
+
+      {/* Document Picker */}
+      {pickerTarget && (
+        <DocumentPicker
+          allDocPaths={docManager.collectDocPaths(fileExplorer.tree)}
+          attachedPaths={docManager.getDocumentsForEntity(pickerTarget.type, pickerTarget.id).map(d => d.filename)}
+          onAttach={(path) => {
+            docManager.attachDocument(path, pickerTarget.type as "node" | "connection", pickerTarget.id);
+          }}
+          onCreate={async (path) => {
+            const rootHandle = fileExplorer.dirHandleRef.current;
+            if (rootHandle) {
+              await docManager.createDocument(rootHandle, path);
+              docManager.attachDocument(path, pickerTarget.type as "node" | "connection", pickerTarget.id);
+            }
+          }}
+          onClose={() => setPickerTarget(null)}
         />
       )}
     </div>

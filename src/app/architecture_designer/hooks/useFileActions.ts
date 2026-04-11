@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
+import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef, DocumentMeta } from "../utils/types";
 import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/persistence";
 import type { DiagramSnapshot } from "./useActionHistory";
 import type { useFileExplorer } from "./useFileExplorer";
@@ -44,6 +44,8 @@ export function useFileActions(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[],
+  documents?: DocumentMeta[],
+  onLoadDocuments?: (docs: DocumentMeta[]) => void,
 ) {
   const handleLoadFile = useCallback(async (fileName: string) => {
     const result = await fileExplorer.selectFile(fileName);
@@ -52,6 +54,8 @@ export function useFileActions(
     const diagram = loadDiagramFromData(data);
     const snapshotSource = hasDraft ? loadDiagramFromData(JSON.parse(diskJson)) : undefined;
     applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
+    // Restore document attachments from the loaded diagram
+    onLoadDocuments?.(data.documents ?? []);
     isRestoringRef.current = true;
     const diskData = JSON.parse(diskJson);
     await history.initHistory(diskJson, {
@@ -69,14 +73,14 @@ export function useFileActions(
   const handleSave = useCallback(async () => {
     if (!fileExplorer.activeFile || !isDirty) return;
     const success = await (fileExplorer.saveFile as Function)(
-      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows,
+      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows, documents,
     );
     if (success) {
       setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
       const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve, flows };
       history.onSave(JSON.stringify(savedData));
     }
-  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, setLoadSnapshot, history.onSave]);
+  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, setLoadSnapshot, history.onSave]);
 
   const handleCreateFile = useCallback(async (parentPath: string = ""): Promise<string | null> => {
     const result = await fileExplorer.createFile(parentPath);

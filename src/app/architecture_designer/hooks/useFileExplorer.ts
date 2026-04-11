@@ -414,8 +414,9 @@ export function useFileExplorer() {
     lineCurve: LineCurveAlgorithm,
     serializeNodesFn: (nodes: NodeData[]) => DiagramData["nodes"],
     flows: FlowDef[] = [],
+    documents?: DiagramData["documents"],
   ): Promise<boolean> => {
-    const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows };
+    const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows, ...(documents && documents.length > 0 ? { documents } : {}) };
     const json = JSON.stringify(data, null, 2);
 
     const entry = fileMap.get(filePath);
