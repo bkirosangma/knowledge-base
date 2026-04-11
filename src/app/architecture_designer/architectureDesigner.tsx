@@ -526,7 +526,12 @@ export default function ArchitectureDesigner() {
   });
 
   // ── Drag-end watchers for history recording (only record if something actually changed) ──
-  useDragEndRecorder(draggingId, nodeDragDidMove, "Move element", scheduleRecord);
+  const dragNodeLabelRef = useRef("Move element");
+  if (draggingId) {
+    dragNodeLabelRef.current = nodes.find(n => n.id === draggingId)?.shape === "condition"
+      ? "Move conditional" : "Move element";
+  }
+  useDragEndRecorder(draggingId, nodeDragDidMove, dragNodeLabelRef.current, scheduleRecord);
   useDragEndRecorder(isMultiDrag, multiDragDidMove, "Move elements", scheduleRecord);
   useDragEndRecorder(draggingLayerId, layerDragDidMove, "Move layer", scheduleRecord);
   useDragEndRecorder(resizingLayer, resizeDidChange, "Resize layer", scheduleRecord);
@@ -1257,7 +1262,8 @@ export default function ArchitectureDesigner() {
             });
             setSelection({ type: 'node', id: newId });
           }
-          scheduleRecord("Edit element");
+          const editLabel = nodes.find(n => n.id === oldId)?.shape === "condition" ? "Edit conditional" : "Edit element";
+          scheduleRecord(editLabel);
         }}
         onUpdateLayer={(oldId, updates) => {
           const newId = updates.id;
