@@ -13,7 +13,9 @@ import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDire
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/types";
-import type { LineCurveAlgorithm, Selection, FlowDef } from "./utils/types";
+import type { LineCurveAlgorithm, Selection, FlowDef, ViewMode } from "./utils/types";
+import SplitPane from "./components/SplitPane";
+import MarkdownPane from "./components/MarkdownPane";
 import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
@@ -107,6 +109,9 @@ export default function ArchitectureDesigner() {
   const [labelDragGhost, setLabelDragGhost] = useState<{ lineId: string; rawT: number } | null>(null);
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
+  const [viewMode, setViewMode] = useState<ViewMode>("diagram");
+  const [activeDocPath, setActiveDocPath] = useState<string | null>(null);
+  const [activeDocContent, setActiveDocContent] = useState("");
   const fileExplorer = useFileExplorer();
   const history = useActionHistory();
 
@@ -729,6 +734,8 @@ export default function ArchitectureDesigner() {
         onDiscard={handleDiscard}
         onSave={handleSave}
         onAutoArrange={handleAutoArrange}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       {/* Hidden fallback input for browsers without File System Access API */}
@@ -794,7 +801,7 @@ export default function ArchitectureDesigner() {
         />
       </div>
       {/* Viewport */}
-      <div
+      {viewMode === "diagram" && <div
         ref={canvasRef}
         className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
@@ -1286,7 +1293,38 @@ export default function ArchitectureDesigner() {
         </div>
         </>}
 
-      </div>
+      </div>}
+
+      {viewMode === "split" && (
+        <div className="flex-1 flex min-h-0">
+          <div className="flex-1 overflow-auto bg-[#e8ecf0]">
+            {/* Canvas will be wired here in Task 13 */}
+            <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+              Canvas (split view)
+            </div>
+          </div>
+          <div className="w-px bg-slate-300 flex-shrink-0" />
+          <div className="flex-1 min-h-0">
+            <MarkdownPane
+              filePath={activeDocPath}
+              content={activeDocContent}
+              title={activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
+              onChange={(md) => setActiveDocContent(md)}
+            />
+          </div>
+        </div>
+      )}
+
+      {viewMode === "document" && (
+        <div className="flex-1 min-h-0">
+          <MarkdownPane
+            filePath={activeDocPath}
+            content={activeDocContent}
+            title={activeDocPath?.split("/").pop()?.replace(".md", "") ?? ""}
+            onChange={(md) => setActiveDocContent(md)}
+          />
+        </div>
+      )}
 
       {/* Context Menu */}
       {contextMenu && (
