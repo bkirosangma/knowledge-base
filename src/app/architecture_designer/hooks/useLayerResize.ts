@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ResizeEdge } from "../components/Layer";
+import type { NodeData } from "../utils/types";
+import type { LevelMap } from "../utils/levelModel";
 import { LAYER_GAP } from "../utils/constants";
 import { snapToGrid } from "../utils/gridSnap";
 
@@ -17,9 +19,13 @@ interface UseLayerResizeOptions {
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
   isBlocked: boolean;
   initialManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
+  nodes: NodeData[];
+  levelMapRef: React.RefObject<LevelMap>;
+  getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number };
+  layerShiftsRef: React.RefObject<Record<string, number>>;
 }
 
-export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialManualSizes }: UseLayerResizeOptions) {
+export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialManualSizes, nodes, levelMapRef, getNodeDimensions, layerShiftsRef }: UseLayerResizeOptions) {
   const [layerManualSizes, setLayerManualSizes] = useState<
     Record<string, { left?: number; width?: number; top?: number; height?: number }>
   >(initialManualSizes ?? {});
@@ -71,6 +77,26 @@ export function useLayerResize({ regionsRef, toCanvasCoords, isBlocked, initialM
         const next = { ...existing };
 
         const obstacles = getObstacles(regionsRef.current ?? [], layerId, startBounds, edge);
+        // Include level 1/canvas nodes as obstacles
+        for (const n of nodes) {
+          const nLevel = levelMapRef.current.get(n.id);
+          if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
+            const d = getNodeDimensions(n);
+            const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+            const rect = { id: n.id, left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h, empty: false, title: "" };
+            // Apply same directional + perpendicular filter as getObstacles
+            if (edge === "left" || edge === "right") {
+              if (!(rect.top < startBounds.top + startBounds.height && rect.top + rect.height > startBounds.top)) continue;
+            } else {
+              if (!(rect.left < startBounds.left + startBounds.width && rect.left + rect.width > startBounds.left)) continue;
+            }
+            const passDir = edge === "right" ? rect.left >= startBounds.left + startBounds.width
+              : edge === "left" ? rect.left + rect.width <= startBounds.left
+              : edge === "bottom" ? rect.top >= startBounds.top + startBounds.height
+              : rect.top + rect.height <= startBounds.top;
+            if (passDir) obstacles.push(rect);
+          }
+        }
 
         if (edge === "right") {
           const rawRight = startBounds.left + startBounds.width + delta;

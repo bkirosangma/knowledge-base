@@ -1,14 +1,16 @@
 import { useMemo, type ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, FlowDef } from "../../utils/types";
+import type { LevelInfo } from "../../utils/levelModel";
 import { getDistinctTypes } from "../../utils/typeUtils";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 import { AutocompleteInput } from "./AutocompleteInput";
 
 export function NodeProperties({
-  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor,
+  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
+  levelInfo?: LevelInfo;
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; type: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string; conditionOutCount: number; conditionSize: 1 | 2 | 3 | 4 | 5; rotation: number }>) => void;
@@ -261,6 +263,8 @@ export function NodeProperties({
       })()}
 
       <Section title="Layout">
+        <Row label="Level" value={levelInfo?.level ?? "—"} />
+        <Row label="Base" value={levelInfo ? (levelInfo.base === "canvas" ? "Canvas" : layerDefs.find(l => l.id === levelInfo.base)?.title ?? levelInfo.base) : "—"} />
         <Row label="Position" value={`${Math.round(node.x)}, ${Math.round(node.y)}`} />
         <Row label="Width" value={`${node.w}px`} />
       </Section>

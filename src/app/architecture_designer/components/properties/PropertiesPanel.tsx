@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef } from "../../utils/types";
 import type { AnchorId } from "../../utils/anchors";
+import type { LevelMap } from "../../utils/levelModel";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
@@ -13,6 +14,7 @@ interface PropertiesPanelProps {
   nodes: NodeData[];
   connections: Connection[];
   regions: RegionBounds[];
+  levelMap?: LevelMap;
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
   onUpdateTitle?: (title: string) => void;
@@ -37,7 +39,7 @@ interface PropertiesPanelProps {
   onExpandType?: (type: string | null) => void;
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -92,7 +94,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           />
         )}
         {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} />
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} />
         )}
         {selection?.type === "layer" && (
           <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} />

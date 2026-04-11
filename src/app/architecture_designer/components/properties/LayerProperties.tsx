@@ -52,6 +52,8 @@ export function LayerProperties({
       </Section>
 
       <Section title="Layout">
+        <Row label="Level" value={1} />
+        <Row label="Base" value="Canvas" />
         <Row label="Position" value={`${Math.round(region.left)}, ${Math.round(region.top)}`} />
         <Row label="Size" value={`${Math.round(region.width)} × ${Math.round(region.height)}`} />
       </Section>

@@ -54,8 +54,8 @@
       "label": "Mobile Client",
       "sub": "REST API / JWT Bearer",
       "icon": "Smartphone",
-      "x": 1001,
-      "y": 126,
+      "x": 1010,
+      "y": 110,
       "w": 210,
       "layer": "ly-client"
     },
@@ -64,8 +64,8 @@
       "label": "SecurityFilterChain",
       "sub": "DelegatingFilterProxy",
       "icon": "Shield",
-      "x": 200,
-      "y": 300,
+      "x": 150,
+      "y": 310,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -74,8 +74,8 @@
       "label": "CORS Filter",
       "sub": "Cross-Origin Handling",
       "icon": "Globe",
-      "x": 480,
-      "y": 300,
+      "x": 430,
+      "y": 310,
       "w": 180,
       "layer": "ly-filter"
     },
@@ -84,8 +84,8 @@
       "label": "CSRF Filter",
       "sub": "Token Validation",
       "icon": "ShieldCheck",
-      "x": 730,
-      "y": 300,
+      "x": 680,
+      "y": 310,
       "w": 180,
       "layer": "ly-filter"
     },
@@ -94,8 +94,8 @@
       "label": "Authentication Filter",
       "sub": "UsernamePassword / Bearer",
       "icon": "Database",
-      "x": 980,
-      "y": 300,
+      "x": 930,
+      "y": 310,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -104,8 +104,8 @@
       "label": "Authorization Filter",
       "sub": "FilterSecurityInterceptor",
       "icon": "Lock",
-      "x": 1449,
-      "y": 294,
+      "x": 1390,
+      "y": 300,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -114,8 +114,8 @@
       "label": "Exception Translation",
       "sub": "AuthenticationEntryPoint",
       "icon": "Zap",
-      "x": 1803,
-      "y": 462,
+      "x": 1740,
+      "y": 390,
       "w": 210,
       "layer": "ly-filter"
     },
@@ -124,8 +124,8 @@
       "label": "Rate Limiter",
       "sub": "Request Throttling",
       "icon": "Database",
-      "x": 200,
-      "y": 440,
+      "x": 150,
+      "y": 450,
       "w": 180,
       "layer": "ly-filter"
     },
@@ -133,9 +133,10 @@
       "id": "el-cond-authenticated",
       "label": "Authenticated?",
       "icon": "GitBranch",
-      "x": 1220,
-      "y": 360,
+      "x": 1170,
+      "y": 370,
       "w": 120,
+      "layer": "ly-filter",
       "shape": "condition",
       "conditionOutCount": 2,
       "rotation": 297.4
@@ -144,8 +145,8 @@
       "id": "el-cond-tokentype",
       "label": "Token Type?",
       "icon": "GitBranch",
-      "x": 660,
-      "y": 440,
+      "x": 1950,
+      "y": 470,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 4
@@ -155,8 +156,8 @@
       "label": "AuthenticationManager",
       "sub": "ProviderManager",
       "icon": "Cog",
-      "x": 600,
-      "y": 630,
+      "x": 620,
+      "y": 640,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -165,8 +166,8 @@
       "label": "JWT Token Validator",
       "sub": "Bearer Token Verification",
       "icon": "Key",
-      "x": 900,
-      "y": 630,
+      "x": 920,
+      "y": 640,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -175,8 +176,8 @@
       "label": "DaoAuthProvider",
       "sub": "Password Encoding",
       "icon": "Key",
-      "x": 330,
-      "y": 780,
+      "x": 350,
+      "y": 790,
       "w": 190,
       "layer": "ly-authn"
     },
@@ -185,8 +186,8 @@
       "label": "LdapAuthProvider",
       "sub": "Bind Authentication",
       "icon": "Network",
-      "x": 590,
-      "y": 780,
+      "x": 610,
+      "y": 790,
       "w": 190,
       "layer": "ly-authn"
     },
@@ -195,8 +196,8 @@
       "label": "OAuth2LoginProvider",
       "sub": "Authorization Code Flow",
       "icon": "Globe",
-      "x": 850,
-      "y": 780,
+      "x": 870,
+      "y": 790,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -205,8 +206,8 @@
       "label": "UserDetailsService",
       "sub": "loadUserByUsername()",
       "icon": "User",
-      "x": 1150,
-      "y": 650,
+      "x": 1170,
+      "y": 660,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -215,8 +216,8 @@
       "label": "SecurityContextHolder",
       "sub": "ThreadLocal Strategy",
       "icon": "Layers",
-      "x": 1430,
-      "y": 650,
+      "x": 1450,
+      "y": 660,
       "w": 210,
       "layer": "ly-authn"
     },
@@ -274,8 +275,8 @@
       "id": "el-cond-hasrole",
       "label": "Has Role?",
       "icon": "GitBranch",
-      "x": 1040,
-      "y": 1220,
+      "x": 1370,
+      "y": 1100,
       "w": 120,
       "shape": "condition",
       "conditionOutCount": 2
@@ -727,11 +728,14 @@
   ],
   "layerManualSizes": {
     "ly-authn": {
-      "top": 541,
-      "height": 308
+      "top": 550,
+      "height": 309
     },
     "ly-authz": {
       "height": 290
+    },
+    "ly-filter": {
+      "height": 330
     }
   },
   "lineCurve": "bezier",

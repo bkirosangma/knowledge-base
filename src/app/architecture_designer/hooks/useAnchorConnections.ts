@@ -5,6 +5,7 @@ import { getNodeAnchorPosition, getAnchorDirection, pickBestTargetAnchor } from 
 import { getNodesByType } from "../utils/typeUtils";
 import { getConditionDimensions, getEffectiveConditionHeight } from "../utils/conditionGeometry";
 import { clampNodePosition, type Rect } from "../utils/collisionUtils";
+import type { LevelMap } from "../utils/levelModel";
 import { snapToGrid } from "../utils/gridSnap";
 import { GitBranch } from "lucide-react";
 
@@ -27,6 +28,7 @@ export function useAnchorConnections(
   setSelection: React.Dispatch<React.SetStateAction<Selection>>,
   scheduleRecord: (description: string) => void,
   regionsRef?: MutableRefObject<RegionBounds[] | null>,
+  levelMapRef?: MutableRefObject<LevelMap>,
 ) {
   const handleAnchorConnectToElement = useCallback((targetNodeId: string) => {
     if (!anchorPopup) return;
@@ -80,9 +82,15 @@ export function useAnchorConnections(
       }
     }
 
-    // Element-level collision: avoid overlapping sibling nodes
+    // Element-level collision: avoid overlapping nodes at same level+base
+    const sourceLevel = levelMapRef?.current.get(anchorPopup.nodeId);
     const siblingRects: Rect[] = nodesRef.current
-      .filter((n) => n.id !== anchorPopup.nodeId)
+      .filter((n) => {
+        if (n.id === anchorPopup.nodeId) return false;
+        if (!sourceLevel || !levelMapRef) return true;
+        const nLevel = levelMapRef.current.get(n.id);
+        return nLevel && nLevel.level === sourceLevel.level && nLevel.base === sourceLevel.base;
+      })
       .map((n) => {
         const d = getNodeDimensions(n);
         const sy = n.y + (layerShiftsRef.current[n.layer] || 0);

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData, Selection } from "../utils/types";
 import { clampNodePosition, clampMultiNodeDelta, type Rect, type LayerBounds } from "../utils/collisionUtils";
+import type { LevelMap } from "../utils/levelModel";
 import { LAYER_GAP } from "../utils/constants";
 import { snapToGrid } from "../utils/gridSnap";
 import { isItemSelected } from "../utils/selectionUtils";
@@ -12,6 +13,7 @@ interface UseNodeDragOptions {
   isBlocked: boolean;
   setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>;
   regionsRef: React.RefObject<LayerBounds[] | null>;
+  levelMapRef: React.RefObject<LevelMap>;
   getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number };
   layerPadding: number;
   layerTitleOffset: number;
@@ -20,7 +22,7 @@ interface UseNodeDragOptions {
 
 export function useNodeDrag({
   nodes, layerShiftsRef, toCanvasCoords, isBlocked, setNodes,
-  regionsRef, getNodeDimensions, layerPadding, layerTitleOffset, selection,
+  regionsRef, levelMapRef, getNodeDimensions, layerPadding, layerTitleOffset, selection,
 }: UseNodeDragOptions) {
   // Single-node drag state (existing)
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -65,14 +67,26 @@ export function useNodeDrag({
       lastClampedDelta.current = { dx: 0, dy: 0 };
       multiDragDidMove.current = false;
 
-      // Build sibling rects: non-dragged nodes in the same layer
-      multiSiblingRects.current = nodes
-        .filter(n => !idsSet.has(n.id) && n.layer === selection.layer)
+      // Build sibling rects: non-dragged nodes at same level+base
+      const refLevel = levelMapRef.current.get(ids[0]);
+      const multiPeerRects: Rect[] = nodes
+        .filter(n => {
+          if (idsSet.has(n.id)) return false;
+          const nLevel = levelMapRef.current.get(n.id);
+          return refLevel && nLevel && nLevel.level === refLevel.level && nLevel.base === refLevel.base;
+        })
         .map(n => {
           const d = getNodeDimensions(n);
           const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
           return { left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h };
         });
+      // Level 1/canvas nodes also collide with layers
+      if (refLevel && refLevel.level === 1 && refLevel.base === "canvas" && regionsRef.current) {
+        for (const r of regionsRef.current) {
+          if (!r.empty) multiPeerRects.push({ left: r.left, top: r.top, width: r.width, height: r.height });
+        }
+      }
+      multiSiblingRects.current = multiPeerRects;
 
       setMultiDragIds(ids);
       setMultiDragDelta({ dx: 0, dy: 0 });
@@ -91,13 +105,25 @@ export function useNodeDrag({
     const dims = getNodeDimensions(node);
     dragNodeInfo.current = { layer: node.layer, halfW: dims.w / 2, halfH: dims.h / 2 };
 
-    siblingRects.current = nodes
-      .filter((n) => n.id !== id && n.layer === node.layer)
+    const dragLevel = levelMapRef.current.get(id);
+    const peerRects: Rect[] = nodes
+      .filter((n) => {
+        if (n.id === id) return false;
+        const nLevel = levelMapRef.current.get(n.id);
+        return dragLevel && nLevel && nLevel.level === dragLevel.level && nLevel.base === dragLevel.base;
+      })
       .map((n) => {
         const d = getNodeDimensions(n);
         const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
         return { left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h };
       });
+    // Level 1/canvas nodes also collide with layers (which are level 1/canvas)
+    if (dragLevel && dragLevel.level === 1 && dragLevel.base === "canvas" && regionsRef.current) {
+      for (const r of regionsRef.current) {
+        if (!r.empty) peerRects.push({ left: r.left, top: r.top, width: r.width, height: r.height });
+      }
+    }
+    siblingRects.current = peerRects;
 
     lastValidPos.current = { x: node.x, y: displayY };
     dragStartPos.current = { x: node.x, y: displayY };
@@ -118,13 +144,23 @@ export function useNodeDrag({
       const rawX = x;
       const rawY = y;
 
-      // Clamp: allow layer expansion but prevent collision with other layers
+      // Clamp: allow layer expansion but prevent collision with other layers and canvas-level nodes
       const info = dragNodeInfo.current;
       const regions = regionsRef.current;
       if (info && regions) {
         const region = regions.find((r) => r.id === info.layer);
         if (region && !region.empty) {
-          const others = regions.filter(r => r.id !== info.layer && !r.empty);
+          const others: { left: number; top: number; width: number; height: number }[] = regions.filter(r => r.id !== info.layer && !r.empty);
+          // Include level 1/canvas nodes as obstacles (they share the same level as layers)
+          for (const n of nodes) {
+            if (n.id === draggingId) continue;
+            const nLevel = levelMapRef.current.get(n.id);
+            if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
+              const d = getNodeDimensions(n);
+              const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+              others.push({ left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h });
+            }
+          }
 
           let maxRight = Infinity;
           let minLeft = -Infinity;
@@ -204,7 +240,7 @@ export function useNodeDrag({
       const rawDx = mouse.x - multiDragStart.current.x;
       const rawDy = mouse.y - multiDragStart.current.y;
 
-      // Clamp delta so no dragged node crosses into another layer
+      // Clamp delta so no dragged node crosses into another layer or canvas-level node
       let dx = rawDx;
       let dy = rawDy;
       const regions = regionsRef.current;
@@ -212,7 +248,18 @@ export function useNodeDrag({
       if (regions) {
         const region = regions.find(r => r.id === layer);
         if (region && !region.empty) {
-          const others = regions.filter(r => r.id !== layer && !r.empty);
+          const others: { left: number; top: number; width: number; height: number }[] = regions.filter(r => r.id !== layer && !r.empty);
+          // Include level 1/canvas nodes as obstacles
+          const dragSet = new Set(multiDragIds);
+          for (const n of nodes) {
+            if (dragSet.has(n.id)) continue;
+            const nLevel = levelMapRef.current.get(n.id);
+            if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
+              const d = getNodeDimensions(n);
+              const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+              others.push({ left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h });
+            }
+          }
 
           // Compute group bounding box at proposed delta
           for (const sn of multiDragNodesSnapshot.current) {

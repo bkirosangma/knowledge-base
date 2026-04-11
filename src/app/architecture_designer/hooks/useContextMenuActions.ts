@@ -5,6 +5,7 @@ import { getNodeHeight } from "../utils/types";
 import { DEFAULT_NODE_WIDTH, DEFAULT_LAYER_WIDTH, DEFAULT_LAYER_HEIGHT } from "../utils/constants";
 import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } from "../utils/collisionUtils";
 import { snapToGrid } from "../utils/gridSnap";
+import type { LevelMap } from "../utils/levelModel";
 import { predictLayerBounds } from "../utils/layerBounds";
 import type { ContextMenuTarget } from "../utils/geometry";
 
@@ -23,6 +24,7 @@ export function useContextMenuActions(
   setSelection: React.Dispatch<React.SetStateAction<Selection>>,
   setContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>,
   onActionComplete?: (description: string) => void,
+  levelMapRef?: React.RefObject<LevelMap>,
 ): { handleAddElement: () => void; handleAddLayer: () => void } {
 
   const handleAddElement = useCallback(() => {
@@ -80,10 +82,17 @@ export function useContextMenuActions(
         });
       }
     } else {
-      // No layer: simple collision avoidance — shift down until no overlap with existing nodes
+      // No layer: simple collision avoidance — shift down until no overlap with same-level nodes
+      // New element without a layer is level 1, base "canvas"
+      const peers = levelMapRef
+        ? nodes.filter((n) => {
+            const nLevel = levelMapRef.current?.get(n.id);
+            return nLevel && nLevel.level === 1 && nLevel.base === "canvas";
+          })
+        : nodes;
       const maxAttempts = 50;
       for (let i = 0; i < maxAttempts; i++) {
-        const overlaps = nodes.some((n) => {
+        const overlaps = peers.some((n) => {
           const dims = getNodeDimensions(n);
           const nHalfW = dims.w / 2;
           const nHalfH = dims.h / 2;

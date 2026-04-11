@@ -17,6 +17,7 @@ import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import PropertiesPanel from "./components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "./utils/persistence";
+import { computeLevelMap, type LevelMap } from "./utils/levelModel";
 import { Map } from "lucide-react";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
@@ -237,6 +238,10 @@ export default function ArchitectureDesigner() {
     anchorDismissTimer.current = setTimeout(() => setAnchorPopup(null), 200);
   }, []);
 
+  const levelMap = useMemo(() => computeLevelMap(nodes, connections), [nodes, connections]);
+  const levelMapRef = useRef(levelMap);
+  levelMapRef.current = levelMap;
+
   const { creatingLine, handleAnchorDragStart } = useLineDrag({
     nodes, connections, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
     isBlocked: !!draggingEndpoint,
@@ -251,6 +256,7 @@ export default function ArchitectureDesigner() {
     isBlocked: !!draggingEndpoint || !!creatingLine,
     setNodes,
     regionsRef,
+    levelMapRef,
     getNodeDimensions,
     layerPadding: LAYER_PADDING,
     layerTitleOffset: LAYER_TITLE_OFFSET,
@@ -261,6 +267,7 @@ export default function ArchitectureDesigner() {
     regionsRef, toCanvasCoords,
     isBlocked: !!draggingId || !!draggingEndpoint || !!creatingLine || isMultiDrag,
     initialManualSizes: defaults.current.layerManualSizes,
+    nodes, levelMapRef, getNodeDimensions, layerShiftsRef,
   });
 
   const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart, layerDragDidMove } = useLayerDrag({
@@ -270,6 +277,7 @@ export default function ArchitectureDesigner() {
     regionsRef,
     setLayerManualSizes,
     selection,
+    nodes, levelMapRef, getNodeDimensions, layerShiftsRef,
   });
 
   const { isDirty, setLoadSnapshot } = useDiagramPersistence(
@@ -434,7 +442,7 @@ export default function ArchitectureDesigner() {
   // Anchor popup handlers
   const { handleAnchorConnectToElement, handleAnchorCreateCondition, handleAnchorConnectToType } = useAnchorConnections(
     anchorPopup, nodesRef, layerShiftsRef, getNodeDimensions,
-    setNodes, setConnections, setSelection, scheduleRecord, regionsRef,
+    setNodes, setConnections, setSelection, scheduleRecord, regionsRef, levelMapRef,
   );
 
   // Flow dimming: compute which items are "included" in the selected or hovered flow
@@ -684,7 +692,7 @@ export default function ArchitectureDesigner() {
   const { handleAddElement, handleAddLayer } = useContextMenuActions(
     contextMenu, regions, nodes, getNodeDimensions, layerManualSizes,
     setNodes, setLayerDefs, setLayerManualSizes, setSelection, setContextMenu,
-    scheduleRecord,
+    scheduleRecord, levelMapRef,
   );
 
 
@@ -1232,6 +1240,7 @@ export default function ArchitectureDesigner() {
         connections={connections}
         regions={regions}
         layerDefs={layerDefs}
+        levelMap={levelMap}
         onSelectLayer={(layerId) => {
           setSelection({ type: 'layer', id: layerId });
           const region = regions.find((r) => r.id === layerId);

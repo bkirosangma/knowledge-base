@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { NodeData, Selection } from "../utils/types";
 import { clampLayerDelta, type LayerBounds } from "../utils/collisionUtils";
+import type { LevelMap } from "../utils/levelModel";
 import { LAYER_GAP } from "../utils/constants";
 import { snapToGrid } from "../utils/gridSnap";
 import { isItemSelected } from "../utils/selectionUtils";
@@ -16,9 +17,13 @@ interface UseLayerDragOptions {
     Record<string, { left?: number; width?: number; top?: number; height?: number }>
   >>;
   selection: Selection;
+  nodes: NodeData[];
+  levelMapRef: React.RefObject<LevelMap>;
+  getNodeDimensions: (node: { id: string; w: number }) => { w: number; h: number };
+  layerShiftsRef: React.RefObject<Record<string, number>>;
 }
 
-export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, setLayerManualSizes, selection }: UseLayerDragOptions) {
+export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, setLayerManualSizes, selection, nodes, levelMapRef, getNodeDimensions, layerShiftsRef }: UseLayerDragOptions) {
   const [draggingLayerIds, setDraggingLayerIds] = useState<string[]>([]);
   const [layerDragDelta, setLayerDragDelta] = useState<{ dx: number; dy: number } | null>(null);
   const [layerDragRawDelta, setLayerDragRawDelta] = useState<{ dx: number; dy: number } | null>(null);
@@ -68,7 +73,16 @@ export function useLayerDrag({ toCanvasCoords, isBlocked, setNodes, regionsRef, 
         const draggedRegion = regions?.find((r) => r.id === lid);
         if (draggedRegion && regions) {
           // For multi-layer drag, exclude all dragged layers from obstacles
-          const obstacles = regions.filter(r => !draggingLayerIds.includes(r.id));
+          const obstacles: LayerBounds[] = regions.filter(r => !draggingLayerIds.includes(r.id));
+          // Include level 1/canvas nodes as obstacles
+          for (const n of nodes) {
+            const nLevel = levelMapRef.current.get(n.id);
+            if (nLevel && nLevel.level === 1 && nLevel.base === "canvas") {
+              const d = getNodeDimensions(n);
+              const sy = n.y + (layerShiftsRef.current[n.layer] || 0);
+              obstacles.push({ id: n.id, left: n.x - d.w / 2, top: sy - d.h / 2, width: d.w, height: d.h, empty: false });
+            }
+          }
           const regionsWithObstacles = [draggedRegion, ...obstacles];
           const clamped = clampLayerDelta(draggedRegion, regionsWithObstacles, dx, dy, prev.dx, prev.dy);
           dx = clamped.dx;
