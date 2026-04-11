@@ -90,6 +90,7 @@ export interface DiagramData {
   layerManualSizes?: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve?: LineCurveAlgorithm;
   flows?: FlowDef[];
+  documents?: DocumentMeta[];
 }
 
 export interface RegionBounds {
@@ -104,5 +105,41 @@ export interface RegionBounds {
   height: number;
   empty: boolean;
 }
+
+export type ViewMode = 'diagram' | 'split' | 'document';
+
+export interface DocumentMeta {
+  id: string;
+  filename: string;       // relative path from vault root
+  title: string;
+  attachedTo?: {
+    type: 'root' | 'node' | 'connection' | 'flow' | 'type';
+    id: string;
+  }[];
+}
+
+export interface VaultConfig {
+  version: string;
+  name: string;
+  created: string;
+  lastOpened: string;
+}
+
+export interface LinkIndexEntry {
+  outboundLinks: string[];
+  sectionLinks: { targetPath: string; section: string }[];
+}
+
+export interface BacklinkEntry {
+  linkedFrom: { sourcePath: string; section?: string }[];
+}
+
+export interface LinkIndex {
+  updatedAt: string;
+  documents: Record<string, LinkIndexEntry>;
+  backlinks: Record<string, BacklinkEntry>;
+}
+
+export type ExplorerFilter = 'all' | 'diagrams' | 'documents';
 
 export { getNodeHeight } from "./geometry";
