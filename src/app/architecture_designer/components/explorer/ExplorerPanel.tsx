@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, ChevronDown, FolderOpen, Folder, FileJson, FileText,
-  RefreshCw, FilePlus, FolderPlus, Trash2, Pencil, Copy,
+  RefreshCw, FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
   EllipsisVertical, ArrowUp, ArrowDown, Check,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
@@ -647,6 +647,32 @@ export default function ExplorerPanel({
                     <Pencil size={15} className="text-slate-500" />
                     Rename
                   </button>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button
+                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => { navigator.clipboard.writeText(contextMenu.name); setContextMenu(null); }}
+                  >
+                    <Clipboard size={15} className="text-slate-500" />
+                    Copy Name
+                  </button>
+                  <button
+                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => { navigator.clipboard.writeText(contextMenu.path); setContextMenu(null); }}
+                  >
+                    <FileSymlink size={15} className="text-slate-500" />
+                    Copy Relative Path
+                  </button>
+                  <button
+                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => { navigator.clipboard.writeText(directoryName ? directoryName + "/" + contextMenu.path : contextMenu.path); setContextMenu(null); }}
+                  >
+                    <FolderSymlink size={15} className="text-slate-500" />
+                    Copy Path
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
                   <button
                     className={`${btnClass} text-red-600 hover:bg-red-50`}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -676,6 +702,31 @@ export default function ExplorerPanel({
               >
                 <Copy size={15} className="text-slate-500" />
                 Duplicate
+              </button>
+              <div className="border-t border-slate-100 my-1" />
+              <button
+                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => { navigator.clipboard.writeText(contextMenu.name); setContextMenu(null); }}
+              >
+                <Clipboard size={15} className="text-slate-500" />
+                Copy Name
+              </button>
+              <button
+                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => { navigator.clipboard.writeText(contextMenu.path); setContextMenu(null); }}
+              >
+                <FileSymlink size={15} className="text-slate-500" />
+                Copy Relative Path
+              </button>
+              <button
+                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => { navigator.clipboard.writeText(directoryName ? directoryName + "/" + contextMenu.path : contextMenu.path); setContextMenu(null); }}
+              >
+                <FolderSymlink size={15} className="text-slate-500" />
+                Copy Path
               </button>
               <div className="border-t border-slate-100 my-1" />
               <button

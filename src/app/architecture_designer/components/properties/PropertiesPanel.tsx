@@ -41,9 +41,10 @@ interface PropertiesPanelProps {
   onOpenDocument?: (path: string) => void;
   onAttachDocument?: (entityType: string, entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
+  hidden?: boolean;
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, documents, onOpenDocument, onAttachDocument, onDetachDocument }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, documents, onOpenDocument, onAttachDocument, onDetachDocument, hidden }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -65,8 +66,8 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
 
   return (
     <div
-      className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden"
-      style={{ width: 280 }}
+      className={`flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+      style={{ width: hidden ? 0 : 280 }}
     >
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
         <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>

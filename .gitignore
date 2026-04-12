@@ -44,3 +44,5 @@ src/app/architecture_designer/data
 graphify-out
 CLAUDE.md
 .claude
+.superpowers
+docs/superpowers

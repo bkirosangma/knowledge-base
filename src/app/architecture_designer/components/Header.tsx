@@ -177,8 +177,7 @@ export default function Header({
         </div>
       )}
 
-      {viewMode !== "document" && (
-        <>
+      <div className={`flex items-center gap-3${viewMode === "document" ? " invisible pointer-events-none" : ""}`}>
           <div className="flex items-center gap-0.5 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
             <button onClick={onToggleLive} className={toggleClass(isLive)} title="Toggle live data flow animation">
               <Activity size={13} />
@@ -220,8 +219,7 @@ export default function Header({
               <AutoArrangeDropdown onSelect={onAutoArrange} />
             </>
           )}
-        </>
-      )}
+        </div>
 
       <div className="h-5 w-px bg-slate-200" />
 

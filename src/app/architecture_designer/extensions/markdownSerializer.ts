@@ -1,5 +1,9 @@
 // src/app/architecture_designer/extensions/markdownSerializer.ts
 
+import MarkdownIt from "markdown-it";
+
+const md = MarkdownIt({ html: true, linkify: true, typographer: false });
+
 /**
  * Convert Tiptap HTML/JSON content to markdown string.
  * Uses a simple DOM-based approach since Tiptap content is essentially
@@ -103,53 +107,27 @@ function tableToMarkdown(table: HTMLElement): string {
 
 /**
  * Convert markdown string to HTML for Tiptap to consume.
- * Handles wiki-links by converting [[...]] to <span data-wiki-link="...">
+ * Uses markdown-it for proper parsing, with wiki-link pre-processing.
  */
 export function markdownToHtml(markdown: string): string {
-  let html = markdown;
-
-  // Preserve wiki-links before other processing
-  html = html.replace(/\[\[([^\]]+?)\]\]/g, (_match, inner: string) => {
+  // Convert wiki-links to HTML spans before markdown-it processes the content
+  // (markdown-it would treat [[...]] as nested links otherwise)
+  let processed = markdown.replace(/\[\[([^\]]+?)\]\]/g, (_match, inner: string) => {
     const [pathAndSection] = inner.split("|").map((s: string) => s.trim());
     const [path, section] = pathAndSection.split("#").map((s: string) => s.trim());
     const display = inner.split("|")[1]?.trim() ?? inner.split("#")[0].trim();
     return `<span data-wiki-link="${path}"${section ? ` data-wiki-section="${section}"` : ""} class="wiki-link">${display}</span>`;
   });
 
-  // Basic markdown to HTML (covers the essentials — Tiptap handles the rest)
-  // Code blocks (must be before inline code)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-  // Headings
-  html = html.replace(/^######\s+(.+)$/gm, "<h6>$1</h6>");
-  html = html.replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>");
-  html = html.replace(/^####\s+(.+)$/gm, "<h4>$1</h4>");
-  html = html.replace(/^###\s+(.+)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^##\s+(.+)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^#\s+(.+)$/gm, "<h1>$1</h1>");
-  // Bold, italic, strikethrough, inline code
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
-  html = html.replace(/`(.+?)`/g, "<code>$1</code>");
-  // Horizontal rule
-  html = html.replace(/^---$/gm, "<hr>");
-  // Images and links
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  // Blockquotes
-  html = html.replace(/^>\s+(.+)$/gm, "<blockquote><p>$1</p></blockquote>");
-  // Task lists
-  html = html.replace(/^- \[x\]\s+(.+)$/gm, '<ul data-type="taskList"><li data-type="taskItem" data-checked="true">$1</li></ul>');
-  html = html.replace(/^- \[ \]\s+(.+)$/gm, '<ul data-type="taskList"><li data-type="taskItem" data-checked="false">$1</li></ul>');
-  // Unordered lists
-  html = html.replace(/^- (.+)$/gm, "<ul><li>$1</li></ul>");
-  // Ordered lists
-  html = html.replace(/^\d+\.\s+(.+)$/gm, "<ol><li>$1</li></ol>");
-  // Paragraphs (lines not already wrapped)
-  html = html.replace(/^(?!<(?:h[1-6]|p|ul|ol|pre|blockquote|hr|div|table)[\s>])(.*[^\n])$/gm, (_, content) => {
-    if (!content.trim()) return "";
-    return `<p>${content}</p>`;
-  });
+  // Collapse blank lines between table rows so markdown-it recognizes tables
+  while (processed.includes('|\n\n|')) {
+    processed = processed.replace(/\|\n\n\|/g, '|\n|');
+  }
 
-  return html;
+  // Convert task list markers to HTML that Tiptap understands (before markdown-it
+  // turns them into plain list items)
+  processed = processed.replace(/^(\s*)- \[x\]\s+/gm, '$1- <input type="checkbox" checked disabled> ');
+  processed = processed.replace(/^(\s*)- \[ \]\s+/gm, '$1- <input type="checkbox" disabled> ');
+
+  return md.render(processed);
 }

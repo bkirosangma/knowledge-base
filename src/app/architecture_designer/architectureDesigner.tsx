@@ -1462,8 +1462,9 @@ export default function ArchitectureDesigner() {
         />
       )}
 
-      {/* Properties Panel */}
+      {/* Properties Panel — hidden in document-only mode */}
       <PropertiesPanel
+        hidden={viewMode === "document"}
         selection={selection}
         title={title}
         nodes={nodes}
@@ -1566,7 +1567,7 @@ export default function ArchitectureDesigner() {
       </div>
 
       {/* Minimap — overlays viewport from outside the scroll container */}
-      {showMinimap && fileExplorer.activeFile && (
+      {viewMode !== "document" && showMinimap && fileExplorer.activeFile && (
         <div className="absolute bottom-16 z-30 transition-[left] duration-200" style={{ left: explorerCollapsed ? 52 : 276 }}>
           <Minimap
             world={world}
