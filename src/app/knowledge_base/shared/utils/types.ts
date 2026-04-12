@@ -1,4 +1,4 @@
-// Re-export design types for backward compatibility
+// Re-export diagram types
 export type {
   NodeData,
   SerializedNodeData,
@@ -8,7 +8,7 @@ export type {
   LineCurveAlgorithm,
   Selection,
   RegionBounds,
-} from "../../features/design/types";
+} from "../../features/diagram/types";
 
 // Re-export document types for backward compatibility
 export type {
@@ -19,11 +19,11 @@ export type {
 } from "../../features/document/types";
 
 // Re-export getNodeHeight for backward compatibility
-export { getNodeHeight } from "../../features/design/utils/geometry";
+export { getNodeHeight } from "../../features/diagram/utils/geometry";
 
 // --- Shared types (owned by this file) ---
 
-import type { LayerDef, SerializedNodeData, Connection, LineCurveAlgorithm, FlowDef } from "../../features/design/types";
+import type { LayerDef, SerializedNodeData, Connection, LineCurveAlgorithm, FlowDef } from "../../features/diagram/types";
 import type { DocumentMeta } from "../../features/document/types";
 
 export interface DiagramData {

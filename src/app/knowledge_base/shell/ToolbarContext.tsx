@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 
-export type PaneType = "design" | "document";
+export type PaneType = "diagram" | "document";
 export type FocusedPane = "left" | "right" | "single";
 
 export interface ToolbarState {
@@ -43,12 +43,12 @@ export function ToolbarProvider({ children }: { children: ReactNode }) {
     let activePaneType: PaneType | "mixed";
 
     if (paneCount === 1) {
-      activePaneType = leftType ?? "design";
+      activePaneType = leftType ?? "diagram";
     } else if (leftType === rightType) {
-      activePaneType = leftType ?? "design";
+      activePaneType = leftType ?? "diagram";
     } else {
       // Mixed: use the focused pane's type
-      activePaneType = focused === "right" ? (rightType ?? "design") : (leftType ?? "design");
+      activePaneType = focused === "right" ? (rightType ?? "diagram") : (leftType ?? "diagram");
     }
 
     return {

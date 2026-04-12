@@ -20,8 +20,8 @@ function getDocDir(docPath: string): string {
 }
 
 // Fix 2: Extract duplicated link-parsing logic
-function getLinkType(resolvedPath: string): "document" | "design" {
-  return resolvedPath.endsWith(".json") ? "design" : "document";
+function getLinkType(resolvedPath: string): "document" | "diagram" {
+  return resolvedPath.endsWith(".json") ? "diagram" : "document";
 }
 
 function buildDocumentEntry(

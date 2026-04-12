@@ -1,5 +1,5 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
-import { getIcon, getIconName } from "../../features/design/utils/iconRegistry";
+import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
 import { scopedKey } from "./directoryScope";
 const STORAGE_KEY = "knowledge-base-data";
 

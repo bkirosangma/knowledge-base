@@ -10,8 +10,8 @@ import { readVaultConfig, initVault, updateVaultLastOpened } from "./features/do
 import { updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
 import { readTextFile, writeTextFile } from "./shared/hooks/useFileExplorer";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
-import DesignView from "./features/design/DesignView";
-import type { DesignBridge } from "./features/design/DesignView";
+import DiagramView from "./features/diagram/DiagramView";
+import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
@@ -26,12 +26,12 @@ function KnowledgeBaseInner() {
   const linkManager = useLinkIndex();
   const panes = usePaneManager();
 
-  // ─── Design bridge: DesignView pushes its state here ───
-  const designBridgeRef = useRef<DesignBridge | null>(null);
-  const [designBridge, setDesignBridge] = useState<DesignBridge | null>(null);
-  const handleDesignBridge = useCallback((bridge: DesignBridge) => {
-    designBridgeRef.current = bridge;
-    setDesignBridge(bridge);
+  // ─── Diagram bridge: DiagramView pushes its state here ───
+  const diagramBridgeRef = useRef<DiagramBridge | null>(null);
+  const [diagramBridge, setDiagramBridge] = useState<DiagramBridge | null>(null);
+  const handleDiagramBridge = useCallback((bridge: DiagramBridge) => {
+    diagramBridgeRef.current = bridge;
+    setDiagramBridge(bridge);
   }, []);
 
   // ─── Explorer UI state ───
@@ -54,13 +54,13 @@ function KnowledgeBaseInner() {
   }, []);
 
   // Derived state from bridge (with safe defaults)
-  const isDirty = designBridge?.isDirty ?? false;
-  const title = designBridge?.title ?? "Untitled";
-  const confirmAction = designBridge?.confirmAction ?? null;
+  const isDirty = diagramBridge?.isDirty ?? false;
+  const title = diagramBridge?.title ?? "Untitled";
+  const confirmAction = diagramBridge?.confirmAction ?? null;
 
   // ─── Wiki-link aware rename/delete ───
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
-    designBridgeRef.current?.handleRenameFile(oldPath, newName);
+    diagramBridgeRef.current?.handleRenameFile(oldPath, newName);
 
     if (!oldPath.endsWith(".md")) return;
 
@@ -89,7 +89,7 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.dirHandleRef, linkManager]);
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
-    designBridgeRef.current?.handleDeleteFile(path, event);
+    diagramBridgeRef.current?.handleDeleteFile(path, event);
     if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
       await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
     }
@@ -112,8 +112,8 @@ function KnowledgeBaseInner() {
     if (path.endsWith(".md")) {
       handleOpenDocument(path);
     } else {
-      designBridgeRef.current?.handleLoadFile(path);
-      panes.openFile(path, "design");
+      diagramBridgeRef.current?.handleLoadFile(path);
+      panes.openFile(path, "diagram");
     }
   }, [handleOpenDocument, panes]);
 
@@ -131,9 +131,9 @@ function KnowledgeBaseInner() {
             });
           }
         }
-        // Always try to save diagram if there's an active design file
-        if (!activeEntry || activeEntry.fileType === "design") {
-          designBridgeRef.current?.onSave();
+        // Always try to save diagram if there's an active diagram file
+        if (!activeEntry || activeEntry.fileType === "diagram") {
+          diagramBridgeRef.current?.onSave();
         }
       }
     };
@@ -166,13 +166,13 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.directoryName]);
 
   // ─── Determine active pane type for header ───
-  const activePaneType = panes.activeEntry?.fileType ?? "design";
+  const activePaneType = panes.activeEntry?.fileType ?? "diagram";
 
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean) => {
-    if (entry.fileType === "design") {
+    if (entry.fileType === "diagram") {
       return (
-        <DesignView
+        <DiagramView
           focused={focused}
           activeFile={entry.filePath}
           fileExplorer={fileExplorer}
@@ -200,7 +200,7 @@ function KnowledgeBaseInner() {
               setHistoryCollapsed((c) => !c);
             }
           }}
-          onDesignBridge={handleDesignBridge}
+          onDiagramBridge={handleDiagramBridge}
         />
       );
     }
@@ -222,7 +222,7 @@ function KnowledgeBaseInner() {
         onClose={() => panes.closeFocusedPane()}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDesignBridge]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDiagramBridge]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -238,16 +238,16 @@ function KnowledgeBaseInner() {
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
-        title={designBridge?.title ?? "Untitled"}
-        titleInputValue={designBridge?.titleInputValue ?? "Untitled"}
-        setTitleInputValue={(v) => designBridge?.setTitleInputValue(v)}
-        titleWidth={designBridge?.titleWidth ?? "auto"}
-        setTitleWidth={(w) => designBridge?.setTitleWidth(w)}
-        onTitleCommit={(v) => designBridge?.onTitleCommit(v)}
+        title={diagramBridge?.title ?? "Untitled"}
+        titleInputValue={diagramBridge?.titleInputValue ?? "Untitled"}
+        setTitleInputValue={(v) => diagramBridge?.setTitleInputValue(v)}
+        titleWidth={diagramBridge?.titleWidth ?? "auto"}
+        setTitleWidth={(w) => diagramBridge?.setTitleWidth(w)}
+        onTitleCommit={(v) => diagramBridge?.onTitleCommit(v)}
         isDirty={isDirty}
         hasActiveFile={!!fileExplorer.activeFile}
-        onDiscard={(e) => designBridge?.onDiscard(e)}
-        onSave={() => designBridge?.onSave()}
+        onDiscard={(e) => diagramBridge?.onDiscard(e)}
+        onSave={() => diagramBridge?.onSave()}
         activePaneType={activePaneType}
         isSplit={panes.isSplit}
         onToggleSplit={() => {
@@ -271,7 +271,7 @@ function KnowledgeBaseInner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Explorer only (HistoryPanel moved into DesignView) */}
+        {/* Left sidebar: Explorer only (HistoryPanel moved into DiagramView) */}
         <div
           className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: explorerCollapsed ? 36 : 260 }}
@@ -285,14 +285,14 @@ function KnowledgeBaseInner() {
             dirtyFiles={fileExplorer.dirtyFiles}
             onOpenFolder={fileExplorer.openFolder}
             onSelectFile={handleSelectFile}
-            onCreateFile={(parentPath) => designBridgeRef.current?.handleCreateFile(parentPath) ?? Promise.resolve(null)}
-            onCreateFolder={(parentPath) => designBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
+            onCreateFile={(parentPath) => diagramBridgeRef.current?.handleCreateFile(parentPath) ?? Promise.resolve(null)}
+            onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
-            onDeleteFolder={(path, event) => designBridgeRef.current?.handleDeleteFolder(path, event)}
+            onDeleteFolder={(path, event) => diagramBridgeRef.current?.handleDeleteFolder(path, event)}
             onRenameFile={handleRenameFileWithLinks}
-            onRenameFolder={(oldPath, newName) => designBridgeRef.current?.handleRenameFolder(oldPath, newName)}
-            onDuplicateFile={(path) => designBridgeRef.current?.handleDuplicateFile(path)}
-            onMoveItem={(source, target) => designBridgeRef.current?.handleMoveItem(source, target)}
+            onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
+            onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
+            onMoveItem={(source, target) => diagramBridgeRef.current?.handleMoveItem(source, target)}
             isLoading={fileExplorer.isLoading}
             onRefresh={fileExplorer.refresh}
             sortField={sortPrefs.field}
@@ -317,7 +317,7 @@ function KnowledgeBaseInner() {
         />
       </div>
 
-      {/* Confirmation popover — state owned by DesignView via bridge */}
+      {/* Confirmation popover — state owned by DiagramView via bridge */}
       {confirmAction && (
         <ConfirmPopover
           message={
@@ -335,8 +335,8 @@ function KnowledgeBaseInner() {
             else localStorage.removeItem(SKIP_DISCARD_CONFIRM_KEY);
           }}
           position={{ x: confirmAction.x, y: confirmAction.y }}
-          onConfirm={() => designBridgeRef.current?.handleConfirmAction()}
-          onCancel={() => designBridgeRef.current?.setConfirmAction(null)}
+          onConfirm={() => diagramBridgeRef.current?.handleConfirmAction()}
+          onCancel={() => diagramBridgeRef.current?.setConfirmAction(null)}
         />
       )}
     </div>

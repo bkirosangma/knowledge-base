@@ -14,7 +14,7 @@ interface HeaderProps {
   onDiscard: (e: React.MouseEvent) => void;
   onSave: () => void;
   /** Which pane type is active — controls which toolbar controls are visible */
-  activePaneType?: "design" | "document" | "mixed";
+  activePaneType?: "diagram" | "document" | "mixed";
   /** Whether split mode is on */
   isSplit?: boolean;
   /** Toggle split mode */

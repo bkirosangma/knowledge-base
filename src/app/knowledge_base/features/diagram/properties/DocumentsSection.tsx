@@ -34,7 +34,7 @@ export default function DocumentsSection({
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-slate-400">No documents reference this design</p>
+        <p className="text-[11px] text-slate-400">No documents reference this diagram</p>
       )}
       <p className="mt-1.5 text-[10px] text-slate-400">
         Add references via <code className="bg-slate-100 px-0.5 rounded">[[wiki-links]]</code> in documents

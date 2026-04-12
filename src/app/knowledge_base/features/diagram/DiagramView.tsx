@@ -66,8 +66,8 @@ import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
-/** Bridge object that DesignView exposes to the shell for Header integration. */
-export interface DesignBridge {
+/** Bridge object that DiagramView exposes to the shell for Header integration. */
+export interface DiagramBridge {
   isDirty: boolean;
   title: string;
   titleInputValue: string;
@@ -144,10 +144,10 @@ const toggleClass = (active: boolean) =>
     active ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
   }`;
 
-export interface DesignViewProps {
+export interface DiagramViewProps {
   focused: boolean;
   activeFile: string | null;
-  /** Full file explorer — DesignView owns file operations for design files. */
+  /** Full file explorer — DiagramView owns file operations for diagram files. */
   fileExplorer: ReturnType<typeof useFileExplorer>;
   /** Called when a document should be opened (the shell routes to DocumentView). */
   onOpenDocument: (path: string) => void;
@@ -157,7 +157,7 @@ export interface DesignViewProps {
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
   /** Called when a loaded diagram contains document attachments. */
   onLoadDocuments: (docs: DocumentMeta[]) => void;
-  /** Backlinks from the link index for the current design file */
+  /** Backlinks from the link index for the current diagram file */
   backlinks?: { sourcePath: string; section?: string }[];
   /** Explorer collapsed state for minimap positioning */
   explorerCollapsed: boolean;
@@ -168,10 +168,10 @@ export interface DesignViewProps {
   /** Toggle history collapsed state */
   onToggleHistoryCollapse: () => void;
   /** Bridge: notify the shell when isDirty or save/discard callbacks change */
-  onDesignBridge: (bridge: DesignBridge) => void;
+  onDiagramBridge: (bridge: DiagramBridge) => void;
 }
 
-export default function DesignView({
+export default function DiagramView({
   focused,
   activeFile,
   fileExplorer,
@@ -186,9 +186,9 @@ export default function DesignView({
   historyCollapsed,
   sidebarCollapsed,
   onToggleHistoryCollapse,
-  onDesignBridge,
-}: DesignViewProps) {
-  // ─── Design State ───
+  onDiagramBridge,
+}: DiagramViewProps) {
+  // ─── Diagram State ───
   const [isLive, setIsLive] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -468,9 +468,9 @@ export default function DesignView({
   );
 
   // ─── Bridge: expose state to shell ───
-  const bridgeRef = useRef<DesignBridge | null>(null);
+  const bridgeRef = useRef<DiagramBridge | null>(null);
   useEffect(() => {
-    const bridge: DesignBridge = {
+    const bridge: DiagramBridge = {
       isDirty,
       title,
       titleInputValue,
@@ -494,11 +494,11 @@ export default function DesignView({
       setConfirmAction,
     };
     bridgeRef.current = bridge;
-    onDesignBridge(bridge);
+    onDiagramBridge(bridge);
   }, [isDirty, title, titleInputValue, titleWidth, handleSave, handleDiscard,
       handleLoadFile, handleCreateFile, handleCreateFolder, handleDeleteFile,
       handleDeleteFolder, handleRenameFile, handleRenameFolder, handleDuplicateFile,
-      handleMoveItem, handleConfirmAction, confirmAction, onDesignBridge, scheduleRecord]);
+      handleMoveItem, handleConfirmAction, confirmAction, onDiagramBridge, scheduleRecord]);
 
   const { deleteSelection, confirmDeletion } = useDeletion(nodesRef, connectionsRef, flowsRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
@@ -820,9 +820,9 @@ export default function DesignView({
     return aFront - bFront;
   }), [lines, hoveredLine?.id, selection]);
 
-  // ─── Expose design state for the shell's header ───
+  // ─── Expose diagram state for the shell's header ───
   // The shell reads these via a ref-based bridge or callback in a future task.
-  // For now, the design view renders its own canvas and properties panel.
+  // For now, the diagram view renders its own canvas and properties panel.
 
   // Helper: check if a doc entity has documents
   const hasDocuments = useCallback((entityType: string, entityId: string) => {
@@ -839,7 +839,7 @@ export default function DesignView({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full">
-      {/* Design toolbar */}
+      {/* Diagram toolbar */}
       {activeFile && (
         <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1.5 bg-slate-50 border-b border-slate-200 z-10">
           <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
