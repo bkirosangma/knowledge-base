@@ -1,25 +1,21 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import type { ExplorerFilter } from "./utils/types";
 import ExplorerPanel from "./components/explorer/ExplorerPanel";
 import ConfirmPopover from "./components/explorer/ConfirmPopover";
 import Header from "./components/Header";
-import HistoryPanel from "./components/HistoryPanel";
 import { useFileExplorer } from "./hooks/useFileExplorer";
-import { useFileActions } from "./hooks/useFileActions";
 import { useDocuments } from "./hooks/useDocuments";
 import { useLinkIndex } from "./hooks/useLinkIndex";
-import { loadDiagramFromData } from "./utils/persistence";
 import { readVaultConfig, initVault, updateVaultLastOpened } from "./utils/vaultConfig";
 import { updateWikiLinkPaths } from "./utils/wikiLinkParser";
 import { readTextFile, writeTextFile } from "./hooks/useFileExplorer";
 import type { SortField, SortDirection, SortGrouping } from "./components/explorer/ExplorerPanel";
 import DesignView from "./features/design/DesignView";
+import type { DesignBridge } from "./features/design/DesignView";
 import DocumentView from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
-import { useActionHistory } from "./hooks/useActionHistory";
-import type { DiagramSnapshot } from "./hooks/useActionHistory";
 
 const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";
 
@@ -29,7 +25,14 @@ function KnowledgeBaseInner() {
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
   const panes = usePaneManager();
-  const history = useActionHistory();
+
+  // ─── Design bridge: DesignView pushes its state here ───
+  const designBridgeRef = useRef<DesignBridge | null>(null);
+  const [designBridge, setDesignBridge] = useState<DesignBridge | null>(null);
+  const handleDesignBridge = useCallback((bridge: DesignBridge) => {
+    designBridgeRef.current = bridge;
+    setDesignBridge(bridge);
+  }, []);
 
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
@@ -50,71 +53,14 @@ function KnowledgeBaseInner() {
     try { localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping })); } catch { /* ignore */ }
   }, []);
 
-  // ─── Confirm action state (delete/discard popovers) ───
-  const [confirmAction, setConfirmAction] = useState<{
-    type: "delete-file" | "delete-folder" | "discard";
-    path?: string;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // ─── Design view bridge state ───
-  // These are owned by DesignView but the shell needs some for the Header.
-  // For now the Header is wired for the design-only case; the PaneManager
-  // approach doesn't need viewMode anymore (each pane is typed).
-  const [titleInputValue, setTitleInputValue] = useState("Untitled");
-  const [titleWidth, setTitleWidth] = useState<number | string>("auto");
-
-  // Dummy refs needed by useFileActions -- DesignView owns the real canvas ref,
-  // but useFileActions only uses canvasRef for popover positioning on discard.
-  const canvasRef = React.useRef<HTMLDivElement>(null);
-  const isRestoringRef = React.useRef(false);
-
-  // Placeholder state for useFileActions -- DesignView owns the real diagram state.
-  // useFileActions needs these to serialize on save. We'll bridge them via
-  // a ref that DesignView populates. For now keep the existing flow where
-  // useFileActions is called in the shell for file-level operations.
-  const [title, setTitle] = useState("Untitled");
-  const [layerDefs, setLayerDefs] = useState<ReturnType<typeof loadDiagramFromData>["layers"]>([]);
-  const [nodes, setNodes] = useState<ReturnType<typeof loadDiagramFromData>["nodes"]>([]);
-  const [connections, setConnections] = useState<ReturnType<typeof loadDiagramFromData>["connections"]>([]);
-  const [layerManualSizes, setLayerManualSizes] = useState<ReturnType<typeof loadDiagramFromData>["layerManualSizes"]>({});
-  const [lineCurve, setLineCurve] = useState<ReturnType<typeof loadDiagramFromData>["lineCurve"]>("orthogonal");
-  const [flows, setFlows] = useState<ReturnType<typeof loadDiagramFromData>["flows"]>([]);
-
-  const isDirty = fileExplorer.dirtyFiles.has(fileExplorer.activeFile ?? "");
-
-  /** Apply a loaded diagram to state. */
-  const applyDiagramToState = useCallback((
-    data: ReturnType<typeof loadDiagramFromData>,
-    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
-  ) => {
-    setTitle(data.title);
-    setTitleInputValue(data.title);
-    setLayerDefs(data.layers);
-    setNodes(data.nodes);
-    setConnections(data.connections);
-    setLayerManualSizes(data.layerManualSizes);
-    setLineCurve(data.lineCurve);
-    setFlows(data.flows);
-  }, []);
-
-  // File operation handlers
-  const {
-    handleLoadFile, handleSave, handleCreateFile, handleCreateFolder,
-    handleDeleteFile, handleDeleteFolder, handleRenameFile, handleRenameFolder,
-    handleDuplicateFile, handleMoveItem, handleDiscard, handleConfirmAction,
-  } = useFileActions(
-    fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, () => {},
-    confirmAction, setConfirmAction, canvasRef,
-    title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
-    docManager.documents,
-    docManager.setDocuments,
-  );
+  // Derived state from bridge (with safe defaults)
+  const isDirty = designBridge?.isDirty ?? false;
+  const title = designBridge?.title ?? "Untitled";
+  const confirmAction = designBridge?.confirmAction ?? null;
 
   // ─── Wiki-link aware rename/delete ───
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
-    handleRenameFile(oldPath, newName);
+    designBridgeRef.current?.handleRenameFile(oldPath, newName);
 
     if (!oldPath.endsWith(".md")) return;
 
@@ -140,14 +86,14 @@ function KnowledgeBaseInner() {
         }
       } catch { /* skip files that can't be read */ }
     }
-  }, [handleRenameFile, fileExplorer.dirHandleRef, linkManager]);
+  }, [fileExplorer.dirHandleRef, linkManager]);
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
-    handleDeleteFile(path, event);
+    designBridgeRef.current?.handleDeleteFile(path, event);
     if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
       await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
     }
-  }, [handleDeleteFile, fileExplorer.dirHandleRef, linkManager]);
+  }, [fileExplorer.dirHandleRef, linkManager]);
 
   // ─── Document operations ───
   const handleOpenDocument = useCallback(async (path: string) => {
@@ -166,10 +112,10 @@ function KnowledgeBaseInner() {
     if (path.endsWith(".md")) {
       handleOpenDocument(path);
     } else {
-      handleLoadFile(path);
+      designBridgeRef.current?.handleLoadFile(path);
       panes.openFile(path, "design");
     }
-  }, [handleLoadFile, handleOpenDocument, panes]);
+  }, [handleOpenDocument, panes]);
 
   // ─── Cmd+S handler ───
   useEffect(() => {
@@ -187,13 +133,13 @@ function KnowledgeBaseInner() {
         }
         // Always try to save diagram if there's an active design file
         if (!activeEntry || activeEntry.fileType === "design") {
-          handleSave();
+          designBridgeRef.current?.onSave();
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleSave, panes.activeEntry, fileExplorer.dirHandleRef, docManager, linkManager]);
+  }, [panes.activeEntry, fileExplorer.dirHandleRef, docManager, linkManager]);
 
   // ─── Auto-load last opened file ───
   useEffect(() => {
@@ -219,35 +165,6 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
-  // ─── Undo/Redo (for history panel) ───
-  const applySnapshot = useCallback((snapshot: DiagramSnapshot | null) => {
-    if (!snapshot) return;
-    isRestoringRef.current = true;
-    const diagram = loadDiagramFromData({
-      title: snapshot.title,
-      layers: snapshot.layerDefs,
-      nodes: snapshot.nodes,
-      connections: snapshot.connections,
-      layerManualSizes: snapshot.layerManualSizes,
-      lineCurve: snapshot.lineCurve,
-      flows: snapshot.flows,
-    });
-    applyDiagramToState(diagram);
-    requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [applyDiagramToState]);
-
-  const handleUndo = useCallback(() => {
-    applySnapshot(history.undo());
-  }, [history.undo, applySnapshot]);
-
-  const handleRedo = useCallback(() => {
-    applySnapshot(history.redo());
-  }, [history.redo, applySnapshot]);
-
-  const handleGoToEntry = useCallback((index: number) => {
-    applySnapshot(history.goToEntry(index));
-  }, [history.goToEntry, applySnapshot]);
-
   // ─── Determine active pane type for header ───
   const activePaneType = panes.activeEntry?.fileType ?? "design";
 
@@ -258,8 +175,7 @@ function KnowledgeBaseInner() {
         <DesignView
           focused={focused}
           activeFile={entry.filePath}
-          isDirty={isDirty}
-          markDirty={fileExplorer.markDirty}
+          fileExplorer={fileExplorer}
           onOpenDocument={handleOpenDocument}
           documents={docManager.documents}
           onAttachDocument={(docPath, entityType, entityId) => {
@@ -271,11 +187,19 @@ function KnowledgeBaseInner() {
           onCreateDocument={async (rootHandle, path) => {
             await docManager.createDocument(rootHandle, path);
           }}
-          fileExplorer={{
-            dirHandleRef: fileExplorer.dirHandleRef,
-            tree: fileExplorer.tree,
-          }}
+          onLoadDocuments={docManager.setDocuments}
           explorerCollapsed={explorerCollapsed}
+          historyCollapsed={historyCollapsed}
+          sidebarCollapsed={explorerCollapsed}
+          onToggleHistoryCollapse={() => {
+            if (explorerCollapsed) {
+              setExplorerCollapsed(false);
+              setHistoryCollapsed(false);
+            } else {
+              setHistoryCollapsed((c) => !c);
+            }
+          }}
+          onDesignBridge={handleDesignBridge}
         />
       );
     }
@@ -297,7 +221,7 @@ function KnowledgeBaseInner() {
         onClose={() => panes.closeFocusedPane()}
       />
     );
-  }, [isDirty, fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, panes]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDesignBridge]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -313,31 +237,22 @@ function KnowledgeBaseInner() {
   return (
     <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
-        title={title}
-        titleInputValue={titleInputValue}
-        setTitleInputValue={setTitleInputValue}
-        titleWidth={titleWidth}
-        setTitleWidth={setTitleWidth}
-        onTitleCommit={(v) => { setTitle(v); }}
+        title={designBridge?.title ?? "Untitled"}
+        titleInputValue={designBridge?.titleInputValue ?? "Untitled"}
+        setTitleInputValue={(v) => designBridge?.setTitleInputValue(v)}
+        titleWidth={designBridge?.titleWidth ?? "auto"}
+        setTitleWidth={(w) => designBridge?.setTitleWidth(w)}
+        onTitleCommit={(v) => designBridge?.onTitleCommit(v)}
         isDirty={isDirty}
         hasActiveFile={!!fileExplorer.activeFile}
-        isLive={false}
-        showLabels={true}
-        showMinimap={true}
-        zoom={1}
-        onToggleLive={() => {}}
-        onToggleLabels={() => {}}
-        onToggleMinimap={() => {}}
-        onZoomChange={() => {}}
-        onDiscard={handleDiscard}
-        onSave={handleSave}
+        onDiscard={(e) => designBridge?.onDiscard(e)}
+        onSave={() => designBridge?.onSave()}
         activePaneType={activePaneType}
         isSplit={panes.isSplit}
         onToggleSplit={() => {
           if (panes.isSplit) {
             panes.exitSplit();
           } else if (panes.leftPane) {
-            // Open a blank document pane in the right side
             panes.enterSplit(panes.leftPane.filePath, panes.leftPane.fileType);
           }
         }}
@@ -355,7 +270,7 @@ function KnowledgeBaseInner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Explorer + History */}
+        {/* Left sidebar: Explorer only (HistoryPanel moved into DesignView) */}
         <div
           className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: explorerCollapsed ? 36 : 260 }}
@@ -369,14 +284,14 @@ function KnowledgeBaseInner() {
             dirtyFiles={fileExplorer.dirtyFiles}
             onOpenFolder={fileExplorer.openFolder}
             onSelectFile={handleSelectFile}
-            onCreateFile={handleCreateFile}
-            onCreateFolder={handleCreateFolder}
+            onCreateFile={(parentPath) => designBridgeRef.current?.handleCreateFile(parentPath) ?? Promise.resolve(null)}
+            onCreateFolder={(parentPath) => designBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
-            onDeleteFolder={handleDeleteFolder}
+            onDeleteFolder={(path, event) => designBridgeRef.current?.handleDeleteFolder(path, event)}
             onRenameFile={handleRenameFileWithLinks}
-            onRenameFolder={handleRenameFolder}
-            onDuplicateFile={handleDuplicateFile}
-            onMoveItem={handleMoveItem}
+            onRenameFolder={(oldPath, newName) => designBridgeRef.current?.handleRenameFolder(oldPath, newName)}
+            onDuplicateFile={(path) => designBridgeRef.current?.handleDuplicateFile(path)}
+            onMoveItem={(source, target) => designBridgeRef.current?.handleMoveItem(source, target)}
             isLoading={fileExplorer.isLoading}
             onRefresh={fileExplorer.refresh}
             sortField={sortPrefs.field}
@@ -386,26 +301,6 @@ function KnowledgeBaseInner() {
             explorerFilter={explorerFilter}
             onFilterChange={setExplorerFilter}
             onSelectDocument={handleOpenDocument}
-          />
-          <HistoryPanel
-            entries={history.entries}
-            currentIndex={history.currentIndex}
-            savedIndex={history.savedIndex}
-            canUndo={history.canUndo}
-            canRedo={history.canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onGoToEntry={handleGoToEntry}
-            collapsed={historyCollapsed}
-            sidebarCollapsed={explorerCollapsed}
-            onToggleCollapse={() => {
-              if (explorerCollapsed) {
-                setExplorerCollapsed(false);
-                setHistoryCollapsed(false);
-              } else {
-                setHistoryCollapsed((c) => !c);
-              }
-            }}
           />
         </div>
 
@@ -421,7 +316,7 @@ function KnowledgeBaseInner() {
         />
       </div>
 
-      {/* Confirmation popover */}
+      {/* Confirmation popover — state owned by DesignView via bridge */}
       {confirmAction && (
         <ConfirmPopover
           message={
@@ -439,8 +334,8 @@ function KnowledgeBaseInner() {
             else localStorage.removeItem(SKIP_DISCARD_CONFIRM_KEY);
           }}
           position={{ x: confirmAction.x, y: confirmAction.y }}
-          onConfirm={handleConfirmAction}
-          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => designBridgeRef.current?.handleConfirmAction()}
+          onCancel={() => designBridgeRef.current?.setConfirmAction(null)}
         />
       )}
     </div>

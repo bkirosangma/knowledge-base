@@ -21,7 +21,6 @@ import { useSelectionRect } from "../../hooks/useSelectionRect";
 import PropertiesPanel from "../../components/properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "../../utils/persistence";
 import { computeLevelMap } from "../../utils/levelModel";
-import { Map } from "lucide-react";
 import { computeRegions } from "../../utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "../../utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "../../hooks/useCanvasCoords";
@@ -58,43 +57,133 @@ import { useSyncRef } from "../../hooks/useSyncRef";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "../../hooks/useDragEndRecorder";
 import DocumentPicker from "../../components/DocumentPicker";
+import HistoryPanel from "../../components/HistoryPanel";
 import type { DocumentMeta } from "../../utils/types";
 import type { TreeNode } from "../../hooks/useFileExplorer";
+import { useFileActions } from "../../hooks/useFileActions";
+import { useFileExplorer } from "../../hooks/useFileExplorer";
+import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
+
+/** Bridge object that DesignView exposes to the shell for Header integration. */
+export interface DesignBridge {
+  isDirty: boolean;
+  title: string;
+  titleInputValue: string;
+  setTitleInputValue: (v: string) => void;
+  titleWidth: number | string;
+  setTitleWidth: (w: number | string) => void;
+  onTitleCommit: (value: string) => void;
+  onSave: () => void;
+  onDiscard: (e: React.MouseEvent) => void;
+  /** File-operation callbacks that the shell needs for the explorer. */
+  handleLoadFile: (fileName: string) => Promise<void>;
+  handleCreateFile: (parentPath?: string) => Promise<string | null>;
+  handleCreateFolder: (parentPath?: string) => Promise<string | null>;
+  handleDeleteFile: (path: string, event: React.MouseEvent) => void;
+  handleDeleteFolder: (path: string, event: React.MouseEvent) => void;
+  handleRenameFile: (oldPath: string, newName: string) => Promise<void>;
+  handleRenameFolder: (oldPath: string, newName: string) => Promise<void>;
+  handleDuplicateFile: (path: string) => Promise<void>;
+  handleMoveItem: (sourcePath: string, targetFolderPath: string) => Promise<void>;
+  handleConfirmAction: () => Promise<void>;
+  confirmAction: { type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null;
+  setConfirmAction: React.Dispatch<React.SetStateAction<{ type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null>>;
+}
+
+type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
+
+function AutoArrangeDropdown({ onSelect }: { onSelect: (algo: ArrangeAlgorithm) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const items: { key: ArrangeAlgorithm; label: string }[] = [
+    { key: "hierarchical-tb", label: "Hierarchical (Top \u2192 Bottom)" },
+    { key: "hierarchical-lr", label: "Hierarchical (Left \u2192 Right)" },
+    { key: "force", label: "Force-Directed" },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        title="Auto Arrange"
+        onClick={() => setOpen(!open)}
+      >
+        <LayoutGrid size={16} />
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              className="block w-full text-left px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={() => { onSelect(item.key); setOpen(false); }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const toggleClass = (active: boolean) =>
+  `flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+    active ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
+  }`;
 
 export interface DesignViewProps {
   focused: boolean;
   activeFile: string | null;
-  isDirty: boolean;
-  markDirty: (filePath: string, dirty: boolean) => void;
+  /** Full file explorer — DesignView owns file operations for design files. */
+  fileExplorer: ReturnType<typeof useFileExplorer>;
   /** Called when a document should be opened (the shell routes to DocumentView). */
   onOpenDocument: (path: string) => void;
   documents: DocumentMeta[];
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  /** File explorer state needed for persistence and file operations. */
-  fileExplorer: {
-    dirHandleRef: React.RefObject<FileSystemDirectoryHandle | null>;
-    tree: TreeNode[];
-  };
+  /** Called when a loaded diagram contains document attachments. */
+  onLoadDocuments: (docs: DocumentMeta[]) => void;
   /** Explorer collapsed state for minimap positioning */
   explorerCollapsed: boolean;
+  /** History panel collapsed state (shell manages sidebar layout) */
+  historyCollapsed: boolean;
+  /** Whether the sidebar is collapsed (for HistoryPanel rendering) */
+  sidebarCollapsed: boolean;
+  /** Toggle history collapsed state */
+  onToggleHistoryCollapse: () => void;
+  /** Bridge: notify the shell when isDirty or save/discard callbacks change */
+  onDesignBridge: (bridge: DesignBridge) => void;
 }
 
 export default function DesignView({
   focused,
   activeFile,
-  isDirty: isDirtyFromShell,
-  markDirty,
+  fileExplorer,
   onOpenDocument,
   documents,
   onAttachDocument,
   onDetachDocument,
   onCreateDocument,
-  fileExplorer,
+  onLoadDocuments,
   explorerCollapsed,
+  historyCollapsed,
+  sidebarCollapsed,
+  onToggleHistoryCollapse,
+  onDesignBridge,
 }: DesignViewProps) {
   // ─── Design State ───
   const [isLive, setIsLive] = useState(false);
@@ -143,6 +232,14 @@ export default function DesignView({
     oldId: string;
     updates: Record<string, unknown>;
     brokenFlows: FlowDef[];
+  } | null>(null);
+
+  // ─── Confirm action state (for delete/discard popovers) ───
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "delete-file" | "delete-folder" | "discard";
+    path?: string;
+    x: number;
+    y: number;
   } | null>(null);
 
   // ─── History ───
@@ -302,7 +399,7 @@ export default function DesignView({
     setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve, setFlows,
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
     activeFile,
-    markDirty,
+    fileExplorer.markDirty,
   );
 
   /** Apply a loaded/restored diagram to all state in one call. */
@@ -353,6 +450,52 @@ export default function DesignView({
   const handleGoToEntry = useCallback((index: number) => {
     applySnapshot(history.goToEntry(index));
   }, [history.goToEntry, applySnapshot]);
+
+  // ─── File Actions (save, load, create, delete, etc.) ───
+  const {
+    handleLoadFile, handleSave, handleCreateFile, handleCreateFolder,
+    handleDeleteFile, handleDeleteFolder, handleRenameFile, handleRenameFolder,
+    handleDuplicateFile, handleMoveItem, handleDiscard, handleConfirmAction,
+  } = useFileActions(
+    fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
+    confirmAction, setConfirmAction, canvasRef,
+    title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
+    documents,
+    onLoadDocuments,
+  );
+
+  // ─── Bridge: expose state to shell ───
+  const bridgeRef = useRef<DesignBridge | null>(null);
+  useEffect(() => {
+    const bridge: DesignBridge = {
+      isDirty,
+      title,
+      titleInputValue,
+      setTitleInputValue,
+      titleWidth,
+      setTitleWidth,
+      onTitleCommit: (v: string) => { setTitle(v); scheduleRecord("Edit title"); },
+      onSave: handleSave,
+      onDiscard: handleDiscard,
+      handleLoadFile,
+      handleCreateFile,
+      handleCreateFolder,
+      handleDeleteFile,
+      handleDeleteFolder,
+      handleRenameFile,
+      handleRenameFolder,
+      handleDuplicateFile,
+      handleMoveItem,
+      handleConfirmAction,
+      confirmAction,
+      setConfirmAction,
+    };
+    bridgeRef.current = bridge;
+    onDesignBridge(bridge);
+  }, [isDirty, title, titleInputValue, titleWidth, handleSave, handleDiscard,
+      handleLoadFile, handleCreateFile, handleCreateFolder, handleDeleteFile,
+      handleDeleteFolder, handleRenameFile, handleRenameFolder, handleDuplicateFile,
+      handleMoveItem, handleConfirmAction, confirmAction, onDesignBridge, scheduleRecord]);
 
   const { deleteSelection, confirmDeletion } = useDeletion(nodesRef, connectionsRef, flowsRef, {
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
@@ -692,7 +835,51 @@ export default function DesignView({
   }, [documents]);
 
   return (
-    <div className="flex-1 flex min-h-0 h-full">
+    <div className="flex-1 flex flex-col min-h-0 h-full">
+      {/* Design toolbar */}
+      {activeFile && (
+        <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1.5 bg-slate-50 border-b border-slate-200 z-10">
+          <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
+            <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
+              <Activity size={13} />
+              <span className="hidden xl:inline">Live</span>
+            </button>
+            <button onClick={() => setShowLabels(l => !l)} className={toggleClass(showLabels)} title="Toggle data line labels">
+              <Tag size={13} />
+              <span className="hidden xl:inline">Labels</span>
+            </button>
+          </div>
+          <button
+            onClick={() => setShowMinimap(m => !m)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+              showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
+            }`}
+            title="Toggle minimap"
+          >
+            <MapIcon size={13} />
+            <span className="hidden xl:inline">Minimap</span>
+          </button>
+
+          <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100">
+            <button onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom out">&minus;</button>
+            <button
+              onClick={() => setZoomTo(1)}
+              className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
+                Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+              }`}
+              title="Reset zoom to 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
+          </div>
+
+          <div className="h-5 w-px bg-slate-200" />
+          <AutoArrangeDropdown onSelect={handleAutoArrange} />
+        </div>
+      )}
+
+      <div className="flex-1 flex min-h-0">
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
@@ -713,7 +900,7 @@ export default function DesignView({
         {!activeFile ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e8ecf0] z-50">
             <div className="flex flex-col items-center gap-3 text-slate-400">
-              <Map size={48} strokeWidth={1} className="text-slate-300" />
+              <MapIcon size={48} strokeWidth={1} className="text-slate-300" />
               <p className="text-sm font-medium">No file open</p>
               <p className="text-xs text-slate-400">Open a file from the explorer to start editing</p>
             </div>
@@ -1404,6 +1591,7 @@ export default function DesignView({
           onClose={() => setPickerTarget(null)}
         />
       )}
+      </div>
     </div>
   );
 }
