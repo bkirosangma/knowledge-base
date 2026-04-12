@@ -67,7 +67,7 @@ export interface DesignViewProps {
   focused: boolean;
   activeFile: string | null;
   isDirty: boolean;
-  markDirty: () => void;
+  markDirty: (filePath: string, dirty: boolean) => void;
   /** Called when a document should be opened (the shell routes to DocumentView). */
   onOpenDocument: (path: string) => void;
   documents: DocumentMeta[];
