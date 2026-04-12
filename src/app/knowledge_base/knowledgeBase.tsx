@@ -331,7 +331,16 @@ function KnowledgeBaseInner() {
         onZoomChange={() => {}}
         onDiscard={handleDiscard}
         onSave={handleSave}
-        viewMode={activePaneType === "document" ? "document" : "diagram"}
+        activePaneType={activePaneType}
+        isSplit={panes.isSplit}
+        onToggleSplit={() => {
+          if (panes.isSplit) {
+            panes.exitSplit();
+          } else if (panes.leftPane) {
+            // Open a blank document pane in the right side
+            panes.enterSplit(panes.leftPane.filePath, panes.leftPane.fileType);
+          }
+        }}
       />
 
       {/* Hidden fallback input for browsers without File System Access API */}

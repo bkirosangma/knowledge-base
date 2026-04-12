@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { Save, RotateCcw, Activity, Tag, Map, LayoutGrid } from "lucide-react";
-import type { ViewMode } from "../utils/types";
+import { Save, RotateCcw, Activity, Tag, Map, LayoutGrid, Columns2 } from "lucide-react";
 
 type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
 
@@ -75,8 +74,12 @@ interface HeaderProps {
   onDiscard: (e: React.MouseEvent) => void;
   onSave: () => void;
   onAutoArrange?: (algorithm: "hierarchical-tb" | "hierarchical-lr" | "force") => void;
-  viewMode?: ViewMode;
-  onViewModeChange?: (mode: ViewMode) => void;
+  /** Which pane type is active — controls which toolbar controls are visible */
+  activePaneType?: "design" | "document" | "mixed";
+  /** Whether split mode is on */
+  isSplit?: boolean;
+  /** Toggle split mode */
+  onToggleSplit?: () => void;
 }
 
 export default function Header({
@@ -99,8 +102,9 @@ export default function Header({
   onDiscard,
   onSave,
   onAutoArrange,
-  viewMode,
-  onViewModeChange,
+  activePaneType = "design",
+  isSplit = false,
+  onToggleSplit,
 }: HeaderProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleMeasureRef = useRef<HTMLSpanElement>(null);
@@ -155,29 +159,20 @@ export default function Header({
 
       <div className="flex-1" />
 
-      {onViewModeChange && (
-        <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-100 gap-0.5">
-          {([
-            { mode: "diagram" as ViewMode, label: "Diagram" },
-            { mode: "split" as ViewMode, label: "Split" },
-            { mode: "document" as ViewMode, label: "Document" },
-          ]).map(({ mode, label }) => (
-            <button
-              key={mode}
-              onClick={() => onViewModeChange(mode)}
-              className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
-                viewMode === mode
-                  ? "bg-white shadow-sm text-blue-600 border border-slate-200"
-                  : "text-slate-500 hover:text-slate-700 border border-transparent"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {onToggleSplit && (
+        <button
+          onClick={onToggleSplit}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+            isSplit ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+          }`}
+          title={isSplit ? "Exit split view" : "Split view"}
+        >
+          <Columns2 size={13} />
+          <span className="hidden xl:inline">Split</span>
+        </button>
       )}
 
-      <div className={`flex items-center gap-3${viewMode === "document" ? " invisible pointer-events-none" : ""}`}>
+      <div className={`flex items-center gap-3${activePaneType === "document" ? " invisible pointer-events-none" : ""}`}>
           <div className="flex items-center gap-0.5 bg-slate-50 rounded-lg p-0.5 border border-slate-100">
             <button onClick={onToggleLive} className={toggleClass(isLive)} title="Toggle live data flow animation">
               <Activity size={13} />
