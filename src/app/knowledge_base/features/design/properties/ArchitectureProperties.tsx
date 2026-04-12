@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
 import { Section, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
@@ -148,7 +147,7 @@ export function ArchitectureProperties({
   title, regions, nodes, connections, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
   flows, onHoverFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,
-  documents, onOpenDocument, onAttachDocument, onDetachDocument,
+  backlinks, onOpenDocument,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -166,10 +165,8 @@ export function ArchitectureProperties({
   onHoverType?: (type: string | null) => void;
   expandedType?: string | null;
   onExpandType?: (type: string | null) => void;
-  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: (entityType: string, entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -314,14 +311,10 @@ export function ArchitectureProperties({
         </Section>
       )}
 
-      {documents && (
+      {backlinks && (
         <DocumentsSection
-          entityType="root"
-          entityId="root"
-          documents={documents}
+          backlinks={backlinks}
           onOpenDocument={onOpenDocument}
-          onAttachDocument={() => onAttachDocument?.("root", "root")}
-          onDetachDocument={onDetachDocument}
         />
       )}
     </>

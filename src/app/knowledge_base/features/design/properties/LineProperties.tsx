@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { NodeData, Connection, FlowDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
 import type { AnchorId } from "../utils/anchors";
 import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 import DocumentsSection from "./DocumentsSection";
@@ -54,7 +53,7 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 }
 
 export function LineProperties({
-  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, documents, onOpenDocument, onAttachDocument, onDetachDocument,
+  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onOpenDocument,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
@@ -62,10 +61,8 @@ export function LineProperties({
   flows?: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
   onHoverFlow?: (flowId: string | null) => void;
-  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: (entityType: string, entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const conn = connections.find((c) => c.id === id);
   if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
@@ -158,14 +155,10 @@ export function LineProperties({
         />
       </Section>
 
-      {documents && (
+      {backlinks && (
         <DocumentsSection
-          entityType="connection"
-          entityId={conn.id}
-          documents={documents}
+          backlinks={backlinks}
           onOpenDocument={onOpenDocument}
-          onAttachDocument={() => onAttachDocument?.("connection", conn.id)}
-          onDetachDocument={onDetachDocument}
         />
       )}
     </>

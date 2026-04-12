@@ -157,6 +157,8 @@ export interface DesignViewProps {
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
   /** Called when a loaded diagram contains document attachments. */
   onLoadDocuments: (docs: DocumentMeta[]) => void;
+  /** Backlinks from the link index for the current design file */
+  backlinks?: { sourcePath: string; section?: string }[];
   /** Explorer collapsed state for minimap positioning */
   explorerCollapsed: boolean;
   /** History panel collapsed state (shell manages sidebar layout) */
@@ -179,6 +181,7 @@ export default function DesignView({
   onDetachDocument,
   onCreateDocument,
   onLoadDocuments,
+  backlinks,
   explorerCollapsed,
   historyCollapsed,
   sidebarCollapsed,
@@ -1498,14 +1501,8 @@ export default function DesignView({
         onHoverType={setHoveredType}
         expandedType={expandedTypeInPanel}
         onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
-        documents={documents}
+        backlinks={backlinks}
         onOpenDocument={onOpenDocument}
-        onAttachDocument={(entityType, entityId) => {
-          setPickerTarget({ type: entityType, id: entityId });
-        }}
-        onDetachDocument={(docPath, entityType, entityId) => {
-          onDetachDocument(docPath, entityType, entityId);
-        }}
       />
 
       {/* Minimap */}

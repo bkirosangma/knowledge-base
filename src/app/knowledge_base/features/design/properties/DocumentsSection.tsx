@@ -1,66 +1,44 @@
 "use client";
 
 import React from "react";
-import { FileText, X, Plus } from "lucide-react";
-import type { DocumentMeta } from "../../document/types";
+import { FileText } from "lucide-react";
 import { Section } from "./shared";
 
 interface DocumentsSectionProps {
-  entityType: string;
-  entityId: string;
-  documents: DocumentMeta[];
+  backlinks: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: () => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }
 
 export default function DocumentsSection({
-  entityType,
-  entityId,
-  documents,
+  backlinks,
   onOpenDocument,
-  onAttachDocument,
-  onDetachDocument,
 }: DocumentsSectionProps) {
-  const attached = documents.filter(d =>
-    d.attachedTo?.some(a => a.type === entityType && a.id === entityId)
-  );
-
   return (
-    <Section title={`Documents${attached.length > 0 ? ` (${attached.length})` : ""}`}>
-      {attached.length > 0 ? (
+    <Section title={`References${backlinks.length > 0 ? ` (${backlinks.length})` : ""}`}>
+      {backlinks.length > 0 ? (
         <div className="flex flex-col gap-1">
-          {attached.map(doc => (
+          {backlinks.map((bl) => (
             <div
-              key={doc.id}
-              className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs group"
+              key={`${bl.sourcePath}#${bl.section ?? ""}`}
+              className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs"
             >
               <FileText size={12} className="text-emerald-500 flex-shrink-0" />
               <button
-                onClick={() => onOpenDocument?.(doc.filename)}
+                onClick={() => onOpenDocument?.(bl.sourcePath)}
                 className="text-blue-600 hover:underline truncate flex-1 text-left"
               >
-                {doc.filename.split("/").pop()}
-              </button>
-              <button
-                onClick={() => onDetachDocument?.(doc.filename, entityType, entityId)}
-                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Detach document"
-              >
-                <X size={12} />
+                {bl.sourcePath.split("/").pop()}
+                {bl.section ? ` #${bl.section}` : ""}
               </button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-slate-400">No documents attached</p>
+        <p className="text-[11px] text-slate-400">No documents reference this design</p>
       )}
-      <button
-        onClick={onAttachDocument}
-        className="mt-1.5 w-full text-[11px] text-blue-500 border border-dashed border-blue-300 rounded px-2 py-1 hover:bg-blue-50 flex items-center justify-center gap-1"
-      >
-        <Plus size={10} /> Attach document
-      </button>
+      <p className="mt-1.5 text-[10px] text-slate-400">
+        Add references via <code className="bg-slate-100 px-0.5 rounded">[[wiki-links]]</code> in documents
+      </p>
     </Section>
   );
 }

@@ -53,8 +53,8 @@ export default function DocumentView({
     const docEntry = linkManager.linkIndex.documents[docManager.activeDocPath];
     if (!docEntry) return null;
     const links: { target: string; section?: string }[] = [];
-    for (const target of docEntry.outboundLinks) {
-      links.push({ target });
+    for (const link of docEntry.outboundLinks) {
+      links.push({ target: link.targetPath });
     }
     for (const sl of docEntry.sectionLinks) {
       links.push({ target: sl.targetPath, section: sl.section });

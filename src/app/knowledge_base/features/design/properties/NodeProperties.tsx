@@ -1,6 +1,5 @@
 import { useMemo, type ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, FlowDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
 import type { LevelInfo } from "../utils/levelModel";
 import DocumentsSection from "./DocumentsSection";
 import { getDistinctTypes } from "../utils/typeUtils";
@@ -8,7 +7,7 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPicker
 import { AutocompleteInput } from "./AutocompleteInput";
 
 export function NodeProperties({
-  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, documents, onOpenDocument, onAttachDocument, onDetachDocument,
+  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
@@ -22,10 +21,8 @@ export function NodeProperties({
   onHoverFlow?: (flowId: string | null) => void;
   onCreateLayer?: (title: string) => string;
   onDeleteAnchor?: (nodeId: string, anchorIndex: number) => void;
-  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: (entityType: string, entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const node = nodes.find((n) => n.id === id);
   if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
@@ -275,14 +272,10 @@ export function NodeProperties({
         <Row label="Width" value={`${node.w}px`} />
       </Section>
 
-      {documents && (
+      {backlinks && (
         <DocumentsSection
-          entityType="node"
-          entityId={node.id}
-          documents={documents}
+          backlinks={backlinks}
           onOpenDocument={onOpenDocument}
-          onAttachDocument={() => onAttachDocument?.("node", node.id)}
-          onDetachDocument={onDetachDocument}
         />
       )}
     </>

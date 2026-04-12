@@ -54,8 +54,8 @@ export function resolveWikiLinkPath(
     normalized.push(part);
   }
   resolved = normalized.join("/");
-  // Append .md if no extension
-  if (!resolved.endsWith(".md")) {
+  // Append .md only if no file extension is present at all
+  if (!resolved.includes(".") || resolved.lastIndexOf(".") < resolved.lastIndexOf("/")) {
     resolved += ".md";
   }
   return resolved;

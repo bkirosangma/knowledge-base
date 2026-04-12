@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
 import type { AnchorId } from "../utils/anchors";
 import type { LevelMap } from "../utils/levelModel";
 import type { RegionBounds } from "./shared";
@@ -38,14 +37,12 @@ interface PropertiesPanelProps {
   onHoverType?: (type: string | null) => void;
   expandedType?: string | null;
   onExpandType?: (type: string | null) => void;
-  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: (entityType: string, entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
   hidden?: boolean;
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, documents, onOpenDocument, onAttachDocument, onDetachDocument, hidden }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -97,20 +94,18 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             onHoverType={onHoverType}
             expandedType={expandedType}
             onExpandType={onExpandType}
-            documents={documents}
+            backlinks={backlinks}
             onOpenDocument={onOpenDocument}
-            onAttachDocument={onAttachDocument}
-            onDetachDocument={onDetachDocument}
           />
         )}
         {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} documents={documents} onOpenDocument={onOpenDocument} onAttachDocument={onAttachDocument} onDetachDocument={onDetachDocument} />
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onOpenDocument={onOpenDocument} />
         )}
         {selection?.type === "layer" && (
-          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} documents={documents} onOpenDocument={onOpenDocument} onAttachDocument={onAttachDocument} onDetachDocument={onDetachDocument} />
+          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onOpenDocument={onOpenDocument} />
         )}
         {selection?.type === "line" && (
-          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} documents={documents} onOpenDocument={onOpenDocument} onAttachDocument={onAttachDocument} onDetachDocument={onDetachDocument} />
+          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onOpenDocument={onOpenDocument} />
         )}
         {selection?.type === "multi-node" && (
           <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>

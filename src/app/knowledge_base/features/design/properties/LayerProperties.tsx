@@ -1,19 +1,16 @@
 import type { NodeData, LayerDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, ColorSchemeRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
 
 export function LayerProperties({
-  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, documents, onOpenDocument, onAttachDocument, onDetachDocument,
+  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onOpenDocument,
 }: {
   id: string; regions: RegionBounds[]; nodes: NodeData[]; layerDefs: LayerDef[];
   onSelectNode?: (nodeId: string) => void;
   onUpdate?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
   allLayerIds: string[];
-  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
-  onAttachDocument?: (entityType: string, entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const region = regions.find((r) => r.id === id);
   if (!region) return <p className="text-xs text-slate-400">Layer not found.</p>;
@@ -63,14 +60,10 @@ export function LayerProperties({
         <Row label="Size" value={`${Math.round(region.width)} × ${Math.round(region.height)}`} />
       </Section>
 
-      {documents && (
+      {backlinks && (
         <DocumentsSection
-          entityType="type"
-          entityId={id}
-          documents={documents}
+          backlinks={backlinks}
           onOpenDocument={onOpenDocument}
-          onAttachDocument={() => onAttachDocument?.("type", id)}
-          onDetachDocument={onDetachDocument}
         />
       )}
     </>

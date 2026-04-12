@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { LinkIndex } from "../types";
+import type { LinkIndex, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { readTextFile, writeTextFile, getSubdirectoryHandle } from "../../../shared/hooks/useFileExplorer";
 
@@ -19,19 +19,23 @@ function getDocDir(docPath: string): string {
 }
 
 // Fix 2: Extract duplicated link-parsing logic
+function getLinkType(resolvedPath: string): "document" | "design" {
+  return resolvedPath.endsWith(".json") ? "design" : "document";
+}
+
 function buildDocumentEntry(
   content: string,
   docDir: string,
-): { outboundLinks: string[]; sectionLinks: { targetPath: string; section: string }[] } {
+): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
   const parsed = parseWikiLinks(content);
-  const outboundLinks: string[] = [];
+  const outboundLinks: OutboundLink[] = [];
   const sectionLinks: { targetPath: string; section: string }[] = [];
   for (const link of parsed) {
     const resolved = resolveWikiLinkPath(link.path, docDir);
     if (link.section) {
       sectionLinks.push({ targetPath: resolved, section: link.section });
     } else {
-      outboundLinks.push(resolved);
+      outboundLinks.push({ targetPath: resolved, type: getLinkType(resolved) });
     }
   }
   return { outboundLinks, sectionLinks };
@@ -40,11 +44,11 @@ function buildDocumentEntry(
 function rebuildBacklinks(index: LinkIndex): void {
   index.backlinks = {};
   for (const [sourcePath, entry] of Object.entries(index.documents)) {
-    for (const targetPath of entry.outboundLinks) {
-      if (!index.backlinks[targetPath]) {
-        index.backlinks[targetPath] = { linkedFrom: [] };
+    for (const link of entry.outboundLinks) {
+      if (!index.backlinks[link.targetPath]) {
+        index.backlinks[link.targetPath] = { linkedFrom: [] };
       }
-      index.backlinks[targetPath].linkedFrom.push({ sourcePath });
+      index.backlinks[link.targetPath].linkedFrom.push({ sourcePath });
     }
     for (const sl of entry.sectionLinks) {
       if (!index.backlinks[sl.targetPath]) {
@@ -131,7 +135,9 @@ export function useLinkIndex() {
     }
     // Update all outbound links that pointed to oldPath
     for (const entry of Object.values(index.documents)) {
-      entry.outboundLinks = entry.outboundLinks.map(p => p === oldPath ? newPath : p);
+      entry.outboundLinks = entry.outboundLinks.map(link =>
+        link.targetPath === oldPath ? { ...link, targetPath: newPath } : link
+      );
       entry.sectionLinks = entry.sectionLinks.map(sl =>
         sl.targetPath === oldPath ? { ...sl, targetPath: newPath } : sl
       );

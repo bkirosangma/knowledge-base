@@ -188,6 +188,7 @@ function KnowledgeBaseInner() {
             await docManager.createDocument(rootHandle, path);
           }}
           onLoadDocuments={docManager.setDocuments}
+          backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           explorerCollapsed={explorerCollapsed}
           historyCollapsed={historyCollapsed}
           sidebarCollapsed={explorerCollapsed}

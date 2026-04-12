@@ -8,8 +8,13 @@ export interface DocumentMeta {
   }[];
 }
 
+export interface OutboundLink {
+  targetPath: string;
+  type?: "document" | "design";
+}
+
 export interface LinkIndexEntry {
-  outboundLinks: string[];
+  outboundLinks: OutboundLink[];
   sectionLinks: { targetPath: string; section: string }[];
 }
 
