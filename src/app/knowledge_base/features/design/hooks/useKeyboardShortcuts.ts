@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { Selection, NodeData } from "../../../shared/utils/types";
+import type { Selection, NodeData } from "../types";
 import { toggleItemInSelection } from "../utils/selectionUtils";
 import type { PendingDeletion } from "./useDeletion";
 

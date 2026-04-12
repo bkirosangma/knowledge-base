@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { NodeData, Selection } from "../../../shared/utils/types";
+import type { NodeData, Selection } from "../types";
 import { clampLayerDelta, type LayerBounds } from "../utils/collisionUtils";
 import type { LevelMap } from "../utils/levelModel";
 import { LAYER_GAP } from "../utils/constants";

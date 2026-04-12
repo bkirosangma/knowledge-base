@@ -2,7 +2,7 @@
 
 import React from "react";
 import { FileText, X, Plus } from "lucide-react";
-import type { DocumentMeta } from "../../../shared/utils/types";
+import type { DocumentMeta } from "../../document/types";
 import { Section } from "./shared";
 
 interface DocumentsSectionProps {

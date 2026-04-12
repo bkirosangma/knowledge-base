@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { NodeData, LayerDef, Connection, Selection, FlowDef } from "../../../shared/utils/types";
+import type { NodeData, LayerDef, Connection, Selection, FlowDef } from "../types";
 import { findBrokenFlows } from "../utils/flowUtils";
 
 interface DeletionSetters {

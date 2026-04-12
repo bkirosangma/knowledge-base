@@ -1,4 +1,4 @@
-import type { LayerDef, NodeData, RegionBounds } from "../../../shared/utils/types";
+import type { LayerDef, NodeData, RegionBounds } from "../types";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./constants";
 
 export type { RegionBounds };

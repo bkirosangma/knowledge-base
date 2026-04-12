@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ResizeEdge } from "../components/Layer";
-import type { NodeData } from "../../../shared/utils/types";
+import type { NodeData } from "../types";
 import type { LevelMap } from "../utils/levelModel";
 import { LAYER_GAP } from "../utils/constants";
 import { snapToGrid } from "../utils/gridSnap";

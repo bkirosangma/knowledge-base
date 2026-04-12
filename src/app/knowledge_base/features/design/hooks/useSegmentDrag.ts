@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { Connection } from "../../../shared/utils/types";
+import type { Connection } from "../types";
 import { snapToGrid } from "../utils/gridSnap";
 
 interface DraggingSegment {

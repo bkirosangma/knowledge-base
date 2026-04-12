@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { FlowDef, Connection, NodeData } from "../../../shared/utils/types";
+import type { FlowDef, Connection, NodeData } from "../types";
 import { Section, EditableRow, EditableIdRow, ExpandableListRow } from "./shared";
 
 export function FlowProperties({

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { AnchorId } from "../utils/anchors";
 import { getAnchorPosition, findNearestAnchor } from "../utils/anchors";
-import type { NodeData, Connection } from "../../../shared/utils/types";
+import type { NodeData, Connection } from "../types";
 import { getNodeDims } from "../utils/geometry";
 import { validateConnection } from "../utils/connectionConstraints";
 

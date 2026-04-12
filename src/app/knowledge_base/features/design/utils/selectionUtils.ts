@@ -1,4 +1,4 @@
-import type { Selection, NodeData } from "../../../shared/utils/types";
+import type { Selection, NodeData } from "../types";
 import { rectsIntersect, lineIntersectsRect, type XYRect, type LineBounds } from "./geometry";
 
 interface RegionBounds { id: string; left: number; top: number; width: number; height: number }

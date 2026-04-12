@@ -1,4 +1,4 @@
-import type { NodeData, Connection } from "../../../shared/utils/types";
+import type { NodeData, Connection } from "../types";
 import { snapToGrid } from "./gridSnap";
 
 const RANK_SPACING = 180;

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import type { NodeData, Connection, LineCurveAlgorithm, FlowDef, DocumentMeta } from "../../../shared/utils/types";
+import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
 import { Section, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";

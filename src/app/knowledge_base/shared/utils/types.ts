@@ -1,86 +1,30 @@
-import type { ComponentType } from "react";
-import type { AnchorId } from "../../features/design/utils/anchors";
+// Re-export design types for backward compatibility
+export type {
+  NodeData,
+  SerializedNodeData,
+  LayerDef,
+  Connection,
+  FlowDef,
+  LineCurveAlgorithm,
+  Selection,
+  RegionBounds,
+} from "../../features/design/types";
 
-export interface NodeData {
-  id: string;
-  label: string;
-  sub?: string;
-  icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
-  x: number;
-  y: number;
-  w: number;
-  layer: string;
-  type?: string;
-  shape?: 'rect' | 'condition';
-  conditionOutCount?: number;
-  conditionSize?: 1 | 2 | 3 | 4 | 5;
-  rotation?: number;
-  borderColor?: string;
-  bgColor?: string;
-  textColor?: string;
-}
+// Re-export document types for backward compatibility
+export type {
+  DocumentMeta,
+  LinkIndex,
+  LinkIndexEntry,
+  BacklinkEntry,
+} from "../../features/document/types";
 
-export interface LayerDef {
-  id: string;
-  title: string;
-  bg: string;
-  border: string;
-  textColor?: string;
-}
+// Re-export getNodeHeight for backward compatibility
+export { getNodeHeight } from "../../features/design/utils/geometry";
 
-export interface FlowDef {
-  id: string;
-  name: string;
-  connectionIds: string[];
-  category?: string;
-}
+// --- Shared types (owned by this file) ---
 
-export interface Connection {
-  id: string;
-  from: string;
-  to: string;
-  fromAnchor: AnchorId;
-  toAnchor: AnchorId;
-  color: string;
-  label: string;
-  biDirectional?: boolean;
-  flowDuration?: number;
-  /** Position of the label along the path (0 = start, 1 = end, default 0.5 = midpoint) */
-  labelPosition?: number;
-  connectionType?: 'synchronous' | 'asynchronous';
-  waypoints?: { x: number; y: number }[];
-}
-
-export interface SerializedNodeData {
-  id: string;
-  label: string;
-  sub?: string;
-  icon: string;
-  x: number;
-  y: number;
-  w: number;
-  layer: string;
-  type?: string;
-  shape?: 'rect' | 'condition';
-  conditionOutCount?: number;
-  conditionSize?: 1 | 2 | 3 | 4 | 5;
-  rotation?: number;
-  borderColor?: string;
-  bgColor?: string;
-  textColor?: string;
-}
-
-export type Selection =
-  | { type: 'node'; id: string }
-  | { type: 'layer'; id: string }
-  | { type: 'line'; id: string }
-  | { type: 'multi-node'; ids: string[]; layer: string }
-  | { type: 'multi-layer'; ids: string[] }
-  | { type: 'multi-line'; ids: string[] }
-  | { type: 'flow'; id: string }
-  | null;
-
-export type LineCurveAlgorithm = "orthogonal" | "bezier" | "straight";
+import type { LayerDef, SerializedNodeData, Connection, LineCurveAlgorithm, FlowDef } from "../../features/design/types";
+import type { DocumentMeta } from "../../features/document/types";
 
 export interface DiagramData {
   title: string;
@@ -93,30 +37,7 @@ export interface DiagramData {
   documents?: DocumentMeta[];
 }
 
-export interface RegionBounds {
-  id: string;
-  title: string;
-  bg: string;
-  border: string;
-  textColor?: string;
-  left: number;
-  width: number;
-  top: number;
-  height: number;
-  empty: boolean;
-}
-
 export type ViewMode = 'diagram' | 'split' | 'document';
-
-export interface DocumentMeta {
-  id: string;
-  filename: string;       // relative path from vault root
-  title: string;
-  attachedTo?: {
-    type: 'root' | 'node' | 'connection' | 'flow' | 'type';
-    id: string;
-  }[];
-}
 
 export interface VaultConfig {
   version: string;
@@ -125,21 +46,4 @@ export interface VaultConfig {
   lastOpened: string;
 }
 
-export interface LinkIndexEntry {
-  outboundLinks: string[];
-  sectionLinks: { targetPath: string; section: string }[];
-}
-
-export interface BacklinkEntry {
-  linkedFrom: { sourcePath: string; section?: string }[];
-}
-
-export interface LinkIndex {
-  updatedAt: string;
-  documents: Record<string, LinkIndexEntry>;
-  backlinks: Record<string, BacklinkEntry>;
-}
-
 export type ExplorerFilter = 'all' | 'diagrams' | 'documents';
-
-export { getNodeHeight } from "../../features/design/utils/geometry";

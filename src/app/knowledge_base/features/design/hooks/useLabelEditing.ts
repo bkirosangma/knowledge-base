@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import type { NodeData, LayerDef, Connection } from "../../../shared/utils/types";
+import type { NodeData, LayerDef, Connection } from "../types";
 
 export function useLabelEditing(
   editingLabelBeforeRef: MutableRefObject<string>,

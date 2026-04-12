@@ -1,4 +1,4 @@
-import type { Connection, FlowDef } from "../../../shared/utils/types";
+import type { Connection, FlowDef } from "../types";
 
 /**
  * Check if a set of connections forms a contiguous (connected) graph.

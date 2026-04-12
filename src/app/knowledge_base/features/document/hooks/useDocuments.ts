@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { DocumentMeta } from "../../../shared/utils/types";
+import type { DocumentMeta } from "../types";
 import { readTextFile, writeTextFile } from "../../../shared/hooks/useFileExplorer";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 

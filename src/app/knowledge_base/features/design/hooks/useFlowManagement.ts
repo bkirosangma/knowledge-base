@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import type { Connection, FlowDef, Selection } from "../../../shared/utils/types";
+import type { Connection, FlowDef, Selection } from "../types";
 import { isContiguous, orderConnections } from "../utils/flowUtils";
 
 export function useFlowManagement(

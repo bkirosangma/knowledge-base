@@ -1,4 +1,4 @@
-import type { NodeData } from "../../../shared/utils/types";
+import type { NodeData } from "../types";
 
 /** Returns sorted unique non-empty type values from nodes */
 export function getDistinctTypes(nodes: NodeData[]): string[] {

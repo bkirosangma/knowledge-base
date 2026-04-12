@@ -1,4 +1,4 @@
-import type { FlowDef } from "../../../shared/utils/types";
+import type { FlowDef } from "../types";
 
 interface FlowBreakWarningModalProps {
   description: string;

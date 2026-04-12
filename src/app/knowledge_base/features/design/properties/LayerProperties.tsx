@@ -1,5 +1,5 @@
-import type { NodeData, DocumentMeta } from "../../../shared/utils/types";
-import type { LayerDef } from "../../../shared/utils/types";
+import type { NodeData, LayerDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, ColorSchemeRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
 

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef, DocumentMeta } from "../../../shared/utils/types";
+import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import type { AnchorId } from "../utils/anchors";
 import type { LevelMap } from "../utils/levelModel";
 import type { RegionBounds } from "./shared";

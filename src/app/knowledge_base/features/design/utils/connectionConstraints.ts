@@ -1,4 +1,4 @@
-import type { NodeData, Connection } from "../../../shared/utils/types";
+import type { NodeData, Connection } from "../types";
 
 /**
  * Validate whether a connection is allowed given condition element constraints.

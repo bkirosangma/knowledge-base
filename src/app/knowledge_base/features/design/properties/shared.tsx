@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ComponentType } from "re
 import { useEditableState } from "../../../shared/hooks/useEditableState";
 import { ChevronRight, X } from "lucide-react";
 import { getIcon, getIconNames } from "../utils/iconRegistry";
-import type { RegionBounds } from "../../../shared/utils/types";
+import type { RegionBounds } from "../types";
 
 export type { RegionBounds };
 

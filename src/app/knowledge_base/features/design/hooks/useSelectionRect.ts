@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { NodeData, Selection } from "../../../shared/utils/types";
+import type { NodeData, Selection } from "../types";
 import { resolveRectangleSelection, toggleRectangleSelection } from "../utils/selectionUtils";
 
 interface RegionBounds { id: string; left: number; top: number; width: number; height: number }

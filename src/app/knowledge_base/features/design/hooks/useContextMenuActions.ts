@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { Box } from "lucide-react";
-import type { NodeData, LayerDef, Selection, RegionBounds } from "../../../shared/utils/types";
-import { getNodeHeight } from "../../../shared/utils/types";
+import type { NodeData, LayerDef, Selection, RegionBounds } from "../types";
+import { getNodeHeight } from "../utils/geometry";
 import { DEFAULT_NODE_WIDTH, DEFAULT_LAYER_WIDTH, DEFAULT_LAYER_HEIGHT } from "../utils/constants";
 import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } from "../utils/collisionUtils";
 import { snapToGrid } from "../utils/gridSnap";

@@ -1,4 +1,4 @@
-import type { NodeData } from "../../../shared/utils/types";
+import type { NodeData } from "../types";
 import { getConditionDimensions } from "./conditionGeometry";
 
 /** Compute standard node height from its width */

@@ -1,6 +1,6 @@
 import { type AnchorId, getAnchorDirection } from "./anchors";
 import { computeOrthogonalPath } from "./orthogonalRouter";
-import type { LineCurveAlgorithm } from "../../../shared/utils/types";
+import type { LineCurveAlgorithm } from "../types";
 
 interface Rect {
   left: number;

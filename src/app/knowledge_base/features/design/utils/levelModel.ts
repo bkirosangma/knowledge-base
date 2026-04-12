@@ -1,4 +1,4 @@
-import type { NodeData, Connection } from "../../../shared/utils/types";
+import type { NodeData, Connection } from "../types";
 
 export interface LevelInfo {
   level: number;

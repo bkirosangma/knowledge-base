@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { NodeData, Connection, FlowDef, DocumentMeta } from "../../../shared/utils/types";
+import type { NodeData, Connection, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import type { AnchorId } from "../utils/anchors";
 import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 import DocumentsSection from "./DocumentsSection";

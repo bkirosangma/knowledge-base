@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import type { NodeData } from "../../../shared/utils/types";
+import type { NodeData } from "../types";
 
 export function useCanvasInteraction(
   nodesRef: MutableRefObject<NodeData[]>,

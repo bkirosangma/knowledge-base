@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../../../shared/utils/types";
+import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../types";
 import { saveDraft } from "../../../shared/utils/persistence";
 
 /**

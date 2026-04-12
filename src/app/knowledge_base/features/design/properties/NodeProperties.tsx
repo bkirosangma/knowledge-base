@@ -1,5 +1,6 @@
 import { useMemo, type ComponentType } from "react";
-import type { NodeData, Connection, LayerDef, FlowDef, DocumentMeta } from "../../../shared/utils/types";
+import type { NodeData, Connection, LayerDef, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import type { LevelInfo } from "../utils/levelModel";
 import DocumentsSection from "./DocumentsSection";
 import { getDistinctTypes } from "../utils/typeUtils";

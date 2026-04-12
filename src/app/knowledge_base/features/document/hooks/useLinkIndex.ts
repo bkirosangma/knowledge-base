@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { LinkIndex } from "../../../shared/utils/types";
+import type { LinkIndex } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { readTextFile, writeTextFile, getSubdirectoryHandle } from "../../../shared/hooks/useFileExplorer";
 

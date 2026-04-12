@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Box, Diamond, Boxes, Search } from "lucide-react";
-import type { NodeData } from "../../../shared/utils/types";
+import type { NodeData } from "../types";
 import { getDistinctTypes } from "../utils/typeUtils";
 
 const BRANCH_LEN = 44;

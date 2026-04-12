@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import type { NodeData, Connection, Selection } from "../../../shared/utils/types";
+import type { NodeData, Connection, Selection } from "../types";
 import type { AnchorId } from "../utils/anchors";
 import { getNodeAnchorPosition, getAnchorDirection, pickBestTargetAnchor } from "../utils/anchors";
 import { getNodesByType } from "../utils/typeUtils";
