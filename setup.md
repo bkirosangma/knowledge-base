@@ -50,27 +50,15 @@ This creates:
 - `memory/` — archetype preferences and topic registry
 - `.graphifyignore` — patterns excluded from indexing
 
-## 5. Optional: Install Graphify
+## 5. Optional: Compound Intelligence
 
-Graphify builds a knowledge graph from your vault content, enabling structural search and cross-reference discovery.
+The knowledge-base skill works on its own, but for enhanced content generation you can set up the compound intelligence layer. This connects three context systems — graphify (structural), claude-mem (temporal), and MEMORY.md (curated) — so the skill produces higher-quality output by avoiding duplication, reusing learned preferences, and cross-referencing existing vault content.
 
-```bash
-pip install graphify-ai
-```
+To set it up, follow the instructions at [claude-init](https://github.com/bkirosangma/claude-init).
 
-Once installed, the `/kb init` command automatically installs graphify hooks that rebuild the graph on file changes. You can also rebuild manually:
+Once configured, each session builds on prior work: graphify discovers relationships between your documents, claude-mem remembers past decisions and corrections, and MEMORY.md stores your preferred styles and conventions.
 
-```bash
-/graphify . --update
-```
-
-## 6. Optional: Claude-Mem
-
-Claude-mem provides persistent cross-session memory. It runs as an MCP server and is auto-started by Claude Code if the plugin is installed.
-
-Once active, it automatically captures decisions, bug fixes, and architectural choices from your sessions. The knowledge-base skill queries it for relevant past work before generating new content.
-
-## 7. Verify Setup
+## 6. Verify Setup
 
 1. **Dev server**: `npm run dev` should compile without errors and serve at `localhost:3000`
 2. **Build**: `npm run build` should complete successfully

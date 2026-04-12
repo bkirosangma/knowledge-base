@@ -96,11 +96,14 @@ This project includes a Claude Code skill (`/knowledge-base` or `/kb`) for gener
 /kb create "Microservices authentication flow"
 ```
 
-### Compound Intelligence
+### Compound Intelligence (Optional)
 
-The skill gathers context from three systems before generating content:
+For enhanced content generation, you can set up the compound intelligence layer using [claude-init](https://github.com/bkirosangma/claude-init). This adds three context systems that the skill queries before generating content:
+
 - **graphify** — structural knowledge graph of the vault (related docs, god nodes, communities)
 - **claude-mem** — temporal memory from past sessions (decisions, patterns, corrections)
 - **MEMORY.md** — curated preferences (archetype styles, icon mappings, topic registry)
+
+With compound intelligence enabled, the skill produces higher-quality output by avoiding duplication, reusing learned preferences, and cross-referencing existing vault content. Each session builds on prior work rather than starting from scratch.
 
 See [setup.md](setup.md) for full setup instructions.
