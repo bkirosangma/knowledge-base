@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import MarkdownPane from "../../components/MarkdownPane";
-import type { useDocuments } from "../../hooks/useDocuments";
-import type { useLinkIndex } from "../../hooks/useLinkIndex";
-import type { TreeNode } from "../../hooks/useFileExplorer";
+import MarkdownPane from "./components/MarkdownPane";
+import type { useDocuments } from "./hooks/useDocuments";
+import type { useLinkIndex } from "./hooks/useLinkIndex";
+import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 
 export interface DocumentViewProps {
   focused: boolean;

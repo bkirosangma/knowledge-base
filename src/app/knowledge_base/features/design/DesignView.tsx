@@ -5,63 +5,63 @@ import Canvas, {
   type CanvasPatch,
   fitToContent,
   getWorldSize,
-} from "../../components/Canvas";
-import Layer from "../../components/Layer";
-import Element from "../../components/Element";
-import DataLine, { interpolatePoints, closestT } from "../../components/DataLine";
-import { rectsOverlap } from "../../utils/collisionUtils";
-import FlowDots from "../../components/FlowDots";
-import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "../../utils/anchors";
-import { buildObstacles } from "../../utils/orthogonalRouter";
-import { computePath } from "../../utils/pathRouter";
-import { getNodeHeight } from "../../utils/types";
-import type { LineCurveAlgorithm, Selection, FlowDef } from "../../utils/types";
-import { isItemSelected } from "../../utils/selectionUtils";
-import { useSelectionRect } from "../../hooks/useSelectionRect";
-import PropertiesPanel from "../../components/properties/PropertiesPanel";
-import { loadDefaults, serializeNodes } from "../../utils/persistence";
-import { computeLevelMap } from "../../utils/levelModel";
-import { computeRegions } from "../../utils/layerBounds";
-import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "../../utils/constants";
-import { useCanvasCoords, VIEWPORT_PADDING } from "../../hooks/useCanvasCoords";
-import { useDiagramPersistence } from "../../hooks/useDiagramPersistence";
-import { useViewportPersistence } from "../../hooks/useViewportPersistence";
-import { useNodeDrag } from "../../hooks/useNodeDrag";
-import { useLayerDrag } from "../../hooks/useLayerDrag";
-import { useLayerResize } from "../../hooks/useLayerResize";
-import { useEndpointDrag } from "../../hooks/useEndpointDrag";
-import { useSegmentDrag } from "../../hooks/useSegmentDrag";
-import { hierarchicalLayout, forceDirectedLayout } from "../../utils/autoArrange";
-import { useLineDrag } from "../../hooks/useLineDrag";
-import Minimap from "../../components/Minimap";
-import ContextMenu, { type ContextMenuTarget } from "../../components/ContextMenu";
-import { useContextMenuActions } from "../../hooks/useContextMenuActions";
-import { useZoom } from "../../hooks/useZoom";
-import { useDeletion, type PendingDeletion } from "../../hooks/useDeletion";
-import { findBrokenFlowsByReconnect } from "../../utils/flowUtils";
-import { useFlowManagement } from "../../hooks/useFlowManagement";
-import { useLabelEditing } from "../../hooks/useLabelEditing";
-import { useAnchorConnections } from "../../hooks/useAnchorConnections";
-import { useCanvasInteraction } from "../../hooks/useCanvasInteraction";
-import { useCanvasEffects } from "../../hooks/useCanvasEffects";
-import { detectContextMenuTarget } from "../../utils/geometry";
-import DiagramControls from "../../components/DiagramControls";
-import AnchorPopupMenu from "../../components/AnchorPopupMenu";
-import ConditionElement from "../../components/ConditionElement";
-import FlowBreakWarningModal from "../../components/FlowBreakWarningModal";
-import { getConditionAnchors, getConditionDimensions } from "../../utils/conditionGeometry";
-import { loadDiagramFromData } from "../../utils/persistence";
-import { useActionHistory } from "../../hooks/useActionHistory";
-import type { DiagramSnapshot } from "../../hooks/useActionHistory";
-import { useSyncRef } from "../../hooks/useSyncRef";
-import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
-import { useDragEndRecorder } from "../../hooks/useDragEndRecorder";
-import DocumentPicker from "../../components/DocumentPicker";
-import HistoryPanel from "../../components/HistoryPanel";
-import type { DocumentMeta } from "../../utils/types";
-import type { TreeNode } from "../../hooks/useFileExplorer";
-import { useFileActions } from "../../hooks/useFileActions";
-import { useFileExplorer } from "../../hooks/useFileExplorer";
+} from "./components/Canvas";
+import Layer from "./components/Layer";
+import Element from "./components/Element";
+import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
+import { rectsOverlap } from "./utils/collisionUtils";
+import FlowDots from "./components/FlowDots";
+import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "./utils/anchors";
+import { buildObstacles } from "./utils/orthogonalRouter";
+import { computePath } from "./utils/pathRouter";
+import { getNodeHeight } from "../../shared/utils/types";
+import type { LineCurveAlgorithm, Selection, FlowDef } from "../../shared/utils/types";
+import { isItemSelected } from "./utils/selectionUtils";
+import { useSelectionRect } from "./hooks/useSelectionRect";
+import PropertiesPanel from "./properties/PropertiesPanel";
+import { loadDefaults, serializeNodes } from "../../shared/utils/persistence";
+import { computeLevelMap } from "./utils/levelModel";
+import { computeRegions } from "./utils/layerBounds";
+import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
+import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
+import { useDiagramPersistence } from "./hooks/useDiagramPersistence";
+import { useViewportPersistence } from "./hooks/useViewportPersistence";
+import { useNodeDrag } from "./hooks/useNodeDrag";
+import { useLayerDrag } from "./hooks/useLayerDrag";
+import { useLayerResize } from "./hooks/useLayerResize";
+import { useEndpointDrag } from "./hooks/useEndpointDrag";
+import { useSegmentDrag } from "./hooks/useSegmentDrag";
+import { hierarchicalLayout, forceDirectedLayout } from "./utils/autoArrange";
+import { useLineDrag } from "./hooks/useLineDrag";
+import Minimap from "./components/Minimap";
+import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
+import { useContextMenuActions } from "./hooks/useContextMenuActions";
+import { useZoom } from "./hooks/useZoom";
+import { useDeletion, type PendingDeletion } from "./hooks/useDeletion";
+import { findBrokenFlowsByReconnect } from "./utils/flowUtils";
+import { useFlowManagement } from "./hooks/useFlowManagement";
+import { useLabelEditing } from "./hooks/useLabelEditing";
+import { useAnchorConnections } from "./hooks/useAnchorConnections";
+import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
+import { useCanvasEffects } from "./hooks/useCanvasEffects";
+import { detectContextMenuTarget } from "./utils/geometry";
+import DiagramControls from "./components/DiagramControls";
+import AnchorPopupMenu from "./components/AnchorPopupMenu";
+import ConditionElement from "./components/ConditionElement";
+import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
+import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
+import { loadDiagramFromData } from "../../shared/utils/persistence";
+import { useActionHistory } from "../../shared/hooks/useActionHistory";
+import type { DiagramSnapshot } from "../../shared/hooks/useActionHistory";
+import { useSyncRef } from "../../shared/hooks/useSyncRef";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
+import DocumentPicker from "../../shared/components/DocumentPicker";
+import HistoryPanel from "./components/HistoryPanel";
+import type { DocumentMeta } from "../../shared/utils/types";
+import type { TreeNode } from "../../shared/hooks/useFileExplorer";
+import { useFileActions } from "../../shared/hooks/useFileActions";
+import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
@@ -207,7 +207,7 @@ export default function DesignView({
   const pendingSelection = useRef<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [contextMenu, setContextMenu] = useState<{ clientX: number; clientY: number; canvasX: number; canvasY: number; target: ContextMenuTarget } | null>(null);
-  const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("../../utils/anchors").AnchorId; edge: "top" | "right" | "bottom" | "left" } | null>(null);
+  const [anchorPopup, setAnchorPopup] = useState<{ clientX: number; clientY: number; nodeId: string; anchorId: import("./utils/anchors").AnchorId; edge: "top" | "right" | "bottom" | "left" } | null>(null);
   const anchorHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredFlowId, setHoveredFlowId] = useState<string | null>(null);
@@ -322,14 +322,14 @@ export default function DesignView({
     toCanvasCoords, setConnections, scheduleRecord,
   });
 
-  const onAnchorClick = useCallback((nodeId: string, anchorId: import("../../utils/anchors").AnchorId, clientX: number, clientY: number) => {
+  const onAnchorClick = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
     if (node.shape === "condition" && anchorId === "cond-in") return;
     setAnchorPopup({ clientX, clientY, nodeId, anchorId, edge: getAnchorEdge(anchorId) });
   }, [nodes]);
 
-  const handleAnchorHover = useCallback((nodeId: string, anchorId: import("../../utils/anchors").AnchorId, clientX: number, clientY: number) => {
+  const handleAnchorHover = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
     if (anchorDismissTimer.current) { clearTimeout(anchorDismissTimer.current); anchorDismissTimer.current = null; }
     if (anchorHoverTimer.current) clearTimeout(anchorHoverTimer.current);
     anchorHoverTimer.current = setTimeout(() => {
@@ -522,7 +522,7 @@ export default function DesignView({
       .map((c) => {
         if (c.from === nodeId && c.fromAnchor.startsWith("cond-out-")) {
           const idx = parseInt(c.fromAnchor.split("-")[2]);
-          if (idx > anchorIndex) return { ...c, fromAnchor: `cond-out-${idx - 1}` as import("../../utils/anchors").AnchorId };
+          if (idx > anchorIndex) return { ...c, fromAnchor: `cond-out-${idx - 1}` as import("./utils/anchors").AnchorId };
         }
         return c;
       })
@@ -741,7 +741,7 @@ export default function DesignView({
     if (node.shape === "condition") {
       return getNodeAnchorPosition(anchorId, node.x, node.y, dims.w, dims.h, node.shape, node.conditionOutCount, node.rotation);
     }
-    return getAnchorPosition(anchorId as import("../../utils/anchors").AnchorId, node.x, node.y, dims.w, dims.h);
+    return getAnchorPosition(anchorId as import("./utils/anchors").AnchorId, node.x, node.y, dims.w, dims.h);
   }, []);
 
   // Compute lines
@@ -1041,7 +1041,7 @@ export default function DesignView({
               const dims = getNodeDimensions(node);
               const isCondition = node.shape === "condition";
               const anchors = isCondition
-                ? getConditionAnchors(node.x, node.y, dims.w, dims.h, node.conditionOutCount ?? 2, node.rotation ?? 0).map((a) => ({ id: a.id as import("../../utils/anchors").AnchorId, x: a.x, y: a.y }))
+                ? getConditionAnchors(node.x, node.y, dims.w, dims.h, node.conditionOutCount ?? 2, node.rotation ?? 0).map((a) => ({ id: a.id as import("./utils/anchors").AnchorId, x: a.x, y: a.y }))
                 : getAnchors(node.x, node.y, dims.w, dims.h);
               const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id
                 || creatingLine?.snappedAnchor?.nodeId === node.id;

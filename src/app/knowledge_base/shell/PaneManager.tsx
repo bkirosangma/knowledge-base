@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import SplitPane from "../components/SplitPane";
+import SplitPane from "../shared/components/SplitPane";
 import { useToolbarContext } from "./ToolbarContext";
 import type { PaneType, FocusedPane } from "./ToolbarContext";
 

@@ -41,6 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 src/app/architecture_designer/data
+src/app/knowledge_base/data
 graphify-out
 CLAUDE.md
 .claude
