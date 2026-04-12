@@ -73,3 +73,34 @@ src/app/knowledge_base/
   shell/          # Toolbar context, pane manager
   types/          # File System API type declarations
 ```
+
+## Using with Claude Code
+
+This project includes a Claude Code skill (`/knowledge-base` or `/kb`) for generating diagrams and documents from natural language.
+
+### Sub-commands
+
+| Command | Description |
+|---------|-------------|
+| `/kb init [path]` | Initialize a new vault with config, memory, and graphify hooks |
+| `/kb diagram <topic>` | Generate an architecture diagram (JSON) on any topic |
+| `/kb document <topic> [-i]` | Generate a markdown document (`-i` for interactive mode) |
+| `/kb create <topic> [-i]` | Generate both a document and diagram, cross-linked via wiki-links |
+
+### Examples
+
+```
+/kb init ~/vaults/distributed-systems
+/kb diagram "Kubernetes pod lifecycle"
+/kb document "Event sourcing patterns" -i
+/kb create "Microservices authentication flow"
+```
+
+### Compound Intelligence
+
+The skill gathers context from three systems before generating content:
+- **graphify** — structural knowledge graph of the vault (related docs, god nodes, communities)
+- **claude-mem** — temporal memory from past sessions (decisions, patterns, corrections)
+- **MEMORY.md** — curated preferences (archetype styles, icon mappings, topic registry)
+
+See [setup.md](setup.md) for full setup instructions.
