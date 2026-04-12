@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import type { LinkIndex, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { readTextFile, writeTextFile, getSubdirectoryHandle } from "../../../shared/hooks/useFileExplorer";
+import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
 
 const LINKS_FILE = "_links.json";
 const CONFIG_DIR = ".archdesigner";
@@ -39,6 +40,22 @@ function buildDocumentEntry(
     }
   }
   return { outboundLinks, sectionLinks };
+}
+
+function collectCrossReferences(index: LinkIndex): CrossReference[] {
+  const refs: CrossReference[] = [];
+  for (const [source, entry] of Object.entries(index.documents)) {
+    for (const link of entry.outboundLinks) {
+      refs.push({
+        source,
+        target: link.targetPath,
+        type: "references",
+        sourceType: "document",
+        targetType: link.type ?? "document",
+      });
+    }
+  }
+  return refs;
 }
 
 function rebuildBacklinks(index: LinkIndex): void {
@@ -106,6 +123,7 @@ export function useLinkIndex() {
     index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
+    emitCrossReferences(rootHandle, collectCrossReferences(index));
     return index;
   }, [linkIndex, saveIndex]);
 
@@ -174,6 +192,7 @@ export function useLinkIndex() {
     }
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
+    emitCrossReferences(rootHandle, collectCrossReferences(index));
     return index;
   }, [saveIndex]);
 
