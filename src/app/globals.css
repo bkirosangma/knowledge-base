@@ -89,7 +89,8 @@ body {
 
 /* Code blocks */
 .markdown-editor .ProseMirror pre {
-  background: #1e293b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 1rem 1.25rem;
   margin: 1rem 0;
@@ -101,7 +102,8 @@ body {
   padding: 0;
   border-radius: 0;
   font-size: 0.875rem;
-  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  color: #334155;
   line-height: 1.6;
 }
 

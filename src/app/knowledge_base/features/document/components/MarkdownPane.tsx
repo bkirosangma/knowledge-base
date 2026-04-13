@@ -76,7 +76,7 @@ export default function MarkdownPane({
 
         <div className="flex-1" />
 
-        {/* Read-only toggle */}
+        {/* Read Mode toggle */}
         <button
           onClick={() => setReadOnly((v) => !v)}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
@@ -84,11 +84,12 @@ export default function MarkdownPane({
               ? "bg-white shadow-sm text-blue-600 border-slate-200"
               : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
           }`}
-          title={readOnly ? "Unlock editing" : "Lock (read-only)"}
+          title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
           aria-pressed={readOnly}
-          aria-label={readOnly ? "Unlock editing" : "Lock (read-only)"}
+          aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
         >
           {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+          <span>Read Mode</span>
         </button>
 
         {/* Backlinks indicator */}

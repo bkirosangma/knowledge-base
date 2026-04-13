@@ -15,6 +15,7 @@ import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
 import { WikiLink } from "../extensions/wikiLink";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
+import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
 import {
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered,
@@ -139,7 +140,9 @@ export default function MarkdownEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
+        codeBlock: false,
       }),
+      CodeBlockWithCopy,
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
@@ -202,6 +205,9 @@ export default function MarkdownEditor({
     }
   }, [editor, readOnly]);
 
+  // Read mode always shows rich text; raw mode is only honored when editable.
+  const showRaw = isRawMode && !readOnly;
+
   // Update wiki-link extension options when doc paths change
   useEffect(() => {
     if (editor) {
@@ -252,7 +258,8 @@ export default function MarkdownEditor({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Toolbar ── */}
+      {/* ── Toolbar (hidden in read-only mode) ── */}
+      {!readOnly && (
       <div className="flex items-center gap-0.5 px-2 py-1 border-b border-slate-200 bg-slate-50 flex-wrap">
         {/* Mode toggle */}
         <div className="flex items-center gap-1 mr-1 text-xs">
@@ -338,14 +345,14 @@ export default function MarkdownEditor({
           </>
         )}
       </div>
+      )}
 
       {/* ── Editor content ── */}
       <div className="flex-1 overflow-auto">
-        {isRawMode ? (
+        {showRaw ? (
           <textarea
             value={rawContent}
             onChange={handleRawChange}
-            readOnly={readOnly}
             className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-slate-100 resize-none outline-none"
             spellCheck={false}
           />
