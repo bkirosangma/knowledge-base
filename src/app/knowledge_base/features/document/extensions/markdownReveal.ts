@@ -68,6 +68,7 @@ export const MarkdownReveal = Extension.create({
   name: "markdownReveal",
 
   addProseMirrorPlugins() {
+    const editor = this.editor;
     return [
       new Plugin({
         key: pluginKey,
@@ -78,6 +79,10 @@ export const MarkdownReveal = Extension.create({
 
           const { selection, doc, schema } = newState;
           const $head = selection.$head;
+
+          // Raw-reveal is disabled when the editor isn't editable.
+          // Existing rawBlocks are still restored to rich content below.
+          const canReveal = editor.isEditable;
 
           // ── Locate existing rawBlock (at most one) ──
           let raw: { pos: number; node: ProseMirrorNode } | null = null;
@@ -94,11 +99,14 @@ export const MarkdownReveal = Extension.create({
             curNode = $head.node(1);
           }
 
-          // Cursor is already in the rawBlock → nothing to do
-          if (raw && curPos === raw.pos) return null;
+          // Cursor already in the rawBlock AND reveal is still allowed → keep it raw
+          if (raw && curPos === raw.pos && canReveal) return null;
 
-          // Nothing to restore AND nothing convertible → bail
-          const wantConvert = curNode && CONVERTIBLE.has(curNode.type.name);
+          // Convert only when allowed AND cursor is on a convertible block
+          const wantConvert =
+            canReveal && curNode && CONVERTIBLE.has(curNode.type.name);
+
+          // Nothing to restore AND not converting → bail
           if (!raw && !wantConvert) return null;
 
           const tr = newState.tr;

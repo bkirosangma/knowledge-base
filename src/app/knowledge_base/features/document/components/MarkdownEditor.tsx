@@ -191,10 +191,14 @@ export default function MarkdownEditor({
   }, [content, editor]);
 
   // Sync editable state when readOnly prop changes (Tiptap's `editable` option
-  // is only read at init — later changes require setEditable).
+  // is only read at init — later changes require setEditable). When locking,
+  // dispatch a no-op transaction so the markdownReveal plugin re-runs with the
+  // new isEditable value and restores any currently-visible rawBlock.
   useEffect(() => {
-    if (editor) {
-      editor.setEditable(!readOnly);
+    if (!editor) return;
+    editor.setEditable(!readOnly);
+    if (readOnly) {
+      editor.view.dispatch(editor.state.tr);
     }
   }, [editor, readOnly]);
 
