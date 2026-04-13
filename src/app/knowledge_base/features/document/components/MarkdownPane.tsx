@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, ArrowLeft, ChevronRight } from "lucide-react";
+import { FileText, ArrowLeft, ChevronRight, Lock, LockOpen } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
 
 interface MarkdownPaneProps {
@@ -37,6 +37,7 @@ export default function MarkdownPane({
   const [showBacklinks, setShowBacklinks] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(title);
+  const [readOnly, setReadOnly] = useState(false);
 
   if (!filePath) {
     return (
@@ -74,6 +75,21 @@ export default function MarkdownPane({
         </div>
 
         <div className="flex-1" />
+
+        {/* Read-only toggle */}
+        <button
+          onClick={() => setReadOnly((v) => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+            readOnly
+              ? "bg-white shadow-sm text-blue-600 border-slate-200"
+              : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+          }`}
+          title={readOnly ? "Unlock editing" : "Lock (read-only)"}
+          aria-pressed={readOnly}
+          aria-label={readOnly ? "Unlock editing" : "Lock (read-only)"}
+        >
+          {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+        </button>
 
         {/* Backlinks indicator */}
         {backlinks.length > 0 && (
@@ -140,6 +156,7 @@ export default function MarkdownPane({
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
           allDocPaths={allDocPaths}
+          readOnly={readOnly}
         />
       </div>
     </div>

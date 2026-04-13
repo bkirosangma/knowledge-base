@@ -190,6 +190,14 @@ export default function MarkdownEditor({
     }
   }, [content, editor]);
 
+  // Sync editable state when readOnly prop changes (Tiptap's `editable` option
+  // is only read at init — later changes require setEditable).
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   // Update wiki-link extension options when doc paths change
   useEffect(() => {
     if (editor) {
