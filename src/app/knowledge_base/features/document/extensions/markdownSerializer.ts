@@ -22,6 +22,13 @@ function nodeToMarkdown(node: Node): string {
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   const el = node as HTMLElement;
+  // Raw-reveal blocks render as their original tag (p/h1-6/blockquote) to
+  // preserve surrounding spacing, but their text content is already markdown.
+  // Emit the children as-is so the outer tag's prefix isn't applied twice.
+  if (el.hasAttribute("data-raw-block")) {
+    const inner = Array.from(el.childNodes).map(nodeToMarkdown).join("");
+    return `${inner}\n\n`;
+  }
   const tag = el.tagName.toLowerCase();
   const children = Array.from(el.childNodes).map(nodeToMarkdown).join("");
 

@@ -45,14 +45,26 @@ export const RawBlock = TiptapNode.create({
   addAttributes() {
     return {
       originalType: { default: "paragraph" },
+      originalLevel: { default: null },
     };
   },
   parseHTML() {
-    return [{ tag: "div[data-raw-block]" }];
+    return [{ tag: "[data-raw-block]", priority: 1000 }];
   },
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
+    const { originalType, originalLevel } = node.attrs as {
+      originalType: string;
+      originalLevel: number | null;
+    };
+    let tag = "p";
+    if (originalType === "heading") {
+      const lvl = Math.min(Math.max(Number(originalLevel) || 1, 1), 6);
+      tag = `h${lvl}`;
+    } else if (originalType === "blockquote") {
+      tag = "blockquote";
+    }
     return [
-      "div",
+      tag,
       { ...HTMLAttributes, "data-raw-block": "", class: "md-raw-block" },
       0,
     ];
@@ -133,7 +145,10 @@ export const MarkdownReveal = Extension.create({
           if (curNode && wantConvert) {
             const md = blockToMarkdown(curNode);
             const rawNode = schema.nodes.rawBlock.create(
-              { originalType: curNode.type.name },
+              {
+                originalType: curNode.type.name,
+                originalLevel: curNode.attrs?.level ?? null,
+              },
               md ? schema.text(md) : undefined,
             );
 
@@ -142,10 +157,16 @@ export const MarkdownReveal = Extension.create({
             const mEnd = tr.mapping.map(curPos + curNode.nodeSize);
             tr.replaceWith(mPos, mEnd, rawNode);
 
-            // Place cursor at the end of the raw text
+            // If the cursor moved into this block from above (moving down),
+            // land at the start; otherwise keep the previous behavior (end).
+            const oldHead = oldState.selection.$head;
+            const oldBlockPos = oldHead.depth >= 1 ? oldHead.before(1) : -1;
+            const movingDown = oldBlockPos >= 0 && curPos > oldBlockPos;
             try {
-              const textEnd = mPos + 1 + (md ? md.length : 0);
-              tr.setSelection(TextSelection.create(tr.doc, textEnd));
+              const targetPos = movingDown
+                ? mPos + 1
+                : mPos + 1 + (md ? md.length : 0);
+              tr.setSelection(TextSelection.create(tr.doc, targetPos));
             } catch {
               // position out of bounds — leave selection as-is
             }
