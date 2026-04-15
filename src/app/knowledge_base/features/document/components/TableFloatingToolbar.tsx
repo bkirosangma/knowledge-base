@@ -21,7 +21,7 @@ interface Props {
    *  toolbar is absolutely positioned relative to this element and rides
    *  its scroll. `useRef<HTMLDivElement>(null)` in the consumer produces
    *  the matching type. */
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const SIZE = 14;

@@ -19,6 +19,7 @@ import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
 import { LinkEditorPopover } from "./LinkEditorPopover";
+import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import {
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered,
   CheckSquare, Heading1, Heading2, Heading3, Minus, Link as LinkIcon,
@@ -78,7 +79,13 @@ const RawAwareTaskItem = TaskItem.extend({
 });
 
 /* ── Interactive table size picker (Excel-style grid) ── */
-function TablePicker({ onSelect }: { onSelect: (rows: number, cols: number) => void }) {
+function TablePicker({
+  onSelect,
+  disabled,
+}: {
+  onSelect: (rows: number, cols: number) => void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -94,9 +101,20 @@ function TablePicker({ onSelect }: { onSelect: (rows: number, cols: number) => v
     return () => window.removeEventListener("mousedown", close);
   }, [open]);
 
+  // Auto-close the popover if the picker becomes disabled while open (e.g.,
+  // user clicked into a table while the popover was showing).
+  useEffect(() => {
+    if (disabled && open) setOpen(false);
+  }, [disabled, open]);
+
   return (
     <div ref={ref} className="relative">
-      <TBtn onClick={() => setOpen(!open)} active={open} title="Insert table">
+      <TBtn
+        onClick={() => { if (!disabled) setOpen(!open); }}
+        active={open && !disabled}
+        disabled={disabled}
+        title={disabled ? "Insert table (not allowed inside a table)" : "Insert table"}
+      >
         <TableIcon size={15} />
       </TBtn>
       {open && (
@@ -152,6 +170,10 @@ export default function MarkdownEditor({
   const [rawContent, setRawContent] = useState(content);
   const [, forceUpdate] = useState(0);
   const rawSwapRef = useRef(false);
+  // Ref to the scrollable wrapper around <EditorContent>. Passed to the
+  // floating table toolbar so it can position itself in the same scroll
+  // context as the table it anchors to.
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   // Debounce handle for the heavy htmlToMarkdown + onChange round-trip that
   // fires on every keystroke. See docs/perf-analysis-2026-04-15.md #1.
   const pendingChangeRef = useRef<number | null>(null);
@@ -438,14 +460,14 @@ export default function MarkdownEditor({
             <TBtn onClick={addLink} active={editor.isActive("link")} title="Insert link">
               <LinkIcon size={sz} />
             </TBtn>
-            <TablePicker onSelect={addTable} />
+            <TablePicker onSelect={addTable} disabled={editor.isActive("table")} />
           </>
         )}
       </div>
       )}
 
       {/* ── Editor content ── */}
-      <div className="flex-1 overflow-auto">
+      <div ref={editorContainerRef} className="flex-1 overflow-auto relative">
         {showRaw ? (
           <textarea
             value={rawContent}
@@ -454,10 +476,13 @@ export default function MarkdownEditor({
             spellCheck={false}
           />
         ) : (
-          <EditorContent
-            editor={editor}
-            className="markdown-editor h-full overflow-auto"
-          />
+          <>
+            <EditorContent
+              editor={editor}
+              className="markdown-editor h-full overflow-auto"
+            />
+            <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
+          </>
         )}
       </div>
 
