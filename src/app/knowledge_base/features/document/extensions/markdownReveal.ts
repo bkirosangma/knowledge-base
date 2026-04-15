@@ -5,6 +5,7 @@
 
 import { Extension, Node as TiptapNode } from "@tiptap/react";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DOMParser as PMDOMParser, Fragment } from "@tiptap/pm/model";
 import type {
   Mark,
@@ -14,6 +15,7 @@ import type {
 import { markdownToHtml } from "./markdownSerializer";
 
 const pluginKey = new PluginKey("markdownReveal");
+const syntaxKey = new PluginKey<DecorationSet>("markdownRevealSyntax");
 
 // Block types that can be converted to raw editing mode
 const CONVERTIBLE = new Set(["paragraph", "heading", "blockquote"]);
@@ -74,17 +76,15 @@ function richBlockToRawFragment(
           // Preserve the link mark on this run verbatim.
           children.push(schema.text(child.text, [linkMark]));
         } else {
-          // Flatten non-link marks to raw syntax chars, then keep those
-          // marks on the wrapped text so the syntax chars share the
-          // same visual style — `**bold**` still renders bold inside
-          // the rawBlock instead of dropping to plain text.
+          // Flatten non-link marks to raw syntax chars. We deliberately do
+          // NOT carry the original marks across — the syntax-highlight
+          // decoration plugin re-derives `<strong>/<em>/<s>/<code>` from the
+          // syntax chars on every doc change, so keeping the marks would
+          // double-render (e.g. `<code><code>...</code></code>`) and would
+          // also keep the styling alive after the user deletes a syntax
+          // char, since marks aren't tied to the regex match.
           const raw = marksToRawMarkdown(child.text, child.marks);
-          if (raw) {
-            const visualMarks = child.marks.filter(
-              (m) => m.type.name !== "link",
-            );
-            children.push(schema.text(raw, visualMarks));
-          }
+          if (raw) children.push(schema.text(raw));
         }
       } else if (wikiLinkType && child.type === wikiLinkType) {
         // Preserve wikiLink atoms; their markdown form is [[path]] which would
@@ -189,6 +189,78 @@ function rawBlockToRichNodes(
   return nodes;
 }
 
+/* ── Live syntax highlighting decorations ── */
+//
+// `code: true` blocks input rules from converting `**x**` into a bold mark, so
+// the user sees the asterisks while typing. But until the cursor leaves the
+// block we'd otherwise show plain text and only reveal the styling on exit.
+// To get an "as-soon-as-syntax-completes" feel like Typora, we scan the
+// rawBlock's text on every doc change and add inline decorations that wrap
+// matched ranges in `<strong>/<em>/<s>/<code>`. Decorations are pure visual —
+// they don't mutate the doc, don't trigger transactions, and use the editor's
+// existing mark CSS for free.
+
+// Triple-asterisk first so `***x***` gets BOTH bold and italic; the longer
+// match takes precedence and the bold/italic single passes skip overlaps.
+const SYNTAX_PATTERNS: Array<{ re: RegExp; tags: string[] }> = [
+  { re: /\*\*\*([^*\n]+?)\*\*\*/g, tags: ["strong", "em"] },
+  { re: /\*\*([^*\n]+?)\*\*/g, tags: ["strong"] },
+  // Italic single `*`: lookbehind/ahead avoid catching the inner `*` of `**`.
+  { re: /(?<!\*)\*(?!\*)([^*\n]+?)(?<!\*)\*(?!\*)/g, tags: ["em"] },
+  { re: /~~([^~\n]+?)~~/g, tags: ["s"] },
+  { re: /`([^`\n]+?)`/g, tags: ["code"] },
+];
+
+function pushSyntaxDecorations(
+  text: string,
+  basePos: number,
+  out: Decoration[],
+) {
+  // `consumed` ranges are relative to `text` (not absolute doc pos). We only
+  // skip ranges fully inside an earlier match — partial overlap (e.g. the
+  // outer `**` of `**bold *italic***`) still gets its own decoration so the
+  // user sees stacked styles where the syntax overlaps.
+  const consumed: Array<[number, number]> = [];
+  const isInside = (s: number, e: number) =>
+    consumed.some(([cs, ce]) => s >= cs && e <= ce);
+
+  for (const { re, tags } of SYNTAX_PATTERNS) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const start = m.index;
+      const end = start + m[0].length;
+      if (isInside(start, end)) continue;
+      consumed.push([start, end]);
+      for (const tag of tags) {
+        out.push(
+          Decoration.inline(basePos + start, basePos + end, { nodeName: tag }),
+        );
+      }
+    }
+  }
+}
+
+function buildSyntaxDecorations(doc: ProseMirrorNode): DecorationSet {
+  const decorations: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name !== "rawBlock") return true;
+    // Walk direct children of the rawBlock and run syntax matchers per text
+    // node. `relPos` tracks position relative to the rawBlock's content; the
+    // absolute doc position is `pos + 1 + relPos` (the +1 enters the
+    // rawBlock).
+    let relPos = 0;
+    node.forEach((child) => {
+      if (child.isText && child.text != null) {
+        pushSyntaxDecorations(child.text, pos + 1 + relPos, decorations);
+      }
+      relPos += child.nodeSize;
+    });
+    return false;
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
 /* ── Raw editing block node ── */
 
 export const RawBlock = TiptapNode.create({
@@ -198,6 +270,14 @@ export const RawBlock = TiptapNode.create({
   content: "(text | wikiLink)*",
   defining: true,
   isolating: true,
+  // `code: true` opts the rawBlock out of TipTap's input rules — without it,
+  // typing `**bold**` inside the rawBlock would fire the bold input rule,
+  // strip the asterisks, and apply a bold mark instead. On exit the rawBlock
+  // serializes to plain text, so the bold would silently vanish. Same logic
+  // for `*italic*`, `~~strike~~`, `` `code` ``, headings, lists, etc. As a
+  // bonus this also flips paste handling to plain-text and switches the
+  // node's whitespace mode to `pre`, both of which match raw editing intent.
+  code: true,
   addAttributes() {
     return {
       originalType: { default: "paragraph" },
@@ -225,15 +305,15 @@ export const RawBlock = TiptapNode.create({
       0,
     ];
   },
-  // Inline marks are kept inside the rawBlock so the syntax characters
-  // share the same visual styling as the original text — `**bold**`
-  // stays bold, `*italic*` stays italic, `` `code` `` stays monospace.
-  // Round-tripping still works because rawBlockToRichNodes serializes the
-  // text content (including the wrapping `**`/`*`/`` ` ``) and re-parses
-  // through markdown-it, so the marks are reconstructed by the parser
-  // rather than read off the rawBlock's own marks.
+  // Only the link mark is allowed inside a rawBlock. Visual styling for
+  // bold/italic/strike/code comes from the syntax-highlight decoration
+  // plugin (via `<strong>/<em>/<s>/<code>` wrappers), which re-derives the
+  // styling from the syntax chars on every doc change — that keeps it in
+  // sync as the user types/deletes. Allowing the marks here would (a)
+  // double-render with the decorations, and (b) leak styling past the
+  // syntax (e.g. deleting a `*` would keep the bold mark in place).
   extendNodeSchema() {
-    return { marks: "bold italic strike code link" };
+    return { marks: "link" };
   },
 });
 
@@ -394,6 +474,23 @@ export const MarkdownReveal = Extension.create({
           tr.setMeta("rawSwap", true);
           tr.setMeta("addToHistory", false);
           return tr;
+        },
+      }),
+
+      // Live syntax-highlighting decorations for rawBlock content. Re-runs
+      // only on actual doc changes; selection-only transactions reuse the
+      // previous DecorationSet, which keeps cursor moves cheap.
+      new Plugin<DecorationSet>({
+        key: syntaxKey,
+        state: {
+          init: (_, state) => buildSyntaxDecorations(state.doc),
+          apply: (tr, old) =>
+            tr.docChanged ? buildSyntaxDecorations(tr.doc) : old,
+        },
+        props: {
+          decorations(state) {
+            return syntaxKey.getState(state) ?? null;
+          },
         },
       }),
     ];
