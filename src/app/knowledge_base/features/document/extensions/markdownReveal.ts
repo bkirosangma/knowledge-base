@@ -98,6 +98,16 @@ function richBlockToRawFragment(
         // be re-parsed on restore — keeping them as nodes avoids the parse
         // trip for a lossless round-trip.
         children.push(child);
+      } else if (child.type.name === "hardBreak") {
+        // Emit as markdown's hard-break syntax (two trailing spaces + \n).
+        // markdownToHtml on restore re-parses this to <br>, which Tiptap's
+        // HardBreak extension maps back to a hardBreak node — round-trip
+        // preserved. Matters most for table cells (cellToMarkdown joins
+        // multi-block cells with <br>, which reload as hardBreaks inside a
+        // single paragraph), but also fixes the pre-existing case where a
+        // Shift-Enter hard break in a top-level paragraph was silently
+        // dropped on reveal.
+        children.push(schema.text("  \n"));
       } else if (!child.isLeaf) {
         // Blockquote contains a paragraph; recurse into its inlines.
         visit(child);
