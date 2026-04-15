@@ -190,6 +190,39 @@ function rawBlockToRichNodes(
   return nodes;
 }
 
+// Walk `node` (starting at doc position `nodeStart`) to find the rightmost
+// (visually last) textblock descendant. Returns `{ node, start, end }` with
+// doc positions, or null if no valid target exists (atomic, leaf, empty, or
+// every candidate is `excludeName`). Used by the rawBlock Backspace handler
+// to locate the textblock its content should be spliced into — for a
+// textblock prev that's the prev itself; for a wrapper prev (list,
+// blockquote, nested lists) it walks down to the deepest rightmost
+// textblock.
+function findMergeTarget(
+  node: ProseMirrorNode,
+  nodeStart: number,
+  excludeName: string,
+): { node: ProseMirrorNode; start: number; end: number } | null {
+  if (node.isTextblock) {
+    if (node.type.name === excludeName) return null;
+    return { node, start: nodeStart, end: nodeStart + node.nodeSize };
+  }
+  if (node.isAtom || node.childCount === 0) return null;
+
+  // Right-to-left walk. The running `childEnd` pointer starts just before
+  // the wrapper's closing token and moves left by each child's nodeSize.
+  // The first (rightmost) child that yields a valid target wins.
+  let childEnd = nodeStart + node.nodeSize - 1;
+  for (let i = node.childCount - 1; i >= 0; i--) {
+    const child = node.child(i);
+    const childStart = childEnd - child.nodeSize;
+    const result = findMergeTarget(child, childStart, excludeName);
+    if (result) return result;
+    childEnd = childStart;
+  }
+  return null;
+}
+
 /* ── Live syntax highlighting decorations ── */
 //
 // `code: true` blocks input rules from converting `**x**` into a bold mark, so
@@ -460,6 +493,85 @@ export const RawBlock = TiptapNode.create({
           // out of bounds — let PM keep its default mapped selection
         }
         view.dispatch(tr);
+        return true;
+      },
+
+      // Backspace at offset 0 of a top-level rawBlock. Three outcomes:
+      //  • prev is atomic (hr, image, ...) → delete the prev node; rawBlock
+      //    stays so a subsequent Backspace can try again against whatever is
+      //    now above.
+      //  • prev is a textblock, list, or blockquote → merge the rawBlock's
+      //    raw inline content into the deepest/rightmost textblock within
+      //    prev. Syntax characters are preserved verbatim (a rawBlock
+      //    showing `# Hello` merges as literal `# Hello` text).
+      //  • every other case → fall through (return false) so PM's default
+      //    Backspace chain runs.
+      //
+      // Needed because `isolating: true` on the rawBlock blocks PM's default
+      // `joinBackward` / `selectNodeBackward` across the boundary, AND
+      // PM's `deleteBarrier` (used when prev is a wrapper like a list)
+      // otherwise tries to pull the rawBlock INTO the wrapper's last child
+      // instead of merging its inline content there.
+      Backspace: () => {
+        const { state, view } = this.editor;
+        const { selection } = state;
+        const { $head, empty } = selection;
+
+        if (!empty) return false;
+        if ($head.parent.type.name !== "rawBlock") return false;
+        if ($head.parentOffset !== 0) return false;
+
+        // Only top-level rawBlocks — a rawBlock inside a listItem/taskItem
+        // sits at depth >= 2 (doc → list → listItem → rawBlock), and we want
+        // Tiptap's list keymap to handle those.
+        if ($head.depth !== 1) return false;
+
+        const rawBlockNode = $head.parent;
+        const rawBlockPos = $head.before();
+        const $rawStart = state.doc.resolve(rawBlockPos);
+        const prevNode = $rawStart.nodeBefore;
+        if (!prevNode) return false;
+
+        // Atomic prev (hr, image, embed, ...): delete the atom. The rawBlock
+        // stays intact and the cursor (mapped through the delete) remains at
+        // offset 0, ready for a second Backspace to merge with the next
+        // block above. Merging markdown syntax into an atom makes no sense.
+        if (prevNode.isAtom) {
+          const tr = state.tr.delete(
+            rawBlockPos - prevNode.nodeSize,
+            rawBlockPos,
+          );
+          view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+
+        // Find the target textblock to merge into. For a textblock prev
+        // (paragraph, heading) that's prev itself. For a wrapper prev (list,
+        // blockquote, nested lists) we descend to the deepest rightmost
+        // textblock inside. `codeBlock` is excluded so that markdown syntax
+        // doesn't become code content.
+        const prevStart = rawBlockPos - prevNode.nodeSize;
+        const target = findMergeTarget(prevNode, prevStart, "codeBlock");
+        if (!target) return false;
+
+        // Delete the rawBlock, then insert its raw inline content at the
+        // end of the target textblock. `rawBlockNode.content` holds the
+        // literal markdown text (plus link marks and wikiLink atoms) shown
+        // while the rawBlock was revealed — inserting it verbatim preserves
+        // syntax characters and any link/wikiLink formatting.
+        const insertPos = target.end - 1;
+        const tr = state.tr;
+        tr.delete(rawBlockPos, rawBlockPos + rawBlockNode.nodeSize);
+        if (rawBlockNode.content.size > 0) {
+          tr.insert(insertPos, rawBlockNode.content);
+        }
+        try {
+          tr.setSelection(TextSelection.create(tr.doc, insertPos));
+        } catch {
+          // Computed pos out of bounds — leave PM's mapped selection alone.
+        }
+
+        view.dispatch(tr.scrollIntoView());
         return true;
       },
     };
