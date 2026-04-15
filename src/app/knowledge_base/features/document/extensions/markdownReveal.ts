@@ -208,11 +208,11 @@ function rawBlockToRichNodes(
 
 // Walk `node` (starting at doc position `nodeStart`) to find the rightmost
 // (visually last) textblock descendant. Returns `{ node, start, end }` with
-// doc positions, or null if no valid target exists (atomic, leaf, empty, or
-// every candidate is `excludeName`). Used by the rawBlock Backspace handler
-// to locate the textblock its content should be spliced into — for a
-// textblock prev that's the prev itself; for a wrapper prev (list,
-// blockquote, nested lists) it walks down to the deepest rightmost
+// doc positions, or null if no valid target exists (atomic, leaf, empty,
+// isolating, or every candidate is `excludeName`). Used by the rawBlock
+// Backspace handler to locate the textblock its content should be spliced
+// into — for a textblock prev that's the prev itself; for a wrapper prev
+// (list, blockquote, nested lists) it walks down to the deepest rightmost
 // textblock.
 function findMergeTarget(
   node: ProseMirrorNode,
@@ -224,6 +224,13 @@ function findMergeTarget(
     return { node, start: nodeStart, end: nodeStart + node.nodeSize };
   }
   if (node.isAtom || node.childCount === 0) return null;
+  // Don't cross an isolating boundary: tables are self-contained, and
+  // merging a rawBlock's inline content into the last cell's paragraph
+  // would be surprising (the whole block appears to vanish into a cell).
+  // Bail here so the Backspace handler falls through to PM's default
+  // chain, which leaves the rawBlock and the table as-is and just moves
+  // the cursor between them.
+  if (node.type.spec.isolating) return null;
 
   // Right-to-left walk. The running `childEnd` pointer starts just before
   // the wrapper's closing token and moves left by each child's nodeSize.
@@ -633,8 +640,8 @@ export const MarkdownReveal = Extension.create({
           // ── Locate the convertible block under the cursor ──
           // Top-level paragraph/heading/blockquote → convert at depth 1, which
           // keeps blockquotes whole (with the `> ` prefix shown). Top-level
-          // list → descend until we find the paragraph inside *this* list
-          // item so siblings stay rich.
+          // list or table → descend until we find the paragraph inside *this*
+          // list item or cell so siblings stay rich.
           let curPos = -1;
           let curNode: ProseMirrorNode | null = null;
           if ($head.depth >= 1) {
@@ -649,6 +656,31 @@ export const MarkdownReveal = Extension.create({
                   curPos = $head.before(d);
                   curNode = inner;
                   break;
+                }
+              }
+              // Fallback for table cells: prosemirror-tables sometimes places
+              // the cursor at the cell boundary rather than inside the cell's
+              // paragraph (empty cell, keyboard navigation, cell selection
+              // normalization). In that case `$head.depth` stops at the cell
+              // (depth 3 in `doc → table → row → cell`), so the depth-bounded
+              // loop above never reaches the paragraph at depth 4. Walk the
+              // cell's first child directly.
+              if (!curNode) {
+                for (let d = 2; d <= $head.depth; d++) {
+                  const ancestor = $head.node(d);
+                  if (
+                    ancestor.type.name === "tableCell" ||
+                    ancestor.type.name === "tableHeader"
+                  ) {
+                    const firstChild = ancestor.firstChild;
+                    if (firstChild && CONVERTIBLE.has(firstChild.type.name)) {
+                      // Cell content starts at $head.start(d); since the first
+                      // child sits right there, that's also its `before` pos.
+                      curPos = $head.start(d);
+                      curNode = firstChild;
+                    }
+                    break;
+                  }
                 }
               }
             }
