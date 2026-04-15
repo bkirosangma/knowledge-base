@@ -115,6 +115,7 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
     if (!editor || !root) return;
     let hideTimer: number | undefined;
     const onOver = (e: MouseEvent) => {
+      if (editor.isDestroyed) return;
       const target = e.target as Element | null;
       if (!target || !root.contains(target)) return;
       const cell = target.closest("td, th") as HTMLElement | null;
@@ -128,6 +129,7 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
       setHoverTable((prev) => (prev === tbl ? prev : tbl));
     };
     const onOut = (e: MouseEvent) => {
+      if (editor.isDestroyed) return;
       const toEl = e.relatedTarget as Element | null;
       // Moving from table → toolbar: keep it visible.
       if (toEl?.closest?.(".kb-table-toolbar")) return;
@@ -138,6 +140,7 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
       if (hideTimer !== undefined) window.clearTimeout(hideTimer);
       hideTimer = window.setTimeout(() => {
         setHoverTable(null);
+        lastHoverCellRef.current = null;
       }, 200);
     };
     root.addEventListener("mouseover", onOver, true);
