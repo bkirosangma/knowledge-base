@@ -10,6 +10,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
+import { ListItem } from "@tiptap/extension-list-item";
 import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
@@ -63,6 +64,18 @@ function TBtn({
 function Sep() {
   return <div className="w-px h-5 bg-slate-200 mx-0.5" />;
 }
+
+// markdownReveal needs to swap a list item's paragraph for a rawBlock when the
+// cursor lands on it. The stock ListItem/TaskItem schemas lock the first child
+// to `paragraph`, so the swap would throw "invalid content for listItem".
+// Loosening the leading slot to `(paragraph | rawBlock)` is the minimum change
+// — `block*` for the rest matches the stock extensions exactly.
+const RawAwareListItem = ListItem.extend({
+  content: "(paragraph | rawBlock) block*",
+});
+const RawAwareTaskItem = TaskItem.extend({
+  content: "(paragraph | rawBlock) block*",
+});
 
 /* ── Interactive table size picker (Excel-style grid) ── */
 function TablePicker({ onSelect }: { onSelect: (rows: number, cols: number) => void }) {
@@ -159,14 +172,18 @@ export default function MarkdownEditor({
         // wins. Without this, both register and Tiptap warns about duplicates,
         // and our openOnClick setting is silently ignored.
         link: false,
+        // Replaced by RawAwareListItem so markdownReveal can swap a list
+        // item's paragraph for a rawBlock without violating the schema.
+        listItem: false,
       }),
+      RawAwareListItem,
       CodeBlockWithCopy,
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
       TableHeader,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      RawAwareTaskItem.configure({ nested: true }),
       // Tiptap's `openOnClick: "whenNotEditable"` is broken in v3.22.3 — it
       // collapses to `true` and the clickHandler then fires only when the view
       // IS editable (opposite of documented). `false` prevents the plugin from

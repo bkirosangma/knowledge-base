@@ -17,6 +17,11 @@ const pluginKey = new PluginKey("markdownReveal");
 
 // Block types that can be converted to raw editing mode
 const CONVERTIBLE = new Set(["paragraph", "heading", "blockquote"]);
+// Top-level wrappers we descend into to find a deeper convertible block.
+// Lists themselves can't become a rawBlock (their schema is `listItem+`), so
+// when the cursor is in a list we walk down to the paragraph inside the
+// specific list item the cursor sits in — siblings stay rich.
+const LIST_TYPES = new Set(["bulletList", "orderedList", "taskList"]);
 
 /* ── Helpers ── */
 
@@ -241,23 +246,53 @@ export const MarkdownReveal = Extension.create({
           // Existing rawBlocks are still restored to rich content below.
           const canReveal = editor.isEditable;
 
-          // ── Locate existing rawBlock (at most one) ──
+          // ── Locate existing rawBlock (at most one, possibly inside a listItem) ──
+          // descendants() lets us find a rawBlock at any depth, not just the
+          // top level — required now that lists can host one.
           let raw: { pos: number; node: ProseMirrorNode } | null = null;
-          doc.forEach((node, pos) => {
-            if (node.type.name === "rawBlock") raw = { pos, node };
+          doc.descendants((node, pos) => {
+            if (raw) return false;
+            if (node.type.name === "rawBlock") {
+              raw = { pos, node };
+              return false;
+            }
+            return true;
           });
           raw = raw as { pos: number; node: ProseMirrorNode } | null;
 
-          // ── Locate top-level block under cursor ──
+          // ── Locate the convertible block under the cursor ──
+          // Top-level paragraph/heading/blockquote → convert at depth 1, which
+          // keeps blockquotes whole (with the `> ` prefix shown). Top-level
+          // list → descend until we find the paragraph inside *this* list
+          // item so siblings stay rich.
           let curPos = -1;
           let curNode: ProseMirrorNode | null = null;
           if ($head.depth >= 1) {
-            curPos = $head.before(1);
-            curNode = $head.node(1);
+            const top = $head.node(1);
+            if (CONVERTIBLE.has(top.type.name)) {
+              curPos = $head.before(1);
+              curNode = top;
+            } else if (LIST_TYPES.has(top.type.name)) {
+              for (let d = 2; d <= $head.depth; d++) {
+                const inner = $head.node(d);
+                if (CONVERTIBLE.has(inner.type.name)) {
+                  curPos = $head.before(d);
+                  curNode = inner;
+                  break;
+                }
+              }
+            }
           }
 
-          // Cursor already in the rawBlock AND reveal is still allowed → keep it raw
-          if (raw && curPos === raw.pos && canReveal) return null;
+          // Cursor inside the existing rawBlock AND reveal is still allowed →
+          // keep it raw. Position-range check (vs. the old strict equality)
+          // covers nested rawBlocks where the convertible-paragraph lookup
+          // above doesn't surface raw.pos directly.
+          const cursorInRaw =
+            raw &&
+            $head.pos > raw.pos &&
+            $head.pos < raw.pos + raw.node.nodeSize;
+          if (cursorInRaw && canReveal) return null;
 
           // Convert only when allowed AND cursor is on a convertible block
           const wantConvert =
