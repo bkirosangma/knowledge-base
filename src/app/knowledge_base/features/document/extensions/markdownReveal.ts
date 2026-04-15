@@ -74,9 +74,17 @@ function richBlockToRawFragment(
           // Preserve the link mark on this run verbatim.
           children.push(schema.text(child.text, [linkMark]));
         } else {
-          // Flatten non-link marks to raw syntax chars.
+          // Flatten non-link marks to raw syntax chars, then keep those
+          // marks on the wrapped text so the syntax chars share the
+          // same visual style — `**bold**` still renders bold inside
+          // the rawBlock instead of dropping to plain text.
           const raw = marksToRawMarkdown(child.text, child.marks);
-          if (raw) children.push(schema.text(raw));
+          if (raw) {
+            const visualMarks = child.marks.filter(
+              (m) => m.type.name !== "link",
+            );
+            children.push(schema.text(raw, visualMarks));
+          }
         }
       } else if (wikiLinkType && child.type === wikiLinkType) {
         // Preserve wikiLink atoms; their markdown form is [[path]] which would
@@ -217,10 +225,15 @@ export const RawBlock = TiptapNode.create({
       0,
     ];
   },
-  // Only the link mark is allowed inside a rawBlock; bold/italic/etc. are
-  // represented as literal syntax characters in the text.
+  // Inline marks are kept inside the rawBlock so the syntax characters
+  // share the same visual styling as the original text — `**bold**`
+  // stays bold, `*italic*` stays italic, `` `code` `` stays monospace.
+  // Round-tripping still works because rawBlockToRichNodes serializes the
+  // text content (including the wrapping `**`/`*`/`` ` ``) and re-parses
+  // through markdown-it, so the marks are reconstructed by the parser
+  // rather than read off the rawBlock's own marks.
   extendNodeSchema() {
-    return { marks: "link" };
+    return { marks: "bold italic strike code link" };
   },
 });
 
