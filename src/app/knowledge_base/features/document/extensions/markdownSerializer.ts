@@ -105,13 +105,63 @@ function nodeToMarkdown(node: Node): string {
   }
 }
 
+// Serialize one table cell to its markdown form. Unlike the rest of
+// `nodeToMarkdown`, we can't emit block-level output here: a markdown table
+// cell lives on a single line between `|` delimiters. So we unwrap
+// paragraph / rawBlock children to their inline markdown, join multiple
+// children with `<br>` (GFM accepts it as a soft break inside cells), and
+// escape any literal `|` the user typed so it doesn't split the row.
+function cellToMarkdown(cell: HTMLElement): string {
+  const parts: string[] = [];
+  for (const child of Array.from(cell.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const t = (child.textContent ?? "").trim();
+      if (t) parts.push(t);
+      continue;
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = child as HTMLElement;
+    if (el.hasAttribute("data-raw-block")) {
+      // Raw-view content is already markdown syntax (asterisks, backticks,
+      // etc.) plus link marks and wikiLink spans. Walking children via
+      // nodeToMarkdown keeps link `[text](url)` and wiki `[[path]]` intact;
+      // the final trim drops the trailing `\n\n` that the data-raw-block
+      // branch in nodeToMarkdown appends for block context.
+      const inner = Array.from(el.childNodes).map(nodeToMarkdown).join("").trim();
+      if (inner) parts.push(inner);
+      continue;
+    }
+    const tag = el.tagName.toLowerCase();
+    if (tag === "p") {
+      // Walk inline children so marks survive (<strong>x</strong> → **x**).
+      // Trim to drop the trailing `\n\n` from the "p" case in nodeToMarkdown.
+      const inner = Array.from(el.childNodes).map(nodeToMarkdown).join("").trim();
+      if (inner) parts.push(inner);
+      continue;
+    }
+    // Fallback for anything else a user might manage to drop into a cell
+    // (headings, blockquotes, etc.). Inline the result; the trailing
+    // newlines get trimmed and the block prefix (`# `, `> `) survives as
+    // literal text. Markdown tables can't represent block-level cell
+    // content, so this is a best-effort round-trip.
+    const rendered = nodeToMarkdown(el).trim();
+    if (rendered) parts.push(rendered);
+  }
+  // GFM + markdown-it (with html:true) accept inline `<br>` inside a cell
+  // and round-trip it to a hard break in the re-parsed HTML.
+  const joined = parts.join("<br>");
+  // Escape every bare `|` (including inside link text) so user content
+  // doesn't break row parsing. markdown-it converts `\|` back to `|`.
+  return joined.replace(/\|/g, "\\|");
+}
+
 function tableToMarkdown(table: HTMLElement): string {
   const rows = Array.from(table.querySelectorAll("tr"));
   if (rows.length === 0) return "";
   const lines: string[] = [];
   rows.forEach((row, i) => {
     const cells = Array.from(row.querySelectorAll("th, td"));
-    const line = "| " + cells.map(c => c.textContent?.trim() ?? "").join(" | ") + " |";
+    const line = "| " + cells.map(c => cellToMarkdown(c as HTMLElement)).join(" | ") + " |";
     lines.push(line);
     if (i === 0) {
       lines.push("| " + cells.map(() => "---").join(" | ") + " |");
