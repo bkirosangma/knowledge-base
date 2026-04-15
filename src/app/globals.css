@@ -161,7 +161,8 @@ body {
   margin-top: 0.25rem;
 }
 
-/* Links */
+/* Links — clickable only in read mode. In edit mode, use the text caret so
+   users know clicks will place the cursor (not navigate). */
 .markdown-editor .ProseMirror a {
   color: #4f46e5;
   text-decoration: underline;
@@ -169,6 +170,10 @@ body {
 }
 .markdown-editor .ProseMirror a:hover {
   color: #4338ca;
+}
+.markdown-editor .ProseMirror[contenteditable="true"] a,
+.markdown-editor .ProseMirror[contenteditable="true"] .wiki-link {
+  cursor: text;
 }
 
 /* Images */

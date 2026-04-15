@@ -141,6 +141,10 @@ export default function MarkdownEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false,
+        // Disable StarterKit's bundled Link so our Link.configure({...}) below
+        // wins. Without this, both register and Tiptap warns about duplicates,
+        // and our openOnClick setting is silently ignored.
+        link: false,
       }),
       CodeBlockWithCopy,
       Table.configure({ resizable: true }),
@@ -149,7 +153,7 @@ export default function MarkdownEditor({
       TableHeader,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Link.configure({ openOnClick: false }),
+      Link.configure({ openOnClick: "whenNotEditable" }),
       Placeholder.configure({ placeholder: "Start writing..." }),
       Image,
       WikiLink.configure({

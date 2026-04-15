@@ -112,6 +112,9 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       dom.title = exists ? `Open ${path}` : `${path} (not found — click to create)`;
 
       dom.addEventListener("click", (e) => {
+        // In edit mode, let the click fall through to ProseMirror so the
+        // cursor can be placed inside/around the wiki-link like any other atom.
+        if (this.editor.isEditable) return;
         e.preventDefault();
         e.stopPropagation();
         if (exists) {
