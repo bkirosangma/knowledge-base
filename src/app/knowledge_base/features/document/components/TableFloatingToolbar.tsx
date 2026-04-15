@@ -66,7 +66,12 @@ function TBtn({
         if (!disabled) onClick();
       }}
       disabled={disabled}
-      title={title}
+      // `data-tooltip` drives the styled `.kb-table-toolbar button:hover::after`
+      // tooltip in globals.css. `aria-label` covers screen readers. `title` is
+      // intentionally omitted to avoid doubling up with the native browser
+      // tooltip.
+      data-tooltip={title}
+      aria-label={title}
       className={`p-1.5 rounded transition-colors ${
         disabled
           ? "opacity-30 cursor-not-allowed text-slate-400"
