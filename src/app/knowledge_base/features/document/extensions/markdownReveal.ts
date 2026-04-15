@@ -21,10 +21,16 @@ const syntaxKey = new PluginKey<DecorationSet>("markdownRevealSyntax");
 // Block types that can be converted to raw editing mode
 const CONVERTIBLE = new Set(["paragraph", "heading", "blockquote"]);
 // Top-level wrappers we descend into to find a deeper convertible block.
-// Lists themselves can't become a rawBlock (their schema is `listItem+`), so
-// when the cursor is in a list we walk down to the paragraph inside the
-// specific list item the cursor sits in — siblings stay rich.
-const LIST_TYPES = new Set(["bulletList", "orderedList", "taskList"]);
+// Lists themselves can't become a rawBlock (schema is `listItem+`), and
+// tables can't either (schema is `tableRow+`), so when the cursor is in one
+// of these wrappers we walk down to the paragraph inside the specific list
+// item or cell the cursor sits in — siblings stay rich.
+const DEEP_WRAPPERS = new Set([
+  "bulletList",
+  "orderedList",
+  "taskList",
+  "table",
+]);
 
 /* ── Helpers ── */
 
@@ -626,7 +632,7 @@ export const MarkdownReveal = Extension.create({
             if (CONVERTIBLE.has(top.type.name)) {
               curPos = $head.before(1);
               curNode = top;
-            } else if (LIST_TYPES.has(top.type.name)) {
+            } else if (DEEP_WRAPPERS.has(top.type.name)) {
               for (let d = 2; d <= $head.depth; d++) {
                 const inner = $head.node(d);
                 if (CONVERTIBLE.has(inner.type.name)) {
