@@ -17,6 +17,7 @@ import { WikiLink } from "../extensions/wikiLink";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
+import { LinkEditorPopover } from "./LinkEditorPopover";
 import {
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered,
   CheckSquare, Heading1, Heading2, Heading3, Minus, Link as LinkIcon,
@@ -153,7 +154,13 @@ export default function MarkdownEditor({
       TableHeader,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Link.configure({ openOnClick: "whenNotEditable" }),
+      // Tiptap's `openOnClick: "whenNotEditable"` is broken in v3.22.3 — it
+      // collapses to `true` and the clickHandler then fires only when the view
+      // IS editable (opposite of documented). `false` prevents the plugin from
+      // opening in edit mode; in read mode the view is contenteditable=false so
+      // the browser follows the <a href> natively. Net effect: clickable only
+      // in read mode, which is what we want.
+      Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing..." }),
       Image,
       WikiLink.configure({
@@ -367,6 +374,10 @@ export default function MarkdownEditor({
           />
         )}
       </div>
+
+      {/* Floating editor for the link under the cursor. Self-hides when the
+          selection isn't inside a link mark or when the editor is read-only. */}
+      {editor && !showRaw && <LinkEditorPopover editor={editor} />}
     </div>
   );
 }
