@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Table } from "@tiptap/extension-table";
+import { TableNoNest } from "../extensions/tableNoNest";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -178,7 +178,7 @@ export default function MarkdownEditor({
       }),
       RawAwareListItem,
       CodeBlockWithCopy,
-      Table.configure({ resizable: true }),
+      TableNoNest.configure({ resizable: true }),
       TableRow,
       TableCell,
       TableHeader,
