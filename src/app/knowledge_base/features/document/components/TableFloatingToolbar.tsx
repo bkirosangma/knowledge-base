@@ -1,7 +1,7 @@
 // src/app/knowledge_base/features/document/components/TableFloatingToolbar.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import {
   ArrowUp,
@@ -81,7 +81,12 @@ function Sep() {
 
 export function TableFloatingToolbar({ editor, containerRef }: Props) {
   const [cursorTable, setCursorTable] = useState<HTMLTableElement | null>(null);
+  const [hoverTable, setHoverTable] = useState<HTMLTableElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // Last cell the mouse entered. Used to snap the cursor into place when a
+  // toolbar button is clicked in hover-only mode (user hovered the table
+  // but their caret isn't inside it).
+  const lastHoverCellRef = useRef<HTMLElement | null>(null);
 
   // ── Cursor tracking: on every transaction, find the containing <table>. ──
   useEffect(() => {
@@ -101,7 +106,48 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
     };
   }, [editor]);
 
-  const anchor = cursorTable;
+  const anchor = cursorTable ?? hoverTable;
+
+  // ── Hover tracking: delegate mouse events on the container so we don't
+  //    have to attach listeners per-table (tables come and go). ──
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!editor || !root) return;
+    let hideTimer: number | undefined;
+    const onOver = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (!target || !root.contains(target)) return;
+      const cell = target.closest("td, th") as HTMLElement | null;
+      if (cell) lastHoverCellRef.current = cell;
+      const tbl = target.closest("table") as HTMLTableElement | null;
+      if (!tbl) return;
+      if (hideTimer !== undefined) {
+        window.clearTimeout(hideTimer);
+        hideTimer = undefined;
+      }
+      setHoverTable((prev) => (prev === tbl ? prev : tbl));
+    };
+    const onOut = (e: MouseEvent) => {
+      const toEl = e.relatedTarget as Element | null;
+      // Moving from table → toolbar: keep it visible.
+      if (toEl?.closest?.(".kb-table-toolbar")) return;
+      // Moving inside the same table: not really leaving.
+      const fromTbl = (e.target as Element | null)?.closest?.("table");
+      const toTbl = toEl?.closest?.("table");
+      if (fromTbl && fromTbl === toTbl) return;
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => {
+        setHoverTable(null);
+      }, 200);
+    };
+    root.addEventListener("mouseover", onOver, true);
+    root.addEventListener("mouseout", onOut, true);
+    return () => {
+      root.removeEventListener("mouseover", onOver, true);
+      root.removeEventListener("mouseout", onOut, true);
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer);
+    };
+  }, [editor, containerRef]);
 
   // ── Position: recompute on anchor change, scroll, resize, size change. ──
   useEffect(() => {
@@ -139,15 +185,35 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
   if (!editor || !anchor || !pos || !editor.isEditable) return null;
 
   // Dispatch via chain().focus() so the cursor lands back inside the
-  // now-modified table after each op (esp. important if the user used the
-  // keyboard to trigger the button without clicking into a cell first).
+  // now-modified table after each op. In hover-only mode (cursor wasn't in
+  // any cell), first move the selection into the last-hovered cell so the
+  // row/column-scoped commands have a reference cell to operate on.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const run = (cmd: string) => {
-    (editor.chain().focus() as any)[cmd]().run();
+  const editorAny = editor as any;
+  const maybeSnapCursor = () => {
+    if (cursorTable && anchor === cursorTable) return; // already inside
+    const cell = lastHoverCellRef.current;
+    if (!cell || !cell.isConnected) return;
+    try {
+      const cellPos = editor.view.posAtDOM(cell, 0);
+      // +1 steps inside the cell's content (past the opening token).
+      editor.commands.setTextSelection(cellPos + 1);
+    } catch {
+      // Stale cell (removed between hover and click) — fall through; the
+      // command will operate on whatever the current selection is or no-op.
+    }
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const run = (cmd: string) => {
+    maybeSnapCursor();
+    editorAny.chain().focus()[cmd]().run();
+  };
   const canRun = (cmd: string) => {
-    return (editor.can() as any)[cmd]();
+    // Can() doesn't mutate; safe to ask regardless of hover state. In
+    // hover-only mode the check returns false (no selection in a table),
+    // which disables every button — the user sees the bar chrome and
+    // tooltips but has to click into a cell first. On the first click
+    // after that, the cursor effect picks it up and enables the buttons.
+    return editorAny.can()[cmd]();
   };
 
   return (
