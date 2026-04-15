@@ -26,7 +26,10 @@ interface Props {
 
 const SIZE = 14;
 const GAP_ABOVE_TABLE = 4;
-const TOOLBAR_HEIGHT = 32;
+// 14px icon + p-1.5 (6px each side) = 26px button; container padding 4px each
+// side + 1px border each side = 10px chrome. 26 + 10 = 36. Keeps the toolbar
+// from overlapping the table border at the 0px-gap offset.
+const TOOLBAR_HEIGHT = 36;
 
 /** Walk the current selection up to the nearest tableCell/tableHeader and
  *  return its DOM element. Used to find the <table> that wraps the cursor. */
@@ -153,9 +156,17 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
   }, [editor, containerRef]);
 
   // ── Position: recompute on anchor change, scroll, resize, size change. ──
+  //
+  // Uses `position: fixed` + viewport-relative coords from
+  // `getBoundingClientRect()`. This dodges the nested-scroll-container
+  // problem: the editor lives inside `.markdown-editor` (the real scroller),
+  // not the outer `containerRef` div, so anchoring to the outer would stick
+  // the toolbar in place while the table scrolls underneath. Capturing
+  // `scroll` on `window` with `capture: true` picks up scrolls from any
+  // descendant scroller (including `.markdown-editor`) without having to
+  // know which specific element owns the scroll.
   useEffect(() => {
-    const container = containerRef.current;
-    if (!anchor || !container) {
+    if (!anchor) {
       setPos(null);
       return;
     }
@@ -165,25 +176,30 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
         return;
       }
       const t = anchor.getBoundingClientRect();
-      const c = container.getBoundingClientRect();
+      // Hide when the table is fully outside the viewport — a fixed-position
+      // toolbar would otherwise float over unrelated content.
+      if (t.bottom < 0 || t.top > window.innerHeight) {
+        setPos(null);
+        return;
+      }
       setPos({
-        top:
-          t.top - c.top + container.scrollTop - TOOLBAR_HEIGHT - GAP_ABOVE_TABLE,
-        left: t.left - c.left + container.scrollLeft,
+        top: t.top - TOOLBAR_HEIGHT - GAP_ABOVE_TABLE,
+        left: t.left,
       });
     };
     updatePos();
     const ro = new ResizeObserver(updatePos);
     ro.observe(anchor);
-    ro.observe(container);
-    container.addEventListener("scroll", updatePos);
+    // Capture-phase listeners catch scrolls on any scrollable ancestor /
+    // descendant (scroll events don't bubble, but they do capture).
+    window.addEventListener("scroll", updatePos, true);
     window.addEventListener("resize", updatePos);
     return () => {
       ro.disconnect();
-      container.removeEventListener("scroll", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
       window.removeEventListener("resize", updatePos);
     };
-  }, [anchor, containerRef]);
+  }, [anchor]);
 
   if (!editor || !anchor || !pos || !editor.isEditable) return null;
 
@@ -222,7 +238,7 @@ export function TableFloatingToolbar({ editor, containerRef }: Props) {
   return (
     <div
       className="kb-table-toolbar"
-      style={{ position: "absolute", top: pos.top, left: pos.left }}
+      style={{ position: "fixed", top: pos.top, left: pos.left }}
       // Prevent clicks from stealing selection away from the editor.
       onMouseDown={(e) => e.preventDefault()}
     >
