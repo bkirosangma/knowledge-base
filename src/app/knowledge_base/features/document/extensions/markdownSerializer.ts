@@ -87,6 +87,14 @@ function nodeToMarkdown(node: Node): string {
         const section = el.dataset.wikiSection;
         let link = path;
         if (section) link += `#${section}`;
+        // Preserve custom display text via the `[[path|display]]` alias form
+        // (the parser already understands it). Emit the short form only when
+        // the span's text content matches the derived default so round-trips
+        // stay compact for unrenamed links.
+        const display = el.textContent ?? "";
+        if (display && display !== link) {
+          return `[[${link}|${display}]]`;
+        }
         return `[[${link}]]`;
       }
       return children;

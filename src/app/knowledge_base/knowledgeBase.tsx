@@ -7,7 +7,7 @@ import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { readVaultConfig, initVault, updateVaultLastOpened } from "./features/document/utils/vaultConfig";
-import { updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
+import { resolveWikiLinkPath, updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
 import { readTextFile, writeTextFile } from "./shared/hooks/useFileExplorer";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
@@ -117,6 +117,50 @@ function KnowledgeBaseInner() {
     }
   }, [handleOpenDocument, panes]);
 
+  // Wiki-link targets (`[[name]]`) are usually written without an extension
+  // and are relative to the current document's folder — Obsidian-style. Use
+  // `resolveWikiLinkPath` (same helper `useLinkIndex` uses to build the link
+  // index) so the path inside `docs/architecture/foo.md` referencing
+  // `[[related-note]]` opens `docs/architecture/related-note.md`, not a
+  // non-existent root file. Falls back to an exact hit, `.md`, then `.json`
+  // so explicit paths and diagrams still work.
+  const handleNavigateWikiLink = useCallback(
+    (path: string) => {
+      const allPaths: string[] = [];
+      const walk = (items: typeof fileExplorer.tree) => {
+        for (const it of items) {
+          if (it.type === "file") allPaths.push(it.path);
+          if (it.children) walk(it.children);
+        }
+      };
+      walk(fileExplorer.tree);
+      const set = new Set(allPaths);
+
+      const docDir = docManager.activeDocPath
+        ? docManager.activeDocPath.split("/").slice(0, -1).join("/")
+        : "";
+      const candidates: string[] = [];
+      // 1. Resolved relative to current doc directory (default .md).
+      candidates.push(resolveWikiLinkPath(path, docDir));
+      // 2. Same resolution but for a diagram target.
+      if (!/\.[a-z0-9]+$/i.test(path)) {
+        const relDir = docDir ? `${docDir}/${path}` : path;
+        candidates.push(`${relDir}.json`);
+      }
+      // 3. Bare path as given (already has an extension, e.g. `foo.json`).
+      candidates.push(path);
+      // 4. Append extensions at root for cases where the wiki-link is meant
+      //    as an absolute bare name and step 1 guessed wrong.
+      if (!/\.[a-z0-9]+$/i.test(path)) {
+        candidates.push(`${path}.md`, `${path}.json`);
+      }
+
+      const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
+      handleSelectFile(resolved);
+    },
+    [fileExplorer.tree, docManager.activeDocPath, handleSelectFile],
+  );
+
   // ─── Cmd+S handler ───
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -211,7 +255,7 @@ function KnowledgeBaseInner() {
         docManager={docManager}
         linkManager={linkManager}
         tree={fileExplorer.tree}
-        onNavigateLink={handleOpenDocument}
+        onNavigateLink={handleNavigateWikiLink}
         onCreateDocument={async (path) => {
           const rootHandle = fileExplorer.dirHandleRef.current;
           if (rootHandle) {

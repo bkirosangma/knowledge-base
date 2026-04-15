@@ -113,7 +113,11 @@ function rawBlockToRichNodes(
     } else if (child.type.name === "wikiLink") {
       const path = String(child.attrs?.path ?? "");
       const section = child.attrs?.section as string | null;
-      md += `[[${section ? `${path}#${section}` : path}]]`;
+      const target = section ? `${path}#${section}` : path;
+      const display = (child.attrs?.display as string | null) ?? target;
+      // Preserve a custom label through the round-trip via the `[[path|display]]`
+      // alias form; otherwise emit the compact form for lossless save output.
+      md += display && display !== target ? `[[${target}|${display}]]` : `[[${target}]]`;
     }
   });
 

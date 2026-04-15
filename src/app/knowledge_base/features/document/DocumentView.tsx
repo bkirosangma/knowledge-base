@@ -26,12 +26,19 @@ export default function DocumentView({
   onCreateDocument,
   onClose,
 }: DocumentViewProps) {
-  // Collect all .md paths for link autocomplete
+  // Collect all wiki-linkable paths for link autocomplete — both markdown
+  // documents (.md) and diagrams (.json; excluding Diagram's own .history.json
+  // sidecars, which useFileExplorer already filters out of the tree).
   const allDocPaths = React.useMemo(() => {
     const paths: string[] = [];
     const walk = (items: TreeNode[]) => {
       for (const item of items) {
-        if (item.type === "file" && item.name.endsWith(".md")) paths.push(item.path);
+        if (
+          item.type === "file" &&
+          (item.name.endsWith(".md") || item.name.endsWith(".json"))
+        ) {
+          paths.push(item.path);
+        }
         if (item.children) walk(item.children);
       }
     };

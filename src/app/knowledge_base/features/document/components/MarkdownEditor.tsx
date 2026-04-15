@@ -31,6 +31,9 @@ interface MarkdownEditorProps {
   onCreateDocument?: (path: string) => void;
   existingDocPaths?: Set<string>;
   allDocPaths?: string[];
+  /** Directory of the current document (from vault root), e.g. "docs/architecture".
+   *  Used to resolve wiki-link paths relative to the current file, Obsidian-style. */
+  currentDocDir?: string;
   readOnly?: boolean;
 }
 
@@ -129,6 +132,7 @@ export default function MarkdownEditor({
   onCreateDocument,
   existingDocPaths,
   allDocPaths,
+  currentDocDir = "",
   readOnly = false,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
@@ -168,6 +172,7 @@ export default function MarkdownEditor({
         onCreateDocument,
         existingDocPaths,
         allDocPaths,
+        currentDocDir,
       }),
       RawBlock,
       MarkdownReveal,
@@ -219,18 +224,21 @@ export default function MarkdownEditor({
   // Read mode always shows rich text; raw mode is only honored when editable.
   const showRaw = isRawMode && !readOnly;
 
-  // Update wiki-link extension options when doc paths change
+  // Update wiki-link extension options when doc paths or the current file
+  // change. Dispatching a no-op transaction re-invokes nodeView `update()`
+  // handlers so existence (blue/red) and relative-path resolution refresh.
   useEffect(() => {
     if (editor) {
       editor.extensionManager.extensions.forEach((ext) => {
         if (ext.name === "wikiLink") {
           ext.options.existingDocPaths = existingDocPaths;
           ext.options.allDocPaths = allDocPaths;
+          ext.options.currentDocDir = currentDocDir;
         }
       });
       editor.view.dispatch(editor.state.tr);
     }
-  }, [editor, existingDocPaths, allDocPaths]);
+  }, [editor, existingDocPaths, allDocPaths, currentDocDir]);
 
   const handleToggleRawMode = useCallback(() => {
     if (!editor) return;
@@ -377,7 +385,9 @@ export default function MarkdownEditor({
 
       {/* Floating editor for the link under the cursor. Self-hides when the
           selection isn't inside a link mark or when the editor is read-only. */}
-      {editor && !showRaw && <LinkEditorPopover editor={editor} />}
+      {editor && !showRaw && (
+        <LinkEditorPopover editor={editor} allDocPaths={allDocPaths} />
+      )}
     </div>
   );
 }

@@ -157,6 +157,7 @@ export default function MarkdownPane({
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
           allDocPaths={allDocPaths}
+          currentDocDir={filePath.split("/").slice(0, -1).join("/")}
           readOnly={readOnly}
         />
       </div>
