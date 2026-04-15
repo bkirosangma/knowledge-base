@@ -89,6 +89,46 @@ function richBlockToRawFragment(
   return Fragment.fromArray(children);
 }
 
+// Small LRU cache for rawBlock → rich conversions. Every boundary-cross in a
+// document re-parses markdown via markdown-it and PMDOMParser, which is the
+// second-heaviest per-keystroke path (after htmlToMarkdown). Keying by the
+// normalized markdown string lets repeated traversals of the same block
+// short-circuit. See docs/perf-analysis-2026-04-15.md #3.
+//
+// Nested inside a per-Schema WeakMap so a new editor (different extensions,
+// different schema identity) gets a fresh cache — nodes produced against
+// schema A would fail to insert into schema B, so sharing would corrupt.
+const rawToRichCache = new WeakMap<Schema, Map<string, ProseMirrorNode[]>>();
+const RAW_TO_RICH_CACHE_MAX = 64;
+
+function cacheFor(schema: Schema): Map<string, ProseMirrorNode[]> {
+  let m = rawToRichCache.get(schema);
+  if (!m) {
+    m = new Map();
+    rawToRichCache.set(schema, m);
+  }
+  return m;
+}
+function cacheSet(schema: Schema, key: string, value: ProseMirrorNode[]) {
+  const m = cacheFor(schema);
+  if (m.has(key)) m.delete(key);
+  m.set(key, value);
+  if (m.size > RAW_TO_RICH_CACHE_MAX) {
+    const oldest = m.keys().next().value;
+    if (oldest !== undefined) m.delete(oldest);
+  }
+}
+function cacheGet(schema: Schema, key: string): ProseMirrorNode[] | undefined {
+  const m = cacheFor(schema);
+  const value = m.get(key);
+  if (value !== undefined) {
+    // Move to end (LRU).
+    m.delete(key);
+    m.set(key, value);
+  }
+  return value;
+}
+
 // Convert a rawBlock back into one or more rich block nodes. Flattens the
 // mixed content (raw text + link-marked text + wikiLink atoms) into a single
 // markdown string — links become `[text](url)`, wikiLinks become `[[path]]`,
@@ -123,12 +163,16 @@ function rawBlockToRichNodes(
 
   if (!md.trim()) return [];
 
+  const cached = cacheGet(schema, md);
+  if (cached) return cached;
+
   const html = markdownToHtml(md);
   const div = document.createElement("div");
   div.innerHTML = html;
   const parsed = PMDOMParser.fromSchema(schema).parse(div);
   const nodes: ProseMirrorNode[] = [];
   parsed.forEach((child) => nodes.push(child));
+  cacheSet(schema, md, nodes);
   return nodes;
 }
 

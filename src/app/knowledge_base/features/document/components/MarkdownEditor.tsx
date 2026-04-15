@@ -139,6 +139,15 @@ export default function MarkdownEditor({
   const [rawContent, setRawContent] = useState(content);
   const [, forceUpdate] = useState(0);
   const rawSwapRef = useRef(false);
+  // Debounce handle for the heavy htmlToMarkdown + onChange round-trip that
+  // fires on every keystroke. See docs/perf-analysis-2026-04-15.md #1.
+  const pendingChangeRef = useRef<number | null>(null);
+  // Stable ref for onChange so the debounced flusher doesn't have to be
+  // re-attached on every parent re-render.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -185,11 +194,23 @@ export default function MarkdownEditor({
         return;
       }
       if (!isRawMode) {
-        const md = htmlToMarkdown(ed.getHTML());
-        onChange?.(md);
+        // Debounce the serialize-plus-notify trip. `htmlToMarkdown` re-parses
+        // the full doc into a DOM on every call and is the single heaviest
+        // cost per keystroke. Flushed on blur and on unmount below so the
+        // in-memory content never stays stale longer than one idle window.
+        if (pendingChangeRef.current != null) {
+          clearTimeout(pendingChangeRef.current);
+        }
+        pendingChangeRef.current = window.setTimeout(() => {
+          pendingChangeRef.current = null;
+          const md = htmlToMarkdown(ed.getHTML());
+          onChangeRef.current?.(md);
+        }, 200);
       }
     },
-    onSelectionUpdate: () => forceUpdate((n) => n + 1),
+    // `onTransaction` fires for every transaction including selection-only
+    // ones, so we don't need a separate `onSelectionUpdate` — this halves the
+    // number of React re-renders per cursor move.
     onTransaction: ({ transaction }) => {
       if (transaction.getMeta("rawSwap")) {
         rawSwapRef.current = true;
@@ -197,6 +218,26 @@ export default function MarkdownEditor({
       forceUpdate((n) => n + 1);
     },
   });
+
+  // Flush any pending debounced onChange when the editor blurs (user clicks
+  // away, hits Cmd+S, switches tabs) or the component unmounts. Keeps
+  // `docManager.activeDocContent` from lagging behind the editor state long
+  // enough for a save to pick up stale content.
+  useEffect(() => {
+    if (!editor) return;
+    const flush = () => {
+      if (pendingChangeRef.current == null) return;
+      clearTimeout(pendingChangeRef.current);
+      pendingChangeRef.current = null;
+      const md = htmlToMarkdown(editor.getHTML());
+      onChangeRef.current?.(md);
+    };
+    editor.on("blur", flush);
+    return () => {
+      editor.off("blur", flush);
+      flush();
+    };
+  }, [editor]);
 
   // Sync content from parent when it changes externally
   useEffect(() => {
