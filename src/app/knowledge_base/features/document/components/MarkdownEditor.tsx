@@ -256,27 +256,42 @@ export default function MarkdownEditor({
     };
   }, [editor]);
 
-  // Sync content from parent when it changes externally
+  // Sync content from parent when it changes externally.
+  //
+  // Deferred to a microtask: setContent re-creates every node view in the doc,
+  // and Tiptap's ReactRenderer (the wrapper around our wikiLink React node
+  // view) calls `flushSync` during mount. Running that inside a useEffect's
+  // commit phase trips React's "flushSync was called from inside a lifecycle
+  // method" warning. The microtask runs right after commit finishes, which is
+  // exactly what the warning suggests.
   useEffect(() => {
-    if (editor && !editor.isFocused) {
+    if (!editor) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed || editor.isFocused) return;
       const currentMd = htmlToMarkdown(editor.getHTML());
       if (currentMd.trim() !== content.trim()) {
         editor.commands.setContent(markdownToHtml(content));
         setRawContent(content);
       }
-    }
+    });
   }, [content, editor]);
 
   // Sync editable state when readOnly prop changes (Tiptap's `editable` option
   // is only read at init — later changes require setEditable). When locking,
   // dispatch a no-op transaction so the markdownReveal plugin re-runs with the
   // new isEditable value and restores any currently-visible rawBlock.
+  //
+  // Microtask-deferred for the same flushSync reason as the content-sync
+  // effect above — setEditable rebuilds node views.
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(!readOnly);
-    if (readOnly) {
-      editor.view.dispatch(editor.state.tr);
-    }
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      editor.setEditable(!readOnly);
+      if (readOnly) {
+        editor.view.dispatch(editor.state.tr);
+      }
+    });
   }, [editor, readOnly]);
 
   // Read mode always shows rich text; raw mode is only honored when editable.
@@ -285,8 +300,13 @@ export default function MarkdownEditor({
   // Update wiki-link extension options when doc paths or the current file
   // change. Dispatching a no-op transaction re-invokes nodeView `update()`
   // handlers so existence (blue/red) and relative-path resolution refresh.
+  //
+  // Microtask-deferred for the same flushSync reason as the effects above —
+  // the dispatch can re-mount wikiLink React node views.
   useEffect(() => {
-    if (editor) {
+    if (!editor) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
       editor.extensionManager.extensions.forEach((ext) => {
         if (ext.name === "wikiLink") {
           ext.options.existingDocPaths = existingDocPaths;
@@ -295,7 +315,7 @@ export default function MarkdownEditor({
         }
       });
       editor.view.dispatch(editor.state.tr);
-    }
+    });
   }, [editor, existingDocPaths, allDocPaths, currentDocDir]);
 
   const handleToggleRawMode = useCallback(() => {

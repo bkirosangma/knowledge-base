@@ -4,6 +4,7 @@
 // cursor leaves, the raw text is re-parsed and the block goes back to rich.
 
 import { Extension, Node as TiptapNode } from "@tiptap/react";
+import { getSplittedAttributes } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DOMParser as PMDOMParser, Fragment } from "@tiptap/pm/model";
@@ -265,6 +266,11 @@ function buildSyntaxDecorations(doc: ProseMirrorNode): DecorationSet {
 
 export const RawBlock = TiptapNode.create({
   name: "rawBlock",
+  // Higher than the default 100 so our Enter handler runs BEFORE TipTap's
+  // core Keymap extension. Without this, Keymap's `newlineInCode()` (fired
+  // by our `code: true` flag) consumes Enter and inserts `\n`, never
+  // reaching the split-into-new-block logic below.
+  priority: 1000,
   group: "block",
   // Mixed content: text (raw markdown syntax), link-marked text, wikiLink atoms.
   content: "(text | wikiLink)*",
@@ -314,6 +320,149 @@ export const RawBlock = TiptapNode.create({
   // syntax (e.g. deleting a `*` would keep the bold mark in place).
   extendNodeSchema() {
     return { marks: "link" };
+  },
+  addKeyboardShortcuts() {
+    return {
+      // `code: true` makes ProseMirror's default Enter handler insert a
+      // literal `\n` (the codeBlock convention) instead of starting a new
+      // block. That's wrong for raw markdown editing — pressing Enter
+      // should split into two blocks the way a normal paragraph does.
+      //
+      // We also can't defer to TipTap's `splitListItem` when the cursor is
+      // inside a rawBlock inside a list item: `canSplit` short-circuits on
+      // `$pos.parent.type.spec.isolating`, and our rawBlock sets
+      // `isolating: true` (intentional — it stops backspace/delete from
+      // pulling adjacent blocks into the raw editing view). So the split
+      // is built by hand here.
+      //
+      // Two cases:
+      //  • rawBlock inside a listItem/taskItem → replace the current list
+      //    item with two siblings. Before-half keeps the rawBlock with the
+      //    pre-cursor content; after-half is a fresh paragraph holding the
+      //    post-cursor inline content. The markdownReveal appendTransaction
+      //    then restores the before-half to rich (cursor left it) and
+      //    converts the after-half to a rawBlock (cursor landed in it), so
+      //    the end state is two list items with live reveal on the new one.
+      //  • Otherwise → split at the cursor with `typesAfter: paragraph`
+      //    so the after-half lands as a plain paragraph; markdownReveal
+      //    then restores the before-half to rich and re-converts the
+      //    after-half on the next cursor-position pass.
+      Enter: () => {
+        const { state, view } = this.editor;
+        const { schema, selection } = state;
+        const { $head } = selection;
+
+        // Walk up the ancestry once to find both the rawBlock and (if any)
+        // the enclosing list item. Tracking the depth lets us compute
+        // positions later without re-resolving.
+        let rawBlockNode: ProseMirrorNode | null = null;
+        let rawBlockPos = -1;
+        let listItemNode: ProseMirrorNode | null = null;
+        let listItemPos = -1;
+        for (let d = $head.depth; d >= 0; d--) {
+          const node = $head.node(d);
+          const name = node.type.name;
+          if (name === "rawBlock" && !rawBlockNode) {
+            rawBlockNode = node;
+            rawBlockPos = $head.before(d);
+          } else if (
+            rawBlockNode &&
+            !listItemNode &&
+            (name === "listItem" || name === "taskItem")
+          ) {
+            listItemNode = node;
+            listItemPos = $head.before(d);
+          }
+        }
+        if (!rawBlockNode) return false;
+
+        // ── Case 1: rawBlock inside a list item — hand-built split ──
+        if (listItemNode) {
+          const rawContentStart = rawBlockPos + 1;
+          const cursorOffset = Math.max(
+            0,
+            Math.min($head.pos - rawContentStart, rawBlockNode.content.size),
+          );
+          const beforeContent = rawBlockNode.content.cut(0, cursorOffset);
+          const afterContent = rawBlockNode.content.cut(cursorOffset);
+
+          const beforeRawBlock = schema.nodes.rawBlock.create(
+            rawBlockNode.attrs,
+            beforeContent,
+          );
+          // Post-cursor lands in a paragraph so appendTransaction's
+          // conversion path treats it as a brand-new rawBlock (with
+          // originalType=paragraph). Keeping text + wikiLink atoms as-is
+          // is valid in a paragraph — wikiLink is group=inline and link
+          // marks carry over untouched.
+          const afterParagraph = schema.nodes.paragraph.create(
+            null,
+            afterContent,
+          );
+
+          // Strip attrs with keepOnSplit=false from the after-half so a
+          // checked taskItem splits into an unchecked one (matches Tiptap's
+          // built-in splitListItem behavior).
+          const afterListItemAttrs = getSplittedAttributes(
+            this.editor.extensionManager.attributes,
+            listItemNode.type.name,
+            listItemNode.attrs,
+          );
+
+          const beforeListItem = listItemNode.type.create(
+            listItemNode.attrs,
+            beforeRawBlock,
+          );
+          const afterListItem = listItemNode.type.create(
+            afterListItemAttrs,
+            afterParagraph,
+          );
+
+          const tr = state.tr;
+          try {
+            tr.replaceWith(
+              listItemPos,
+              listItemPos + listItemNode.nodeSize,
+              [beforeListItem, afterListItem],
+            );
+          } catch {
+            return false;
+          }
+
+          // Cursor position math: walk past the before-list-item, then
+          // through the after-list-item's opening token and its paragraph's
+          // opening token to land at offset 0 of the paragraph's content.
+          const afterParagraphStart =
+            listItemPos + beforeListItem.nodeSize + 2;
+          try {
+            tr.setSelection(TextSelection.create(tr.doc, afterParagraphStart));
+          } catch {
+            // shouldn't happen given the shape we just built, but stay safe
+          }
+          view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+
+        // ── Case 2: top-level rawBlock — split as paragraph ──
+        const cursorPos = $head.pos;
+        const tr = state.tr;
+        try {
+          tr.split(cursorPos, 1, [{ type: schema.nodes.paragraph }]);
+        } catch {
+          return false;
+        }
+        // Land the cursor at the start of the after-half. Split inserts
+        // a closing token + an opening token at cursorPos, so the new
+        // block's first text position is cursorPos + 2.
+        try {
+          tr.setSelection(TextSelection.create(tr.doc, cursorPos + 2));
+        } catch {
+          // out of bounds — let PM keep its default mapped selection
+        }
+        view.dispatch(tr);
+        return true;
+      },
+    };
   },
 });
 
