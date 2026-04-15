@@ -22,7 +22,8 @@ export const TableNoNest = Table.extend({
         (options) =>
         (ctx) => {
           if (ctx.editor.isActive("table")) return false;
-          return parentInsert!(options)(ctx);
+          if (!parentInsert) return false;
+          return parentInsert(options)(ctx);
         },
     };
   },
