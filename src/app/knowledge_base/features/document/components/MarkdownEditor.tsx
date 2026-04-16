@@ -14,15 +14,16 @@ import { ListItem } from "@tiptap/extension-list-item";
 import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
+import { TextSelection } from "@tiptap/pm/state";
 import { WikiLink } from "../extensions/wikiLink";
-import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
+import { MarkdownReveal, RawBlock, SYNTAX_PATTERNS, rawBlockToRichNodes } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
 import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import {
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered,
-  CheckSquare, Heading1, Heading2, Heading3, Minus, Link as LinkIcon,
+  CheckSquare, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Minus, Link as LinkIcon,
   Table as TableIcon, Undo2, Redo2, FileCode,
 } from "lucide-react";
 
@@ -64,6 +65,477 @@ function TBtn({
 
 function Sep() {
   return <div className="w-px h-5 bg-slate-200 mx-0.5" />;
+}
+
+/* ── Raw-syntax helpers ── */
+
+/** Count consecutive occurrences of `ch` immediately before/after `pos`. */
+function countConsecutiveChar(
+  doc: { textBetween(from: number, to: number): string },
+  pos: number,
+  ch: string,
+  direction: "before" | "after",
+  limit: number,
+): number {
+  let count = 0;
+  let p = direction === "before" ? pos - 1 : pos;
+  const step = direction === "before" ? -1 : 1;
+  const inBounds =
+    direction === "before" ? (v: number) => v >= limit : (v: number) => v < limit;
+  while (inBounds(p)) {
+    try {
+      if (doc.textBetween(p, p + 1) !== ch) break;
+    } catch {
+      break;
+    }
+    count++;
+    p += step;
+  }
+  return count;
+}
+
+const SYNTAX_TO_TAG: Record<string, string> = {
+  "**": "strong", "*": "em", "~~": "s", "`": "code",
+};
+
+/**
+ * Find the innermost SYNTAX_PATTERNS match that encloses the selection range
+ * and has *exactly* the target tag (not a superset like bold+italic from
+ * `***`).  Returns absolute doc positions or null.
+ */
+function findEnclosingSyntaxRange(
+  state: { doc: { resolve(pos: number): any } },
+  from: number,
+  to: number,
+  rawDepth: number,
+  syntax: string,
+): { matchStart: number; matchEnd: number } | null {
+  const tag = SYNTAX_TO_TAG[syntax];
+  if (!tag) return null;
+
+  const $from = state.doc.resolve(from);
+  const rawNode = $from.node(rawDepth);
+  const contentStart = $from.start(rawDepth);
+  const relFrom = from - contentStart;
+  const relTo = to - contentStart;
+
+  // Dedup consumed ranges the same way pushSyntaxDecorations does.
+  const consumed: Array<[number, number, string[]]> = [];
+  const shouldSkip = (s: number, e: number, t: string[]) =>
+    consumed.some(
+      ([cs, ce, ct]) => s >= cs && e <= ce && t.every((v) => ct.includes(v)),
+    );
+
+  let offset = 0;
+  let found: { matchStart: number; matchEnd: number } | null = null;
+
+  rawNode.forEach((child: any) => {
+    if (found) { offset += child.nodeSize; return; }
+    if (child.isText && child.text != null) {
+      const nodeStart = offset;
+      for (const { re, tags } of SYNTAX_PATTERNS) {
+        re.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(child.text)) !== null) {
+          const s = nodeStart + m.index;
+          const e = s + m[0].length;
+          if (shouldSkip(s, e, tags)) continue;
+          consumed.push([s, e, tags]);
+          if (
+            tags.length === 1 &&
+            tags[0] === tag &&
+            s < relFrom &&
+            e > relTo
+          ) {
+            found = {
+              matchStart: contentStart + s,
+              matchEnd: contentStart + e,
+            };
+          }
+        }
+      }
+    }
+    offset += child.nodeSize;
+  });
+
+  return found;
+}
+
+/**
+ * When the cursor is inside a rawBlock (live-reveal mode), Tiptap mark
+ * commands like toggleBold() are rejected because rawBlock restricts marks
+ * to "link" only.  Instead we insert / remove the markdown syntax characters
+ * as plain text so the user sees `**word**`, `*word*`, etc.
+ *
+ * Uses character-counting to correctly disambiguate `*` (italic) from `**`
+ * (bold) so stacking bold+italic produces `***word***` instead of clobbering.
+ *
+ * Returns `true` if the operation was handled (cursor was in a rawBlock),
+ * `false` otherwise so the caller can fall back to the standard mark command.
+ */
+function toggleRawSyntax(
+  editor: ReturnType<typeof useEditor>,
+  syntax: string,
+): boolean {
+  if (!editor) return false;
+  const { state, view } = editor;
+  const { selection } = state;
+  const { from, to, empty } = selection;
+
+  // Find the rawBlock ancestor (if any).
+  const $from = state.doc.resolve(from);
+  let rawDepth = -1;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type.name === "rawBlock") {
+      rawDepth = d;
+      break;
+    }
+  }
+  if (rawDepth < 0) return false;
+
+  const syntaxLen = syntax.length;
+  const ch = syntax[0]; // all our syntaxes use a repeated char: *, **, ~~, `
+  const tr = state.tr;
+
+  if (empty) {
+    // No selection — insert paired markers and place cursor between them.
+    tr.insertText(syntax + syntax, from);
+    tr.setSelection(TextSelection.create(tr.doc, from + syntaxLen));
+  } else {
+    const selectedText = state.doc.textBetween(from, to);
+    const contentStart = $from.start(rawDepth);
+    const contentEnd = $from.end(rawDepth);
+
+    const countBefore = countConsecutiveChar(state.doc, from, ch, "before", contentStart);
+    const countAfter = countConsecutiveChar(state.doc, to, ch, "after", contentEnd);
+    const effectiveCount = Math.min(countBefore, countAfter);
+
+    // Determine whether this specific syntax layer is already present.
+    // `*` (italic) is present when the asterisk count is odd (1 or 3).
+    // `**` (bold) is present when the asterisk count is ≥ 2.
+    // `~~` / `` ` `` use a simple threshold check.
+    let shouldUnwrap: boolean;
+    if (syntax === "*") {
+      shouldUnwrap = effectiveCount % 2 === 1;
+    } else {
+      shouldUnwrap = effectiveCount >= syntaxLen;
+    }
+
+    if (shouldUnwrap) {
+      // Unwrap — remove exactly `syntaxLen` chars from each side.
+      const unwrapStart = from - syntaxLen;
+      const unwrapEnd = to + syntaxLen;
+      tr.insertText(selectedText, unwrapStart, unwrapEnd);
+      tr.setSelection(
+        TextSelection.create(tr.doc, unwrapStart, unwrapStart + selectedText.length),
+      );
+    } else {
+      // The format might still be active from an *outer* scope (e.g. CDN
+      // inherits bold from the surrounding `**Bunny ~~CDN~~ (Pull Zones)**`).
+      // When that's the case, split the outer markers around the selection
+      // instead of wrapping (which would just create a no-op double bold).
+      const enclosing = findEnclosingSyntaxRange(state, from, to, rawDepth, syntax);
+      if (enclosing) {
+        // ── Split the outer syntax around the selection ──
+        const { matchStart, matchEnd } = enclosing;
+        const innerStart = matchStart + syntaxLen;
+        const innerEnd = matchEnd - syntaxLen;
+        const inner = state.doc.textBetween(innerStart, innerEnd);
+        const selLocalFrom = from - innerStart;
+        const selLocalTo = to - innerStart;
+
+        const before = inner.slice(0, selLocalFrom);
+        const after = inner.slice(selLocalTo);
+
+        // Separate text content from adjacent syntax markers (~~, **, etc.)
+        // so the re-wrapped bold closes/opens outside those markers.
+        const trailSyn = before.match(/([*~`]+)$/);
+        const leadSyn = after.match(/^([*~`]+)/);
+        const beforeText = trailSyn ? before.slice(0, -trailSyn[0].length) : before;
+        const beforeMarkers = trailSyn ? trailSyn[0] : "";
+        const afterMarkers = leadSyn ? leadSyn[0] : "";
+        const afterText = leadSyn ? after.slice(leadSyn[0].length) : after;
+
+        // Re-wrap the before / after text, moving whitespace outside the
+        // delimiters so they satisfy CommonMark flanking rules.
+        const wrapSide = (text: string, side: "before" | "after"): string => {
+          if (!text) return "";
+          if (side === "before") {
+            const trimmed = text.replace(/ +$/, "");
+            const ws = text.slice(trimmed.length);
+            return trimmed ? syntax + trimmed + syntax + ws : ws;
+          }
+          const trimmed = text.replace(/^ +/, "");
+          const ws = text.slice(0, text.length - trimmed.length);
+          return trimmed ? ws + syntax + trimmed + syntax : ws;
+        };
+
+        const newContent =
+          wrapSide(beforeText, "before") +
+          beforeMarkers +
+          selectedText +
+          afterMarkers +
+          wrapSide(afterText, "after");
+
+        tr.insertText(newContent, matchStart, matchEnd);
+        const newSelStart =
+          matchStart +
+          wrapSide(beforeText, "before").length +
+          beforeMarkers.length;
+        tr.setSelection(
+          TextSelection.create(
+            tr.doc,
+            newSelStart,
+            newSelStart + selectedText.length,
+          ),
+        );
+      } else {
+        // Wrap — insert syntax characters around the selection.
+        const wrapped = syntax + selectedText + syntax;
+        tr.insertText(wrapped, from, to);
+        tr.setSelection(
+          TextSelection.create(tr.doc, from + syntaxLen, from + syntaxLen + selectedText.length),
+        );
+      }
+    }
+  }
+
+  view.dispatch(tr);
+  return true;
+}
+
+/* ── Active-state detection for rawBlock toolbar highlighting ── */
+
+const TAG_TO_FORMAT: Record<string, string> = {
+  strong: "bold",
+  em: "italic",
+  s: "strike",
+  code: "code",
+};
+
+/**
+ * When the cursor is inside a rawBlock, Tiptap's `editor.isActive("bold")`
+ * always returns false (rawBlock only allows "link" marks). This function
+ * runs the same SYNTAX_PATTERNS used for live decorations and returns the
+ * set of format names whose regex match covers the cursor position.
+ *
+ * Returns `null` when the cursor is NOT inside a rawBlock (caller should
+ * fall back to `editor.isActive`).
+ */
+function getActiveRawFormats(
+  editor: ReturnType<typeof useEditor>,
+): Set<string> | null {
+  if (!editor) return null;
+  const { state } = editor;
+  const $head = state.selection.$head;
+
+  let rawDepth = -1;
+  for (let d = $head.depth; d >= 0; d--) {
+    if ($head.node(d).type.name === "rawBlock") {
+      rawDepth = d;
+      break;
+    }
+  }
+  if (rawDepth < 0) return null;
+
+  const rawNode = $head.node(rawDepth);
+  const contentStart = $head.start(rawDepth);
+  const cursorPos = $head.pos;
+  const active = new Set<string>();
+
+  // Walk text children — mirrors pushSyntaxDecorations in markdownReveal.ts.
+  let offset = 0;
+  rawNode.forEach((child) => {
+    if (child.isText && child.text != null) {
+      const nodeStart = contentStart + offset;
+      const nodeEnd = nodeStart + child.text.length;
+
+      if (cursorPos >= nodeStart && cursorPos <= nodeEnd) {
+        const cursorOffset = cursorPos - nodeStart;
+        // Dedup consumed ranges the same way pushSyntaxDecorations does.
+        const consumed: Array<[number, number, string[]]> = [];
+        const shouldSkip = (s: number, e: number, t: string[]) =>
+          consumed.some(
+            ([cs, ce, ct]) =>
+              s >= cs && e <= ce && t.every((v) => ct.includes(v)),
+          );
+
+        for (const { re, tags } of SYNTAX_PATTERNS) {
+          re.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(child.text)) !== null) {
+            const start = m.index;
+            const end = start + m[0].length;
+            if (shouldSkip(start, end, tags)) continue;
+            consumed.push([start, end, tags]);
+            if (cursorOffset >= start && cursorOffset <= end) {
+              for (const tag of tags) {
+                const fmt = TAG_TO_FORMAT[tag];
+                if (fmt) active.add(fmt);
+              }
+            }
+          }
+        }
+      }
+    }
+    offset += child.nodeSize;
+  });
+
+  return active;
+}
+
+/**
+ * Returns the heading level (1-6) when the cursor is inside a rawBlock whose
+ * text starts with a `# ` prefix, or `null` otherwise.
+ */
+function getRawHeadingLevel(
+  editor: ReturnType<typeof useEditor>,
+): number | null {
+  if (!editor) return null;
+  const { state } = editor;
+  const $head = state.selection.$head;
+
+  for (let d = $head.depth; d >= 0; d--) {
+    if ($head.node(d).type.name === "rawBlock") {
+      const text = $head.node(d).textContent;
+      const match = text.match(/^(#{1,6})\s/);
+      return match ? match[1].length : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns `true` when the cursor is inside a rawBlock whose text starts with
+ * `> ` (blockquote), `false` for a non-blockquote rawBlock, or `null` when
+ * the cursor is NOT inside a rawBlock.
+ */
+function isRawBlockquote(
+  editor: ReturnType<typeof useEditor>,
+): boolean | null {
+  if (!editor) return null;
+  const { state } = editor;
+  const $head = state.selection.$head;
+
+  for (let d = $head.depth; d >= 0; d--) {
+    if ($head.node(d).type.name === "rawBlock") {
+      return $head.node(d).textContent.startsWith("> ");
+    }
+  }
+  return null;
+}
+
+/**
+ * Toggle a block-level type (heading or blockquote) inside a rawBlock by
+ * adding/removing/replacing the markdown prefix AND updating the rawBlock's
+ * `originalType`/`originalLevel` attrs so the visual tag updates instantly.
+ * Returns `true` if handled, `false` if not in a rawBlock.
+ */
+function toggleRawBlockType(
+  editor: ReturnType<typeof useEditor>,
+  type: "heading" | "blockquote",
+  level?: number,
+): boolean {
+  if (!editor) return false;
+  const { state, view } = editor;
+  const $head = state.selection.$head;
+
+  let rawDepth = -1;
+  for (let d = $head.depth; d >= 0; d--) {
+    if ($head.node(d).type.name === "rawBlock") {
+      rawDepth = d;
+      break;
+    }
+  }
+  if (rawDepth < 0) return false;
+
+  const rawBlockPos = $head.before(rawDepth);
+  const contentStart = $head.start(rawDepth);
+  const text = $head.node(rawDepth).textContent;
+  const tr = state.tr;
+
+  // Detect current block-level prefix
+  const hMatch = text.match(/^(#{1,6}) /);
+  const isQuote = text.startsWith("> ");
+  const currentPrefix = hMatch ? hMatch[0] : isQuote ? "> " : "";
+
+  // Compute desired prefix + attrs
+  let newPrefix = "";
+  let newAttrs: Record<string, unknown> = {
+    originalType: "paragraph",
+    originalLevel: null,
+  };
+
+  if (type === "heading" && level) {
+    const curLevel = hMatch ? hMatch[1].length : 0;
+    if (curLevel !== level) {
+      newPrefix = "#".repeat(level) + " ";
+      newAttrs = { originalType: "heading", originalLevel: level };
+    }
+  } else if (type === "blockquote") {
+    if (!isQuote) {
+      newPrefix = "> ";
+      newAttrs = { originalType: "blockquote", originalLevel: null };
+    }
+  }
+
+  if (currentPrefix === newPrefix) return true; // already in desired state
+
+  // Replace prefix and update attrs for instant visual change
+  if (currentPrefix) {
+    tr.insertText(newPrefix, contentStart, contentStart + currentPrefix.length);
+  } else {
+    tr.insertText(newPrefix, contentStart, contentStart);
+  }
+  tr.setNodeMarkup(rawBlockPos, undefined, newAttrs);
+  view.dispatch(tr);
+  return true;
+}
+
+/**
+ * Convert the rawBlock under the cursor back to rich content. Used before
+ * structural block commands (list toggles) that can't be expressed as a
+ * simple prefix change. Returns `true` if a rawBlock was exited.
+ */
+function forceExitRawBlock(
+  editor: ReturnType<typeof useEditor>,
+): boolean {
+  if (!editor) return false;
+  const { state, view } = editor;
+  const $head = state.selection.$head;
+
+  let rawDepth = -1;
+  for (let d = $head.depth; d >= 0; d--) {
+    if ($head.node(d).type.name === "rawBlock") {
+      rawDepth = d;
+      break;
+    }
+  }
+  if (rawDepth < 0) return false;
+
+  const rawBlockPos = $head.before(rawDepth);
+  const rawNode = $head.node(rawDepth);
+  const tr = state.tr;
+
+  const rich = rawBlockToRichNodes(rawNode, state.schema);
+  if (rich.length) {
+    tr.replaceWith(rawBlockPos, rawBlockPos + rawNode.nodeSize, rich);
+  } else {
+    tr.replaceWith(
+      rawBlockPos,
+      rawBlockPos + rawNode.nodeSize,
+      state.schema.nodes.paragraph.create(),
+    );
+  }
+
+  try {
+    tr.setSelection(TextSelection.create(tr.doc, rawBlockPos + 1));
+  } catch { /* leave mapped selection */ }
+
+  tr.setMeta("rawSwap", true);
+  tr.setMeta("addToHistory", false);
+  view.dispatch(tr);
+  return true;
 }
 
 // markdownReveal needs to swap a list item's paragraph for a rawBlock when the
@@ -375,6 +847,18 @@ export default function MarkdownEditor({
 
   const sz = 15;
 
+  // Compute raw-block active state once per render (toolbar re-renders on
+  // every transaction via forceUpdate). `null` means not in a rawBlock.
+  const rawFmt = editor ? getActiveRawFormats(editor) : null;
+  const rawH = editor ? getRawHeadingLevel(editor) : null;
+  const rawBQ = editor ? isRawBlockquote(editor) : null;
+  const isAct = (mark: string) =>
+    rawFmt ? rawFmt.has(mark) : !!editor?.isActive(mark);
+  const isH = (lvl: number) =>
+    rawH !== null ? rawH === lvl : !!editor?.isActive("heading", { level: lvl });
+  const isBQ =
+    rawBQ !== null ? rawBQ : !!editor?.isActive("blockquote");
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Toolbar (hidden in read-only mode) ── */}
@@ -409,43 +893,52 @@ export default function MarkdownEditor({
 
             <Sep />
             {/* Headings */}
-            <TBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })} title="Heading 1">
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 1)) editor.chain().focus().toggleHeading({ level: 1 }).run(); }} active={isH(1)} title="Heading 1">
               <Heading1 size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="Heading 2">
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 2)) editor.chain().focus().toggleHeading({ level: 2 }).run(); }} active={isH(2)} title="Heading 2">
               <Heading2 size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })} title="Heading 3">
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 3)) editor.chain().focus().toggleHeading({ level: 3 }).run(); }} active={isH(3)} title="Heading 3">
               <Heading3 size={sz} />
+            </TBtn>
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 4)) editor.chain().focus().toggleHeading({ level: 4 }).run(); }} active={isH(4)} title="Heading 4">
+              <Heading4 size={sz} />
+            </TBtn>
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 5)) editor.chain().focus().toggleHeading({ level: 5 }).run(); }} active={isH(5)} title="Heading 5">
+              <Heading5 size={sz} />
+            </TBtn>
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "heading", 6)) editor.chain().focus().toggleHeading({ level: 6 }).run(); }} active={isH(6)} title="Heading 6">
+              <Heading6 size={sz} />
             </TBtn>
 
             <Sep />
             {/* Inline formatting */}
-            <TBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
+            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "**")) editor.chain().focus().toggleBold().run(); }} active={isAct("bold")} title="Bold">
               <Bold size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic">
+            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "*")) editor.chain().focus().toggleItalic().run(); }} active={isAct("italic")} title="Italic">
               <Italic size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Strikethrough">
+            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "~~")) editor.chain().focus().toggleStrike().run(); }} active={isAct("strike")} title="Strikethrough">
               <Strikethrough size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive("code")} title="Inline code">
+            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "`")) editor.chain().focus().toggleCode().run(); }} active={isAct("code")} title="Inline code">
               <Code size={sz} />
             </TBtn>
 
             <Sep />
             {/* Block formatting */}
-            <TBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Bullet list">
+            <TBtn onClick={() => { forceExitRawBlock(editor); editor.chain().focus().toggleBulletList().run(); }} active={editor.isActive("bulletList")} title="Bullet list">
               <List size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Numbered list">
+            <TBtn onClick={() => { forceExitRawBlock(editor); editor.chain().focus().toggleOrderedList().run(); }} active={editor.isActive("orderedList")} title="Numbered list">
               <ListOrdered size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive("taskList")} title="Task list">
+            <TBtn onClick={() => { forceExitRawBlock(editor); editor.chain().focus().toggleTaskList().run(); }} active={editor.isActive("taskList")} title="Task list">
               <CheckSquare size={sz} />
             </TBtn>
-            <TBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Blockquote">
+            <TBtn onClick={() => { if (!toggleRawBlockType(editor, "blockquote")) editor.chain().focus().toggleBlockquote().run(); }} active={isBQ} title="Blockquote">
               <Quote size={sz} />
             </TBtn>
             <TBtn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")} title="Code block">

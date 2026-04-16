@@ -47,9 +47,23 @@ function marksToRawMarkdown(text: string, marks: readonly Mark[]): string {
   return out;
 }
 
+// Mark nesting order (outermost → innermost) and their syntax characters.
+// Consistent ordering ensures `closeMarksTo` correctly computes the common
+// prefix between adjacent text runs, so we only open/close at boundaries.
+const MARK_ORDER: string[] = ["strike", "bold", "italic", "code"];
+const MARK_SYNTAX: Record<string, string> = {
+  bold: "**", italic: "*", strike: "~~", code: "`",
+};
+
 // Convert a rich block (paragraph/heading/blockquote) into a Fragment suitable
 // for a rawBlock: text with non-link marks flattened to syntax chars, link
 // marks preserved verbatim, and wikiLink atoms passed through.
+//
+// Unlike the old per-run wrapping (`marksToRawMarkdown` on each text node),
+// this tracks which marks are currently "open" and only emits syntax chars at
+// mark boundaries. That prevents the asterisk explosion when consecutive runs
+// share marks (e.g. `<strong>A <em>B</em> C</strong>` → `**A *B* C**` instead
+// of `**A *****B****** C**`).
 function richBlockToRawFragment(
   node: ProseMirrorNode,
   schema: Schema,
@@ -69,6 +83,72 @@ function richBlockToRawFragment(
   }
   if (prefix) children.push(schema.text(prefix));
 
+  // ── Mark-boundary tracking state ──
+  let openMarks: string[] = [];  // currently open marks, outer → inner
+  let pendingText = "";          // text buffer including syntax chars
+
+  const flushText = () => {
+    if (pendingText) {
+      children.push(schema.text(pendingText));
+      pendingText = "";
+    }
+  };
+
+  // Transition from `openMarks` to `targetMarks`: close marks no longer
+  // present (innermost first), then open newly needed marks.
+  // Returns the common-prefix length so callers can tell which marks opened.
+  const transitionMarks = (targetMarks: string[]): number => {
+    let commonLen = 0;
+    while (
+      commonLen < openMarks.length &&
+      commonLen < targetMarks.length &&
+      openMarks[commonLen] === targetMarks[commonLen]
+    ) {
+      commonLen++;
+    }
+    // When closing marks, pull trailing spaces outside the closing
+    // delimiters.  CommonMark requires a closing `**` / `~~` to be
+    // "right-flanking" — i.e. not preceded by whitespace.  Without this
+    // fixup `**word **` would fail to parse as bold.
+    let trailingWS = "";
+    if (openMarks.length > commonLen) {
+      const wsMatch = pendingText.match(/( +)$/);
+      if (wsMatch) {
+        trailingWS = wsMatch[0];
+        pendingText = pendingText.slice(0, -trailingWS.length);
+      }
+    }
+    // Close from innermost to the divergence point.
+    for (let i = openMarks.length - 1; i >= commonLen; i--) {
+      pendingText += MARK_SYNTAX[openMarks[i]];
+    }
+    // Re-insert trailing whitespace after the closing delimiters.
+    pendingText += trailingWS;
+    // Open from the divergence point to innermost.
+    for (let i = commonLen; i < targetMarks.length; i++) {
+      pendingText += MARK_SYNTAX[targetMarks[i]];
+    }
+    openMarks = [...targetMarks];
+    return commonLen;
+  };
+
+  const closeAllMarks = () => {
+    // Same trailing-whitespace fix as transitionMarks.
+    let trailingWS = "";
+    if (openMarks.length > 0) {
+      const wsMatch = pendingText.match(/( +)$/);
+      if (wsMatch) {
+        trailingWS = wsMatch[0];
+        pendingText = pendingText.slice(0, -trailingWS.length);
+      }
+    }
+    for (let i = openMarks.length - 1; i >= 0; i--) {
+      pendingText += MARK_SYNTAX[openMarks[i]];
+    }
+    pendingText += trailingWS;
+    openMarks = [];
+  };
+
   // Walk inline descendants of the block. For blockquote this descends into
   // the inner paragraph's inlines, which is what we want (we only handle the
   // single-paragraph blockquote shape here; that matches markdownToHtml's
@@ -80,33 +160,62 @@ function richBlockToRawFragment(
           ? child.marks.find((m) => m.type === linkMarkType)
           : undefined;
         if (linkMark) {
-          // Preserve the link mark on this run verbatim.
-          children.push(schema.text(child.text, [linkMark]));
+          // Links are preserved as link-marked text nodes in the rawBlock.
+          // Close all marks around them so the syntax doesn't leak into
+          // the link display, then flush and push the link node directly.
+          closeAllMarks();
+          flushText();
+          // Preserve formatting marks (bold/italic/strike/code) as syntax
+          // chars inside the link text so the round-trip is lossless.
+          const nonLinkMarks = child.marks.filter(
+            (m) => m.type !== linkMarkType,
+          );
+          const styledText = nonLinkMarks.length
+            ? marksToRawMarkdown(child.text, nonLinkMarks)
+            : child.text;
+          children.push(schema.text(styledText, [linkMark]));
         } else {
-          // Flatten non-link marks to raw syntax chars. We deliberately do
-          // NOT carry the original marks across — the syntax-highlight
-          // decoration plugin re-derives `<strong>/<em>/<s>/<code>` from the
-          // syntax chars on every doc change, so keeping the marks would
-          // double-render (e.g. `<code><code>...</code></code>`) and would
-          // also keep the styling alive after the user deletes a syntax
-          // char, since marks aren't tied to the regex match.
-          const raw = marksToRawMarkdown(child.text, child.marks);
-          if (raw) children.push(schema.text(raw));
+          // Determine which formatting marks apply to this run.
+          // Keep already-open marks in their current nesting position and
+          // add newly appearing marks as innermost. This avoids closing
+          // and reopening a shared mark (like bold) when a sibling mark
+          // (like strike) appears or disappears in an inner run.
+          const markNames = new Set(child.marks.map((m) => m.type.name));
+          const kept = openMarks.filter((m) => markNames.has(m));
+          const added = MARK_ORDER.filter(
+            (m) => markNames.has(m) && !openMarks.includes(m),
+          );
+          const target = [...kept, ...added];
+          const cLen = transitionMarks(target);
+          // When new marks were opened and the text starts with spaces,
+          // pull those spaces before the opening delimiters so they stay
+          // left-flanking per CommonMark rules (`** word**` won't parse).
+          let txt = child.text!;
+          if (target.length > cLen && txt[0] === " ") {
+            const ws = txt.match(/^( +)/)![0];
+            const openSyn = target
+              .slice(cLen)
+              .map((m) => MARK_SYNTAX[m])
+              .join("");
+            if (pendingText.endsWith(openSyn)) {
+              pendingText =
+                pendingText.slice(0, -openSyn.length) + ws + openSyn;
+              txt = txt.slice(ws.length);
+            }
+          }
+          pendingText += txt;
         }
       } else if (wikiLinkType && child.type === wikiLinkType) {
         // Preserve wikiLink atoms; their markdown form is [[path]] which would
         // be re-parsed on restore — keeping them as nodes avoids the parse
         // trip for a lossless round-trip.
+        closeAllMarks();
+        flushText();
         children.push(child);
       } else if (child.type.name === "hardBreak") {
         // Emit as markdown's hard-break syntax (two trailing spaces + \n).
-        // markdownToHtml on restore re-parses this to <br>, which Tiptap's
-        // HardBreak extension maps back to a hardBreak node — round-trip
-        // preserved. Matters most for table cells (cellToMarkdown joins
-        // multi-block cells with <br>, which reload as hardBreaks inside a
-        // single paragraph), but also fixes the pre-existing case where a
-        // Shift-Enter hard break in a top-level paragraph was silently
-        // dropped on reveal.
+        closeAllMarks();
+        flushText();
         children.push(schema.text("  \n"));
       } else if (!child.isLeaf) {
         // Blockquote contains a paragraph; recurse into its inlines.
@@ -115,6 +224,9 @@ function richBlockToRawFragment(
     });
   };
   visit(node);
+
+  closeAllMarks();
+  flushText();
 
   return Fragment.fromArray(children);
 }
@@ -166,7 +278,7 @@ function cacheGet(schema: Schema, key: string): ProseMirrorNode[] | undefined {
 // blockquote prefix the user sees while editing). Then markdownToHtml does a
 // single, correct block-level parse so mixed headings/quotes/paragraphs don't
 // end up nested inside one another.
-function rawBlockToRichNodes(
+export function rawBlockToRichNodes(
   rawNode: ProseMirrorNode,
   schema: Schema,
 ): ProseMirrorNode[] {
@@ -196,7 +308,12 @@ function rawBlockToRichNodes(
   const cached = cacheGet(schema, md);
   if (cached) return cached;
 
-  const html = markdownToHtml(md);
+  // Escape bare `>` not followed by a space — CommonMark treats `>text` as a
+  // blockquote, but the editor only recognises `> text` (with space) as one.
+  const parseMd =
+    md.startsWith(">") && !md.startsWith("> ") ? "\\" + md : md;
+
+  const html = markdownToHtml(parseMd);
   const div = document.createElement("div");
   div.innerHTML = html;
   const parsed = PMDOMParser.fromSchema(schema).parse(div);
@@ -259,12 +376,16 @@ function findMergeTarget(
 
 // Triple-asterisk first so `***x***` gets BOTH bold and italic; the longer
 // match takes precedence and the bold/italic single passes skip overlaps.
-const SYNTAX_PATTERNS: Array<{ re: RegExp; tags: string[] }> = [
-  { re: /\*\*\*([^*\n]+?)\*\*\*/g, tags: ["strong", "em"] },
-  { re: /\*\*([^*\n]+?)\*\*/g, tags: ["strong"] },
+//
+// Bold uses `(?:[^*\n]|\*(?!\*))+?` instead of `[^*\n]+?` so that single
+// `*` chars (italic markers) inside bold are allowed. The negative lookahead
+// `\*(?!\*)` ensures the match still stops at `**` (the closing delimiter).
+export const SYNTAX_PATTERNS: Array<{ re: RegExp; tags: string[] }> = [
+  { re: /\*\*\*((?:[^*\n]|\*(?!\*))+?)\*\*\*/g, tags: ["strong", "em"] },
+  { re: /\*\*((?:[^*\n]|\*(?!\*))+?)\*\*/g, tags: ["strong"] },
   // Italic single `*`: lookbehind/ahead avoid catching the inner `*` of `**`.
   { re: /(?<!\*)\*(?!\*)([^*\n]+?)(?<!\*)\*(?!\*)/g, tags: ["em"] },
-  { re: /~~([^~\n]+?)~~/g, tags: ["s"] },
+  { re: /~~((?:[^~\n]|~(?!~))+?)~~/g, tags: ["s"] },
   { re: /`([^`\n]+?)`/g, tags: ["code"] },
 ];
 
@@ -273,13 +394,18 @@ function pushSyntaxDecorations(
   basePos: number,
   out: Decoration[],
 ) {
-  // `consumed` ranges are relative to `text` (not absolute doc pos). We only
-  // skip ranges fully inside an earlier match — partial overlap (e.g. the
-  // outer `**` of `**bold *italic***`) still gets its own decoration so the
-  // user sees stacked styles where the syntax overlaps.
-  const consumed: Array<[number, number]> = [];
-  const isInside = (s: number, e: number) =>
-    consumed.some(([cs, ce]) => s >= cs && e <= ce);
+  // `consumed` tracks [start, end, tags] for each match. A new match is
+  // skipped only if it's fully inside an earlier match AND all of its tags
+  // are already provided by that earlier match. This allows genuinely nested
+  // decorations (e.g. `<em>` inside `<strong>`) while still preventing the
+  // bold pattern from re-matching inside a triple-asterisk match (whose tags
+  // already include "strong").
+  const consumed: Array<[number, number, string[]]> = [];
+  const shouldSkip = (s: number, e: number, tags: string[]) =>
+    consumed.some(
+      ([cs, ce, ct]) =>
+        s >= cs && e <= ce && tags.every((t) => ct.includes(t)),
+    );
 
   for (const { re, tags } of SYNTAX_PATTERNS) {
     re.lastIndex = 0;
@@ -287,8 +413,8 @@ function pushSyntaxDecorations(
     while ((m = re.exec(text)) !== null) {
       const start = m.index;
       const end = start + m[0].length;
-      if (isInside(start, end)) continue;
-      consumed.push([start, end]);
+      if (shouldSkip(start, end, tags)) continue;
+      consumed.push([start, end, tags]);
       for (const tag of tags) {
         out.push(
           Decoration.inline(basePos + start, basePos + end, { nodeName: tag }),
@@ -694,7 +820,78 @@ export const MarkdownReveal = Extension.create({
             raw &&
             $head.pos > raw.pos &&
             $head.pos < raw.pos + raw.node.nodeSize;
-          if (cursorInRaw && canReveal) return null;
+          if (cursorInRaw && canReveal) {
+            // Keep the rawBlock's rendered tag (<h1>, <blockquote>, <p>) in
+            // sync with the text prefix as the user types.  Without this the
+            // visual change only appears after a full exit/re-enter cycle.
+            if (transactions.some((t) => t.docChanged) && raw) {
+              const text = raw.node.textContent;
+              const hMatch = text.match(/^(#{1,6}) /);
+              const isQuote = text.startsWith("> ");
+
+              let expectedType = "paragraph";
+              let expectedLevel: number | null = null;
+              if (hMatch) {
+                expectedType = "heading";
+                expectedLevel = hMatch[1].length;
+              } else if (isQuote) {
+                expectedType = "blockquote";
+              }
+
+              const { originalType, originalLevel } = raw.node.attrs as {
+                originalType: string;
+                originalLevel: number | null;
+              };
+              if (
+                originalType !== expectedType ||
+                originalLevel !== expectedLevel
+              ) {
+                const tr = newState.tr;
+                tr.setNodeMarkup(raw.pos, undefined, {
+                  originalType: expectedType,
+                  originalLevel: expectedLevel,
+                });
+                tr.setMeta("rawSwap", true);
+                tr.setMeta("addToHistory", false);
+                return tr;
+              }
+
+              // List prefix (`- `, `* `, `+ `, `1. `, etc.) — force-exit so
+              // markdown-it creates the proper list structure immediately.
+              const listMatch = text.match(/^(?:[-*+]|\d+\.) /);
+              if (listMatch) {
+                const $rawPos = newState.doc.resolve(raw.pos);
+                const parentName = $rawPos.parent.type.name;
+                if (parentName !== "listItem" && parentName !== "taskItem") {
+                  const rich = rawBlockToRichNodes(raw.node, schema);
+                  const tr = newState.tr;
+                  if (rich.length) {
+                    tr.replaceWith(raw.pos, raw.pos + raw.node.nodeSize, rich);
+                  } else {
+                    tr.replaceWith(
+                      raw.pos,
+                      raw.pos + raw.node.nodeSize,
+                      schema.nodes.paragraph.create(),
+                    );
+                  }
+                  // Place the cursor inside the paragraph within the new list.
+                  // Structure: list(+1) > listItem(+1) > paragraph(+1) > text
+                  const prefixLen = listMatch[0].length;
+                  const cursorInText = $head.pos - (raw.pos + 1);
+                  const targetOffset = Math.max(0, cursorInText - prefixLen);
+                  const paraContentLen = Math.max(0, text.length - prefixLen);
+                  const newPos =
+                    raw.pos + 3 + Math.min(targetOffset, paraContentLen);
+                  tr.setSelection(TextSelection.create(tr.doc, newPos));
+                  // No rawSwap — second pass converts the paragraph inside the
+                  // new list to a rawBlock, keeping the cursor in-place.
+                  tr.setMeta("addToHistory", false);
+                  return tr;
+                }
+              }
+            }
+            return null;
+          }
 
           // Convert only when allowed AND cursor is on a convertible block
           const wantConvert =

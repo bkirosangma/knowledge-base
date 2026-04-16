@@ -48,6 +48,30 @@ body {
   line-height: 1.4;
   color: #1e293b;
 }
+.markdown-editor .ProseMirror h4,
+.markdown-editor .ProseMirror h5,
+.markdown-editor .ProseMirror h6 {
+  font-weight: 600;
+  line-height: 1.4;
+}
+.markdown-editor .ProseMirror h4 {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+}
+.markdown-editor .ProseMirror h5 {
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  color: #334155;
+}
+.markdown-editor .ProseMirror h6 {
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  color: #475569;
+}
 
 /* Paragraphs */
 .markdown-editor .ProseMirror p {
@@ -170,6 +194,12 @@ body {
 }
 .markdown-editor .ProseMirror a:hover {
   color: #4338ca;
+}
+.markdown-editor .ProseMirror a strong,
+.markdown-editor .ProseMirror a em,
+.markdown-editor .ProseMirror a s,
+.markdown-editor .ProseMirror a code {
+  color: inherit;
 }
 .markdown-editor .ProseMirror[contenteditable="true"] a,
 .markdown-editor .ProseMirror[contenteditable="true"] .wiki-link {
