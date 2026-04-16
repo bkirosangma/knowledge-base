@@ -26,7 +26,8 @@ interface ExplorerPanelProps {
   onToggleCollapse: () => void;
   directoryName: string | null;
   tree: TreeNode[];
-  activeFile: string | null;
+  leftPaneFile: string | null;
+  rightPaneFile: string | null;
   dirtyFiles: Set<string>;
   onOpenFolder: () => void;
   onSelectFile: (path: string) => void;
@@ -87,7 +88,8 @@ export default function ExplorerPanel({
   onToggleCollapse,
   directoryName,
   tree,
-  activeFile,
+  leftPaneFile,
+  rightPaneFile,
   dirtyFiles,
   onOpenFolder,
   onSelectFile,
@@ -121,6 +123,24 @@ export default function ExplorerPanel({
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+
+  // Auto-expand folders to reveal highlighted pane files
+  useEffect(() => {
+    const paths = [leftPaneFile, rightPaneFile].filter(Boolean) as string[];
+    if (paths.length === 0) return;
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const fp of paths) {
+        const parts = fp.split("/");
+        for (let i = 1; i < parts.length; i++) {
+          const ancestor = parts.slice(0, i).join("/");
+          if (!next.has(ancestor)) { next.add(ancestor); changed = true; }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [leftPaneFile, rightPaneFile]);
 
   const sortedTree = useMemo(() => sortTree(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
 
@@ -403,9 +423,13 @@ export default function ExplorerPanel({
         ) : (
           <div
             className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
-              activeFile === node.path
-                ? "bg-blue-50 text-blue-600"
-                : "text-slate-700 hover:bg-slate-50"
+              leftPaneFile === node.path && rightPaneFile === node.path
+                ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"
+                : leftPaneFile === node.path
+                  ? "bg-blue-50 text-blue-600"
+                  : rightPaneFile === node.path
+                    ? "bg-green-50 text-green-600"
+                    : "text-slate-700 hover:bg-slate-50"
             } ${dirty ? "font-semibold" : ""}`}
             style={{ paddingLeft: indent + 22 }}
             onClick={() => {

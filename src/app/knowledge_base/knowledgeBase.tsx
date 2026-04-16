@@ -347,7 +347,7 @@ function KnowledgeBaseInner() {
         setTitleWidth={(w) => diagramBridge?.setTitleWidth(w)}
         onTitleCommit={(v) => diagramBridge?.onTitleCommit(v)}
         isDirty={isDirty}
-        hasActiveFile={!!fileExplorer.activeFile}
+        hasActiveFile={!!(panes.leftPane || panes.rightPane)}
         onDiscard={(e) => diagramBridge?.onDiscard(e)}
         onSave={() => diagramBridge?.onSave()}
         activePaneType={activePaneType}
@@ -388,7 +388,8 @@ function KnowledgeBaseInner() {
             onToggleCollapse={() => setExplorerCollapsed((c) => !c)}
             directoryName={fileExplorer.directoryName}
             tree={fileExplorer.tree}
-            activeFile={fileExplorer.activeFile}
+            leftPaneFile={panes.leftPane?.filePath ?? null}
+            rightPaneFile={panes.rightPane?.filePath ?? null}
             dirtyFiles={fileExplorer.dirtyFiles}
             onOpenFolder={fileExplorer.openFolder}
             onSelectFile={handleSelectFile}
