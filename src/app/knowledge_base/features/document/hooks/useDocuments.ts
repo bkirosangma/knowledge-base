@@ -3,14 +3,11 @@
 
 import { useState, useCallback } from "react";
 import type { DocumentMeta } from "../types";
-import { readTextFile, writeTextFile } from "../../../shared/hooks/useFileExplorer";
+import { writeTextFile } from "../../../shared/hooks/useFileExplorer";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 export function useDocuments() {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
-  const [activeDocPath, setActiveDocPath] = useState<string | null>(null);
-  const [activeDocContent, setActiveDocContent] = useState("");
-  const [docDirty, setDocDirty] = useState(false);
 
   /** Collect all .md file paths from the tree */
   const collectDocPaths = useCallback((tree: TreeNode[]): string[] => {
@@ -31,44 +28,6 @@ export function useDocuments() {
     return new Set(collectDocPaths(tree));
   }, [collectDocPaths]);
 
-  /** Open a document by reading it from disk */
-  const openDocument = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
-    path: string,
-  ) => {
-    try {
-      const parts = path.split("/");
-      let dirHandle = rootHandle;
-      for (const part of parts.slice(0, -1)) {
-        dirHandle = await dirHandle.getDirectoryHandle(part);
-      }
-      const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
-      const content = await readTextFile(fileHandle);
-      setActiveDocPath(path);
-      setActiveDocContent(content);
-      setDocDirty(false);
-      return content;
-    } catch {
-      setActiveDocPath(path);
-      setActiveDocContent("");
-      setDocDirty(false);
-      return "";
-    }
-  }, []);
-
-  /** Save the active document to disk */
-  const saveDocument = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
-    path?: string,
-    content?: string,
-  ) => {
-    const savePath = path ?? activeDocPath;
-    const saveContent = content ?? activeDocContent;
-    if (!savePath) return;
-    await writeTextFile(rootHandle, savePath, saveContent);
-    setDocDirty(false);
-  }, [activeDocPath, activeDocContent]);
-
   /** Create a new document */
   const createDocument = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
@@ -76,16 +35,7 @@ export function useDocuments() {
     initialContent = "",
   ) => {
     await writeTextFile(rootHandle, path, initialContent);
-    setActiveDocPath(path);
-    setActiveDocContent(initialContent);
-    setDocDirty(false);
     return path;
-  }, []);
-
-  /** Update content in memory (mark dirty) */
-  const updateContent = useCallback((markdown: string) => {
-    setActiveDocContent(markdown);
-    setDocDirty(true);
   }, []);
 
   /** Attach a document to an entity */
@@ -134,9 +84,9 @@ export function useDocuments() {
             a => !(a.type === entityType && a.id === entityId)
           ),
         };
-      }).filter(d => (d.attachedTo?.length ?? 0) > 0 || d.filename === activeDocPath)
+      }).filter(d => (d.attachedTo?.length ?? 0) > 0)
     );
-  }, [activeDocPath]);
+  }, []);
 
   /** Get documents attached to an entity */
   const getDocumentsForEntity = useCallback((
@@ -161,14 +111,7 @@ export function useDocuments() {
   return {
     documents,
     setDocuments,
-    activeDocPath,
-    activeDocContent,
-    docDirty,
-    openDocument,
-    saveDocument,
     createDocument,
-    updateContent,
-    setActiveDocPath,
     attachDocument,
     detachDocument,
     getDocumentsForEntity,

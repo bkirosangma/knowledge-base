@@ -256,6 +256,46 @@ export function migrateViewport(oldFileName: string, newFileName: string): void 
   } catch { /* ignore */ }
 }
 
+/* ── Pane layout helpers ── */
+
+const PANE_LAYOUT_KEY = "knowledge-base-pane-layout";
+
+interface SavedPaneEntry {
+  filePath: string;
+  fileType: "diagram" | "document";
+}
+
+interface SavedPaneLayout {
+  leftPane: SavedPaneEntry | null;
+  rightPane: SavedPaneEntry | null;
+  focusedSide: "left" | "right";
+  lastClosedPane?: SavedPaneEntry | null;
+}
+
+export function savePaneLayout(
+  leftPane: SavedPaneEntry | null,
+  rightPane: SavedPaneEntry | null,
+  focusedSide: "left" | "right",
+  lastClosedPane?: SavedPaneEntry | null,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      scopedKey(PANE_LAYOUT_KEY),
+      JSON.stringify({ leftPane, rightPane, focusedSide, lastClosedPane: lastClosedPane ?? null }),
+    );
+  } catch { /* ignore */ }
+}
+
+export function loadPaneLayout(): SavedPaneLayout | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(scopedKey(PANE_LAYOUT_KEY));
+    if (raw) return JSON.parse(raw) as SavedPaneLayout;
+  } catch { /* ignore */ }
+  return null;
+}
+
 /** Remove all per-file data (drafts + viewport) for files not in the given set. */
 export function cleanupOrphanedData(existingFiles: Set<string>): void {
   if (typeof window === "undefined") return;

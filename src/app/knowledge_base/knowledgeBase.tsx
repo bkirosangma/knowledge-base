@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { ExplorerFilter } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
@@ -9,10 +9,12 @@ import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { readVaultConfig, initVault, updateVaultLastOpened } from "./features/document/utils/vaultConfig";
 import { resolveWikiLinkPath, updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
 import { readTextFile, writeTextFile } from "./shared/hooks/useFileExplorer";
+import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
 import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
+import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
@@ -33,6 +35,10 @@ function KnowledgeBaseInner() {
     diagramBridgeRef.current = bridge;
     setDiagramBridge(bridge);
   }, []);
+
+  // ─── Document bridges: one per pane side ───
+  const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
+  const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
 
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
@@ -96,16 +102,9 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.dirHandleRef, linkManager]);
 
   // ─── Document operations ───
-  const handleOpenDocument = useCallback(async (path: string) => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle) return;
-    if (docManager.docDirty && docManager.activeDocPath) {
-      await docManager.saveDocument(rootHandle);
-    }
-    await docManager.openDocument(rootHandle, path);
-    // Open in pane manager
+  const handleOpenDocument = useCallback((path: string) => {
     panes.openFile(path, "document");
-  }, [fileExplorer.dirHandleRef, docManager, panes]);
+  }, [panes]);
 
   // ─── File selection: route to correct pane type ───
   const handleSelectFile = useCallback((path: string) => {
@@ -136,8 +135,9 @@ function KnowledgeBaseInner() {
       walk(fileExplorer.tree);
       const set = new Set(allPaths);
 
-      const docDir = docManager.activeDocPath
-        ? docManager.activeDocPath.split("/").slice(0, -1).join("/")
+      const activeFilePath = panes.activeEntry?.filePath ?? null;
+      const docDir = activeFilePath
+        ? activeFilePath.split("/").slice(0, -1).join("/")
         : "";
       const candidates: string[] = [];
       // 1. Resolved relative to current doc directory (default .md).
@@ -158,8 +158,16 @@ function KnowledgeBaseInner() {
       const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
       handleSelectFile(resolved);
     },
-    [fileExplorer.tree, docManager.activeDocPath, handleSelectFile],
+    [fileExplorer.tree, panes.activeEntry, handleSelectFile],
   );
+
+  // ─── Persist pane layout to localStorage ───
+  const layoutRestoredRef = useRef(false);
+
+  useEffect(() => {
+    if (!fileExplorer.directoryName || !layoutRestoredRef.current) return;
+    savePaneLayout(panes.leftPane, panes.rightPane, panes.focusedSide, panes.lastClosedPane);
+  }, [panes.leftPane, panes.rightPane, panes.focusedSide, panes.lastClosedPane, fileExplorer.directoryName]);
 
   // ─── Cmd+S handler ───
   useEffect(() => {
@@ -168,10 +176,14 @@ function KnowledgeBaseInner() {
         e.preventDefault();
         const activeEntry = panes.activeEntry;
         if (activeEntry?.fileType === "document") {
-          const rootHandle = fileExplorer.dirHandleRef.current;
-          if (rootHandle && docManager.docDirty && docManager.activeDocPath) {
-            docManager.saveDocument(rootHandle).then(() => {
-              linkManager.updateDocumentLinks(rootHandle, docManager.activeDocPath!, docManager.activeDocContent);
+          const docBridge = panes.focusedSide === "right"
+            ? rightDocBridgeRef.current : leftDocBridgeRef.current;
+          if (docBridge?.dirty) {
+            const rootHandle = fileExplorer.dirHandleRef.current;
+            docBridge.save().then(() => {
+              if (rootHandle && docBridge.filePath) {
+                linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content);
+              }
             });
           }
         }
@@ -183,15 +195,56 @@ function KnowledgeBaseInner() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [panes.activeEntry, fileExplorer.dirHandleRef, docManager, linkManager]);
+  }, [panes.activeEntry, panes.focusedSide, fileExplorer.dirHandleRef, linkManager]);
 
-  // ─── Auto-load last opened file ───
+  // ─── Restore pane layout (or fall back to single pending file) on directory load ───
   useEffect(() => {
+    if (layoutRestoredRef.current || fileExplorer.tree.length === 0) return;
+    layoutRestoredRef.current = true;
+
+    const savedLayout = loadPaneLayout();
+    if (savedLayout && (savedLayout.leftPane || savedLayout.rightPane)) {
+      // Validate saved files still exist in tree
+      const allPaths = new Set<string>();
+      const walk = (items: typeof fileExplorer.tree) => {
+        for (const it of items) {
+          if (it.type === "file") allPaths.add(it.path);
+          if (it.children) walk(it.children);
+        }
+      };
+      walk(fileExplorer.tree);
+
+      const validLeft = savedLayout.leftPane && allPaths.has(savedLayout.leftPane.filePath)
+        ? savedLayout.leftPane : null;
+      const validRight = savedLayout.rightPane && allPaths.has(savedLayout.rightPane.filePath)
+        ? savedLayout.rightPane : null;
+
+      if (validLeft || validRight) {
+        panes.restoreLayout(validLeft, validRight, savedLayout.focusedSide);
+
+        // Highlight the focused file in the explorer
+        const focusedEntry = savedLayout.focusedSide === "right" && validRight ? validRight : validLeft;
+        if (focusedEntry) fileExplorer.setActiveFile(focusedEntry.filePath);
+
+        // Restore last closed pane if present
+        if (savedLayout.lastClosedPane) {
+          panes.setLastClosedPane(savedLayout.lastClosedPane);
+        }
+
+        // DocumentView instances auto-load content when they mount with a filePath
+
+        if (fileExplorer.pendingFile) fileExplorer.clearPendingFile();
+        return;
+      }
+    }
+
+    // No saved layout — fall back to single pending file
     if (fileExplorer.pendingFile) {
       handleSelectFile(fileExplorer.pendingFile);
       fileExplorer.clearPendingFile();
     }
-  }, [fileExplorer.pendingFile, fileExplorer.clearPendingFile, handleSelectFile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.tree]);
 
   // ─── Vault initialization ───
   useEffect(() => {
@@ -213,7 +266,7 @@ function KnowledgeBaseInner() {
   const activePaneType = panes.activeEntry?.fileType ?? "diagram";
 
   // ─── Render pane callback for PaneManager ───
-  const renderPane = useCallback((entry: PaneEntry, focused: boolean) => {
+  const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
     if (entry.fileType === "diagram") {
       return (
         <DiagramView
@@ -252,7 +305,12 @@ function KnowledgeBaseInner() {
     return (
       <DocumentView
         focused={focused}
-        docManager={docManager}
+        filePath={entry.filePath}
+        dirHandleRef={fileExplorer.dirHandleRef}
+        onDocBridge={(bridge) => {
+          if (side === "left") leftDocBridgeRef.current = bridge;
+          else rightDocBridgeRef.current = bridge;
+        }}
         linkManager={linkManager}
         tree={fileExplorer.tree}
         onNavigateLink={handleNavigateWikiLink}
@@ -266,7 +324,7 @@ function KnowledgeBaseInner() {
         onClose={() => panes.closeFocusedPane()}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDiagramBridge]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDiagramBridge, handleNavigateWikiLink]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -298,7 +356,12 @@ function KnowledgeBaseInner() {
           if (panes.isSplit) {
             panes.exitSplit();
           } else if (panes.leftPane) {
-            panes.enterSplit(panes.leftPane.filePath, panes.leftPane.fileType);
+            const reopen = panes.lastClosedPane;
+            if (reopen) {
+              panes.enterSplit(reopen.filePath, reopen.fileType);
+            } else {
+              panes.enterSplit(panes.leftPane.filePath, panes.leftPane.fileType);
+            }
           }
         }}
       />

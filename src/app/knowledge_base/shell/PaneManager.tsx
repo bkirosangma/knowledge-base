@@ -17,8 +17,8 @@ interface PaneManagerProps {
   isSplit: boolean;
   focusedSide: "left" | "right";
   setFocusedSide: (side: "left" | "right") => void;
-  /** Render function for a pane — receives pane entry and whether it's focused */
-  renderPane: (entry: PaneEntry, focused: boolean) => React.ReactNode;
+  /** Render function for a pane — receives pane entry, focus state, and side */
+  renderPane: (entry: PaneEntry, focused: boolean, side: "left" | "right") => React.ReactNode;
   /** Fallback when no file is open */
   emptyState: React.ReactNode;
 }
@@ -28,6 +28,7 @@ export function usePaneManager() {
   const [rightPane, setRightPane] = useState<PaneEntry | null>(null);
   const [focusedSide, setFocusedSide] = useState<"left" | "right">("left");
 
+  const [lastClosedPane, setLastClosedPane] = useState<PaneEntry | null>(null);
   const isSplit = rightPane !== null;
 
   const openFile = useCallback((filePath: string, fileType: PaneType) => {
@@ -48,13 +49,26 @@ export function usePaneManager() {
   }, []);
 
   const exitSplit = useCallback(() => {
+    // Remember the unfocused pane so it can be restored on next split
+    const closedEntry = focusedSide === "right" ? leftPane : rightPane;
+    setLastClosedPane(closedEntry);
     // Keep the focused pane
     if (focusedSide === "right" && rightPane) {
       setLeftPane(rightPane);
     }
     setRightPane(null);
     setFocusedSide("left");
-  }, [focusedSide, rightPane]);
+  }, [focusedSide, leftPane, rightPane]);
+
+  const restoreLayout = useCallback((
+    left: PaneEntry | null,
+    right: PaneEntry | null,
+    focused: "left" | "right",
+  ) => {
+    setLeftPane(left);
+    setRightPane(right);
+    setFocusedSide(right ? focused : "left");
+  }, []);
 
   const closeFocusedPane = useCallback(() => {
     if (!isSplit) {
@@ -90,6 +104,9 @@ export function usePaneManager() {
     enterSplit,
     exitSplit,
     closeFocusedPane,
+    restoreLayout,
+    lastClosedPane,
+    setLastClosedPane,
     setFocusedSide,
   };
 }
@@ -121,7 +138,7 @@ export default function PaneManager({
   if (!leftPane) return <>{emptyState}</>;
 
   if (!isSplit) {
-    return <>{renderPane(leftPane, true)}</>;
+    return <>{renderPane(leftPane, true, "left")}</>;
   }
 
   return (
@@ -132,7 +149,7 @@ export default function PaneManager({
           className={`h-full ${focusedSide === "left" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
           onMouseDown={() => setFocusedSide("left")}
         >
-          {renderPane(leftPane, focusedSide === "left")}
+          {renderPane(leftPane, focusedSide === "left", "left")}
         </div>
       }
       right={
@@ -140,7 +157,7 @@ export default function PaneManager({
           className={`h-full ${focusedSide === "right" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
           onMouseDown={() => setFocusedSide("right")}
         >
-          {rightPane && renderPane(rightPane, focusedSide === "right")}
+          {rightPane && renderPane(rightPane, focusedSide === "right", "right")}
         </div>
       }
     />

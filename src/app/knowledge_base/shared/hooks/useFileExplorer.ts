@@ -786,6 +786,7 @@ export function useFileExplorer() {
     refresh,
     handleFallbackInput,
     inputRef,
+    setActiveFile,
     dirHandleRef,
   };
 }
