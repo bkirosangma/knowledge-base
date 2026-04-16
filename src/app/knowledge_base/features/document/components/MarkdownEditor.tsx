@@ -15,6 +15,7 @@ import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
 import { TextSelection } from "@tiptap/pm/state";
+import { getMarkRange } from "@tiptap/core";
 import { WikiLink } from "../extensions/wikiLink";
 import { MarkdownReveal, RawBlock, SYNTAX_PATTERNS, rawBlockToRichNodes } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
@@ -832,17 +833,65 @@ export default function MarkdownEditor({
     [onChange],
   );
 
-  const addLink = useCallback(() => {
+  const toggleLink = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt("URL:");
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
+
+    if (editor.isActive("link")) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    const { empty } = editor.state.selection;
+    if (empty) {
+      const pos = editor.state.selection.from;
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "text",
+          text: "link",
+          marks: [{ type: "link", attrs: { href: "" } }],
+        })
+        .setTextSelection({ from: pos, to: pos + 4 })
+        .run();
+    } else {
+      editor.chain().focus().setLink({ href: "" }).run();
     }
   }, [editor]);
 
   const addTable = useCallback((rows: number, cols: number) => {
     if (!editor) return;
     editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+  }, [editor]);
+
+  /** Expand the selection to the full link mark range (for toolbar formatting).
+   *  In rawBlocks the link mark may cover syntax chars (**, ~~, etc.) so we
+   *  strip those from the edges — toggleRawSyntax detects them outside the
+   *  selection for proper wrap/unwrap toggling. */
+  const selectFullLink = useCallback(() => {
+    if (!editor || !editor.isActive("link")) return;
+    const linkMark = editor.schema.marks.link;
+    const $from = editor.state.selection.$from;
+    const range = getMarkRange($from, linkMark);
+    if (!range) return;
+
+    let from = range.from;
+    let to = range.to;
+
+    const $head = editor.state.selection.$head;
+    for (let d = $head.depth; d >= 0; d--) {
+      if ($head.node(d).type.name === "rawBlock") {
+        const text = editor.state.doc.textBetween(from, to);
+        const lead = text.match(/^[*~`]+/);
+        const trail = text.match(/[*~`]+$/);
+        if (lead) from += lead[0].length;
+        if (trail) to -= trail[0].length;
+        if (from >= to) return;
+        break;
+      }
+    }
+
+    editor.chain().setTextSelection({ from, to }).run();
   }, [editor]);
 
   const sz = 15;
@@ -914,13 +963,13 @@ export default function MarkdownEditor({
 
             <Sep />
             {/* Inline formatting */}
-            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "**")) editor.chain().focus().toggleBold().run(); }} active={isAct("bold")} title="Bold">
+            <TBtn onClick={() => { selectFullLink(); if (!toggleRawSyntax(editor, "**")) editor.chain().focus().toggleBold().run(); }} active={isAct("bold")} title="Bold">
               <Bold size={sz} />
             </TBtn>
-            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "*")) editor.chain().focus().toggleItalic().run(); }} active={isAct("italic")} title="Italic">
+            <TBtn onClick={() => { selectFullLink(); if (!toggleRawSyntax(editor, "*")) editor.chain().focus().toggleItalic().run(); }} active={isAct("italic")} title="Italic">
               <Italic size={sz} />
             </TBtn>
-            <TBtn onClick={() => { if (!toggleRawSyntax(editor, "~~")) editor.chain().focus().toggleStrike().run(); }} active={isAct("strike")} title="Strikethrough">
+            <TBtn onClick={() => { selectFullLink(); if (!toggleRawSyntax(editor, "~~")) editor.chain().focus().toggleStrike().run(); }} active={isAct("strike")} title="Strikethrough">
               <Strikethrough size={sz} />
             </TBtn>
             <TBtn onClick={() => { if (!toggleRawSyntax(editor, "`")) editor.chain().focus().toggleCode().run(); }} active={isAct("code")} title="Inline code">
@@ -950,7 +999,7 @@ export default function MarkdownEditor({
             <TBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal rule">
               <Minus size={sz} />
             </TBtn>
-            <TBtn onClick={addLink} active={editor.isActive("link")} title="Insert link">
+            <TBtn onClick={toggleLink} active={editor.isActive("link")} title="Link">
               <LinkIcon size={sz} />
             </TBtn>
             <TablePicker onSelect={addTable} disabled={editor.isActive("table")} />

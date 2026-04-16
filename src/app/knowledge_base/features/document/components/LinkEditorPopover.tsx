@@ -132,6 +132,9 @@ export function LinkEditorPopover({
       if (document.activeElement !== urlRef.current) setDraftUrl(liveUrl);
       if (document.activeElement !== textRef.current) setDraftText(liveText);
     }
+    if (changedTarget && target.kind === "link" && !target.href) {
+      requestAnimationFrame(() => urlRef.current?.focus());
+    }
     lastKeyRef.current = key;
   }, [target]);
 
@@ -335,11 +338,11 @@ export function LinkEditorPopover({
           type={isWiki ? "text" : "url"}
           value={draftUrl}
           onChange={(e) => setDraftUrl(e.target.value)}
-          onBlur={() =>
-            target.kind === "link"
-              ? commitLinkUrl(draftUrl)
-              : commitWikiPath(draftUrl)
-          }
+          onBlur={(e) => {
+            if (popRef.current?.contains(e.relatedTarget as Node)) return;
+            if (target.kind === "link") commitLinkUrl(draftUrl);
+            else commitWikiPath(draftUrl);
+          }}
           onKeyDown={onUrlKey}
           placeholder={urlPlaceholder}
           list={isWiki && allDocPaths && allDocPaths.length > 0 ? datalistId : undefined}
@@ -355,11 +358,11 @@ export function LinkEditorPopover({
           type="text"
           value={draftText}
           onChange={(e) => setDraftText(e.target.value)}
-          onBlur={() =>
-            target.kind === "link"
-              ? commitLinkText(draftText)
-              : commitWikiDisplay(draftText)
-          }
+          onBlur={(e) => {
+            if (popRef.current?.contains(e.relatedTarget as Node)) return;
+            if (target.kind === "link") commitLinkText(draftText);
+            else commitWikiDisplay(draftText);
+          }}
           onKeyDown={onTextKey}
           className="flex-1 min-w-0 w-64 px-2 py-1 border border-slate-300 rounded text-xs outline-none focus:border-blue-400"
         />

@@ -49,7 +49,7 @@ function nodeToMarkdown(node: Node): string {
     }
     case "pre": {
       const lang = el.querySelector("code")?.className?.replace("language-", "") ?? "";
-      const code = el.querySelector("code")?.textContent ?? children;
+      const code = (el.querySelector("code")?.textContent ?? children).replace(/\n+$/, "");
       return `\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
     }
     case "blockquote": return children.split("\n").filter(Boolean).map(l => `> ${l}`).join("\n") + "\n\n";
