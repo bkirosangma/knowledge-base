@@ -184,6 +184,17 @@ export default function DiagramView({
   const [showLabels, setShowLabels] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
   const [historyCollapsed, setHistoryCollapsed] = useState(true);
+  const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("properties-collapsed") === "true";
+  });
+  const toggleProperties = useCallback(() => {
+    setPropertiesCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const [hoveredLine, setHoveredLine] = useState<{
     id: string;
     label: string;
@@ -898,7 +909,7 @@ export default function DiagramView({
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
+        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
@@ -1425,6 +1436,8 @@ export default function DiagramView({
 
       {/* Properties Panel */}
       <PropertiesPanel
+        collapsed={propertiesCollapsed}
+        onToggleCollapse={toggleProperties}
         selection={selection}
         title={title}
         nodes={nodes}
@@ -1532,7 +1545,7 @@ export default function DiagramView({
 
       {/* History panel — floating inside pane */}
       {activeFile && (
-        <div className="absolute bottom-4 z-30" style={{ right: 296 }}>
+        <div className="absolute bottom-4 z-30" style={{ right: (propertiesCollapsed ? 36 : 280) + 16 }}>
           <HistoryPanel
             entries={history.entries}
             currentIndex={history.currentIndex}

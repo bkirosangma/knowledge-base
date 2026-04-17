@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Hash, Clock, Link2, ArrowLeft } from "lucide-react";
+import { Hash, Clock, Link2, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DocumentPropertiesProps {
   filePath: string | null;
@@ -9,6 +9,8 @@ interface DocumentPropertiesProps {
   outbound: { target: string; section?: string }[] | null;
   backlinks: { sourcePath: string; section?: string }[];
   onNavigateLink?: (path: string) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function DocumentProperties({
@@ -17,6 +19,8 @@ export default function DocumentProperties({
   outbound,
   backlinks,
   onNavigateLink,
+  collapsed,
+  onToggleCollapse,
 }: DocumentPropertiesProps) {
   const stats = useMemo(() => {
     if (!content) return { words: 0, chars: 0, readingTime: "0 min" };
@@ -26,12 +30,37 @@ export default function DocumentProperties({
     return { words, chars, readingTime: `${minutes} min` };
   }, [content]);
 
+  if (collapsed) {
+    return (
+      <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 36 }}>
+        <button
+          onClick={onToggleCollapse}
+          className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+          title="Expand properties"
+        >
+          <ChevronLeft size={16} className="text-slate-500" />
+        </button>
+      </div>
+    );
+  }
+
   if (!filePath) {
     return (
       <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 280 }}>
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-        </div>
+        {onToggleCollapse ? (
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+            title="Collapse properties"
+          >
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+            <ChevronRight size={14} className="ml-auto text-slate-400" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+          </div>
+        )}
         <div className="p-4 text-sm text-slate-400">No document selected</div>
       </div>
     );
@@ -42,10 +71,22 @@ export default function DocumentProperties({
   return (
     <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 280 }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
-        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-        <span className="text-xs text-slate-400 truncate">{filename}</span>
-      </div>
+      {onToggleCollapse ? (
+        <button
+          onClick={onToggleCollapse}
+          className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+          title="Collapse properties"
+        >
+          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+          <span className="text-xs text-slate-400 truncate">{filename}</span>
+          <ChevronRight size={14} className="ml-auto text-slate-400 flex-shrink-0" />
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
+          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+          <span className="text-xs text-slate-400 truncate">{filename}</span>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {/* Stats */}

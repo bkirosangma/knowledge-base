@@ -142,24 +142,26 @@ export default function PaneManager({
   }
 
   return (
-    <SplitPane
-      storageKey="knowledge-base-split"
-      left={
-        <div
-          className={`h-full ${focusedSide === "left" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
-          onMouseDown={() => setFocusedSide("left")}
-        >
-          {renderPane(leftPane, focusedSide === "left", "left")}
-        </div>
-      }
-      right={
-        <div
-          className={`h-full ${focusedSide === "right" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
-          onMouseDown={() => setFocusedSide("right")}
-        >
-          {rightPane && renderPane(rightPane, focusedSide === "right", "right")}
-        </div>
-      }
-    />
+    <div className="flex-1 h-full min-w-0 overflow-hidden">
+      <SplitPane
+        storageKey="knowledge-base-split"
+        left={
+          <div
+            className={`h-full ${focusedSide === "left" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
+            onMouseDown={() => setFocusedSide("left")}
+          >
+            {renderPane(leftPane, focusedSide === "left", "left")}
+          </div>
+        }
+        right={
+          <div
+            className={`h-full ${focusedSide === "right" ? "ring-2 ring-blue-400 ring-inset" : ""}`}
+            onMouseDown={() => setFocusedSide("right")}
+          >
+            {rightPane && renderPane(rightPane, focusedSide === "right", "right")}
+          </div>
+        }
+      />
+    </div>
   );
 }

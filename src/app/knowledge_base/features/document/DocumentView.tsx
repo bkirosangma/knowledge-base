@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import MarkdownPane from "./components/MarkdownPane";
 import DocumentProperties from "./properties/DocumentProperties";
 import { useDocumentContent } from "./hooks/useDocumentContent";
@@ -34,6 +34,18 @@ export default function DocumentView({
   onClose,
 }: DocumentViewProps) {
   const { content, dirty, updateContent, bridge } = useDocumentContent(dirHandleRef, filePath);
+
+  const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("properties-collapsed") === "true";
+  });
+  const toggleProperties = useCallback(() => {
+    setPropertiesCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   // Expose bridge to parent
   const onDocBridgeRef = useRef(onDocBridge);
@@ -107,6 +119,8 @@ export default function DocumentView({
         outbound={outboundLinks}
         backlinks={backlinks}
         onNavigateLink={(path) => onNavigateLink?.(path)}
+        collapsed={propertiesCollapsed}
+        onToggleCollapse={toggleProperties}
       />
     </div>
   );
