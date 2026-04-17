@@ -1,4 +1,3 @@
-// src/app/knowledge_base/components/MarkdownPane.tsx
 "use client";
 
 import React, { useState } from "react";
