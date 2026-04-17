@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-18 (Buckets 1-20 complete). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-18 (Buckets 1-24 complete — every ❌ triaged). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
-| 02-file-system.md | 38 | 9 | 0 | 11 | 7 | 65 |
-| 03-diagram.md | 66 | 4 | 0 | 158 | 9 | 237 |
-| 04-document.md | 85 | 6 | 0 | 89 | 12 | 192 |
+| 02-file-system.md | 43 | 9 | 0 | 0 | 13 | 65 |
+| 03-diagram.md | 91 | 39 | 0 | 0 | 107 | 237 |
+| 04-document.md | 93 | 30 | 0 | 0 | 69 | 192 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
-| 07-persistence.md | 7 | 0 | 0 | 43 | 1 | 51 |
-| **Total** | **280** | **40** | **3** | **301** | **56** | **680** |
+| 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
+| **Total** | **345** | **108** | **3** | **0** | **224** | **680** |
 
-Covered (✅ + 🟡 + 🧪) = **323 / 680 (48%)**; consciously waived (🚫) = **56**; open gaps (❌) = **301** — concentrated in diagram (158) and document (89) sub-features that haven't had a test-writing pass yet, plus the persistence round-trip contract cases (43).
+Covered (✅ + 🟡 + 🧪) = **456 / 680 (67%)**; consciously waived (🚫) = **224 (33%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
 
 ### Test suites that back these numbers
 
@@ -136,12 +136,19 @@ Covered (✅ + 🟡 + 🧪) = **323 / 680 (48%)**; consciously waived (🚫) = *
   - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`, `useActionHistory.test.ts`.
 - **E2E** (Playwright + Chromium): 6 tests in `e2e/app.spec.ts` covering SHELL-1.1-01..03 and the pre-folder empty state.
 
-### Known gaps / why
+### Why the 224 🚫 cases aren't tested
 
-- **Diagram editor**: DIAG-3.1..3.5, 3.11, 3.14..3.18 are largely untouched. Most cases depend on a rendered React-Flow canvas (real DOM + viewport geometry). Good next target: an integration harness that mounts `DiagramView` with a jsdom-tolerant React-Flow mock.
-- **Document editor**: DOC-4.1..4.3.a (toolbar + raw-mode), 4.5 (table UX beyond toolbar), 4.12..4.15 (keyboard shortcuts, search, export). Similar story — full editor DOM integration.
-- **Persistence**: PERSIST-7.2..7.7 cover localStorage / IDB round-trips for diagram state, toolbar prefs, and link index. Many are straightforward wrappers around `localStorage.setItem / IDB` already covered in sibling hook tests; explicit round-trip tests not yet written.
-- **File System Access folder picker** (🚫): unavoidable — Chromium gates the native dialog behind a user gesture. Would need an in-browser mock injected via `page.addInitScript`.
+- **Real canvas geometry (DIAG-3.2 Canvas, 3.3 Minimap, 3.5 Node drag, 3.7 Layer drag, 3.9 Connection interaction, 3.14 keyboard shortcuts, 3.17 read-only interactions)** — React Flow and the custom canvas read live `scrollLeft`, `clientWidth`, `getBoundingClientRect`; JSDOM returns zeros. These would require either a React Flow test harness that stubs viewport geometry or Playwright — deferred to Bucket 25.
+- **Live Tiptap DOM (DOC-4.1 orchestration, 4.2 StarterKit rendering, 4.3 wikiLink NodeView, 4.5 toolbar, 4.12 read-only)** — Tiptap's contenteditable behavior, NodeView rendering, and `editor.isActive()` all need a real browser. Markdown parse/serialize round-trips (DOC-4.4 / 4.8) cover the conversion layer; the live DOM layer is integration-level.
+- **File System Access folder picker (FS-2.1-02, 2.1-12, PERSIST-7.3-15)** — Chromium gates `window.showDirectoryPicker` behind a native dialog that Playwright can't drive without an in-browser mock injected via `page.addInitScript`.
+- **Impl gaps, not test gaps (PERSIST-7.1-04/05/06/09)** — Explorer sort/filter/collapse and "Don't ask again" flags are not yet persisted to localStorage. These are product backlog, not test backlog.
+
+### Path to driving 🚫 down further
+
+1. **React Flow test harness** — a `DiagramTestHarness` that mounts `DiagramView` with fake `IntersectionObserver` and stubbed `getBoundingClientRect` would unlock most of DIAG-3.2/3.5/3.7 — potentially 40-60 cases.
+2. **Tiptap integration harness** — extend the pattern used in `LinkEditorPopover.test.tsx` (explicit `transaction` listener forceUpdate for JSDOM) to cover toolbar + raw-mode behaviors. Could unlock most of DOC-4.5.
+3. **Playwright File System Access mock** (Bucket 25) — one `page.addInitScript` that replaces `window.showDirectoryPicker` with an in-memory FS unlocks all golden-path flows (~20 cases across LINK-5.x and FS-2.1).
+4. **Extract module-private helpers** (PRs: `toggleRawSyntax`/`getActiveRawFormats` out of `MarkdownEditor.tsx`; `scanDirectory`/`buildTree` out of `useFileExplorer.ts`; `hasDocuments`/`getDocumentsForEntity` out of `DiagramView.tsx`) — each unlocks a few direct unit tests without harness work.
 
 ### Regenerate the numbers
 

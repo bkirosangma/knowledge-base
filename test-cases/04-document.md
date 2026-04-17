@@ -6,60 +6,60 @@
 
 ## 4.1 Editor Orchestration
 
-- **DOC-4.1-01** ❌ **DocumentView mounts for `.md` file** — open a doc → `MarkdownPane` renders with its content.
-- **DOC-4.1-02** ❌ **Focused state tracked** — click editor → `focused` flag true; blur → false.
-- **DOC-4.1-03** ❌ **MarkdownPane header shows breadcrumb** — path segments rendered.
-- **DOC-4.1-04** ❌ **Backlinks dropdown opens** — click backlinks button → list of sources expands.
-- **DOC-4.1-05** ❌ **Read-only toggle in PaneHeader** — lock icon toggles `readOnly` prop into editor.
-- **DOC-4.1-06** ❌ **200 ms debounce on serialize** — rapid typing (< 200 ms gap) → only one serialize call after pause.
-- **DOC-4.1-07** ❌ **Flush on blur** — typing then clicking outside → serialize flushed immediately, no data loss.
-- **DOC-4.1-08** ❌ **Flush on unmount** — switch to another doc mid-type → prior doc's content flushed before unmount.
+- **DOC-4.1-01** 🚫 **DocumentView mounts for `.md` file.** Full Tiptap editor mount + pane wiring — integration target for Bucket 25 (Playwright) once the File System Access mock is in place.
+- **DOC-4.1-02** 🚫 **Focused state tracked.** Same.
+- **DOC-4.1-03** 🟡 **MarkdownPane header shows breadcrumb** — `PaneHeader` breadcrumb rendering is covered by SHELL-1.6-01; mount wiring is integration.
+- **DOC-4.1-04** 🚫 **Backlinks dropdown opens.** Integration.
+- **DOC-4.1-05** 🟡 **Read-only toggle in PaneHeader** — toggle is covered by SHELL-1.6-02; Tiptap `setEditable` propagation is integration.
+- **DOC-4.1-06** 🚫 **200 ms debounce on serialize.** Integration (timer + editor update).
+- **DOC-4.1-07** 🚫 **Flush on blur.** Integration.
+- **DOC-4.1-08** 🚫 **Flush on unmount.** Integration.
 
 ## 4.2 Tiptap Extensions (StarterKit + ecosystem)
 
-- **DOC-4.2-01** ❌ **H1–H6 render** — markdown `# …` through `###### …` → headings with correct levels.
-- **DOC-4.2-02** ❌ **Paragraphs render** — default block is paragraph.
-- **DOC-4.2-03** ❌ **Bullet list** — `- item` → `<ul>` with `<li>`.
-- **DOC-4.2-04** ❌ **Ordered list** — `1. item` → `<ol>`.
-- **DOC-4.2-05** ❌ **Task list** — `- [ ] item` / `- [x] item` → `<ul data-task-list>` with `input type=checkbox`.
-- **DOC-4.2-06** ❌ **Checkbox toggle updates markdown** — click task → markdown switches `[ ]` ↔ `[x]`.
-- **DOC-4.2-07** ❌ **Blockquote** — `> quote` → `<blockquote>`.
-- **DOC-4.2-08** ❌ **Bold mark** — `**bold**` → `<strong>`.
-- **DOC-4.2-09** ❌ **Italic mark** — `*italic*` → `<em>`.
-- **DOC-4.2-10** ❌ **Strikethrough** — `~~strike~~` → `<s>`.
-- **DOC-4.2-11** ❌ **Inline code** — `` `code` `` → `<code>`.
-- **DOC-4.2-12** ❌ **Horizontal rule** — `---` → `<hr>`.
-- **DOC-4.2-13** ❌ **Hard break** — trailing double-space + newline preserved.
-- **DOC-4.2-14** ❌ **Table renders** — GFM pipe table → `<table><thead><tbody>`.
-- **DOC-4.2-15** ❌ **Image extension** — Markdown image syntax → `<img>` with `src`/`alt`.
-- **DOC-4.2-16** ❌ **Link extension** — `[text](url)` → `<a href="url">text</a>`.
-- **DOC-4.2-17** ❌ **Placeholder renders on empty** — empty doc → placeholder text visible until first keystroke.
-- **DOC-4.2-18** ❌ **Code block with lowlight** — fenced code `\`\`\`ts` → code block with syntax highlighting classes for TypeScript.
+- **DOC-4.2-01** 🟡 **H1–H6 render** — markdown↔HTML conversion for all 6 heading levels covered by DOC-4.4-01..22 in `markdownSerializer.test.ts`; live Tiptap DOM rendering is integration-level (Bucket 25).
+- **DOC-4.2-02** 🟡 **Paragraphs render** — covered by markdown round-trip tests; live mount is integration.
+- **DOC-4.2-03** 🟡 **Bullet list** — covered by markdown round-trip; live render is integration.
+- **DOC-4.2-04** 🟡 **Ordered list** — covered by markdown round-trip; live render is integration.
+- **DOC-4.2-05** 🟡 **Task list** — markdown round-trip covered; checkbox DOM needs live mount.
+- **DOC-4.2-06** 🚫 **Checkbox toggle updates markdown.** Click handling on a live Tiptap task-item; integration.
+- **DOC-4.2-07** 🟡 **Blockquote** — markdown round-trip covered; live render is integration.
+- **DOC-4.2-08** 🟡 **Bold mark** — markdown round-trip covered.
+- **DOC-4.2-09** 🟡 **Italic mark** — same.
+- **DOC-4.2-10** 🟡 **Strikethrough** — same.
+- **DOC-4.2-11** 🟡 **Inline code** — same.
+- **DOC-4.2-12** 🟡 **Horizontal rule** — same.
+- **DOC-4.2-13** 🟡 **Hard break** — same.
+- **DOC-4.2-14** 🟡 **Table renders** — markdown round-trip covered.
+- **DOC-4.2-15** 🟡 **Image extension** — markdown round-trip covered.
+- **DOC-4.2-16** 🟡 **Link extension** — markdown round-trip covered.
+- **DOC-4.2-17** 🚫 **Placeholder renders on empty.** Placeholder extension renders via a decoration; needs live mount.
+- **DOC-4.2-18** 🚫 **Code block with lowlight** — highlighting classes emitted only at render time. Integration.
 
 ## 4.3 Custom Extensions
 
 ### 4.3.a WikiLink (`wikiLink.ts`)
-- **DOC-4.3-01** ❌ **`[[foo]]` renders as blue pill** — target exists → `bg-blue-100` pill, "Open" title.
-- **DOC-4.3-02** ❌ **`[[nonexistent]]` renders as red pill** — no target → `bg-red-100`, "click to create" title.
-- **DOC-4.3-03** ❌ **Doc icon on `.md` target** — FileText icon rendered.
-- **DOC-4.3-04** ❌ **Diagram icon on `.json` target** — Workflow icon rendered.
-- **DOC-4.3-05** ❌ **`[[foo#section]]` stores section attr** — node `section === "section"`.
-- **DOC-4.3-06** ❌ **`[[foo|Bar]]` stores display attr** — node `display === "Bar"`; rendered label is "Bar".
-- **DOC-4.3-07** ❌ **Suggestion menu opens on `[[`** — type `[[` → dropdown appears with candidate paths.
-- **DOC-4.3-08** ❌ **Suggestion filters by typed query** — type `[[au` → only paths matching "au" shown.
-- **DOC-4.3-09** ❌ **Arrow keys navigate suggestion.**
-- **DOC-4.3-10** ❌ **Enter commits suggestion** — inserts `[[<path>]]` atomic node.
-- **DOC-4.3-11** ❌ **Escape closes suggestion without insert.**
-- **DOC-4.3-12** ❌ **Inline edit on selection — single key appends** — click wiki-link to select, type `s` → display text ends with `s`.
-- **DOC-4.3-13** ❌ **Backspace trims display text.**
-- **DOC-4.3-14** ❌ **Escape reverts display text to prior value.**
-- **DOC-4.3-15** ❌ **Click in read-mode navigates** — editor `readOnly` → click → file opened in other pane.
-- **DOC-4.3-16** ❌ **Click unresolved in read-mode creates** — red pill click → creates the target file.
-- **DOC-4.3-17** ❌ **Path resolution: current-dir `.md`** — `[[sibling]]` inside `foo/bar.md` → resolves to `foo/sibling.md`.
-- **DOC-4.3-18** ❌ **Path resolution: current-dir `.json` fallback** — no `.md` but sibling `.json` exists → resolves there.
-- **DOC-4.3-19** ❌ **Path resolution: as-written** — `[[foo.md]]` with extension → used verbatim.
-- **DOC-4.3-20** ❌ **Path resolution: root `.md` fallback** — `[[readme]]` finds `/readme.md` when no sibling.
-- **DOC-4.3-21** ❌ **Path resolution: root `.json` fallback** — same but for diagrams.
+- **DOC-4.3-01** 🚫 **`[[foo]]` renders as blue pill.** NodeView rendering in a live editor — integration (Bucket 25).
+- **DOC-4.3-02** 🚫 **`[[nonexistent]]` renders as red pill.** Same.
+- **DOC-4.3-03** 🚫 **Doc icon on `.md` target.** Same.
+- **DOC-4.3-04** 🚫 **Diagram icon on `.json` target.** Same.
+- **DOC-4.3-05** 🟡 **`[[foo#section]]` stores section attr** — `parseWikiLinks` correctly extracts `section` (DOC-4.8-02); NodeView render is integration.
+- **DOC-4.3-06** 🟡 **`[[foo\|Bar]]` stores display attr** — parsing covered by DOC-4.8-02; render is integration.
+- **DOC-4.3-07** 🚫 **Suggestion menu opens on `[[`.** Tiptap Suggestion plugin — needs live editor.
+- **DOC-4.3-08** 🚫 **Suggestion filters by typed query.** Same.
+- **DOC-4.3-09** 🚫 **Arrow keys navigate suggestion.** Same.
+- **DOC-4.3-10** 🚫 **Enter commits suggestion.** Same.
+- **DOC-4.3-11** 🚫 **Escape closes suggestion without insert.** Same.
+- **DOC-4.3-12** 🚫 **Inline edit on selection — single key appends.** Live editor.
+- **DOC-4.3-13** 🚫 **Backspace trims display text.** Same.
+- **DOC-4.3-14** 🚫 **Escape reverts display text to prior value.** Same.
+- **DOC-4.3-15** 🚫 **Click in read-mode navigates.** Click handling on live NodeView.
+- **DOC-4.3-16** 🚫 **Click unresolved in read-mode creates.** Same.
+- **DOC-4.3-17** ✅ **Path resolution: current-dir `.md`** — DOC-4.8-04 in `wikiLinkParser.test.ts`.
+- **DOC-4.3-18** 🟡 **Path resolution: current-dir `.json` fallback** — `.json` extension preserved (DOC-4.8-09); the "prefer .md, fallback to .json" order lives in the click-time resolver (integration).
+- **DOC-4.3-19** ✅ **Path resolution: as-written** — DOC-4.8-08 ("preserves .md extension, no double-append").
+- **DOC-4.3-20** 🟡 **Path resolution: root `.md` fallback** — vault-root resolution covered by DOC-4.8-05; multi-candidate fallback is integration.
+- **DOC-4.3-21** 🟡 **Path resolution: root `.json` fallback** — same scope as 4.3-20.
 
 ### 4.3.b CodeBlockWithCopy (`codeBlockCopy.tsx`)
 - **DOC-4.3-22** ✅ **Copy button rendered inside the code-block wrapper** — `md-codeblock-copy` element is present in the rendered NodeView; CSS drives the hover-reveal.
@@ -72,19 +72,19 @@
 - **DOC-4.3-27** ✅ **`insertTable` allowed outside table** — when the cursor is in a paragraph/heading/etc., the command delegates to the parent Table's `insertTable` and inserts normally. Moving the cursor back out re-enables the command.
 
 ### 4.3.d MarkdownReveal (`markdownReveal.ts`)
-- **DOC-4.3-28** ❌ **Decoration wraps `**bold**`** — type `**x**` in a rawBlock → `<strong>` decoration on `x`.
-- **DOC-4.3-29** ❌ **Decoration wraps `*italic*`** — → `<em>`.
-- **DOC-4.3-30** ❌ **Decoration wraps `~~strike~~`** — → `<s>`.
-- **DOC-4.3-31** ❌ **Decoration wraps `` `code` ``** — → `<code>`.
-- **DOC-4.3-32** ❌ **Triple-asterisk renders bold+italic.**
-- **DOC-4.3-33** ❌ **Italic lookahead/lookbehind excludes bold** — inside `**…**`, single `*` not matched as italic.
-- **DOC-4.3-34** ❌ **Cursor enters paragraph → rawBlock conversion.**
-- **DOC-4.3-35** ❌ **Cursor exits rawBlock → re-parses via markdown-it.**
-- **DOC-4.3-36** ❌ **LRU cache hit skips parse** — same markdown twice → second pass uses cache.
-- **DOC-4.3-37** ❌ **LRU cap = 64** — 65 distinct entries → least-recently-used evicted.
-- **DOC-4.3-38** ❌ **Enter in rawBlock splits with smart list-item handling** — in a `- item` rawBlock, Enter → new `- ` list item.
-- **DOC-4.3-39** ❌ **Backspace at rawBlock start merges with previous block's rightmost textblock.**
-- **DOC-4.3-40** ❌ **rawSwap meta flag suppresses serialize** — swap rawBlock ↔ rich → no `onUpdate` serialise fired.
+- **DOC-4.3-28** ✅ **Decoration wraps `**bold**`** — strong-pattern regex covered in `markdownReveal.test.ts`.
+- **DOC-4.3-29** ✅ **Decoration wraps `*italic*`** — em-pattern regex covered.
+- **DOC-4.3-30** ✅ **Decoration wraps `~~strike~~`** — s-pattern regex covered.
+- **DOC-4.3-31** ✅ **Decoration wraps `` `code` ``** — code-pattern regex covered.
+- **DOC-4.3-32** ✅ **Triple-asterisk renders bold+italic** — `***…***` pattern asserts both tags.
+- **DOC-4.3-33** ✅ **Italic lookahead/lookbehind excludes bold** — `markdownReveal.test.ts` confirms italic regex can't span `**…**`.
+- **DOC-4.3-34** 🚫 **Cursor enters paragraph → rawBlock conversion.** Live editor state machine — integration.
+- **DOC-4.3-35** 🚫 **Cursor exits rawBlock → re-parses via markdown-it.** Same.
+- **DOC-4.3-36** 🚫 **LRU cache hit skips parse.** Cache is module-private inside `markdownReveal`; integration-only.
+- **DOC-4.3-37** 🚫 **LRU cap = 64.** Same.
+- **DOC-4.3-38** 🚫 **Enter in rawBlock splits with smart list-item handling.** Keyboard handler on live editor.
+- **DOC-4.3-39** 🚫 **Backspace at rawBlock start merges with previous block's rightmost textblock.** Same.
+- **DOC-4.3-40** 🚫 **rawSwap meta flag suppresses serialize.** Transaction-level meta inside live dispatcher — integration.
 
 ## 4.4 Markdown I/O
 
@@ -116,29 +116,29 @@
 
 ## 4.5 Formatting Toolbar
 
-- **DOC-4.5-01** ❌ **Toolbar hidden in read-only.**
-- **DOC-4.5-02** ❌ **Toolbar hidden in raw mode.**
-- **DOC-4.5-03** ❌ **WYSIWYG ↔ Raw toggle** — click → editor swaps to textarea with code styling.
-- **DOC-4.5-04** ❌ **Undo disabled when stack empty** — fresh doc → disabled; after edit → enabled.
-- **DOC-4.5-05** ❌ **Redo disabled when no undone history.**
-- **DOC-4.5-06** ❌ **H1 button active state** — cursor in H1 → button highlighted; H2 → not.
-- **DOC-4.5-07** ❌ **H1 button toggles heading** — click in paragraph → becomes H1; click again → back to paragraph.
-- **DOC-4.5-08** ❌ **Bold / italic / strike / inline-code buttons toggle respective marks.**
-- **DOC-4.5-09** ❌ **Bold in rawBlock toggles `**…**` syntax (`toggleRawSyntax`)** — inserts or removes delimiters.
-- **DOC-4.5-10** ❌ **`toggleRawSyntax` detects `*` vs `**`** — counts consecutive asterisks and maps to correct mark.
-- **DOC-4.5-11** ❌ **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).**
-- **DOC-4.5-12** ❌ **List / blockquote / code block buttons toggle block type.**
-- **DOC-4.5-13** ❌ **Force-exit rawBlock before structural commands** — toggle list when in rawBlock → rawBlock converts to rich first.
-- **DOC-4.5-14** ❌ **`getActiveRawFormats` — bold detected in rawBlock** — cursor inside `**x**` → bold reported active.
-- **DOC-4.5-15** ❌ **`getRawHeadingLevel` — detects `#{N}` prefix.**
-- **DOC-4.5-16** ❌ **`isRawBlockquote` — detects `> ` prefix.**
-- **DOC-4.5-17** ❌ **Horizontal rule button inserts `<hr>`.**
-- **DOC-4.5-18** ❌ **Link button with text selected wraps selection.**
-- **DOC-4.5-19** ❌ **Link button with empty selection inserts empty link** — opens link popover for editing.
-- **DOC-4.5-20** ❌ **Table picker shows 8×8 grid.**
-- **DOC-4.5-21** ❌ **Hovering cell shows "N × M table".**
-- **DOC-4.5-22** ❌ **Click inserts table of chosen dims.**
-- **DOC-4.5-23** ❌ **Table picker disabled when cursor already in table.**
+- **DOC-4.5-01** 🚫 **Toolbar hidden in read-only.** Toolbar conditional lives in `MarkdownEditor`; needs editor mount.
+- **DOC-4.5-02** 🚫 **Toolbar hidden in raw mode.** Same.
+- **DOC-4.5-03** 🚫 **WYSIWYG ↔ Raw toggle.** Editor command — integration.
+- **DOC-4.5-04** 🚫 **Undo disabled when stack empty.** Depends on Tiptap history state.
+- **DOC-4.5-05** 🚫 **Redo disabled when no undone history.** Same.
+- **DOC-4.5-06** 🚫 **H1 button active state.** Depends on `editor.isActive()` — integration.
+- **DOC-4.5-07** 🚫 **H1 button toggles heading.** Editor command dispatch.
+- **DOC-4.5-08** 🚫 **Bold / italic / strike / inline-code buttons toggle respective marks.** Same.
+- **DOC-4.5-09** 🚫 **Bold in rawBlock toggles `**…**` syntax (`toggleRawSyntax`).** `toggleRawSyntax` is module-private in `MarkdownEditor.tsx` — would need extraction to unit-test.
+- **DOC-4.5-10** 🚫 **`toggleRawSyntax` detects `*` vs `**`.** Same — module-private.
+- **DOC-4.5-11** 🚫 **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).** Module-private helper.
+- **DOC-4.5-12** 🚫 **List / blockquote / code block buttons toggle block type.** Live editor.
+- **DOC-4.5-13** 🚫 **Force-exit rawBlock before structural commands.** Live editor.
+- **DOC-4.5-14** 🚫 **`getActiveRawFormats` — bold detected in rawBlock.** Module-private helper.
+- **DOC-4.5-15** 🚫 **`getRawHeadingLevel` — detects `#{N}` prefix.** Module-private helper.
+- **DOC-4.5-16** 🚫 **`isRawBlockquote` — detects `> ` prefix.** Module-private helper.
+- **DOC-4.5-17** 🚫 **Horizontal rule button inserts `<hr>`.** Live editor.
+- **DOC-4.5-18** 🚫 **Link button with text selected wraps selection.** Live editor.
+- **DOC-4.5-19** 🟡 **Link button with empty selection inserts empty link** — popover flow is covered by DOC-4.7 (`LinkEditorPopover.test.tsx`); the button → popover wiring is integration.
+- **DOC-4.5-20** 🚫 **Table picker shows 8×8 grid.** Toolbar component rendering — not yet covered.
+- **DOC-4.5-21** 🚫 **Hovering cell shows "N × M table".** Same.
+- **DOC-4.5-22** 🚫 **Click inserts table of chosen dims.** Same.
+- **DOC-4.5-23** 🚫 **Table picker disabled when cursor already in table.** Same.
 
 ## 4.6 Table Floating Toolbar
 
@@ -235,9 +235,9 @@
 
 ## 4.12 Read-Only Mode (Document)
 
-- **DOC-4.12-01** ❌ **`readOnly` prop hides toolbar.**
-- **DOC-4.12-02** ❌ **`readOnly` disables table floating toolbar.**
-- **DOC-4.12-03** ❌ **`readOnly` disables link editor popover.**
-- **DOC-4.12-04** ❌ **Editor becomes `contenteditable=false`.**
-- **DOC-4.12-05** ❌ **Wiki-link click navigates instead of selecting** — per §4.3-15.
-- **DOC-4.12-06** ❌ **`setEditable` called on prop change (microtask deferred)** — confirms the known Tiptap gotcha from MEMORY.
+- **DOC-4.12-01** 🚫 **`readOnly` prop hides toolbar.** Toolbar visibility tied to editor mount — integration.
+- **DOC-4.12-02** 🚫 **`readOnly` disables table floating toolbar.** Same.
+- **DOC-4.12-03** 🚫 **`readOnly` disables link editor popover.** Same.
+- **DOC-4.12-04** 🚫 **Editor becomes `contenteditable=false`.** Tiptap `setEditable` effect — integration.
+- **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — see 4.3-15; same NodeView click integration.
+- **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.

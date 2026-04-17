@@ -7,17 +7,17 @@
 ## 2.1 Folder Picker
 
 - **FS-2.1-01** 🚫 **Native `showDirectoryPicker` selection** — Chrome-only; requires a real user gesture and OS folder dialog. Not automatable in headless Playwright. _(Manual checklist: open app → Open Folder → select vault → explorer populates.)_
-- **FS-2.1-02** ❌ **`<input webkitdirectory>` fallback** — in a UA where `showDirectoryPicker` is undefined, the fallback input is rendered and used.
-- **FS-2.1-03** ❌ **Directory handle persisted to IndexedDB** — after successful pick, `knowledge-base` DB → `handles` store contains the handle keyed by scope ID.
-- **FS-2.1-04** ❌ **Handle restored on reload** — reload with an existing handle → user is NOT re-prompted; explorer re-populates from the stored handle.
-- **FS-2.1-05** ❌ **Scope ID is 8 hex chars** — generated scope ID matches `/^[0-9a-f]{8}$/`.
-- **FS-2.1-06** ❌ **Scope isolation** — open folder A → switch to folder B → A's scoped localStorage keys are untouched; B starts with its own set.
-- **FS-2.1-07** ❌ **`scopedKey` prefixes base key** — `scopedKey('foo')` returns `foo[<id>]` when a scope is set and `foo` when not.
-- **FS-2.1-08** ❌ **Tree scan returns sorted `TreeNode[]`** — folder with mixed `.md`/`.json`/`.txt` → result contains only `.md` and `.json`; sorted.
-- **FS-2.1-09** ❌ **History sidecars skipped** — `.foo.history.json` and `.foo.md.history.json` excluded from the tree.
-- **FS-2.1-10** ❌ **Nested folders traversed** — multi-level directory → every nested `.md`/`.json` present with correct relative `path`.
-- **FS-2.1-11** ❌ **Tree entries carry metadata** — each node has `name`, `path`, `type` (`folder | diagram | document`), `handle`, `lastModified`.
-- **FS-2.1-12** ❌ **Revoked handle re-prompts** — simulate IDB handle without permission → open folder flow re-requests permission.
+- **FS-2.1-02** 🚫 **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory (Bucket 25).
+- **FS-2.1-03** ✅ **Directory handle persisted to IndexedDB** — covered by PERSIST-7.2-03 in `idbHandles.test.ts` (`saveDirHandle(handle, scopeId)` writes both to the `handles` store in the `knowledge-base` DB).
+- **FS-2.1-04** ✅ **Handle restored on reload** — covered by PERSIST-7.2-07 in `idbHandles.test.ts` (save → load round-trip returns the same handle + scope id).
+- **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
+- **FS-2.1-06** ✅ **Scope isolation** — covered by PERSIST-7.1-03 in `persistence.test.ts` ("scope switch isolates diagrams (no cross-read)").
+- **FS-2.1-07** ✅ **`scopedKey` prefixes base key** — covered by PERSIST-7.1-01/02 in `persistence.test.ts` + dedicated tests in `directoryScope.test.ts`.
+- **FS-2.1-08** 🚫 **Tree scan returns sorted `TreeNode[]`.** `scanDirectory` tree-builder is module-private inside `useFileExplorer` — an extraction to a pure util would unlock a direct test. Open a refactor ticket.
+- **FS-2.1-09** 🚫 **History sidecars skipped.** Lives inside the same private tree-builder.
+- **FS-2.1-10** 🚫 **Nested folders traversed.** Same.
+- **FS-2.1-11** 🚫 **Tree entries carry metadata.** Same.
+- **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright (Bucket 25).
 
 ## 2.2 Vault Configuration
 

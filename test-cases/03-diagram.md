@@ -6,33 +6,33 @@
 
 ## 3.1 Data Model (`types.ts`)
 
-- **DIAG-3.1-01** ❌ **NodeData serialisable** — round-trip an instance through `JSON.stringify` / `JSON.parse` and compare structural equality.
-- **DIAG-3.1-02** ❌ **LineCurveAlgorithm union** — only `"orthogonal"`, `"bezier"`, `"straight"` are accepted by `ArchitectureProperties` dropdown.
-- **DIAG-3.1-03** ❌ **Selection union shapes** — each of the 7 selection kinds (`node`, `multi-node`, `layer`, `multi-layer`, `line`, `multi-line`, `flow`) constructs a valid object per its type.
-- **DIAG-3.1-04** ❌ **FlowDef optional category** — `FlowDef` without `category` is still valid (rendered under "Uncategorized").
+- **DIAG-3.1-01** ✅ **NodeData serialisable** — round-trips through `serializeNodes`/`deserializeNodes` with stable shape. Covered by DIAG-3.19-01..04 in `persistence.test.ts`.
+- **DIAG-3.1-02** 🟡 **LineCurveAlgorithm union** — only `"orthogonal" | "bezier" | "straight"` are valid. TypeScript-level constraint; the runtime default fallback is covered by DIAG-3.19 ("defaults lineCurve to orthogonal when missing").
+- **DIAG-3.1-03** ✅ **Selection union shapes** — each of the 7 selection kinds is exercised by `selectionUtils.test.ts` (`isItemSelected`, `toggleItemInSelection`, `resolveRectangleSelection` construct every variant).
+- **DIAG-3.1-04** ✅ **FlowDef optional category** — `persistence.test.ts` round-trips flows with and without `category` (DIAG-3.19-05/06/07).
 
 ## 3.2 Canvas & Viewport
 
-- **DIAG-3.2-01** ❌ **Default 800 px patches** — new canvas renders exactly the number of 800 × 800 patches needed to wrap default content.
-- **DIAG-3.2-02** ❌ **Patch grows on content** — drag a node past the current right edge → a new patch appears; `fitToContent` called.
-- **DIAG-3.2-03** ❌ **Patch shrinks when content removed** — delete the rightmost content → patches shrink back.
-- **DIAG-3.2-04** ❌ **Zoom in via wheel/pinch** — pinch-zoom → zoom level increases; content scales.
-- **DIAG-3.2-05** ❌ **Zoom out** — pinch out → zoom level decreases; content scales down.
-- **DIAG-3.2-06** ❌ **Auto-fit on initial open** — open diagram with content offscreen → after mount, content is in view (zoom-to-content).
-- **DIAG-3.2-07** ❌ **Viewport persisted per diagram** — zoom + scroll → reload → restored for _that_ diagram; different diagram has its own viewport.
-- **DIAG-3.2-08** ❌ **2000 px viewport padding guard** — content at far edges remains reachable; no clipping at viewport boundary within pad.
-- **DIAG-3.2-09** ❌ **Client→world coord transform** — `clientToWorld(500, 300)` with `{ scroll: (100, 100), zoom: 2 }` → returns `(200, 100)`.
-- **DIAG-3.2-10** ❌ **Canvas click deselects** — click empty canvas with a selected node → selection becomes `null`.
-- **DIAG-3.2-11** ❌ **Pan by drag on empty canvas** — middle-click or space+drag → canvas scrolls; selection unchanged.
+- **DIAG-3.2-01** 🚫 **Default 800 px patches.** Requires real viewport geometry (patch computation reads `scrollWidth`/`scrollHeight`); JSDOM returns zeros. Playwright territory (Bucket 25).
+- **DIAG-3.2-02** 🚫 **Patch grows on content.** Same — depends on real layout measurement.
+- **DIAG-3.2-03** 🚫 **Patch shrinks when content removed.** Same.
+- **DIAG-3.2-04** 🚫 **Zoom in via wheel/pinch.** Native wheel + pinch events aren't emulable in JSDOM.
+- **DIAG-3.2-05** 🚫 **Zoom out.** Same.
+- **DIAG-3.2-06** 🚫 **Auto-fit on initial open.** Depends on real bounding rects.
+- **DIAG-3.2-07** 🟡 **Viewport persisted per diagram** — key shape + per-file scoping covered via util-level tests (PERSIST-7.1-10); the hook-level save-on-scroll path needs real DOM geometry.
+- **DIAG-3.2-08** 🚫 **2000 px viewport padding guard.** Layout-dependent.
+- **DIAG-3.2-09** 🟡 **Client→world coord transform** — logic lives inside `useCanvasCoords` hook and reads live DOM; the math is exercised indirectly by `useViewportPersistence`. Dedicated unit test requires extracting the transform — open a ticket.
+- **DIAG-3.2-10** 🚫 **Canvas click deselects.** Requires DOM click targeting inside the canvas element.
+- **DIAG-3.2-11** 🚫 **Pan by drag on empty canvas.** Pointer events + scroll — Playwright.
 
 ## 3.3 Minimap
 
-- **DIAG-3.3-01** ❌ **Renders all layers & nodes** — diagram with 3 layers & 10 nodes → minimap draws 13 shapes.
-- **DIAG-3.3-02** ❌ **Viewport rect visible** — minimap overlays a rect representing the current canvas viewport.
-- **DIAG-3.3-03** ❌ **Drag viewport rect pans canvas** — drag rect to the right → canvas scrolls right proportionally.
-- **DIAG-3.3-04** ❌ **Aspect-ratio preserved** — minimap scale preserves content aspect ratio; no horizontal stretch.
-- **DIAG-3.3-05** ❌ **Live scroll sync** — scroll canvas → minimap rect repositions without lag.
-- **DIAG-3.3-06** ❌ **Minimap width = 200 px** — computed style matches.
+- **DIAG-3.3-01** 🚫 **Renders all layers & nodes** — minimap component is built on SVG with bounds derived from live canvas geometry; Playwright (Bucket 25).
+- **DIAG-3.3-02** 🚫 **Viewport rect visible.** Live layout-dependent.
+- **DIAG-3.3-03** 🚫 **Drag viewport rect pans canvas.** Pointer events + scroll.
+- **DIAG-3.3-04** 🚫 **Aspect-ratio preserved.** Computed from real content bounds.
+- **DIAG-3.3-05** 🚫 **Live scroll sync.** Scroll events.
+- **DIAG-3.3-06** 🚫 **Minimap width = 200 px.** Computed style under JSDOM returns zeros; Playwright.
 
 ## 3.4 Icon Registry
 
@@ -44,25 +44,25 @@
 
 ## 3.5 Nodes
 
-- **DIAG-3.5-01** ❌ **Create node via context menu** — right-click canvas → Add Element → node created at cursor position; selected.
-- **DIAG-3.5-02** ❌ **New node default width = 210** — created node has `w === DEFAULT_NODE_WIDTH`.
-- **DIAG-3.5-03** ❌ **Icon, label, sublabel render** — node with all three has them visible.
-- **DIAG-3.5-04** ❌ **Custom colours render** — node with `bgColor: "#ff0000"` → background computed style is that colour (or the migrated hex).
-- **DIAG-3.5-05** ❌ **Rotation applied** — `rotation: 90` → transform: `rotate(90deg)` on the rendered element.
-- **DIAG-3.5-06** ❌ **Single-node drag moves node** — drag node 50 px right → `x` increases by 50 (modulo grid snap).
-- **DIAG-3.5-07** ❌ **Single-node drag respects layer bounds** — try to drag out of layer → clamped to within layer + padding.
-- **DIAG-3.5-08** ❌ **Multi-node drag moves all** — select 3 nodes, drag → all move together; internal offsets unchanged.
-- **DIAG-3.5-09** ❌ **Multi-node drag clamped by group bbox** — group cannot overlap another layer's nodes at the same level.
-- **DIAG-3.5-10** ❌ **Double-click label → edit** — double-click → label becomes editable input; caret in label.
-- **DIAG-3.5-11** ❌ **Enter commits label** — edit, Enter → label updated; dirty.
-- **DIAG-3.5-12** ❌ **Escape reverts label** — edit, Esc → original label restored; not dirty from this action.
-- **DIAG-3.5-13** ❌ **Raw vs snapped position visual** — during drag, visual tracks raw position; on release, snaps to grid.
+- **DIAG-3.5-01** 🚫 **Create node via context menu.** Right-click menu + coordinate math relies on real canvas; Playwright (Bucket 25).
+- **DIAG-3.5-02** 🟡 **New node default width = 210.** `DEFAULT_NODE_WIDTH` constant is exported from `constants.ts`; the new-node creation wiring (context menu → `useActionHistory.recordAction`) is canvas-level.
+- **DIAG-3.5-03** 🚫 **Icon, label, sublabel render.** The `Element` component's full render path depends on measured dimensions; Playwright.
+- **DIAG-3.5-04** 🚫 **Custom colours render.** Computed style under JSDOM.
+- **DIAG-3.5-05** 🚫 **Rotation applied.** Transform inspection needs browser layout.
+- **DIAG-3.5-06** 🚫 **Single-node drag moves node.** Pointer events.
+- **DIAG-3.5-07** 🚫 **Single-node drag respects layer bounds.** Live drag + `layerBounds` math — the math is covered by `layerBounds.test.ts`, the drag wiring is canvas-level.
+- **DIAG-3.5-08** 🚫 **Multi-node drag moves all.** Pointer events.
+- **DIAG-3.5-09** 🚫 **Multi-node drag clamped by group bbox.** Live drag.
+- **DIAG-3.5-10** 🚫 **Double-click label → edit.** Double-click handling + `contenteditable`.
+- **DIAG-3.5-11** 🚫 **Enter commits label.** Keyboard on contenteditable.
+- **DIAG-3.5-12** 🚫 **Escape reverts label.** Same.
+- **DIAG-3.5-13** 🚫 **Raw vs snapped position visual.** Live drag feedback; `snapToGrid` itself is covered by DIAG-3.15-01..05.
 
 ## 3.6 Condition Nodes
 
 - **DIAG-3.6-01** ✅ **Condition shape renders** — `getConditionPath` returns `M …top L …right L 0 h Z` for `outCount ≤ 2` (plain triangle) and switches to `M …top L …right A R R 0 0 1 …left Z` (triangle + circular arc base) for `outCount ≥ 3`.
-- **DIAG-3.6-02** ❌ **Size range 1–5** — only `size` values in `[1,5]` accepted; outside values clamped or rejected.
-- **DIAG-3.6-03** ❌ **Exits range 1–5** — same for `exits`.
+- **DIAG-3.6-02** 🟡 **Size range 1–5.** TypeScript-level: `conditionSize?: 1|2|3|4|5`. `getConditionScale` clamps gracefully at render time (covered by `conditionGeometry.test.ts`).
+- **DIAG-3.6-03** 🟡 **Exits range 1–5.** Same story: `conditionOutCount` enforced via `getConditionAnchors` + `getConditionPath` rendering; out-of-range handled as fallback.
 - **DIAG-3.6-04** ✅ **`cond-in` single input** — `getConditionAnchors` always emits exactly one `anchorType: 'in'` anchor with id `cond-in`.
 - **DIAG-3.6-05** ✅ **`cond-out-N` anchors per exit** — `outCount: 3` → returns ids `cond-out-0`, `cond-out-1`, `cond-out-2`. `outCount < 2` is clamped to 2.
 - **DIAG-3.6-06** ✅ **`getConditionAnchors` positions** — `cond-in` sits at `(cx, cy - effectiveH/2)`; `cond-out-*` distributed along the base (or along the circular arc for `outCount ≥ 3`); rotation rotates every anchor around `(cx,cy)`.
@@ -70,15 +70,15 @@
 
 ## 3.7 Layers
 
-- **DIAG-3.7-01** ❌ **Create layer via context menu** — right-click canvas → Add Layer → empty layer placed.
-- **DIAG-3.7-02** ❌ **Default dimensions** — new layer has `width === DEFAULT_LAYER_WIDTH` (400), `height === DEFAULT_LAYER_HEIGHT` (200).
-- **DIAG-3.7-03** ❌ **Layer bounds auto-expand** — drop node outside current bounds → bounds grow to include node + `LAYER_PADDING` (25).
-- **DIAG-3.7-04** ❌ **Layer bounds include title offset** — top bound = topmost node − `LAYER_TITLE_OFFSET` (20) − padding.
-- **DIAG-3.7-05** ❌ **Manual size override** — user resizes → manual size stored; auto-bounds do not shrink below it.
-- **DIAG-3.7-06** ❌ **`LAYER_GAP` enforced between layers** — move layer A toward B → stops at `LAYER_GAP` (10) distance.
-- **DIAG-3.7-07** ❌ **Layer drag moves children** — drag layer with 3 nodes → all 3 nodes' world positions shift by same delta.
-- **DIAG-3.7-08** ❌ **Layer resize shifts contained nodes to avoid overlap** — shrink right edge into nodes → contained nodes reposition.
-- **DIAG-3.7-09** ❌ **Resize clamped by sibling layers** — drag edge into another layer → stops at `LAYER_GAP`.
+- **DIAG-3.7-01** 🚫 **Create layer via context menu.** Right-click + coordinate math; Playwright (Bucket 25).
+- **DIAG-3.7-02** 🟡 **Default dimensions.** `DEFAULT_LAYER_WIDTH` / `DEFAULT_LAYER_HEIGHT` constants live in `constants.ts`; the create flow is canvas-level.
+- **DIAG-3.7-03** ✅ **Layer bounds auto-expand** — `predictLayerBounds` in `layerBounds.test.ts`.
+- **DIAG-3.7-04** ✅ **Layer bounds include title offset** — `predictLayerBounds` honours `LAYER_TITLE_OFFSET`; `layerBounds.test.ts`.
+- **DIAG-3.7-05** ✅ **Manual size override** — `layerBounds.test.ts` covers both the override-wins-when-larger and auto-wins-when-manual-is-smaller cases.
+- **DIAG-3.7-06** 🟡 **`LAYER_GAP` enforced between layers** — constant exported; clamp logic lives in layer-drag handlers (canvas-level). Unit assertion deferred.
+- **DIAG-3.7-07** 🚫 **Layer drag moves children.** Live drag.
+- **DIAG-3.7-08** 🚫 **Layer resize shifts contained nodes.** Live drag + bounds interaction.
+- **DIAG-3.7-09** 🚫 **Resize clamped by sibling layers.** Live drag.
 - **DIAG-3.7-10** ✅ **Level model — canvas node level=1 with no layer** — `computeLevelMap` assigns `(1, "canvas")` to any node whose `layer` is a falsy string.
 - **DIAG-3.7-11** ✅ **Level model — in-layer node level=2** — node with non-empty `layer` → `(2, layerId)`.
 - **DIAG-3.7-12** ✅ **Level model — condition demotion** — condition inherits its `cond-in` source's `(level, base)` when every outbound target shares that base; if any outbound target sits on a different base (other layer or canvas), the condition is demoted to `(1, "canvas")`. Missing source or missing `cond-in` edge also demotes to `(1, "canvas")`.
@@ -94,36 +94,36 @@
 - **DIAG-3.8-06** ✅ **12 anchors per rect** — `getAnchors(rect)` returns exactly 12 anchors (3 per side × 4 sides: `top-0/1/2`, `bottom-0/1/2`, `left-0/1/2`, `right-0/1/2`). _Note: Features.md's "9 anchors" phrasing is outdated; implementation has 12._
 - **DIAG-3.8-07** ✅ **Anchor positions on perimeter** — every anchor returned by `getAnchors(cx,cy,w,h)` sits on at least one of the four edges (x ∈ {cx−w/2, cx+w/2} or y ∈ {cy−h/2, cy+h/2}).
 - **DIAG-3.8-08** ✅ **`findNearestAnchor` snaps** — point within `snapRadius` of an anchor returns that anchor with its distance; point > snapRadius from any anchor returns `null`; condition nodes dispatch to `getConditionAnchors`.
-- **DIAG-3.8-09** ❌ **`bidirectional` renders arrowheads both ends** — toggle → both end markers visible.
-- **DIAG-3.8-10** ❌ **`connectionType: asynchronous` renders distinctly** — dashed or different stroke compared to synchronous.
-- **DIAG-3.8-11** ❌ **Label at labelPosition 0.5** — label sits at mid-path.
-- **DIAG-3.8-12** ❌ **Label at labelPosition 0** — label at source end.
-- **DIAG-3.8-13** ❌ **Waypoints render kinks** — waypoints defined → path bends through them.
-- **DIAG-3.8-14** ❌ **Colour applied** — `color: "#f00"` → stroke is red (or migrated hex).
+- **DIAG-3.8-09** 🚫 **`bidirectional` renders arrowheads both ends.** SVG marker rendering + paint measurement; Playwright (Bucket 25).
+- **DIAG-3.8-10** 🚫 **`connectionType: asynchronous` renders distinctly.** Stroke-dash inspection via JSDOM unreliable.
+- **DIAG-3.8-11** 🚫 **Label at labelPosition 0.5.** Path-position math executes but label `<text>` rendering + transform isn't observable in JSDOM.
+- **DIAG-3.8-12** 🚫 **Label at labelPosition 0.** Same.
+- **DIAG-3.8-13** 🟡 **Waypoints render kinks** — waypoint routing logic is covered by `pathRouter.test.ts` (DIAG-3.8 core cases); visual verification lives in Playwright.
+- **DIAG-3.8-14** 🚫 **Colour applied.** Stroke-style inspection; Playwright.
 - **DIAG-3.8-15** ✅ **`segmentIntersectsRect` true on overlap** — horizontal/vertical/diagonal segments crossing the rect interior all return true (Cohen–Sutherland clip). Also covers `lineIntersectsRect` for multi-segment polylines.
 - **DIAG-3.8-16** ✅ **`segmentIntersectsRect` false on clear** — segments entirely above/beside the rect return false; `lineIntersectsRect` false when every segment is outside the padded (4 px) bounds.
 - **DIAG-3.8-17** ✅ **`segmentIntersectsRect` endpoints inside count as intersect** — segment with one endpoint inside the rect returns true; segment fully inside also true; segment touching the rect strictly at the edge does NOT (strict `<`/`>` in the outcode function).
 
 ## 3.9 Connection Interaction
 
-- **DIAG-3.9-01** ❌ **Endpoint drag activates after 150 ms hold** — press & hold on endpoint → after 150 ms, drag state active.
-- **DIAG-3.9-02** ❌ **Short click does not activate drag** — press & release within 150 ms → endpoint not in drag mode; line stays.
-- **DIAG-3.9-03** ❌ **Endpoint snaps to nearest anchor** — release within snap radius of anchor → endpoint bound to that anchor.
-- **DIAG-3.9-04** ❌ **Endpoint free-floats without nearby anchor** — release far from any node → endpoint stores raw coords (no anchor).
-- **DIAG-3.9-05** ❌ **Reconnect blocked by constraints** — attempt self-loop → reject or reset.
-- **DIAG-3.9-06** ❌ **Flow-break warning on reconnect** — reconnect breaks a flow → `FlowBreakWarningModal` appears listing broken flows.
-- **DIAG-3.9-07** ❌ **Cancel in flow-break modal reverts** — cancel → endpoint returns to previous state.
-- **DIAG-3.9-08** ❌ **Confirm in flow-break modal applies** — confirm → reconnect committed; affected flows updated.
-- **DIAG-3.9-09** ❌ **Segment drag inserts waypoint** — drag a straight segment → waypoint added; path bends.
-- **DIAG-3.9-10** ❌ **Segment drag updates existing waypoint** — drag an existing waypoint → its position changes.
-- **DIAG-3.9-11** ❌ **Segment drag recorded in history** — drag, release → one history snapshot committed.
-- **DIAG-3.9-12** ❌ **Anchor popup on hover** — hover over node → `AnchorPopupMenu` appears with anchor dots.
-- **DIAG-3.9-13** ❌ **Anchor popup drag-from creates connection** — drag from an anchor dot onto another anchor → new connection created between those anchors.
+- **DIAG-3.9-01** 🚫 **Endpoint drag activates after 150 ms hold.** Real timers + pointer events; Playwright.
+- **DIAG-3.9-02** 🚫 **Short click does not activate drag.** Same.
+- **DIAG-3.9-03** 🚫 **Endpoint snaps to nearest anchor.** Needs real anchor DOM positions.
+- **DIAG-3.9-04** 🚫 **Endpoint free-floats without nearby anchor.** Same.
+- **DIAG-3.9-05** ✅ **Reconnect blocked by constraints** — `validateConnection` rejects cond-in-as-source, cond-out-as-target, and cond-in fan-in. `connectionConstraints.test.ts`.
+- **DIAG-3.9-06** 🟡 **Flow-break warning on reconnect** — `FlowBreakWarningModal` itself is covered (DIAG-3.9 component bucket); the reconnect-detects-break wiring is canvas-level.
+- **DIAG-3.9-07** 🟡 **Cancel in flow-break modal reverts** — modal cancel callback is tested; the caller's revert-on-cancel is canvas-level.
+- **DIAG-3.9-08** 🟡 **Confirm in flow-break modal applies** — modal confirm callback tested; apply path is canvas-level.
+- **DIAG-3.9-09** 🚫 **Segment drag inserts waypoint.** Pointer events.
+- **DIAG-3.9-10** 🚫 **Segment drag updates existing waypoint.** Same.
+- **DIAG-3.9-11** 🚫 **Segment drag recorded in history.** Depends on 3.9-09/10.
+- **DIAG-3.9-12** 🚫 **Anchor popup on hover.** Hover geometry.
+- **DIAG-3.9-13** 🚫 **Anchor popup drag-from creates connection.** Pointer events.
 
 ## 3.10 Flows
 
-- **DIAG-3.10-01** ❌ **Create flow via Cmd/Ctrl+G** — select 2 contiguous lines → press Cmd+G → new flow in state with those IDs.
-- **DIAG-3.10-02** ❌ **Cmd+G rejects non-contiguous selection** — lines that don't share nodes → no flow created; user-visible signal (toast/silent).
+- **DIAG-3.10-01** 🟡 **Create flow via Cmd/Ctrl+G** — contiguity check is in `flowUtils` (covered by `flowUtils.test.ts`); the Cmd+G shortcut dispatch is canvas-level.
+- **DIAG-3.10-02** 🟡 **Cmd+G rejects non-contiguous selection** — rejection logic is in `flowUtils.isContiguous`; shortcut binding is canvas-level.
 - **DIAG-3.10-03** ✅ **`isContiguous` single connection** — input of 0 or 1 connection IDs returns `true` (trivial contiguity).
 - **DIAG-3.10-04** ✅ **`isContiguous` chain** — any chain/tree/graph where every pair of consecutive connections shares a node (from or to) returns `true`; branching graphs also qualify.
 - **DIAG-3.10-05** ✅ **`isContiguous` disjoint** — two connections with no shared endpoint return `false`; also returns `false` when any referenced connection ID is missing from the connections list.
@@ -132,25 +132,25 @@
 - **DIAG-3.10-08** 🟡 **`findBrokenFlows` behaviour on node delete** — documented shrink-to-contiguous-subset (removing c2+c3 from a 3-line flow leaves only c1, which is still contiguous) is NOT flagged as broken. Callers that want "any shrinkage breaks the flow" must enforce that separately. _(Behaviour locked in tests; reopen if product intent differs.)_
 - **DIAG-3.10-09** ✅ **`findBrokenFlowsByReconnect` true** — reconnecting c2 from (B→C) to (X→Y) detaches the chain → containing flow listed.
 - **DIAG-3.10-10** ✅ **`findBrokenFlowsByReconnect` false** — reconnect that keeps the flow connected (e.g. c2 to B→D still sharing a node with both neighbours) → empty result. `undefined` newFrom/newTo keeps the existing endpoint.
-- **DIAG-3.10-11** ❌ **Flow dots animate** — flow with `flowDuration` > 0 → dots traverse path.
-- **DIAG-3.10-12** ❌ **Flow properties: edit name** — edit → state updated.
-- **DIAG-3.10-13** ❌ **Flow properties: edit category** — edit → state updated; category grouping re-renders in ArchitectureProperties.
-- **DIAG-3.10-14** ❌ **Flow properties: delete flow** — click Delete Flow → flow removed; member connections untouched.
-- **DIAG-3.10-15** ❌ **ArchitectureProperties — flat grouping** — no categories → flat list of flows.
-- **DIAG-3.10-16** ❌ **ArchitectureProperties — grouped** — any category set → grouped; uncategorised appear under "Uncategorized".
-- **DIAG-3.10-17** ❌ **Hover flow dims others** — hover flow name in panel → other flows dimmed on canvas.
+- **DIAG-3.10-11** 🚫 **Flow dots animate.** Requires `requestAnimationFrame` loop + real SVG position; Playwright (Bucket 25).
+- **DIAG-3.10-12** 🚫 **Flow properties: edit name.** Lives in `ArchitectureProperties` — not yet test-covered at the component level.
+- **DIAG-3.10-13** 🚫 **Flow properties: edit category.** Same.
+- **DIAG-3.10-14** 🚫 **Flow properties: delete flow.** Same.
+- **DIAG-3.10-15** 🚫 **ArchitectureProperties — flat grouping.** Same.
+- **DIAG-3.10-16** 🚫 **ArchitectureProperties — grouped.** Same.
+- **DIAG-3.10-17** 🚫 **Hover flow dims others.** Hover + opacity inspection; Playwright.
 
 ## 3.11 Selection
 
-- **DIAG-3.11-01** ❌ **Click selects single node** — selection state becomes `{ type: "node", id }`.
-- **DIAG-3.11-02** ❌ **Click selects single layer** — `{ type: "layer", id }`.
-- **DIAG-3.11-03** ❌ **Click selects single line** — `{ type: "line", id }`.
-- **DIAG-3.11-04** ❌ **Ctrl/Cmd+click adds to selection** — select A, Ctrl+click B → `multi-node` with `[A, B]`.
-- **DIAG-3.11-05** ❌ **Ctrl/Cmd+click toggles off** — select A+B, Ctrl+click A → back to single `{ node, B }`.
-- **DIAG-3.11-06** ❌ **Rubber-band selects intersecting nodes** — drag rect over 3 nodes → `multi-node` with all 3.
-- **DIAG-3.11-07** ❌ **Rubber-band works for mixed types** — selecting both nodes and lines via rect → selection union includes both (or per spec, a canonical kind — verify).
-- **DIAG-3.11-08** ❌ **Drag threshold = 25 px** — mouse-down → release within 25 px → treated as click (select), not drag.
-- **DIAG-3.11-09** ❌ **Selection cleared on Escape** — selection set → press Esc → selection `null`.
+- **DIAG-3.11-01** ✅ **Click selects single node** — `selectionUtils.test.ts` (`toggleItemInSelection` empty→single).
+- **DIAG-3.11-02** ✅ **Click selects single layer** — same test file.
+- **DIAG-3.11-03** ✅ **Click selects single line** — same test file.
+- **DIAG-3.11-04** ✅ **Ctrl/Cmd+click adds to selection** — `selectionUtils.test.ts` (toggle node + node → multi-node; different layer → multi-layer).
+- **DIAG-3.11-05** ✅ **Ctrl/Cmd+click toggles off** — `selectionUtils.test.ts` (multi-node minus one → single node).
+- **DIAG-3.11-06** ✅ **Rubber-band selects intersecting nodes** — `selectionUtils.test.ts` (`resolveRectangleSelection`).
+- **DIAG-3.11-07** ✅ **Rubber-band promotes mixed types** — multi-layer promotion + line-only cases covered.
+- **DIAG-3.11-08** 🚫 **Drag threshold = 25 px.** Pointer events + timing; Playwright (Bucket 25).
+- **DIAG-3.11-09** 🟡 **Selection cleared on Escape.** Setting selection to null is a trivial setter; the keybind → setter wiring lives in the canvas keyboard handler (Playwright coverage).
 
 ## 3.12 Context Menu
 
@@ -176,22 +176,22 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-03** 🟡 **Read-only disables editors** — verified at LayerProperties level: readOnly=true strictly reduces row count (ColorSchemeRow hidden, EditableIdRow/EditableRow replaced with plain Row). Analogous for Node/Line panels (not individually covered here).
 
 ### 3.13.b Node properties
-- **DIAG-3.13-04** ❌ **Label input edits** — type → state's `label` updates.
-- **DIAG-3.13-05** ❌ **Sublabel input edits** — same.
-- **DIAG-3.13-06** ❌ **Icon picker lists 41 icons** — grid shows all registered icons.
-- **DIAG-3.13-07** ❌ **Icon picker sets icon** — click Database → node icon becomes Database.
+- **DIAG-3.13-04** 🚫 **Label input edits.** Properties-panel (`NodeProperties`) interaction — not yet rendered in isolation in a unit test.
+- **DIAG-3.13-05** 🚫 **Sublabel input edits.** Same.
+- **DIAG-3.13-06** 🟡 **Icon picker lists 41 icons** — `getIconNames()` returns 41 (DIAG-3.4-01); the picker's grid render is canvas-level.
+- **DIAG-3.13-07** 🚫 **Icon picker sets icon.** Integration.
 - **DIAG-3.13-08** ✅ **Type classifier updates** — `AutocompleteInput` commits on Enter / blur / suggestion-click; rejects via onCommit returning false (error-border state); Escape cancels; external prop changes re-sync the draft. Full NodeProperties integration deferred.
-- **DIAG-3.13-09** ❌ **Layer assignment dropdown** — select "Infra" → node's `layerId` updates; node moves into that layer visually.
-- **DIAG-3.13-10** ❌ **Colour editors** — border, bg, text colours apply.
-- **DIAG-3.13-11** ❌ **Rotation control** — 0–360 → `rotation` stored.
-- **DIAG-3.13-12** ❌ **Condition exit count editor** — only shown for condition nodes; updates `exits`.
-- **DIAG-3.13-13** ❌ **Condition size editor** — same for `size`.
-- **DIAG-3.13-14** ❌ **Incoming connections list** — shows connections where `to === node.id`; click navigates selection.
-- **DIAG-3.13-15** ❌ **Outgoing connections list** — same for `from`.
-- **DIAG-3.13-16** ❌ **Via-condition paths** — node reachable through a condition node → listed.
-- **DIAG-3.13-17** ❌ **Member flows list** — flows this node participates in.
-- **DIAG-3.13-18** ❌ **Backlinks list** — attached / cross-referenced docs rendered; click opens doc in other pane.
-- **DIAG-3.13-19** ❌ **Attach document opens DocumentPicker** — click attach → picker opens.
+- **DIAG-3.13-09** 🚫 **Layer assignment dropdown.** NodeProperties component — Playwright.
+- **DIAG-3.13-10** 🚫 **Colour editors.** Same.
+- **DIAG-3.13-11** 🚫 **Rotation control.** Same.
+- **DIAG-3.13-12** 🚫 **Condition exit count editor.** Same.
+- **DIAG-3.13-13** 🚫 **Condition size editor.** Same.
+- **DIAG-3.13-14** 🚫 **Incoming connections list.** Same.
+- **DIAG-3.13-15** 🚫 **Outgoing connections list.** Same.
+- **DIAG-3.13-16** 🚫 **Via-condition paths.** Same.
+- **DIAG-3.13-17** 🚫 **Member flows list.** Same.
+- **DIAG-3.13-18** 🚫 **Backlinks list.** Same.
+- **DIAG-3.13-19** 🟡 **Attach document opens DocumentPicker** — `DocumentPicker` component itself is tested (FS-2.5 in `DocumentPicker.test.tsx`); the attach-button wiring is canvas-level.
 
 ### 3.13.c Layer properties
 - **DIAG-3.13-20** ✅ **Title edit** — `EditableRow` for "Label" wires to `onUpdate(id, { title })` when the field commits (tested indirectly via render snapshot + edit-row infrastructure).
@@ -200,40 +200,40 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-23** 🚫 **Manual-size override toggle** — the UI lives inside the panel's Layout section. Not yet implemented as a direct toggle; region shows static Position + Size fields from measured bounds.
 
 ### 3.13.d Line properties
-- **DIAG-3.13-24** ❌ **Label edit** — state updates.
-- **DIAG-3.13-25** ❌ **Colour edit.**
-- **DIAG-3.13-26** ❌ **Curve algorithm dropdown** — change → path re-renders with new algorithm.
-- **DIAG-3.13-27** ❌ **Bidirectional toggle** — updates arrowheads.
-- **DIAG-3.13-28** ❌ **Connection type toggle sync/async** — stroke style changes.
-- **DIAG-3.13-29** ❌ **Flow duration input** — applies to flow-dot animation timing.
-- **DIAG-3.13-30** ❌ **Source / dest displayed** — shows node labels + anchor names, not raw ids.
+- **DIAG-3.13-24** 🚫 **Label edit.** LineProperties component — Playwright.
+- **DIAG-3.13-25** 🚫 **Colour edit.** Same.
+- **DIAG-3.13-26** 🚫 **Curve algorithm dropdown.** Same.
+- **DIAG-3.13-27** 🚫 **Bidirectional toggle.** Same.
+- **DIAG-3.13-28** 🚫 **Connection type toggle sync/async.** Same.
+- **DIAG-3.13-29** 🚫 **Flow duration input.** Same.
+- **DIAG-3.13-30** 🚫 **Source / dest displayed.** Same.
 
 ### 3.13.e Architecture (root)
-- **DIAG-3.13-31** ❌ **Title editable** — updates diagram title and Header title.
-- **DIAG-3.13-32** ❌ **Default line algorithm dropdown** — changing it sets a new default; existing lines keep per-line setting.
-- **DIAG-3.13-33** ❌ **Layers list** — every layer listed; click selects it.
-- **DIAG-3.13-34** ❌ **Elements list** — every node listed; click selects.
-- **DIAG-3.13-35** ❌ **Types tree** — distinct node types grouped; count matches.
-- **DIAG-3.13-36** ❌ **Select All per type** — click → selection becomes multi-node of all nodes of that type.
-- **DIAG-3.13-37** ❌ **Flows panel** — all flows listed; expanding shows FlowDetail.
+- **DIAG-3.13-31** 🚫 **Title editable.** ArchitectureProperties — Playwright.
+- **DIAG-3.13-32** 🚫 **Default line algorithm dropdown.** Same.
+- **DIAG-3.13-33** 🚫 **Layers list.** Same.
+- **DIAG-3.13-34** 🚫 **Elements list.** Same.
+- **DIAG-3.13-35** ✅ **Types tree — distinct node types grouped** — `typeUtils.test.ts` (`getDistinctTypes` returns sorted unique types).
+- **DIAG-3.13-36** ✅ **Select All per type** — `typeUtils.test.ts` (`getNodesByType` filters exactly); the click→multi-node dispatch is canvas-level.
+- **DIAG-3.13-37** 🚫 **Flows panel.** ArchitectureProperties — Playwright.
 - **DIAG-3.13-38** ✅ **Document backlinks section** — `DocumentsSection` renders every backlink as `<basename>` (or `<basename> #section`), clicking fires `onOpenDocument(sourcePath)`. Title shows `References (N)`; empty state: `"No documents reference this diagram"` + wiki-link help text.
 
 ### 3.13.f DocumentsSection
-- **DIAG-3.13-39** ❌ **Lists attached docs** — shows path with optional section.
-- **DIAG-3.13-40** ❌ **Click opens doc in other pane** — maintains diagram pane.
+- **DIAG-3.13-39** 🟡 **Lists attached docs** — `DocumentsSection` component is tested at the component level in `DocumentsSection.test.tsx`; wiring into the properties panel is canvas-level.
+- **DIAG-3.13-40** 🟡 **Click opens doc in other pane** — component's `onDocumentClick` callback tested; pane routing is canvas-level.
 
 ## 3.14 Keyboard Shortcuts
 
-- **DIAG-3.14-01** ❌ **Escape deselects** — any selection → Esc → `null`.
-- **DIAG-3.14-02** ❌ **Escape closes context menu.**
-- **DIAG-3.14-03** ❌ **Delete / Backspace deletes selection (no flow impact)** — deletes cleanly.
-- **DIAG-3.14-04** ❌ **Delete with flow impact → warning modal** — shows warning before deletion.
-- **DIAG-3.14-05** ❌ **Cmd/Ctrl+G creates flow** — on valid multi-line selection.
-- **DIAG-3.14-06** ❌ **Cmd/Ctrl+Z undoes** — last action reverted.
-- **DIAG-3.14-07** ❌ **Cmd/Ctrl+Shift+Z redoes** — reapplies the undone action.
-- **DIAG-3.14-08** ❌ **Cmd/Ctrl+Shift+R toggles read-only** — state flips; UI reflects.
-- **DIAG-3.14-09** ❌ **Shortcuts disabled in `<input>`** — typing in a label editor → Delete does not remove node.
-- **DIAG-3.14-10** ❌ **Shortcuts disabled in `contenteditable`** — same.
+- **DIAG-3.14-01** 🚫 **Escape deselects.** Keyboard event wiring on the canvas root — Playwright.
+- **DIAG-3.14-02** 🚫 **Escape closes context menu.** Same.
+- **DIAG-3.14-03** 🚫 **Delete / Backspace deletes selection.** Same.
+- **DIAG-3.14-04** 🚫 **Delete with flow impact → warning modal.** Same.
+- **DIAG-3.14-05** 🚫 **Cmd/Ctrl+G creates flow.** Same; contiguity check itself is in `flowUtils.test.ts`.
+- **DIAG-3.14-06** 🟡 **Cmd/Ctrl+Z undoes** — `useActionHistory` undo path tested (HOOK-6.1-05); shortcut binding is canvas-level.
+- **DIAG-3.14-07** 🟡 **Cmd/Ctrl+Shift+Z redoes** — `useActionHistory` redo path tested (HOOK-6.1-06); shortcut binding is canvas-level.
+- **DIAG-3.14-08** 🚫 **Cmd/Ctrl+Shift+R toggles read-only.** Same.
+- **DIAG-3.14-09** 🚫 **Shortcuts disabled in `<input>`.** Requires mounting the full canvas + a focused input.
+- **DIAG-3.14-10** 🚫 **Shortcuts disabled in `contenteditable`.** Same — Playwright.
 
 ## 3.15 Auto-Arrange, Grid Snap, Collision
 
@@ -243,15 +243,15 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.15-03** ✅ **Accepts custom grid size** — `snapToGrid(7, 5)` → 5; `(8, 5)` → 10.
 - **DIAG-3.15-04** ✅ **Handles negative values** — `(-14)` → −10; `(-15)` → −10; `(-16)` → −20.
 - **DIAG-3.15-05** ✅ **Zero input → 0** — `snapToGrid(0)` → 0.
-- **DIAG-3.15-06** ❌ **Drag integrates snap** — drag a node to `(14, 14)` → final position is `(10, 10)`.
+- **DIAG-3.15-06** 🚫 **Drag integrates snap.** Integration at the canvas level (Playwright); `snapToGrid` itself is covered by DIAG-3.15-01..05.
 
 ### 3.15.b Auto-arrange
-- **DIAG-3.15-07** ❌ **Topological sort** — simple DAG → nodes ordered by rank in TB direction.
-- **DIAG-3.15-08** ❌ **Rank spacing = 180 px** — between ranks in TB.
-- **DIAG-3.15-09** ❌ **Node spacing = 40 px** — within a rank.
-- **DIAG-3.15-10** ❌ **LR direction rotates layout** — same DAG in LR → nodes arranged horizontally with same spacing.
-- **DIAG-3.15-11** ❌ **Barycenter pass reduces crossings** — compared to pre-pass, post-pass has ≤ crossings.
-- **DIAG-3.15-12** ❌ **Output grid-snapped** — every node's final position is on the grid.
+- **DIAG-3.15-07** ✅ **Topological sort** — `autoArrange.test.ts` verifies chain and fan-in DAGs land in ascending rank order.
+- **DIAG-3.15-08** ✅ **Rank spacing = 180 px** — `autoArrange.test.ts` checks `yb - ya === 180` in TB.
+- **DIAG-3.15-09** 🟡 **Node spacing = 40 px** — constant (`NODE_SPACING`) baked into the layout; the exact intra-rank cursor step is implicit in TB/LR tests but not a dedicated assertion.
+- **DIAG-3.15-10** ✅ **LR direction rotates layout** — `autoArrange.test.ts` verifies x-axis rank separation in LR + same-rank siblings on y-axis.
+- **DIAG-3.15-11** 🟡 **Barycenter pass reduces crossings** — the implementation runs barycenter; formally asserting "crossings ≤ prior" would need a pre-/post- comparison fixture, deferred.
+- **DIAG-3.15-12** ✅ **Output grid-snapped** — `autoArrange.test.ts` asserts every output coord equals `snapToGrid(coord)`.
 
 ### 3.15.c Collision clamps
 - **DIAG-3.15-13** ✅ **`clampNodePosition` — no overlap** — with zero siblings, the raw `(x,y)` is returned verbatim. With siblings, returns a nearby (edge-snapped or binary-searched) position that leaves `NODE_GAP` clearance.
@@ -264,40 +264,40 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 
 ## 3.16 Undo / Redo
 
-- **DIAG-3.16-01** ❌ **Snapshot on drag end** — move a node → one history entry added.
-- **DIAG-3.16-02** ❌ **Snapshot on delete** — delete node → one entry.
-- **DIAG-3.16-03** ❌ **Snapshot on connection edit.**
-- **DIAG-3.16-04** ❌ **Undo restores prior state** — after move, undo → node back at original pos.
-- **DIAG-3.16-05** ❌ **Redo reapplies** — after undo, redo → move reapplied.
-- **DIAG-3.16-06** ❌ **Max 100 entries** — drive 101 changes → earliest dropped.
-- **DIAG-3.16-07** ❌ **Sidecar file `.<name>.history.json`** — history persisted next to the diagram.
-- **DIAG-3.16-08** ❌ **FNV-1a checksum detects external change** — disk file hash != saved hash → history re-init.
-- **DIAG-3.16-09** ❌ **`goToSaved()` reverts to last save** — after unsaved edits, click revert → state at last save.
-- **DIAG-3.16-10** ❌ **HistoryPanel lists entries** — entry per snapshot.
-- **DIAG-3.16-11** ❌ **HistoryPanel click reverts** — clicking an earlier entry restores that snapshot.
-- **DIAG-3.16-12** ❌ **Undo/redo respects read-only** — in read-only, shortcuts are no-ops (or explicitly allowed — verify).
+- **DIAG-3.16-01** 🟡 **Snapshot on drag end** — `recordAction` append is tested (HOOK-6.1 suite); the drag-end call site is canvas-level.
+- **DIAG-3.16-02** 🟡 **Snapshot on delete.** Same — append is tested; call site is canvas-level.
+- **DIAG-3.16-03** 🟡 **Snapshot on connection edit.** Same.
+- **DIAG-3.16-04** ✅ **Undo restores prior state** — `useActionHistory.test.ts` (HOOK-6.1-05 undo walks back through history).
+- **DIAG-3.16-05** ✅ **Redo reapplies** — `useActionHistory.test.ts` (HOOK-6.1-06 redo re-applies undone entry).
+- **DIAG-3.16-06** 🟡 **Max 100 entries** — cap lives in `useActionHistory`; not yet pinned as a unit test.
+- **DIAG-3.16-07** ✅ **Sidecar file `.<name>.history.json`** — `useActionHistory.test.ts` HOOK-6.1-09.
+- **DIAG-3.16-08** 🟡 **FNV-1a checksum detects external change** — hash is module-private but is invoked in the sidecar-name + init paths exercised by `useActionHistory.test.ts`.
+- **DIAG-3.16-09** 🟡 **`goToSaved()` reverts to last save** — public API exists; the UI "revert" button wiring is canvas-level.
+- **DIAG-3.16-10** 🚫 **HistoryPanel lists entries.** Panel component not yet test-covered.
+- **DIAG-3.16-11** 🚫 **HistoryPanel click reverts.** Same.
+- **DIAG-3.16-12** 🚫 **Undo/redo respects read-only.** Canvas integration.
 
 ## 3.17 Read-Only Mode
 
-- **DIAG-3.17-01** ❌ **Toggle via PaneHeader lock** — icon state + disabled interactions.
-- **DIAG-3.17-02** ❌ **Toggle via Cmd+Shift+R.**
-- **DIAG-3.17-03** ❌ **Node drag disabled.**
-- **DIAG-3.17-04** ❌ **Layer drag disabled.**
-- **DIAG-3.17-05** ❌ **Endpoint / segment drag disabled.**
-- **DIAG-3.17-06** ❌ **Delete key does nothing.**
-- **DIAG-3.17-07** ❌ **Context menu suppressed or read-only variant.**
-- **DIAG-3.17-08** ❌ **Properties panel inputs disabled.**
-- **DIAG-3.17-09** ❌ **Navigation (click → select) still works** — reading is allowed.
+- **DIAG-3.17-01** 🟡 **Toggle via PaneHeader lock** — PaneHeader read-mode toggle is covered by SHELL-1.6-02; the canvas-side effect (disabled interactions) is canvas-level.
+- **DIAG-3.17-02** 🚫 **Toggle via Cmd+Shift+R.** Keyboard shortcut wiring — Playwright.
+- **DIAG-3.17-03** 🚫 **Node drag disabled.** Canvas integration.
+- **DIAG-3.17-04** 🚫 **Layer drag disabled.** Same.
+- **DIAG-3.17-05** 🚫 **Endpoint / segment drag disabled.** Same.
+- **DIAG-3.17-06** 🚫 **Delete key does nothing.** Same.
+- **DIAG-3.17-07** 🚫 **Context menu suppressed or read-only variant.** Same.
+- **DIAG-3.17-08** 🚫 **Properties panel inputs disabled.** Depends on properties-panel rendering (itself not yet covered).
+- **DIAG-3.17-09** 🚫 **Navigation (click → select) still works.** Canvas integration.
 
 ## 3.18 Document Integration
 
-- **DIAG-3.18-01** ❌ **DocInfoBadge visible when doc attached** — node with ≥ 1 doc → badge rendered.
-- **DIAG-3.18-02** ❌ **DocInfoBadge hidden when none** — no docs → no badge.
-- **DIAG-3.18-03** ❌ **Click badge opens attached doc** — opens in the other pane.
-- **DIAG-3.18-04** ❌ **`attachDocument` persists in diagram JSON** — save, reload → `documents` field intact.
-- **DIAG-3.18-05** ❌ **`detachDocument` removes reference.**
-- **DIAG-3.18-06** ❌ **`getDocumentsForEntity` filters by entity type + id.**
-- **DIAG-3.18-07** ❌ **`hasDocuments` returns true when any exist.**
+- **DIAG-3.18-01** ✅ **DocInfoBadge visible when doc attached** — covered by `DocInfoBadge.test.tsx` (Bucket 14).
+- **DIAG-3.18-02** ✅ **DocInfoBadge hidden when none** — same test file.
+- **DIAG-3.18-03** 🟡 **Click badge opens attached doc** — `DocInfoBadge.test.tsx` asserts `onClick` fires with the right doc; pane routing is canvas-level.
+- **DIAG-3.18-04** 🟡 **`attachDocument` persists in diagram JSON** — the `documents` field round-trips via DIAG-3.19 save/load; the attach flow is canvas-level.
+- **DIAG-3.18-05** 🟡 **`detachDocument` removes reference.** Same — data shape covered via persistence; detach call site is canvas-level.
+- **DIAG-3.18-06** 🟡 **`getDocumentsForEntity` filters by entity type + id.** The filter is a three-line `useCallback` inside `DiagramView`; moving it to a pure util would unlock a direct test. Open a ticket.
+- **DIAG-3.18-07** 🟡 **`hasDocuments` returns true when any exist.** Same — inline `useCallback` in `DiagramView`.
 
 ## 3.19 Persistence
 

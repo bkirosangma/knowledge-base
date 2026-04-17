@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
 import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
+import { saveDirHandle, loadDirHandle, clearDirHandle } from "../utils/idbHandles";
 
 /* ── Tree types ── */
 
@@ -20,63 +21,6 @@ export interface TreeNode {
 
 const DIR_NAME_KEY = "knowledge-base-directory-name";
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
-const IDB_NAME = "knowledge-base";
-const IDB_STORE = "handles";
-const IDB_DIR_KEY = "directory-handle";
-
-/* ── IndexedDB helpers ── */
-
-function openIDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-const IDB_SCOPE_KEY = "directory-scope";
-
-async function saveDirHandle(handle: FileSystemDirectoryHandle, scopeId: string): Promise<void> {
-  try {
-    const db = await openIDB();
-    const tx = db.transaction(IDB_STORE, "readwrite");
-    tx.objectStore(IDB_STORE).put(handle, IDB_DIR_KEY);
-    tx.objectStore(IDB_STORE).put(scopeId, IDB_SCOPE_KEY);
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
-    db.close();
-  } catch { /* ignore */ }
-}
-
-async function loadDirHandle(): Promise<{ handle: FileSystemDirectoryHandle; scopeId: string } | null> {
-  try {
-    const db = await openIDB();
-    const tx = db.transaction(IDB_STORE, "readonly");
-    const store = tx.objectStore(IDB_STORE);
-    const handleReq = store.get(IDB_DIR_KEY);
-    const scopeReq = store.get(IDB_SCOPE_KEY);
-    const [handle, scopeId] = await new Promise<[FileSystemDirectoryHandle | null, string | null]>((res, rej) => {
-      tx.oncomplete = () => res([handleReq.result ?? null, scopeReq.result ?? null]);
-      tx.onerror = () => rej(tx.error);
-    });
-    db.close();
-    if (!handle) return null;
-    // Generate a scope if missing (migration from old data)
-    const id = scopeId ?? crypto.randomUUID().slice(0, 8);
-    return { handle, scopeId: id };
-  } catch { return null; }
-}
-
-async function clearDirHandle(): Promise<void> {
-  try {
-    const db = await openIDB();
-    const tx = db.transaction(IDB_STORE, "readwrite");
-    tx.objectStore(IDB_STORE).delete(IDB_DIR_KEY);
-    tx.objectStore(IDB_STORE).delete(IDB_SCOPE_KEY);
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
-    db.close();
-  } catch { /* ignore */ }
-}
 
 /* ── Helpers ── */
 
