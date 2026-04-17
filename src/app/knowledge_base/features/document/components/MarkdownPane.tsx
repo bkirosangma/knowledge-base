@@ -1,9 +1,10 @@
-// src/app/knowledge_base/components/MarkdownPane.tsx
 "use client";
 
 import React, { useState } from "react";
-import { FileText, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { FileText } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
+import PaneHeader from "../../../shared/components/PaneHeader";
+import PaneTitle from "../../../shared/components/PaneTitle";
 
 interface MarkdownPaneProps {
   filePath: string | null;           // currently open document path
@@ -35,8 +36,6 @@ export default function MarkdownPane({
   rightSidebar,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(title);
   const [readOnly, setReadOnly] = useState(false);
 
   if (!filePath) {
@@ -52,44 +51,13 @@ export default function MarkdownPane({
     );
   }
 
-  // Breadcrumb from file path
-  const pathParts = filePath.split("/");
-
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-xs text-slate-400">
-          {pathParts.map((part, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <ChevronRight size={10} />}
-              <span className={i === pathParts.length - 1 ? "text-slate-700 font-medium" : ""}>
-                {part}
-              </span>
-            </React.Fragment>
-          ))}
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Read Mode toggle */}
-        <button
-          onClick={() => setReadOnly((v) => !v)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-            readOnly
-              ? "bg-white shadow-sm text-blue-600 border-slate-200"
-              : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
-          }`}
-          title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-          aria-pressed={readOnly}
-          aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-        >
-          {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-          <span>Read Mode</span>
-        </button>
-
-        {/* Backlinks indicator */}
+      <PaneHeader
+        filePath={filePath}
+        readOnly={readOnly}
+        onToggleReadOnly={() => setReadOnly((v) => !v)}
+      >
         {backlinks.length > 0 && (
           <button
             onClick={() => setShowBacklinks(!showBacklinks)}
@@ -98,36 +66,10 @@ export default function MarkdownPane({
             {backlinks.length} reference{backlinks.length !== 1 ? "s" : ""}
           </button>
         )}
-      </div>
+      </PaneHeader>
 
       {/* Title */}
-      <div className="px-4 pt-3 pb-1">
-        {isEditingTitle ? (
-          <input
-            autoFocus
-            value={titleDraft}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={() => {
-              setIsEditingTitle(false);
-              if (titleDraft.trim() && titleDraft !== title) {
-                onTitleChange?.(titleDraft.trim());
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              if (e.key === "Escape") { setTitleDraft(title); setIsEditingTitle(false); }
-            }}
-            className="text-lg font-semibold text-slate-900 outline-none border-b-2 border-blue-500 w-full bg-transparent"
-          />
-        ) : (
-          <h1
-            onClick={() => setIsEditingTitle(true)}
-            className="text-lg font-semibold text-slate-900 cursor-text hover:bg-slate-50 rounded px-1 -mx-1"
-          >
-            {title}
-          </h1>
-        )}
-      </div>
+      <PaneTitle title={title} onTitleChange={onTitleChange} />
 
       {/* Backlinks dropdown */}
       {showBacklinks && backlinks.length > 0 && (

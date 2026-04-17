@@ -57,11 +57,13 @@ import { useSyncRef } from "../../shared/hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
 import DocumentPicker from "../../shared/components/DocumentPicker";
+import PaneHeader from "../../shared/components/PaneHeader";
+import PaneTitle from "../../shared/components/PaneTitle";
 import type { DocumentMeta } from "../document/types";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
-import { Activity, Tag, Map as MapIcon, LayoutGrid, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -898,7 +900,6 @@ export default function DiagramView({
     );
   }, [documents]);
 
-  const pathParts = activeFile ? activeFile.split("/") : [];
   const diagramTitle = activeFile
     ? (activeFile.split("/").pop() ?? "").replace(/\.json$/, "")
     : "";
@@ -908,40 +909,14 @@ export default function DiagramView({
       {activeFile && (
         <>
           {/* Breadcrumb row */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              {pathParts.map((part, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <ChevronRight size={10} />}
-                  <span className={i === pathParts.length - 1 ? "text-slate-700 font-medium" : ""}>
-                    {part}
-                  </span>
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="flex-1" />
-            <button
-              onClick={toggleReadOnly}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-                readOnly
-                  ? "bg-white shadow-sm text-blue-600 border-slate-200"
-                  : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
-              }`}
-              title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-              aria-pressed={readOnly}
-              aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-            >
-              {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-              <span>Read Mode</span>
-            </button>
-          </div>
+          <PaneHeader
+            filePath={activeFile}
+            readOnly={readOnly}
+            onToggleReadOnly={toggleReadOnly}
+          />
 
           {/* Title row */}
-          <div className="flex-shrink-0 px-4 pt-3 pb-1 bg-white">
-            <h1 className="text-lg font-semibold text-slate-900 px-1 -mx-1">
-              {diagramTitle}
-            </h1>
-          </div>
+          <PaneTitle title={diagramTitle} />
 
           {/* Diagram toolbar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">
