@@ -6,7 +6,7 @@ import type { RegionBounds } from "../types";
 
 export type { RegionBounds };
 
-export const KEY_COL = "w-[72px] shrink-0";
+export const KEY_COL = "w-[96px] shrink-0";
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -217,7 +217,7 @@ export function ExpandableListRow({
         </span>
       </button>
       {expanded && (
-        <div className="pl-[72px] pb-1.5 space-y-0.5">
+        <div className="pl-[96px] pb-1.5 space-y-0.5">
           {items.map((item, idx) => (
             <ListItem key={`${item.id}-${idx}`} item={item} onSelect={onSelect} onHoverItem={onHoverItem} />
           ))}
@@ -429,7 +429,7 @@ export function DropdownRow<T extends string>({
         <ChevronRight size={12} className={`text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-[72px] top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 min-w-[120px]">
+        <div className="absolute left-[96px] top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 min-w-[120px]">
           {options.map((opt) => (
             <button
               key={opt.value}

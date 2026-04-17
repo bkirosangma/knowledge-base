@@ -141,14 +141,14 @@ function FlowGroup({
         className="flex items-start py-1.5 w-full text-left hover:bg-slate-50 transition-colors cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[72px] shrink-0">{label}</span>
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[96px] shrink-0">{label}</span>
         <span className="flex items-center gap-1.5 text-[13px] text-slate-800 min-w-0">
           {items.length}
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6"/></svg>
         </span>
       </button>
       {expanded && (
-        <div className="pl-[72px] pb-1.5 space-y-0.5">
+        <div className="pl-[96px] pb-1.5 space-y-0.5">
           {items.map((f) => (
             <FlowListItem key={f.id} flow={f} isExpanded={expandedFlowId === f.id} onToggle={() => onToggleFlow(f.id)} onHover={onHoverFlow} />
           ))}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 
-const KEY_COL = "w-[72px] shrink-0";
+const KEY_COL = "w-[96px] shrink-0";
 
 export function AutocompleteInput({
   label, value, suggestions, onCommit, onClear,
@@ -86,7 +86,7 @@ export function AutocompleteInput({
         />
       </div>
       {filtered.length > 0 && (
-        <div className="absolute left-[72px] right-0 top-full z-50 bg-white border border-slate-200 rounded shadow-lg max-h-[120px] overflow-y-auto">
+        <div className="absolute left-[96px] right-0 top-full z-50 bg-white border border-slate-200 rounded shadow-lg max-h-[120px] overflow-y-auto">
           {filtered.map((s) => (
             <button
               key={s}
