@@ -12,8 +12,10 @@ export function useCanvasInteraction(
   handleSelectionRectStart: (e: React.MouseEvent) => void,
   handleDragStart: (id: string, e: React.MouseEvent) => void,
   scheduleRecord: (description: string) => void,
+  readOnly: boolean,
 ) {
   const handleRotationDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
+    if (readOnly) return;
     const node = nodesRef.current.find((n) => n.id === nodeId);
     if (!node) return;
     const initialRotation = node.rotation ?? 0;
@@ -47,7 +49,7 @@ export function useCanvasInteraction(
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  }, [scheduleRecord]);
+  }, [scheduleRecord, readOnly]);
 
   const handleNodeDragStart = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -61,9 +63,10 @@ export function useCanvasInteraction(
   }, [handleSelectionRectStart, handleDragStart]);
 
   const handleNodeDoubleClick = useCallback((nodeId: string) => {
+    if (readOnly) return;
     const n = nodesRef.current.find((nd) => nd.id === nodeId);
     if (n) { setEditingLabel({ type: "node", id: nodeId }); setEditingLabelValue(n.label); editingLabelBeforeRef.current = n.label; }
-  }, []);
+  }, [readOnly]);
 
   const handleNodeMouseEnter = useCallback((id: string) => setHoveredNodeId(id), []);
   const handleNodeMouseLeave = useCallback(() => setHoveredNodeId(null), []);

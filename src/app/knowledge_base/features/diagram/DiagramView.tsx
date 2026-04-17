@@ -356,13 +356,15 @@ export default function DiagramView({
   });
 
   const onAnchorClick = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
+    if (readOnly) return;
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
     if (node.shape === "condition" && anchorId === "cond-in") return;
     setAnchorPopup({ clientX, clientY, nodeId, anchorId, edge: getAnchorEdge(anchorId) });
-  }, [nodes]);
+  }, [nodes, readOnly]);
 
   const handleAnchorHover = useCallback((nodeId: string, anchorId: import("./utils/anchors").AnchorId, clientX: number, clientY: number) => {
+    if (readOnly) return;
     if (anchorDismissTimer.current) { clearTimeout(anchorDismissTimer.current); anchorDismissTimer.current = null; }
     if (anchorHoverTimer.current) clearTimeout(anchorHoverTimer.current);
     anchorHoverTimer.current = setTimeout(() => {
@@ -371,7 +373,7 @@ export default function DiagramView({
       if (node.shape === "condition" && anchorId === "cond-in") return;
       setAnchorPopup({ clientX, clientY, nodeId, anchorId, edge: getAnchorEdge(anchorId) });
     }, 100);
-  }, [nodes]);
+  }, [nodes, readOnly]);
 
   const handleAnchorHoverEnd = useCallback(() => {
     if (anchorHoverTimer.current) { clearTimeout(anchorHoverTimer.current); anchorHoverTimer.current = null; }
@@ -684,7 +686,7 @@ export default function DiagramView({
   const { handleRotationDragStart, handleNodeDragStart, handleNodeDoubleClick, handleNodeMouseEnter, handleNodeMouseLeave } = useCanvasInteraction(
     nodesRef, editingLabelBeforeRef, setNodes, setHoveredNodeId,
     setEditingLabel, setEditingLabelValue, pendingSelection,
-    handleSelectionRectStart, handleDragStart, scheduleRecord,
+    handleSelectionRectStart, handleDragStart, scheduleRecord, readOnly,
   );
 
   useKeyboardShortcuts({
@@ -990,6 +992,7 @@ export default function DiagramView({
         onScroll={() => setContextMenu(null)}
         onContextMenu={(e) => {
           e.preventDefault();
+          if (readOnly) return;
           const coords = toCanvasCoords(e.clientX, e.clientY);
           const cx = coords.x;
           const cy = coords.y;
@@ -1027,12 +1030,13 @@ export default function DiagramView({
                     left={isThisLayerDragged && layerDragDelta ? r.left + layerDragDelta.dx : r.left}
                     top={isThisLayerDragged && layerDragDelta ? r.top + layerDragDelta.dy : r.top}
                     onDragStart={(id, e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { handleSelectionRectStart(e); return; } pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerDragStart(id, e); }}
-                    onResizeStart={(id, edge, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerResizeStart(id, edge, e); }}
+                    onResizeStart={readOnly ? undefined : (id, edge, e) => { e.stopPropagation(); pendingSelection.current = { type: 'layer', id, x: e.clientX, y: e.clientY }; handleLayerResizeStart(id, edge, e); }}
                     isDragging={isThisLayerDragged}
                     isResizing={resizingLayer?.layerId === r.id}
                     isSelected={isItemSelected(selection, 'layer', r.id)}
                     dimmed={dimmed}
                     onDoubleClick={(layerId) => {
+                      if (readOnly) return;
                       const ld = layerDefs.find((l) => l.id === layerId);
                       if (ld) {
                         setEditingLabel({ type: "layer", id: layerId });
@@ -1059,7 +1063,7 @@ export default function DiagramView({
                     key={line.id}
                     {...line}
                     isOrthogonal={lineCurve === "orthogonal" || !lineCurve}
-                    onSegmentDragStart={handleSegmentDragStart}
+                    onSegmentDragStart={readOnly ? undefined : handleSegmentDragStart}
                     isLive={isLive}
                     isHovered={hoveredLine?.id === line.id}
                     showLabels={showLabels}
@@ -1070,8 +1074,9 @@ export default function DiagramView({
                     onHoverStart={(id, label, x, y) => { setHoveredLine({ id, label, x, y }); }}
                     onHoverMove={(id, x, y) => { setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev)); }}
                     onHoverEnd={() => { setHoveredLine((prev) => prev?.id === line.id ? null : prev); }}
-                    onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; handleLineClick(id, e); }}
+                    onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; if (readOnly) return; handleLineClick(id, e); }}
                     onLabelPositionChange={(connId, t) => {
+                      if (readOnly) return;
                       if (labelDragStartT.current === null) {
                         const conn = connections.find((c) => c.id === connId);
                         labelDragStartT.current = conn?.labelPosition ?? 0.5;
@@ -1079,6 +1084,7 @@ export default function DiagramView({
                       setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, labelPosition: t } : c));
                     }}
                     onLabelDragEnd={(connId) => {
+                      if (readOnly) return;
                       const conn = connections.find((c) => c.id === connId);
                       const endT = conn?.labelPosition ?? 0.5;
                       if (labelDragStartT.current !== null && endT !== labelDragStartT.current) {
@@ -1087,6 +1093,7 @@ export default function DiagramView({
                       labelDragStartT.current = null;
                     }}
                     onDoubleClick={(connId) => {
+                      if (readOnly) return;
                       const conn = connections.find((c) => c.id === connId);
                       if (conn) {
                         setEditingLabel({ type: "line", id: connId });
@@ -1163,6 +1170,7 @@ export default function DiagramView({
               if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
               if (flowDimSets != null && !flowDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
               if (typeDimSets != null && !typeDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
+              if (readOnly) { showAnchors = false; }
 
               let visualX = node.x;
               let visualY = node.y;
@@ -1239,11 +1247,11 @@ export default function DiagramView({
                       showLabels
                       onDragStart={handleNodeDragStart}
                       {...commonProps}
-                      onAddOutAnchor={() => {
+                      onAddOutAnchor={readOnly ? undefined : () => {
                         setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
                         scheduleRecord("Add out anchor");
                       }}
-                      onRotationDragStart={handleRotationDragStart}
+                      onRotationDragStart={readOnly ? undefined : handleRotationDragStart}
                       borderColor={node.borderColor}
                       bgColor={node.bgColor}
                       textColor={node.textColor}
@@ -1299,6 +1307,7 @@ export default function DiagramView({
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        if (readOnly) return;
                         const svg = (e.target as SVGElement).closest("svg");
                         if (!svg) return;
                         const startT = line.labelPosition;
@@ -1412,7 +1421,7 @@ export default function DiagramView({
               />
             )}
             {/* Inline label editor */}
-            {editingLabel && (() => {
+            {!readOnly && editingLabel && (() => {
               let editX = 0, editY = 0;
               if (editingLabel.type === "node") {
                 const n = nodes.find((nd) => nd.id === editingLabel.id);
@@ -1479,7 +1488,7 @@ export default function DiagramView({
       </div>
 
       {/* Context Menu */}
-      {contextMenu && (
+      {!readOnly && contextMenu && (
         <ContextMenu
           x={contextMenu.clientX}
           y={contextMenu.clientY}
@@ -1492,7 +1501,7 @@ export default function DiagramView({
         />
       )}
 
-      {anchorPopup && (
+      {!readOnly && anchorPopup && (
         <AnchorPopupMenu
           x={anchorPopup.clientX}
           y={anchorPopup.clientY}

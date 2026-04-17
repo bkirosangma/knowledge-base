@@ -59,8 +59,8 @@ function Layer({
           }
         }}
       >
-        {/* Resize handles — edges (hidden when dimmed to prevent resize cursors during drag) */}
-        {!dimmed && (<>
+        {/* Resize handles — edges (hidden when dimmed or when no handler is provided) */}
+        {!dimmed && onResizeStart && (<>
         {/* Left */}
         <div
           className="absolute top-0 -left-1 w-2 h-full cursor-ew-resize z-20 group"
