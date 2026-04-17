@@ -7,7 +7,7 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPicker
 import { AutocompleteInput } from "./AutocompleteInput";
 
 export function NodeProperties({
-  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument,
+  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument, readOnly,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
@@ -23,6 +23,7 @@ export function NodeProperties({
   onDeleteAnchor?: (nodeId: string, anchorIndex: number) => void;
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
+  readOnly?: boolean;
 }) {
   const node = nodes.find((n) => n.id === id);
   if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
@@ -86,46 +87,66 @@ export function NodeProperties({
   return (
     <>
       <Section title="Identity">
-        <EditableIdRow
-          label="ID" value={node.id} prefix="el-"
-          onCommit={(newId) => {
-            if (newId === id) return true;
-            if (allNodeIds.includes(newId)) return false;
-            onUpdate?.(id, { id: newId });
-            return true;
-          }}
-        />
-        <EditableRow label="Label" value={node.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
-        {node.shape !== "condition" && (
-          <EditableRow label="Sub" value={node.sub ?? ""} onCommit={(v) => { onUpdate?.(id, { sub: v }); return true; }} onClear={() => onUpdate?.(id, { sub: "" })} />
+        {readOnly ? (
+          <Row label="ID" value={node.id} />
+        ) : (
+          <EditableIdRow
+            label="ID" value={node.id} prefix="el-"
+            onCommit={(newId) => {
+              if (newId === id) return true;
+              if (allNodeIds.includes(newId)) return false;
+              onUpdate?.(id, { id: newId });
+              return true;
+            }}
+          />
+        )}
+        {readOnly ? (
+          <Row label="Label" value={node.label} />
+        ) : (
+          <EditableRow label="Label" value={node.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
         )}
         {node.shape !== "condition" && (
-          <AutocompleteInput
-            label="Type"
-            value={node.type ?? ""}
-            suggestions={getDistinctTypes(nodes)}
-            onCommit={(v) => { onUpdate?.(id, { type: v }); return true; }}
-            onClear={() => onUpdate?.(id, { type: "" })}
-          />
+          readOnly ? (
+            <Row label="Sub" value={node.sub ?? ""} />
+          ) : (
+            <EditableRow label="Sub" value={node.sub ?? ""} onCommit={(v) => { onUpdate?.(id, { sub: v }); return true; }} onClear={() => onUpdate?.(id, { sub: "" })} />
+          )
+        )}
+        {node.shape !== "condition" && (
+          readOnly ? (
+            <Row label="Type" value={node.type ?? ""} />
+          ) : (
+            <AutocompleteInput
+              label="Type"
+              value={node.type ?? ""}
+              suggestions={getDistinctTypes(nodes)}
+              onCommit={(v) => { onUpdate?.(id, { type: v }); return true; }}
+              onClear={() => onUpdate?.(id, { type: "" })}
+            />
+          )
         )}
       </Section>
 
       <Section title="Connections">
         {node.shape !== "condition" && (
-          <AutocompleteInput
-            label="Layer"
-            value={layerDefs.find((l) => l.id === node.layer)?.title ?? ""}
-            suggestions={layerDefs.map((l) => l.title)}
-            onCommit={(v) => {
-              if (!v) { onUpdate?.(id, { layer: "" }); return true; }
-              const existing = layerDefs.find((l) => l.title.toLowerCase() === v.toLowerCase());
-              if (existing) { onUpdate?.(id, { layer: existing.id }); return true; }
-              const newId = onCreateLayer?.(v);
-              if (newId) { onUpdate?.(id, { layer: newId }); return true; }
-              return false;
-            }}
-            onClear={() => onUpdate?.(id, { layer: "" })}
-          />
+          readOnly ? (
+            <Row label="Layer" value={layerDefs.find((l) => l.id === node.layer)?.title ?? ""} />
+          ) : (
+            <AutocompleteInput
+              label="Layer"
+              value={layerDefs.find((l) => l.id === node.layer)?.title ?? ""}
+              suggestions={layerDefs.map((l) => l.title)}
+              onCommit={(v) => {
+                if (!v) { onUpdate?.(id, { layer: "" }); return true; }
+                const existing = layerDefs.find((l) => l.title.toLowerCase() === v.toLowerCase());
+                if (existing) { onUpdate?.(id, { layer: existing.id }); return true; }
+                const newId = onCreateLayer?.(v);
+                if (newId) { onUpdate?.(id, { layer: newId }); return true; }
+                return false;
+              }}
+              onClear={() => onUpdate?.(id, { layer: "" })}
+            />
+          )
         )}
         <ExpandableListRow label="In" items={incomingItems} onSelect={onSelectNode} />
         <ExpandableListRow label="Out" items={outgoingItems} onSelect={onSelectNode} />
@@ -138,19 +159,21 @@ export function NodeProperties({
         <IconPickerRow
           currentIcon={Icon}
           currentName={iconName}
-          onSelect={(icon) => onUpdate?.(id, { icon })}
+          onSelect={readOnly ? undefined : (icon) => onUpdate?.(id, { icon })}
         />
-        <ColorSchemeRow
-          type={node.shape === "condition" ? "condition" : "node"}
-          currentColors={{ fill: node.bgColor ?? "#ffffff", border: node.borderColor ?? "#e2e8f0", text: node.textColor ?? "#1e293b" }}
-          onSelect={(s) => {
-            const colors = node.shape === "condition" ? s.condition : s.node;
-            onUpdate?.(id, { bgColor: colors.fill, borderColor: colors.border, textColor: colors.text });
-          }}
-        />
-        <ColorRow label="Fill" value={node.bgColor ?? "#ffffff"} onChange={(v) => onUpdate?.(id, { bgColor: v })} />
-        <ColorRow label="Border" value={node.borderColor ?? "#e2e8f0"} onChange={(v) => onUpdate?.(id, { borderColor: v })} />
-        <ColorRow label="Text" value={node.textColor ?? "#1e293b"} onChange={(v) => onUpdate?.(id, { textColor: v })} />
+        {!readOnly && (
+          <ColorSchemeRow
+            type={node.shape === "condition" ? "condition" : "node"}
+            currentColors={{ fill: node.bgColor ?? "#ffffff", border: node.borderColor ?? "#e2e8f0", text: node.textColor ?? "#1e293b" }}
+            onSelect={(s) => {
+              const colors = node.shape === "condition" ? s.condition : s.node;
+              onUpdate?.(id, { bgColor: colors.fill, borderColor: colors.border, textColor: colors.text });
+            }}
+          />
+        )}
+        <ColorRow label="Fill" value={node.bgColor ?? "#ffffff"} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { bgColor: v })} />
+        <ColorRow label="Border" value={node.borderColor ?? "#e2e8f0"} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { borderColor: v })} />
+        <ColorRow label="Text" value={node.textColor ?? "#1e293b"} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { textColor: v })} />
       </Section>
 
       {memberFlows.length > 0 && (
@@ -193,7 +216,7 @@ export function NodeProperties({
                       <span className="text-[11px] text-slate-400 italic">No connection</span>
                     )}
                   </div>
-                  {outCount > 2 && (
+                  {outCount > 2 && !readOnly && (
                     <button
                       className="text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-0.5 cursor-pointer"
                       onClick={() => onDeleteAnchor?.(id, i)}
@@ -205,21 +228,24 @@ export function NodeProperties({
                 </div>
               );
             })}
-            <div className="px-1 py-2">
-              <button
-                className="w-full px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-md transition-colors border border-amber-200"
-                onClick={() => onUpdate?.(id, { conditionOutCount: outCount + 1 })}
-              >
-                Add Out Anchor
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="px-1 py-2">
+                <button
+                  className="w-full px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-md transition-colors border border-amber-200"
+                  onClick={() => onUpdate?.(id, { conditionOutCount: outCount + 1 })}
+                >
+                  Add Out Anchor
+                </button>
+              </div>
+            )}
             <div className="flex items-center py-1.5 border-b border-slate-100">
               <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Size</span>
               <div className="flex gap-0.5">
                 {([1, 2, 3, 4, 5] as const).map((s) => (
                   <button
                     key={s}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
+                    disabled={readOnly}
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       (node.conditionSize ?? 1) === s
                         ? "bg-blue-100 text-blue-700 border border-blue-300"
                         : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
@@ -238,7 +264,8 @@ export function NodeProperties({
                   {[0, 90, 180, 270].map((deg) => (
                     <button
                       key={deg}
-                      className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                      disabled={readOnly}
+                      className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         Math.round(node.rotation ?? 0) === deg
                           ? "bg-blue-100 text-blue-700 border border-blue-300"
                           : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
@@ -252,7 +279,9 @@ export function NodeProperties({
                 <input
                   type="number"
                   min={0} max={359} step={1}
-                  className="w-12 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-blue-400 text-center"
+                  disabled={readOnly}
+                  readOnly={readOnly}
+                  className="w-12 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-blue-400 text-center disabled:opacity-50 disabled:cursor-not-allowed"
                   value={Math.round(node.rotation ?? 0)}
                   onChange={(e) => {
                     const v = ((parseInt(e.target.value) || 0) % 360 + 360) % 360;

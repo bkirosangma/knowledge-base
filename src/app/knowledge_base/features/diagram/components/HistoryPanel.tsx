@@ -15,6 +15,7 @@ interface HistoryPanelProps {
   onGoToEntry: (index: number) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  readOnly?: boolean;
 }
 
 function relativeTime(timestamp: number): string {
@@ -37,6 +38,7 @@ export default function HistoryPanel({
   onGoToEntry,
   collapsed,
   onToggleCollapse,
+  readOnly,
 }: HistoryPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +77,7 @@ export default function HistoryPanel({
           <div className="flex items-center gap-1 px-3 pb-1.5 flex-shrink-0">
             <button
               onClick={onUndo}
-              disabled={!canUndo}
+              disabled={!canUndo || readOnly}
               className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Undo (Cmd+Z)"
             >
@@ -83,7 +85,7 @@ export default function HistoryPanel({
             </button>
             <button
               onClick={onRedo}
-              disabled={!canRedo}
+              disabled={!canRedo || readOnly}
               className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Redo (Cmd+Shift+Z)"
             >
@@ -108,7 +110,8 @@ export default function HistoryPanel({
                     key={entry.id}
                     data-index={idx}
                     onClick={() => onGoToEntry(idx)}
-                    className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs transition-colors ${
+                    disabled={readOnly}
+                    className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       isSaved ? "border-l-2 border-green-400" : "border-l-2 border-transparent"
                     } ${
                       isCurrent

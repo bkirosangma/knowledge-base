@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
-import { Section, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
+import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
 
 function FlowDetail({
   flow, connections, nodes, allFlowIds,
-  onUpdate, onDelete, onSelectLine, onSelectNode,
+  onUpdate, onDelete, onSelectLine, onSelectNode, readOnly,
 }: {
   flow: FlowDef;
   connections: Connection[];
@@ -16,6 +16,7 @@ function FlowDetail({
   onDelete?: (id: string) => void;
   onSelectLine?: (lineId: string) => void;
   onSelectNode?: (nodeId: string) => void;
+  readOnly?: boolean;
 }) {
   const connectionItems = useMemo(() => {
     return flow.connectionIds
@@ -52,38 +53,52 @@ function FlowDetail({
 
   return (
     <div className="border-t border-slate-200 mt-1 pt-1">
-      <EditableIdRow
-        label="ID"
-        value={flow.id}
-        prefix="flow-"
-        onCommit={(newId) => {
-          if (newId === flow.id) return true;
-          if (allFlowIds.includes(newId)) return false;
-          onUpdate?.(flow.id, { id: newId });
-          return true;
-        }}
-      />
-      <EditableRow
-        label="Name"
-        value={flow.name}
-        onCommit={(v) => { onUpdate?.(flow.id, { name: v }); return true; }}
-      />
-      <EditableRow
-        label="Category"
-        value={flow.category ?? ""}
-        onCommit={(v) => { onUpdate?.(flow.id, { category: v }); return true; }}
-        onClear={() => onUpdate?.(flow.id, { category: "" })}
-      />
+      {readOnly ? (
+        <Row label="ID" value={flow.id} />
+      ) : (
+        <EditableIdRow
+          label="ID"
+          value={flow.id}
+          prefix="flow-"
+          onCommit={(newId) => {
+            if (newId === flow.id) return true;
+            if (allFlowIds.includes(newId)) return false;
+            onUpdate?.(flow.id, { id: newId });
+            return true;
+          }}
+        />
+      )}
+      {readOnly ? (
+        <Row label="Name" value={flow.name} />
+      ) : (
+        <EditableRow
+          label="Name"
+          value={flow.name}
+          onCommit={(v) => { onUpdate?.(flow.id, { name: v }); return true; }}
+        />
+      )}
+      {readOnly ? (
+        <Row label="Category" value={flow.category ?? ""} />
+      ) : (
+        <EditableRow
+          label="Category"
+          value={flow.category ?? ""}
+          onCommit={(v) => { onUpdate?.(flow.id, { category: v }); return true; }}
+          onClear={() => onUpdate?.(flow.id, { category: "" })}
+        />
+      )}
       <ExpandableListRow label="Connections" items={connectionItems} onSelect={onSelectLine} />
       <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
-      <div className="px-1 py-2">
-        <button
-          className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
-          onClick={() => onDelete?.(flow.id)}
-        >
-          Delete Flow
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="px-1 py-2">
+          <button
+            className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
+            onClick={() => onDelete?.(flow.id)}
+          >
+            Delete Flow
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -147,7 +162,7 @@ export function ArchitectureProperties({
   title, regions, nodes, connections, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
   flows, onHoverFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,
-  backlinks, onOpenDocument,
+  backlinks, onOpenDocument, readOnly,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -167,6 +182,7 @@ export function ArchitectureProperties({
   onExpandType?: (type: string | null) => void;
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
+  readOnly?: boolean;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -216,7 +232,11 @@ export function ArchitectureProperties({
   return (
     <>
       <Section title="General">
-        <EditableRow label="Title" value={title} onCommit={(v) => { onUpdateTitle?.(v); return true; }} />
+        {readOnly ? (
+          <Row label="Title" value={title} />
+        ) : (
+          <EditableRow label="Title" value={title} onCommit={(v) => { onUpdateTitle?.(v); return true; }} />
+        )}
         <DropdownRow<LineCurveAlgorithm>
           label="Lines"
           value={lineCurve ?? "orthogonal"}
@@ -225,7 +245,7 @@ export function ArchitectureProperties({
             { value: "bezier", label: "Bezier" },
             { value: "straight", label: "Straight" },
           ]}
-          onChange={onUpdateLineCurve}
+          onChange={readOnly ? undefined : onUpdateLineCurve}
         />
       </Section>
       <Section title="Content">
@@ -306,6 +326,7 @@ export function ArchitectureProperties({
               onDelete={(id) => { setExpandedFlowId(null); onDeleteFlow?.(id); }}
               onSelectLine={onSelectLine}
               onSelectNode={onSelectNode}
+              readOnly={readOnly}
             />
           )}
         </Section>

@@ -45,6 +45,7 @@ interface PropertiesPanelProps {
   hidden?: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  readOnly?: boolean;
   history?: {
     entries: HistoryEntry[];
     currentIndex: number;
@@ -59,7 +60,7 @@ interface PropertiesPanelProps {
   };
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden, collapsed, onToggleCollapse, history }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden, collapsed, onToggleCollapse, readOnly, history }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -142,16 +143,17 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             onExpandType={onExpandType}
             backlinks={backlinks}
             onOpenDocument={onOpenDocument}
+            readOnly={readOnly}
           />
         )}
         {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onOpenDocument={onOpenDocument} />
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
         )}
         {selection?.type === "layer" && (
-          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onOpenDocument={onOpenDocument} />
+          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
         )}
         {selection?.type === "line" && (
-          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onOpenDocument={onOpenDocument} />
+          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
         )}
         {selection?.type === "multi-node" && (
           <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>
@@ -162,14 +164,16 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
         {selection?.type === "multi-line" && (
           <div>
             <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} lines selected</div>
-            <div className="px-1">
-              <button
-                className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                onClick={() => onCreateFlow?.(selection.ids)}
-              >
-                Create Flow
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="px-1">
+                <button
+                  className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                  onClick={() => onCreateFlow?.(selection.ids)}
+                >
+                  Create Flow
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -186,6 +190,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           onGoToEntry={history.onGoToEntry}
           collapsed={history.collapsed}
           onToggleCollapse={history.onToggleCollapse}
+          readOnly={readOnly}
         />
       )}
     </div>

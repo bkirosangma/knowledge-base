@@ -1521,6 +1521,7 @@ export default function DiagramView({
       <PropertiesPanel
         collapsed={propertiesCollapsed}
         onToggleCollapse={toggleProperties}
+        readOnly={readOnly}
         selection={selection}
         title={title}
         nodes={nodes}

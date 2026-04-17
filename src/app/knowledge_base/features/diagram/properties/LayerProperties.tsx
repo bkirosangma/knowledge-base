@@ -3,7 +3,7 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, 
 import DocumentsSection from "./DocumentsSection";
 
 export function LayerProperties({
-  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onOpenDocument,
+  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onOpenDocument, readOnly,
 }: {
   id: string; regions: RegionBounds[]; nodes: NodeData[]; layerDefs: LayerDef[];
   onSelectNode?: (nodeId: string) => void;
@@ -11,6 +11,7 @@ export function LayerProperties({
   allLayerIds: string[];
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
+  readOnly?: boolean;
 }) {
   const region = regions.find((r) => r.id === id);
   if (!region) return <p className="text-xs text-slate-400">Layer not found.</p>;
@@ -26,27 +27,37 @@ export function LayerProperties({
   return (
     <>
       <Section title="Identity">
-        <EditableIdRow
-          label="ID" value={region.id} prefix="ly-"
-          onCommit={(newId) => {
-            if (newId === id) return true;
-            if (allLayerIds.includes(newId)) return false;
-            onUpdate?.(id, { id: newId });
-            return true;
-          }}
-        />
-        <EditableRow label="Label" value={region.title} onCommit={(v) => { onUpdate?.(id, { title: v }); return true; }} />
+        {readOnly ? (
+          <Row label="ID" value={region.id} />
+        ) : (
+          <EditableIdRow
+            label="ID" value={region.id} prefix="ly-"
+            onCommit={(newId) => {
+              if (newId === id) return true;
+              if (allLayerIds.includes(newId)) return false;
+              onUpdate?.(id, { id: newId });
+              return true;
+            }}
+          />
+        )}
+        {readOnly ? (
+          <Row label="Label" value={region.title} />
+        ) : (
+          <EditableRow label="Label" value={region.title} onCommit={(v) => { onUpdate?.(id, { title: v }); return true; }} />
+        )}
       </Section>
 
       <Section title="Appearance">
-        <ColorSchemeRow
-          type="layer"
-          currentColors={{ fill, border, text }}
-          onSelect={(s) => onUpdate?.(id, { bg: s.layer.fill, border: s.layer.border, textColor: s.layer.text })}
-        />
-        <ColorRow label="Fill" value={fill} onChange={(v) => onUpdate?.(id, { bg: v })} />
-        <ColorRow label="Border" value={border} onChange={(v) => onUpdate?.(id, { border: v })} />
-        <ColorRow label="Text" value={text} onChange={(v) => onUpdate?.(id, { textColor: v })} />
+        {!readOnly && (
+          <ColorSchemeRow
+            type="layer"
+            currentColors={{ fill, border, text }}
+            onSelect={(s) => onUpdate?.(id, { bg: s.layer.fill, border: s.layer.border, textColor: s.layer.text })}
+          />
+        )}
+        <ColorRow label="Fill" value={fill} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { bg: v })} />
+        <ColorRow label="Border" value={border} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { border: v })} />
+        <ColorRow label="Text" value={text} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { textColor: v })} />
       </Section>
 
       <Section title="Content">

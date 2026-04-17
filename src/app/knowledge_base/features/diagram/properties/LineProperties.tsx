@@ -4,7 +4,7 @@ import type { AnchorId } from "../utils/anchors";
 import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 import DocumentsSection from "./DocumentsSection";
 
-function DurationRow({ value, defaultValue, onChange }: { value: number; defaultValue: number; onChange: (v: number) => void }) {
+function DurationRow({ value, defaultValue, onChange, readOnly }: { value: number; defaultValue: number; onChange: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,7 +24,7 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 
   if (!editing) {
     return (
-      <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 cursor-text" onDoubleClick={() => setEditing(true)}>
+      <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 cursor-text" onDoubleClick={readOnly ? undefined : () => setEditing(true)}>
         <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[110px] shrink-0 px-4">Duration</span>
         <span className="text-[13px] text-slate-800 truncate pr-4">{value}s</span>
       </div>
@@ -53,7 +53,7 @@ function DurationRow({ value, defaultValue, onChange }: { value: number; default
 }
 
 export function LineProperties({
-  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onOpenDocument,
+  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onOpenDocument, readOnly,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
@@ -63,6 +63,7 @@ export function LineProperties({
   onHoverFlow?: (flowId: string | null) => void;
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
+  readOnly?: boolean;
 }) {
   const conn = connections.find((c) => c.id === id);
   if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
@@ -78,16 +79,24 @@ export function LineProperties({
   return (
     <>
       <Section title="Identity">
-        <EditableIdRow
-          label="ID" value={conn.id} prefix="dl-"
-          onCommit={(newId) => {
-            if (newId === id) return true;
-            if (allConnectionIds.includes(newId)) return false;
-            onUpdate?.(id, { id: newId });
-            return true;
-          }}
-        />
-        <EditableRow label="Label" value={conn.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
+        {readOnly ? (
+          <Row label="ID" value={conn.id} />
+        ) : (
+          <EditableIdRow
+            label="ID" value={conn.id} prefix="dl-"
+            onCommit={(newId) => {
+              if (newId === id) return true;
+              if (allConnectionIds.includes(newId)) return false;
+              onUpdate?.(id, { id: newId });
+              return true;
+            }}
+          />
+        )}
+        {readOnly ? (
+          <Row label="Label" value={conn.label} />
+        ) : (
+          <EditableRow label="Label" value={conn.label} onCommit={(v) => { onUpdate?.(id, { label: v }); return true; }} />
+        )}
       </Section>
 
       <Section title="Route">
@@ -95,18 +104,21 @@ export function LineProperties({
         <Row label="To" value={toNode?.label ?? conn.to} />
         <Row label="From Pt" value={conn.fromAnchor} />
         <Row label="To Pt" value={conn.toAnchor} />
-        <div className="px-4 py-2">
-          <button
-            className="w-full px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-            onClick={() => onUpdate?.(id, { from: conn.to, to: conn.from, fromAnchor: conn.toAnchor, toAnchor: conn.fromAnchor })}
-          >
-            Reverse Direction
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="px-4 py-2">
+            <button
+              className="w-full px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+              onClick={() => onUpdate?.(id, { from: conn.to, to: conn.from, fromAnchor: conn.toAnchor, toAnchor: conn.fromAnchor })}
+            >
+              Reverse Direction
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between px-4 py-2">
           <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Bi-directional</span>
           <button
-            className={`w-8 h-[18px] rounded-full relative transition-colors ${conn.biDirectional ? "bg-blue-500" : "bg-slate-300"}`}
+            disabled={readOnly}
+            className={`w-8 h-[18px] rounded-full relative transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${conn.biDirectional ? "bg-blue-500" : "bg-slate-300"}`}
             onClick={() => onUpdate?.(id, { biDirectional: !conn.biDirectional })}
           >
             <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${conn.biDirectional ? "left-[16px]" : "left-[2px]"}`} />
@@ -118,7 +130,8 @@ export function LineProperties({
             {([['synchronous', 'Sync'], ['asynchronous', 'Async']] as const).map(([type, label]) => (
               <button
                 key={type}
-                className={`px-2.5 py-0.5 text-[11px] font-medium rounded transition-colors ${
+                disabled={readOnly}
+                className={`px-2.5 py-0.5 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   (conn.connectionType ?? 'synchronous') === type
                     ? "bg-blue-100 text-blue-700 border border-blue-300"
                     : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
@@ -133,12 +146,14 @@ export function LineProperties({
       </Section>
 
       <Section title="Appearance">
-        <ColorSchemeRow
-          type="line"
-          currentColors={{ color: conn.color }}
-          onSelect={(s) => onUpdate?.(id, { color: s.line })}
-        />
-        <ColorRow label="Color" value={conn.color} onChange={(v) => onUpdate?.(id, { color: v })} />
+        {!readOnly && (
+          <ColorSchemeRow
+            type="line"
+            currentColors={{ color: conn.color }}
+            onSelect={(s) => onUpdate?.(id, { color: s.line })}
+          />
+        )}
+        <ColorRow label="Color" value={conn.color} onChange={readOnly ? undefined : (v) => onUpdate?.(id, { color: v })} />
       </Section>
 
       {memberFlows.length > 0 && (
@@ -152,6 +167,7 @@ export function LineProperties({
           value={conn.flowDuration ?? 2.5}
           defaultValue={2.5}
           onChange={(v) => onUpdate?.(id, { flowDuration: v })}
+          readOnly={readOnly}
         />
       </Section>
 
