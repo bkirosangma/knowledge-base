@@ -683,11 +683,19 @@ export default function DiagramView({
   });
 
   // Canvas interaction handlers
-  const { handleRotationDragStart, handleNodeDragStart, handleNodeDoubleClick, handleNodeMouseEnter, handleNodeMouseLeave } = useCanvasInteraction(
-    nodesRef, editingLabelBeforeRef, setNodes, setHoveredNodeId,
-    setEditingLabel, setEditingLabelValue, pendingSelection,
-    handleSelectionRectStart, handleDragStart, scheduleRecord, readOnly,
-  );
+  const { handleRotationDragStart, handleNodeDragStart, handleNodeDoubleClick, handleNodeMouseEnter, handleNodeMouseLeave } = useCanvasInteraction({
+    nodesRef,
+    editingLabelBeforeRef,
+    setNodes,
+    setHoveredNodeId,
+    setEditingLabel,
+    setEditingLabelValue,
+    pendingSelection,
+    handleSelectionRectStart,
+    handleDragStart,
+    scheduleRecord,
+    readOnly,
+  });
 
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu,

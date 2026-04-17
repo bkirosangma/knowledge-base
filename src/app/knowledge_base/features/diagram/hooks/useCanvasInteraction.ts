@@ -1,19 +1,33 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { NodeData } from "../types";
 
-export function useCanvasInteraction(
-  nodesRef: MutableRefObject<NodeData[]>,
-  editingLabelBeforeRef: MutableRefObject<string>,
-  setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>,
-  setHoveredNodeId: React.Dispatch<React.SetStateAction<string | null>>,
-  setEditingLabel: React.Dispatch<React.SetStateAction<{ type: "node" | "layer" | "line"; id: string } | null>>,
-  setEditingLabelValue: React.Dispatch<React.SetStateAction<string>>,
-  pendingSelection: MutableRefObject<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>,
-  handleSelectionRectStart: (e: React.MouseEvent) => void,
-  handleDragStart: (id: string, e: React.MouseEvent) => void,
-  scheduleRecord: (description: string) => void,
-  readOnly: boolean,
-) {
+interface UseCanvasInteractionArgs {
+  nodesRef: MutableRefObject<NodeData[]>;
+  editingLabelBeforeRef: MutableRefObject<string>;
+  setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>;
+  setHoveredNodeId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingLabel: React.Dispatch<React.SetStateAction<{ type: "node" | "layer" | "line"; id: string } | null>>;
+  setEditingLabelValue: React.Dispatch<React.SetStateAction<string>>;
+  pendingSelection: MutableRefObject<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>;
+  handleSelectionRectStart: (e: React.MouseEvent) => void;
+  handleDragStart: (id: string, e: React.MouseEvent) => void;
+  scheduleRecord: (description: string) => void;
+  readOnly: boolean;
+}
+
+export function useCanvasInteraction({
+  nodesRef,
+  editingLabelBeforeRef,
+  setNodes,
+  setHoveredNodeId,
+  setEditingLabel,
+  setEditingLabelValue,
+  pendingSelection,
+  handleSelectionRectStart,
+  handleDragStart,
+  scheduleRecord,
+  readOnly,
+}: UseCanvasInteractionArgs) {
   const handleRotationDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
     if (readOnly) return;
     const node = nodesRef.current.find((n) => n.id === nodeId);
