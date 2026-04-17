@@ -3,11 +3,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef } from "../types";
 import type { AnchorId } from "../utils/anchors";
 import type { LevelMap } from "../utils/levelModel";
+import type { HistoryEntry } from "../../../shared/hooks/useActionHistory";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
 import { ArchitectureProperties } from "./ArchitectureProperties";
+import HistoryPanel from "../components/HistoryPanel";
 
 interface PropertiesPanelProps {
   selection: Selection;
@@ -43,9 +45,21 @@ interface PropertiesPanelProps {
   hidden?: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  history?: {
+    entries: HistoryEntry[];
+    currentIndex: number;
+    savedIndex: number;
+    canUndo: boolean;
+    canRedo: boolean;
+    onUndo: () => void;
+    onRedo: () => void;
+    onGoToEntry: (index: number) => void;
+    collapsed: boolean;
+    onToggleCollapse: () => void;
+  };
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden, collapsed, onToggleCollapse }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden, collapsed, onToggleCollapse, history }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -159,6 +173,21 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           </div>
         )}
       </div>
+
+      {history && (
+        <HistoryPanel
+          entries={history.entries}
+          currentIndex={history.currentIndex}
+          savedIndex={history.savedIndex}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={history.onUndo}
+          onRedo={history.onRedo}
+          onGoToEntry={history.onGoToEntry}
+          collapsed={history.collapsed}
+          onToggleCollapse={history.onToggleCollapse}
+        />
+      )}
     </div>
   );
 }

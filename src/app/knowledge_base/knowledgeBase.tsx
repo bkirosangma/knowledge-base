@@ -418,7 +418,7 @@ function KnowledgeBaseInner() {
       </div>
 
       {/* Global footer — reads info from the focused pane */}
-      <Footer />
+      <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
 
       {/* Confirmation popover — state owned by DiagramView via bridge */}
       {confirmAction && (

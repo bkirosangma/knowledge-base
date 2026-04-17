@@ -48,24 +48,24 @@ export default function HistoryPanel({
   }, [currentIndex, collapsed]);
 
   return (
-    <div className={`flex flex-col bg-white rounded-lg border border-slate-200 shadow-md overflow-hidden ${collapsed ? "" : "w-[260px]"}`}>
+    <div className="flex flex-col flex-shrink-0 border-t border-slate-200 bg-white">
       {/* Header */}
       <button
         onClick={onToggleCollapse}
-        className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 transition-colors flex-shrink-0"
+        className="flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50 transition-colors flex-shrink-0"
       >
-        {collapsed ? (
-          <ChevronRight size={14} className="text-slate-400" />
-        ) : (
-          <ChevronDown size={14} className="text-slate-400" />
-        )}
         <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
           History
         </span>
         {entries.length > 1 && (
-          <span className="text-[10px] text-slate-400 ml-auto">
+          <span className="text-[10px] text-slate-400 font-medium">
             {currentIndex + 1}/{entries.length}
           </span>
+        )}
+        {collapsed ? (
+          <ChevronRight size={14} className="ml-auto text-slate-400" />
+        ) : (
+          <ChevronDown size={14} className="ml-auto text-slate-400" />
         )}
       </button>
 
@@ -92,7 +92,7 @@ export default function HistoryPanel({
           </div>
 
           {/* Entry list */}
-          <div ref={listRef} className="overflow-y-auto flex-1 min-h-0 max-h-[200px]">
+          <div ref={listRef} className="overflow-y-auto flex-shrink-0 max-h-[200px]">
             {entries.length === 0 ? (
               <div className="px-3 py-3 text-xs text-slate-400 text-center">No history yet</div>
             ) : (

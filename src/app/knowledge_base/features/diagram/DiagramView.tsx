@@ -49,7 +49,6 @@ import { useFooterContext } from "../../shell/FooterContext";
 import AnchorPopupMenu from "./components/AnchorPopupMenu";
 import ConditionElement from "./components/ConditionElement";
 import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
-import HistoryPanel from "./components/HistoryPanel";
 import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
 import { loadDiagramFromData } from "../../shared/utils/persistence";
 import { useActionHistory } from "../../shared/hooks/useActionHistory";
@@ -1528,6 +1527,18 @@ export default function DiagramView({
         onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
         backlinks={backlinks}
         onOpenDocument={onOpenDocument}
+        history={activeFile ? {
+          entries: history.entries,
+          currentIndex: history.currentIndex,
+          savedIndex: history.savedIndex,
+          canUndo: history.canUndo,
+          canRedo: history.canRedo,
+          onUndo: handleUndo,
+          onRedo: handleRedo,
+          onGoToEntry: handleGoToEntry,
+          collapsed: historyCollapsed,
+          onToggleCollapse: () => setHistoryCollapsed((c) => !c),
+        } : undefined}
       />
 
       {/* Minimap */}
@@ -1539,24 +1550,6 @@ export default function DiagramView({
             regions={regions}
             nodes={displayNodes}
             zoomRef={zoomRef}
-          />
-        </div>
-      )}
-
-      {/* History panel — floating inside pane */}
-      {activeFile && (
-        <div className="absolute bottom-4 z-30" style={{ right: (propertiesCollapsed ? 36 : 280) + 16 }}>
-          <HistoryPanel
-            entries={history.entries}
-            currentIndex={history.currentIndex}
-            savedIndex={history.savedIndex}
-            canUndo={history.canUndo}
-            canRedo={history.canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onGoToEntry={handleGoToEntry}
-            collapsed={historyCollapsed}
-            onToggleCollapse={() => setHistoryCollapsed((c) => !c)}
           />
         </div>
       )}
