@@ -111,6 +111,7 @@ export function LinkEditorPopover({
   // Resync drafts when the target identity changes, or when underlying values
   // change externally while the matching input isn't focused.
   const lastKeyRef = useRef<string | null>(null);
+  const escapedRef = useRef(false);
   useEffect(() => {
     if (!target) {
       lastKeyRef.current = null;
@@ -297,6 +298,7 @@ export function LinkEditorPopover({
           : target.section
             ? `${target.path}#${target.section}`
             : target.path;
+      escapedRef.current = true;
       setDraftUrl(liveUrl);
       editor.commands.focus();
     }
@@ -309,6 +311,7 @@ export function LinkEditorPopover({
       editor.commands.focus();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      escapedRef.current = true;
       setDraftText(target.kind === "link" ? target.text : target.display);
       editor.commands.focus();
     }
@@ -340,6 +343,7 @@ export function LinkEditorPopover({
           onChange={(e) => setDraftUrl(e.target.value)}
           onBlur={(e) => {
             if (popRef.current?.contains(e.relatedTarget as Node)) return;
+            if (escapedRef.current) { escapedRef.current = false; return; }
             if (target.kind === "link") commitLinkUrl(draftUrl);
             else commitWikiPath(draftUrl);
           }}
@@ -360,6 +364,7 @@ export function LinkEditorPopover({
           onChange={(e) => setDraftText(e.target.value)}
           onBlur={(e) => {
             if (popRef.current?.contains(e.relatedTarget as Node)) return;
+            if (escapedRef.current) { escapedRef.current = false; return; }
             if (target.kind === "link") commitLinkText(draftText);
             else commitWikiDisplay(draftText);
           }}
