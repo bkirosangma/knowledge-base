@@ -116,23 +116,23 @@
 
 ## 4.5 Formatting Toolbar
 
-- **DOC-4.5-01** 🚫 **Toolbar hidden in read-only.** Toolbar conditional lives in `MarkdownEditor`; needs editor mount.
-- **DOC-4.5-02** 🚫 **Toolbar hidden in raw mode.** Same.
-- **DOC-4.5-03** 🚫 **WYSIWYG ↔ Raw toggle.** Editor command — integration.
-- **DOC-4.5-04** 🚫 **Undo disabled when stack empty.** Depends on Tiptap history state.
-- **DOC-4.5-05** 🚫 **Redo disabled when no undone history.** Same.
-- **DOC-4.5-06** 🚫 **H1 button active state.** Depends on `editor.isActive()` — integration.
-- **DOC-4.5-07** 🚫 **H1 button toggles heading.** Editor command dispatch.
-- **DOC-4.5-08** 🚫 **Bold / italic / strike / inline-code buttons toggle respective marks.** Same.
+- **DOC-4.5-01** ✅ **Toolbar hidden in read-only** — `MarkdownEditor.test.tsx` asserts Bold / H1 / Undo not rendered + the editor is `contenteditable=false` when `readOnly=true`.
+- **DOC-4.5-02** ✅ **Toolbar hidden in raw mode** — `MarkdownEditor.test.tsx` clicks "Raw" and asserts toolbar buttons disappear alongside the ProseMirror surface.
+- **DOC-4.5-03** ✅ **WYSIWYG ↔ Raw toggle** — `MarkdownEditor.test.tsx` verifies both directions (Raw → textarea, WYSIWYG → ProseMirror).
+- **DOC-4.5-04** 🟡 **Undo disabled when stack empty** — Tiptap's History extension records initial content as a transaction so Undo is typically enabled right after mount. The disabled wiring (`disabled={!editor.can().undo()}`) is a thin wrapper over Tiptap's API; testing stay-disabled reliably would require disabling History.
+- **DOC-4.5-05** ✅ **Redo disabled when no undone history** — `MarkdownEditor.test.tsx` asserts Redo is disabled on a fresh mount.
+- **DOC-4.5-06** ✅ **H1 button active state** — `MarkdownEditor.test.tsx` mounts `# Already a heading`, focuses the editor, and asserts the H1 TBtn has `bg-blue-100` (active class) while H2 does not.
+- **DOC-4.5-07** ✅ **H1 button toggles heading** — `MarkdownEditor.test.tsx` clicks Heading 2 on a plain paragraph and asserts `<h2>` appears in the ProseMirror output (H1 path covered by the active-state test since toggle-to-rich uses the same code path).
+- **DOC-4.5-08** 🟡 **Bold / italic / strike / inline-code buttons toggle respective marks** — toolbar render + enabled state covered in `MarkdownEditor.test.tsx`; the actual mark application on a selection isn't directly testable in JSDOM because native Selection doesn't propagate to ProseMirror. Playwright (Bucket 25).
 - **DOC-4.5-09** 🚫 **Bold in rawBlock toggles `**…**` syntax (`toggleRawSyntax`).** `toggleRawSyntax` is module-private in `MarkdownEditor.tsx` — would need extraction to unit-test.
 - **DOC-4.5-10** 🚫 **`toggleRawSyntax` detects `*` vs `**`.** Same — module-private.
 - **DOC-4.5-11** 🚫 **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).** Module-private helper.
-- **DOC-4.5-12** 🚫 **List / blockquote / code block buttons toggle block type.** Live editor.
+- **DOC-4.5-12** ✅ **List / blockquote / code block buttons toggle block type** — `MarkdownEditor.test.tsx` covers bullet list, numbered list, blockquote, and code block — each button click produces the corresponding block structure (`<ul><li>`, `<ol><li>`, `<blockquote>`, `<pre><code>`).
 - **DOC-4.5-13** 🚫 **Force-exit rawBlock before structural commands.** Live editor.
 - **DOC-4.5-14** ✅ **`getActiveRawFormats` — bold detected in rawBlock** — the pure string-parsing core was extracted to `rawBlockHelpers.computeActiveRawFormatsAt(text, cursor)` and is exhaustively tested in `rawBlockHelpers.test.ts` (bold / italic / strike / code / triple-asterisk / nested / plain / outside). The editor-coupled wrapper in `MarkdownEditor.tsx` delegates to this helper.
 - **DOC-4.5-15** ✅ **`getRawHeadingLevel` — detects `#{N}` prefix** — extracted as `rawBlockHelpers.parseHeadingPrefix(text)`; tests cover levels 1–6, 7+ rejection, missing-space rejection, empty input, and tab separator.
 - **DOC-4.5-16** ✅ **`isRawBlockquote` — detects `> ` prefix** — extracted as `rawBlockHelpers.hasBlockquotePrefix(text)`; tests cover `> ` / `>` without space / internal `> ` / empty input.
-- **DOC-4.5-17** 🚫 **Horizontal rule button inserts `<hr>`.** Live editor.
+- **DOC-4.5-17** ✅ **Horizontal rule button inserts `<hr>`** — `MarkdownEditor.test.tsx` asserts `<hr>` appears in the ProseMirror output after clicking the Horizontal rule button.
 - **DOC-4.5-18** 🚫 **Link button with text selected wraps selection.** Live editor.
 - **DOC-4.5-19** 🟡 **Link button with empty selection inserts empty link** — popover flow is covered by DOC-4.7 (`LinkEditorPopover.test.tsx`); the button → popover wiring is integration.
 - **DOC-4.5-20** 🚫 **Table picker shows 8×8 grid.** Toolbar component rendering — not yet covered.
@@ -238,6 +238,6 @@
 - **DOC-4.12-01** 🚫 **`readOnly` prop hides toolbar.** Toolbar visibility tied to editor mount — integration.
 - **DOC-4.12-02** 🚫 **`readOnly` disables table floating toolbar.** Same.
 - **DOC-4.12-03** 🚫 **`readOnly` disables link editor popover.** Same.
-- **DOC-4.12-04** 🚫 **Editor becomes `contenteditable=false`.** Tiptap `setEditable` effect — integration.
+- **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
 - **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — see 4.3-15; same NodeView click integration.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.

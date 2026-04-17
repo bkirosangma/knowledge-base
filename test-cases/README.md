@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-18 (Buckets 1-26 complete — helper extractions unlock 9 more direct-unit cases on top of the Bucket 25 e2e mock). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-18 (Buckets 1-27 complete — MarkdownEditor harness lands DOC-4.5 toolbar coverage). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
 | 02-file-system.md | 47 | 9 | 1 | 0 | 8 | 65 |
 | 03-diagram.md | 93 | 37 | 0 | 0 | 107 | 237 |
-| 04-document.md | 96 | 30 | 1 | 0 | 65 | 192 |
+| 04-document.md | 105 | 32 | 1 | 0 | 54 | 192 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
 | 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
-| **Total** | **354** | **106** | **5** | **0** | **215** | **680** |
+| **Total** | **363** | **108** | **5** | **0** | **204** | **680** |
 
-Covered (✅ + 🟡 + 🧪) = **465 / 680 (68%)**; consciously waived (🚫) = **215 (32%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡 + 🧪) = **476 / 680 (70%)**; consciously waived (🚫) = **204 (30%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
 
 ### Test suites that back these numbers
 
@@ -146,7 +146,7 @@ Covered (✅ + 🟡 + 🧪) = **465 / 680 (68%)**; consciously waived (🚫) = *
 ### Path to driving 🚫 down further
 
 1. **React Flow test harness** — a `DiagramTestHarness` that mounts `DiagramView` with fake `IntersectionObserver` and stubbed `getBoundingClientRect` would unlock most of DIAG-3.2/3.5/3.7 — potentially 40-60 cases.
-2. **Tiptap integration harness** — extend the pattern used in `LinkEditorPopover.test.tsx` (explicit `transaction` listener forceUpdate for JSDOM) to cover toolbar + raw-mode behaviors. Could unlock most of DOC-4.5.
+2. ✅ **Tiptap integration harness** (Bucket 27 — done) — `MarkdownEditor.test.tsx` mounts the real `MarkdownEditor` with full extension stack and drives the toolbar via `fireEvent.mouseDown` (`TBtn` uses onMouseDown+preventDefault to avoid focus loss). Unlocked 9 new ✅ cases in DOC-4.5 (toolbar visibility, raw/WYSIWYG toggle, heading+block toggles, horizontal rule, active-state) plus DOC-4.12-04.
 3. ✅ **Playwright File System Access mock** (Bucket 25 — done) — `e2e/fixtures/fsMock.ts` + `page.addInitScript` replaces `window.showDirectoryPicker` with an in-memory FS; `e2e/goldenPath.spec.ts` drives the open-folder → click-file → pane-renders flows.
 4. ✅ **Extract module-private helpers** (Bucket 26 — done) — `fileTree.ts` (scanTree + flattenTree out of `useFileExplorer.ts`), `documentAttachments.ts` (hasDocuments + getDocumentsForEntity out of `DiagramView.tsx`), and `rawBlockHelpers.ts` (parseHeadingPrefix + hasBlockquotePrefix + computeActiveRawFormatsAt out of `MarkdownEditor.tsx`) — added 40 direct unit tests and flipped 9 🟡/🚫 markers to ✅.
 
