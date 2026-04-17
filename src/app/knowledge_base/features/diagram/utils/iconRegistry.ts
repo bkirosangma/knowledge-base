@@ -94,11 +94,15 @@ export function getIcon(name: string): ComponentType<IconProps> | undefined {
 }
 
 export function getIconName(icon: ComponentType<IconProps>): string {
-  return (
-    (icon as unknown as { displayName?: string }).displayName ??
-    (icon as unknown as { name?: string }).name ??
-    "Unknown"
-  );
+  // Reverse-lookup so the name we write on save is always a valid registry
+  // key. Relying on `displayName` breaks for lucide legacy aliases (e.g.
+  // BarChart → ChartNoAxesColumnIncreasing) where the alias and the
+  // underlying component's displayName differ — serializing the displayName
+  // would write a name that later fails the registry lookup on load.
+  for (const [name, component] of Object.entries(iconRegistry)) {
+    if (component === icon) return name;
+  }
+  return "Unknown";
 }
 
 export function getIconNames(): string[] {

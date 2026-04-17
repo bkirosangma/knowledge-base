@@ -45,31 +45,24 @@ describe('getIconName', () => {
     }
   })
 
-  it('known lucide aliases do NOT round-trip (documented bug)', () => {
-    // lucide-react re-exports some icons under legacy aliases; the underlying
-    // component's displayName is the new canonical name, so saving a
-    // BarChart/Fingerprint icon writes the canonical name to disk — which is
-    // then NOT in the registry, causing loadDiagramFromData to fall back to
-    // Database. These two are the only currently-affected entries.
-    expect(getIconName(getIcon('BarChart')!)).toBe('ChartNoAxesColumnIncreasing')
-    expect(getIconName(getIcon('Fingerprint')!)).toBe('FingerprintPattern')
+  it('lucide legacy aliases (BarChart, Fingerprint) round-trip via reverse-lookup', () => {
+    // lucide-react re-exports BarChart → ChartNoAxesColumnIncreasing and
+    // Fingerprint → FingerprintPattern; the underlying component's displayName
+    // is the new canonical name. getIconName reverse-looks up the registry so
+    // the key we wrote (BarChart/Fingerprint) is what we read back, not the
+    // canonical displayName.
+    expect(getIconName(getIcon('BarChart')!)).toBe('BarChart')
+    expect(getIconName(getIcon('Fingerprint')!)).toBe('Fingerprint')
   })
 
-  it('DIAG-3.4-05: component with no displayName/name returns "Unknown"', () => {
-    // A plain object cast as ComponentType has neither property defined.
+  it('DIAG-3.4-05: component not in the registry returns "Unknown"', () => {
+    // Anything that isn't registered — a plain object, an arbitrary component
+    // — has no registry entry to reverse-look-up, so getIconName returns the
+    // sentinel "Unknown".
     const anon = {} as unknown as ComponentType<{ size?: number }>
     expect(getIconName(anon)).toBe('Unknown')
-  })
 
-  it('prefers displayName over function.name when both exist', () => {
-    // Function.name is "Alpha"; displayName is "Beta" → getIconName → "Beta".
-    const Comp = function Alpha() { return null } as unknown as ComponentType<unknown> & { displayName: string }
-    Comp.displayName = 'Beta'
-    expect(getIconName(Comp)).toBe('Beta')
-  })
-
-  it('falls back to function.name when displayName is undefined', () => {
-    const Comp = function MyIcon() { return null } as unknown as ComponentType<unknown>
-    expect(getIconName(Comp)).toBe('MyIcon')
+    const UnregisteredComp = function MyIcon() { return null } as unknown as ComponentType<unknown>
+    expect(getIconName(UnregisteredComp)).toBe('Unknown')
   })
 })

@@ -116,12 +116,12 @@ _Snapshot at 2026-04-18 (Buckets 1-20 complete). Regenerate with the one-liner a
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
 | 02-file-system.md | 38 | 9 | 0 | 11 | 7 | 65 |
-| 03-diagram.md | 65 | 5 | 0 | 158 | 9 | 237 |
+| 03-diagram.md | 66 | 4 | 0 | 158 | 9 | 237 |
 | 04-document.md | 85 | 6 | 0 | 89 | 12 | 192 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
 | 07-persistence.md | 7 | 0 | 0 | 43 | 1 | 51 |
-| **Total** | **279** | **41** | **3** | **301** | **56** | **680** |
+| **Total** | **280** | **40** | **3** | **301** | **56** | **680** |
 
 Covered (✅ + 🟡 + 🧪) = **323 / 680 (48%)**; consciously waived (🚫) = **56**; open gaps (❌) = **301** — concentrated in diagram (158) and document (89) sub-features that haven't had a test-writing pass yet, plus the persistence round-trip contract cases (43).
 

@@ -39,8 +39,8 @@
 - **DIAG-3.4-01** ✅ **`getIconNames` length = 41** — registry is exactly 41 unique, non-empty string keys.
 - **DIAG-3.4-02** ✅ **`getIcon('Database')` returns a component** — direct lookup returns the `Database` lucide component (also verified for `Server`).
 - **DIAG-3.4-03** ✅ **`getIcon('Unknown')` returns undefined** — unknown name (including empty string) returns `undefined` without throwing.
-- **DIAG-3.4-04** 🟡 **`getIconName` round-trip — caveat** — round-trips cleanly for canonical lucide names (`Server`, `Database`, `Cloud`, `Shield`, `User`, `Box`, `Cpu`, …). **Two legacy aliases do NOT round-trip: `BarChart` → `ChartNoAxesColumnIncreasing` and `Fingerprint` → `FingerprintPattern`.** lucide-react re-exports these under their old names but keeps the new `displayName`, so serialization writes the canonical name and load-back fails the registry lookup → falls back to `Database`. See inline test docblock in [iconRegistry.test.ts](../src/app/knowledge_base/features/diagram/utils/iconRegistry.test.ts).
-- **DIAG-3.4-05** ✅ **`getIconName` fallback for anonymous** — a component with neither `displayName` nor `name` defined (e.g. a plain object cast as `ComponentType`) returns `"Unknown"`. `displayName` takes priority over `name` when both are present; `name` is used when `displayName` is undefined.
+- **DIAG-3.4-04** ✅ **`getIconName` round-trip** — round-trips cleanly for every registry key, including lucide legacy aliases (`BarChart`, `Fingerprint`). `getIconName` reverse-looks-up the registry instead of reading `displayName`, so the name written on save is always a valid registry key on load.
+- **DIAG-3.4-05** ✅ **`getIconName` for an unregistered component** — any component not in the registry (e.g. a plain object or arbitrary function cast as `ComponentType`) returns the sentinel `"Unknown"`.
 
 ## 3.5 Nodes
 
