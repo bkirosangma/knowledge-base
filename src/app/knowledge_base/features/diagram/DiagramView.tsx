@@ -920,6 +920,20 @@ export default function DiagramView({
               ))}
             </div>
             <div className="flex-1" />
+            <button
+              onClick={toggleReadOnly}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+                readOnly
+                  ? "bg-white shadow-sm text-blue-600 border-slate-200"
+                  : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+              }`}
+              title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+              aria-pressed={readOnly}
+              aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+            >
+              {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+              <span>Read Mode</span>
+            </button>
           </div>
 
           {/* Title row */}
@@ -930,7 +944,7 @@ export default function DiagramView({
           </div>
 
           {/* Diagram toolbar */}
-          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10 flex-wrap">
+          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">
             <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
               <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
                 <Activity size={13} />
@@ -966,25 +980,12 @@ export default function DiagramView({
               <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
             </div>
 
-            <div className="h-5 w-px bg-slate-200" />
-            {!readOnly && <AutoArrangeDropdown onSelect={handleAutoArrange} />}
-
-            <div className="flex-1" />
-            <div className="h-5 w-px bg-slate-200" />
-            <button
-              onClick={toggleReadOnly}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-                readOnly
-                  ? "bg-white shadow-sm text-blue-600 border-slate-200"
-                  : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
-              }`}
-              title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-              aria-pressed={readOnly}
-              aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-            >
-              {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-              <span>Read Mode</span>
-            </button>
+            {!readOnly && (
+              <>
+                <div className="h-5 w-px bg-slate-200" />
+                <AutoArrangeDropdown onSelect={handleAutoArrange} />
+              </>
+            )}
           </div>
         </>
       )}
