@@ -39,6 +39,8 @@ interface MarkdownEditorProps {
    *  Used to resolve wiki-link paths relative to the current file, Obsidian-style. */
   currentDocDir?: string;
   readOnly?: boolean;
+  /** Optional sidebar rendered beside editor content (below the toolbar). */
+  rightSidebar?: React.ReactNode;
 }
 
 /* ── Toolbar button ── */
@@ -638,6 +640,7 @@ export default function MarkdownEditor({
   allDocPaths,
   currentDocDir = "",
   readOnly = false,
+  rightSidebar,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -1008,24 +1011,27 @@ export default function MarkdownEditor({
       </div>
       )}
 
-      {/* ── Editor content ── */}
-      <div ref={editorContainerRef} className="flex-1 overflow-auto relative">
-        {showRaw ? (
-          <textarea
-            value={rawContent}
-            onChange={handleRawChange}
-            className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-slate-100 resize-none outline-none"
-            spellCheck={false}
-          />
-        ) : (
-          <>
-            <EditorContent
-              editor={editor}
-              className="markdown-editor h-full overflow-auto"
+      {/* ── Editor content + optional right sidebar ── */}
+      <div className="flex-1 flex min-h-0">
+        <div ref={editorContainerRef} className="flex-1 min-w-0 overflow-auto relative">
+          {showRaw ? (
+            <textarea
+              value={rawContent}
+              onChange={handleRawChange}
+              className="w-full h-full p-4 font-mono text-sm bg-slate-900 text-slate-100 resize-none outline-none"
+              spellCheck={false}
             />
-            <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
-          </>
-        )}
+          ) : (
+            <>
+              <EditorContent
+                editor={editor}
+                className="markdown-editor h-full overflow-auto"
+              />
+              <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
+            </>
+          )}
+        </div>
+        {rightSidebar}
       </div>
 
       {/* Floating editor for the link under the cursor. Self-hides when the

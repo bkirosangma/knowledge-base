@@ -19,7 +19,6 @@ export interface DocumentViewProps {
   tree: TreeNode[];
   onNavigateLink: (path: string) => void;
   onCreateDocument: (path: string) => void;
-  onClose?: () => void;
 }
 
 export default function DocumentView({
@@ -31,7 +30,6 @@ export default function DocumentView({
   tree,
   onNavigateLink,
   onCreateDocument,
-  onClose,
 }: DocumentViewProps) {
   const { content, dirty, updateContent, bridge } = useDocumentContent(dirHandleRef, filePath);
 
@@ -110,18 +108,19 @@ export default function DocumentView({
           allDocPaths={allDocPaths}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
-          onClose={onClose}
+          rightSidebar={
+            <DocumentProperties
+              filePath={filePath}
+              content={content}
+              outbound={outboundLinks}
+              backlinks={backlinks}
+              onNavigateLink={(path) => onNavigateLink?.(path)}
+              collapsed={propertiesCollapsed}
+              onToggleCollapse={toggleProperties}
+            />
+          }
         />
       </div>
-      <DocumentProperties
-        filePath={filePath}
-        content={content}
-        outbound={outboundLinks}
-        backlinks={backlinks}
-        onNavigateLink={(path) => onNavigateLink?.(path)}
-        collapsed={propertiesCollapsed}
-        onToggleCollapse={toggleProperties}
-      />
     </div>
   );
 }

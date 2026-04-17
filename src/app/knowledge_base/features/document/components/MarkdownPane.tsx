@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, ArrowLeft, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { FileText, ChevronRight, Lock, LockOpen } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
 
 interface MarkdownPaneProps {
@@ -17,7 +17,7 @@ interface MarkdownPaneProps {
   allDocPaths?: string[];
   backlinks?: { sourcePath: string; section?: string }[];
   onNavigateBacklink?: (sourcePath: string) => void;
-  onClose?: () => void;
+  rightSidebar?: React.ReactNode;
 }
 
 export default function MarkdownPane({
@@ -32,7 +32,7 @@ export default function MarkdownPane({
   allDocPaths,
   backlinks = [],
   onNavigateBacklink,
-  onClose,
+  rightSidebar,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -41,10 +41,13 @@ export default function MarkdownPane({
 
   if (!filePath) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-slate-400">
-        <FileText size={48} strokeWidth={1} />
-        <p className="mt-3 text-sm">No document selected</p>
-        <p className="text-xs mt-1">Select a .md file from the explorer or click an element&apos;s &#9432; badge</p>
+      <div className="flex h-full">
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <FileText size={48} strokeWidth={1} />
+          <p className="mt-3 text-sm">No document selected</p>
+          <p className="text-xs mt-1">Select a .md file from the explorer or click an element&apos;s &#9432; badge</p>
+        </div>
+        {rightSidebar}
       </div>
     );
   }
@@ -56,12 +59,6 @@ export default function MarkdownPane({
     <div className="flex flex-col h-full bg-white">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
-        {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <ArrowLeft size={16} />
-          </button>
-        )}
-
         {/* Breadcrumb */}
         <div className="flex items-center gap-1 text-xs text-slate-400">
           {pathParts.map((part, i) => (
@@ -159,6 +156,7 @@ export default function MarkdownPane({
           allDocPaths={allDocPaths}
           currentDocDir={filePath.split("/").slice(0, -1).join("/")}
           readOnly={readOnly}
+          rightSidebar={rightSidebar}
         />
       </div>
     </div>

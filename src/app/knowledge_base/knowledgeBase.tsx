@@ -313,10 +313,9 @@ function KnowledgeBaseInner() {
             handleOpenDocument(path);
           }
         }}
-        onClose={() => panes.closeFocusedPane()}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, panes, handleDiagramBridge, handleNavigateWikiLink]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
