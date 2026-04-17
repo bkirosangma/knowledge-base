@@ -9,7 +9,7 @@ describe('snapToGrid', () => {
   })
 
   it('uses GRID_SIZE as the default step', () => {
-    expect(snapToGrid(3)).toBe(Math.round(3 / GRID_SIZE) * GRID_SIZE)
+    expect(snapToGrid(3)).toBe(0)
   })
 
   it('accepts a custom grid size', () => {
@@ -19,6 +19,11 @@ describe('snapToGrid', () => {
 
   it('handles negative values', () => {
     expect(snapToGrid(-14)).toBe(-10)
+    expect(snapToGrid(-15)).toBe(-10)
     expect(snapToGrid(-16)).toBe(-20)
+  })
+
+  it('returns zero for zero input', () => {
+    expect(snapToGrid(0)).toBe(0)
   })
 })
