@@ -45,10 +45,11 @@ import { useAnchorConnections } from "./hooks/useAnchorConnections";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
-import DiagramControls from "./components/DiagramControls";
+import { useFooterContext } from "../../shell/FooterContext";
 import AnchorPopupMenu from "./components/AnchorPopupMenu";
 import ConditionElement from "./components/ConditionElement";
 import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
+import HistoryPanel from "./components/HistoryPanel";
 import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
 import { loadDiagramFromData } from "../../shared/utils/persistence";
 import { useActionHistory } from "../../shared/hooks/useActionHistory";
@@ -57,7 +58,6 @@ import { useSyncRef } from "../../shared/hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
 import DocumentPicker from "../../shared/components/DocumentPicker";
-import HistoryPanel from "./components/HistoryPanel";
 import type { DocumentMeta } from "../document/types";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useFileActions } from "../../shared/hooks/useFileActions";
@@ -146,6 +146,8 @@ const toggleClass = (active: boolean) =>
 
 export interface DiagramViewProps {
   focused: boolean;
+  /** Which pane this diagram is rendered in — used to push footer info to the right slot. */
+  side: "left" | "right";
   activeFile: string | null;
   /** Full file explorer — DiagramView owns file operations for diagram files. */
   fileExplorer: ReturnType<typeof useFileExplorer>;
@@ -159,20 +161,13 @@ export interface DiagramViewProps {
   onLoadDocuments: (docs: DocumentMeta[]) => void;
   /** Backlinks from the link index for the current diagram file */
   backlinks?: { sourcePath: string; section?: string }[];
-  /** Explorer collapsed state for minimap positioning */
-  explorerCollapsed: boolean;
-  /** History panel collapsed state (shell manages sidebar layout) */
-  historyCollapsed: boolean;
-  /** Whether the sidebar is collapsed (for HistoryPanel rendering) */
-  sidebarCollapsed: boolean;
-  /** Toggle history collapsed state */
-  onToggleHistoryCollapse: () => void;
   /** Bridge: notify the shell when isDirty or save/discard callbacks change */
   onDiagramBridge: (bridge: DiagramBridge) => void;
 }
 
 export default function DiagramView({
   focused,
+  side,
   activeFile,
   fileExplorer,
   onOpenDocument,
@@ -182,16 +177,13 @@ export default function DiagramView({
   onCreateDocument,
   onLoadDocuments,
   backlinks,
-  explorerCollapsed,
-  historyCollapsed,
-  sidebarCollapsed,
-  onToggleHistoryCollapse,
   onDiagramBridge,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const [isLive, setIsLive] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
+  const [historyCollapsed, setHistoryCollapsed] = useState(true);
   const [hoveredLine, setHoveredLine] = useState<{
     id: string;
     label: string;
@@ -467,6 +459,18 @@ export default function DiagramView({
     onLoadDocuments,
   );
 
+  // ─── Auto-load diagram when activeFile changes (mount, restore-on-refresh, pane switch) ───
+  const handleLoadFileRef = useRef(handleLoadFile);
+  handleLoadFileRef.current = handleLoadFile;
+  const prevActiveFileRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevActiveFileRef.current;
+    prevActiveFileRef.current = activeFile;
+    if (activeFile && activeFile !== prev) {
+      handleLoadFileRef.current(activeFile);
+    }
+  }, [activeFile]);
+
   // ─── Bridge: expose state to shell ───
   const bridgeRef = useRef<DiagramBridge | null>(null);
   useEffect(() => {
@@ -714,6 +718,14 @@ export default function DiagramView({
   worldRef.current = world;
   setWorldOffset(world.x, world.y);
 
+  // Push world/patches/zoom into the global footer context for this pane side.
+  const { setLeftInfo, setRightInfo } = useFooterContext();
+  const pushFooterInfo = side === "right" ? setRightInfo : setLeftInfo;
+  useEffect(() => {
+    pushFooterInfo({ kind: "diagram", world: { w: world.w, h: world.h }, patches: patches.length, zoom });
+  }, [pushFooterInfo, world.w, world.h, patches.length, zoom]);
+  useEffect(() => () => pushFooterInfo(null), [pushFooterInfo]);
+
   const { VIEWPORT_KEY } = useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom, activeFile);
 
   // Compensate scroll when world origin shifts
@@ -882,7 +894,7 @@ export default function DiagramView({
         </div>
       )}
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
@@ -1507,13 +1519,31 @@ export default function DiagramView({
 
       {/* Minimap */}
       {showMinimap && activeFile && (
-        <div className="absolute bottom-16 z-30 transition-[left] duration-200" style={{ left: explorerCollapsed ? 52 : 276 }}>
+        <div className="absolute bottom-4 left-4 z-30">
           <Minimap
             world={world}
             viewportRef={canvasRef}
             regions={regions}
             nodes={displayNodes}
             zoomRef={zoomRef}
+          />
+        </div>
+      )}
+
+      {/* History panel — floating inside pane */}
+      {activeFile && (
+        <div className="absolute bottom-4 z-30" style={{ right: 296 }}>
+          <HistoryPanel
+            entries={history.entries}
+            currentIndex={history.currentIndex}
+            savedIndex={history.savedIndex}
+            canUndo={history.canUndo}
+            canRedo={history.canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onGoToEntry={handleGoToEntry}
+            collapsed={historyCollapsed}
+            onToggleCollapse={() => setHistoryCollapsed((c) => !c)}
           />
         </div>
       )}
@@ -1527,11 +1557,6 @@ export default function DiagramView({
           {hoveredLine.label}
         </div>
       )}
-
-      {/* Footer status */}
-      <DiagramControls
-        world={world} patches={patches} zoom={zoom}
-      />
 
       {pendingDeletion && (
         <FlowBreakWarningModal

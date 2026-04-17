@@ -43,7 +43,7 @@ function CodeBlockView({ node }: NodeViewProps) {
   return (
     <NodeViewWrapper className="md-codeblock-wrapper relative group">
       <pre>
-        <NodeViewContent as="code" />
+        <code><NodeViewContent as="div" /></code>
       </pre>
       <button
         type="button"

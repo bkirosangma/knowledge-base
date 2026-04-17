@@ -138,7 +138,7 @@ export default function PaneManager({
   if (!leftPane) return <>{emptyState}</>;
 
   if (!isSplit) {
-    return <>{renderPane(leftPane, true, "left")}</>;
+    return <div className="flex-1 h-full min-w-0 overflow-hidden">{renderPane(leftPane, true, "left")}</div>;
   }
 
   return (

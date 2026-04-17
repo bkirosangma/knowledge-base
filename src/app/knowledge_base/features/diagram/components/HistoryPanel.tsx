@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Undo2, Redo2, ChevronDown, ChevronRight, History } from "lucide-react";
+import { Undo2, Redo2, ChevronDown, ChevronRight } from "lucide-react";
 import type { HistoryEntry } from "../../../shared/hooks/useActionHistory";
 
 interface HistoryPanelProps {
@@ -14,7 +14,6 @@ interface HistoryPanelProps {
   onRedo: () => void;
   onGoToEntry: (index: number) => void;
   collapsed: boolean;
-  sidebarCollapsed: boolean;
   onToggleCollapse: () => void;
 }
 
@@ -37,7 +36,6 @@ export default function HistoryPanel({
   onRedo,
   onGoToEntry,
   collapsed,
-  sidebarCollapsed,
   onToggleCollapse,
 }: HistoryPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -49,20 +47,8 @@ export default function HistoryPanel({
     if (item) item.scrollIntoView({ block: "nearest" });
   }, [currentIndex, collapsed]);
 
-  if (sidebarCollapsed) {
-    return (
-      <button
-        onClick={onToggleCollapse}
-        className="flex items-center justify-center p-2.5 border-t border-slate-200 hover:bg-slate-50 transition-colors"
-        title="History"
-      >
-        <History size={16} className="text-slate-500" />
-      </button>
-    );
-  }
-
   return (
-    <div className="flex flex-col border-t border-slate-200 min-h-0">
+    <div className={`flex flex-col bg-white rounded-lg border border-slate-200 shadow-md overflow-hidden ${collapsed ? "" : "w-[260px]"}`}>
       {/* Header */}
       <button
         onClick={onToggleCollapse}

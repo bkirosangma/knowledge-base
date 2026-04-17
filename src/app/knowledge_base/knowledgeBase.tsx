@@ -16,6 +16,8 @@ import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
+import { FooterProvider } from "./shell/FooterContext";
+import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
 
@@ -42,7 +44,6 @@ function KnowledgeBaseInner() {
 
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
-  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
 
   // Sort preferences
@@ -107,11 +108,12 @@ function KnowledgeBaseInner() {
   }, [panes]);
 
   // ─── File selection: route to correct pane type ───
+  // DiagramView auto-loads its file via useEffect on activeFile change,
+  // so we only need to open the pane here.
   const handleSelectFile = useCallback((path: string) => {
     if (path.endsWith(".md")) {
       handleOpenDocument(path);
     } else {
-      diagramBridgeRef.current?.handleLoadFile(path);
       panes.openFile(path, "diagram");
     }
   }, [handleOpenDocument, panes]);
@@ -271,6 +273,7 @@ function KnowledgeBaseInner() {
       return (
         <DiagramView
           focused={focused}
+          side={side}
           activeFile={entry.filePath}
           fileExplorer={fileExplorer}
           onOpenDocument={handleOpenDocument}
@@ -286,17 +289,6 @@ function KnowledgeBaseInner() {
           }}
           onLoadDocuments={docManager.setDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
-          explorerCollapsed={explorerCollapsed}
-          historyCollapsed={historyCollapsed}
-          sidebarCollapsed={explorerCollapsed}
-          onToggleHistoryCollapse={() => {
-            if (explorerCollapsed) {
-              setExplorerCollapsed(false);
-              setHistoryCollapsed(false);
-            } else {
-              setHistoryCollapsed((c) => !c);
-            }
-          }}
           onDiagramBridge={handleDiagramBridge}
         />
       );
@@ -324,7 +316,7 @@ function KnowledgeBaseInner() {
         onClose={() => panes.closeFocusedPane()}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, explorerCollapsed, historyCollapsed, panes, handleDiagramBridge, handleNavigateWikiLink]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, panes, handleDiagramBridge, handleNavigateWikiLink]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -378,7 +370,7 @@ function KnowledgeBaseInner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Explorer only (HistoryPanel moved into DiagramView) */}
+        {/* Left sidebar: Explorer */}
         <div
           className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: explorerCollapsed ? 36 : 260 }}
@@ -425,6 +417,9 @@ function KnowledgeBaseInner() {
         />
       </div>
 
+      {/* Global footer — reads info from the focused pane */}
+      <Footer />
+
       {/* Confirmation popover — state owned by DiagramView via bridge */}
       {confirmAction && (
         <ConfirmPopover
@@ -454,7 +449,9 @@ function KnowledgeBaseInner() {
 export default function KnowledgeBase() {
   return (
     <ToolbarProvider>
-      <KnowledgeBaseInner />
+      <FooterProvider>
+        <KnowledgeBaseInner />
+      </FooterProvider>
     </ToolbarProvider>
   );
 }
