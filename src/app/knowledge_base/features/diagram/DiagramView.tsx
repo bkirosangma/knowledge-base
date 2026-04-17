@@ -392,7 +392,7 @@ export default function DiagramView({
 
   const { creatingLine, handleAnchorDragStart } = useLineDrag({
     nodes, connections, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
-    isBlocked: !!draggingEndpoint,
+    isBlocked: readOnly || !!draggingEndpoint,
     onAnchorClick,
     onConnectedAnchorDrag: handleConnectedAnchorDrag,
   });
@@ -401,7 +401,7 @@ export default function DiagramView({
     isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta,
     nodeDragDidMove, multiDragDidMove } = useNodeDrag({
     nodes, layerShiftsRef, toCanvasCoords,
-    isBlocked: !!draggingEndpoint || !!creatingLine,
+    isBlocked: readOnly || !!draggingEndpoint || !!creatingLine,
     setNodes,
     regionsRef,
     levelMapRef,
@@ -413,14 +413,14 @@ export default function DiagramView({
 
   const { layerManualSizes, setLayerManualSizes, resizingLayer, handleLayerResizeStart, resizeDidChange } = useLayerResize({
     regionsRef, toCanvasCoords,
-    isBlocked: !!draggingId || !!draggingEndpoint || !!creatingLine || isMultiDrag,
+    isBlocked: readOnly || !!draggingId || !!draggingEndpoint || !!creatingLine || isMultiDrag,
     initialManualSizes: defaults.current.layerManualSizes,
     nodes, levelMapRef, getNodeDimensions, layerShiftsRef,
   });
 
   const { draggingLayerId, draggingLayerIds, layerDragDelta, layerDragRawDelta, handleLayerDragStart, layerDragDidMove } = useLayerDrag({
     toCanvasCoords,
-    isBlocked: !!draggingEndpoint || !!creatingLine || !!draggingId || isMultiDrag,
+    isBlocked: readOnly || !!draggingEndpoint || !!creatingLine || !!draggingId || isMultiDrag,
     setNodes,
     regionsRef,
     setLayerManualSizes,
@@ -692,6 +692,7 @@ export default function DiagramView({
     deleteSelection, setPendingDeletion,
     handleCreateFlow, handleUndo, handleRedo,
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
+    readOnly, onToggleReadOnly: toggleReadOnly,
   });
 
   // Drag-end watchers for history recording

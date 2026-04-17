@@ -15,6 +15,8 @@ interface KeyboardShortcutsConfig {
   selectionRef: React.RefObject<Selection>;
   pendingSelectionRef: React.RefObject<{ type: 'node' | 'layer' | 'line'; id: string; x: number; y: number } | null>;
   nodesRef: React.RefObject<NodeData[]>;
+  readOnly: boolean;
+  onToggleReadOnly: () => void;
 }
 
 function isEditingInput(): boolean {
@@ -34,6 +36,8 @@ export function useKeyboardShortcuts({
   selectionRef,
   pendingSelectionRef,
   nodesRef,
+  readOnly,
+  onToggleReadOnly,
 }: KeyboardShortcutsConfig) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -43,8 +47,17 @@ export function useKeyboardShortcuts({
         setContextMenu(null);
       }
 
+      // Toggle Read Mode — works both on and off (Cmd/Ctrl+Shift+R).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "r" || e.key === "R")) {
+        if (isEditingInput()) return;
+        e.preventDefault();
+        onToggleReadOnly();
+        return;
+      }
+
       if ((e.key === "Delete" || e.key === "Backspace") && selectionRef.current) {
         if (isEditingInput()) return;
+        if (readOnly) return;
         e.preventDefault();
         const pending = deleteSelection(selectionRef.current);
         if (pending) setPendingDeletion(pending);
@@ -52,6 +65,7 @@ export function useKeyboardShortcuts({
 
       if ((e.metaKey || e.ctrlKey) && e.key === "g") {
         if (isEditingInput()) return;
+        if (readOnly) return;
         e.preventDefault();
         const sel = selectionRef.current;
         if (sel?.type === "multi-line") handleCreateFlow(sel.ids);
@@ -59,11 +73,13 @@ export function useKeyboardShortcuts({
 
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         if (isEditingInput()) return;
+        if (readOnly) return;
         e.preventDefault();
         handleUndo();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
         if (isEditingInput()) return;
+        if (readOnly) return;
         e.preventDefault();
         handleRedo();
       }
@@ -91,5 +107,5 @@ export function useKeyboardShortcuts({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef]);
+  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly]);
 }
