@@ -17,7 +17,12 @@ import { Image } from "@tiptap/extension-image";
 import { TextSelection } from "@tiptap/pm/state";
 import { getMarkRange } from "@tiptap/core";
 import { WikiLink } from "../extensions/wikiLink";
-import { MarkdownReveal, RawBlock, SYNTAX_PATTERNS, rawBlockToRichNodes } from "../extensions/markdownReveal";
+import { MarkdownReveal, RawBlock, rawBlockToRichNodes } from "../extensions/markdownReveal";
+import {
+  parseHeadingPrefix,
+  hasBlockquotePrefix,
+  computeActiveRawFormatsAt,
+} from "../extensions/rawBlockHelpers";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
 import { LinkEditorPopover } from "./LinkEditorPopover";
@@ -309,13 +314,6 @@ function toggleRawSyntax(
 
 /* ── Active-state detection for rawBlock toolbar highlighting ── */
 
-const TAG_TO_FORMAT: Record<string, string> = {
-  strong: "bold",
-  em: "italic",
-  s: "strike",
-  code: "code",
-};
-
 /**
  * When the cursor is inside a rawBlock, Tiptap's `editor.isActive("bold")`
  * always returns false (rawBlock only allows "link" marks). This function
@@ -346,38 +344,16 @@ function getActiveRawFormats(
   const cursorPos = $head.pos;
   const active = new Set<string>();
 
-  // Walk text children — mirrors pushSyntaxDecorations in markdownReveal.ts.
+  // Walk text children until we find the one containing the cursor; delegate
+  // the regex + dedup to the pure `computeActiveRawFormatsAt` helper.
   let offset = 0;
   rawNode.forEach((child) => {
     if (child.isText && child.text != null) {
       const nodeStart = contentStart + offset;
       const nodeEnd = nodeStart + child.text.length;
-
       if (cursorPos >= nodeStart && cursorPos <= nodeEnd) {
-        const cursorOffset = cursorPos - nodeStart;
-        // Dedup consumed ranges the same way pushSyntaxDecorations does.
-        const consumed: Array<[number, number, string[]]> = [];
-        const shouldSkip = (s: number, e: number, t: string[]) =>
-          consumed.some(
-            ([cs, ce, ct]) =>
-              s >= cs && e <= ce && t.every((v) => ct.includes(v)),
-          );
-
-        for (const { re, tags } of SYNTAX_PATTERNS) {
-          re.lastIndex = 0;
-          let m: RegExpExecArray | null;
-          while ((m = re.exec(child.text)) !== null) {
-            const start = m.index;
-            const end = start + m[0].length;
-            if (shouldSkip(start, end, tags)) continue;
-            consumed.push([start, end, tags]);
-            if (cursorOffset >= start && cursorOffset <= end) {
-              for (const tag of tags) {
-                const fmt = TAG_TO_FORMAT[tag];
-                if (fmt) active.add(fmt);
-              }
-            }
-          }
+        for (const fmt of computeActiveRawFormatsAt(child.text, cursorPos - nodeStart)) {
+          active.add(fmt);
         }
       }
     }
@@ -400,9 +376,7 @@ function getRawHeadingLevel(
 
   for (let d = $head.depth; d >= 0; d--) {
     if ($head.node(d).type.name === "rawBlock") {
-      const text = $head.node(d).textContent;
-      const match = text.match(/^(#{1,6})\s/);
-      return match ? match[1].length : null;
+      return parseHeadingPrefix($head.node(d).textContent);
     }
   }
   return null;
@@ -422,7 +396,7 @@ function isRawBlockquote(
 
   for (let d = $head.depth; d >= 0; d--) {
     if ($head.node(d).type.name === "rawBlock") {
-      return $head.node(d).textContent.startsWith("> ");
+      return hasBlockquotePrefix($head.node(d).textContent);
     }
   }
   return null;

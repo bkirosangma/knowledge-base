@@ -15,6 +15,7 @@ import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDire
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/geometry";
+import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "./utils/documentAttachments";
 import type { LineCurveAlgorithm, Selection, FlowDef } from "./types";
 import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
@@ -887,18 +888,15 @@ export default function DiagramView({
   // The shell reads these via a ref-based bridge or callback in a future task.
   // For now, the diagram view renders its own canvas and properties panel.
 
-  // Helper: check if a doc entity has documents
-  const hasDocuments = useCallback((entityType: string, entityId: string) => {
-    return documents.some(d =>
-      d.attachedTo?.some(a => a.type === entityType && a.id === entityId)
-    );
-  }, [documents]);
+  const hasDocuments = useCallback(
+    (entityType: string, entityId: string) => hasDocsFor(documents, entityType, entityId),
+    [documents],
+  );
 
-  const getDocumentsForEntity = useCallback((entityType: string, entityId: string) => {
-    return documents.filter(d =>
-      d.attachedTo?.some(a => a.type === entityType && a.id === entityId)
-    );
-  }, [documents]);
+  const getDocumentsForEntity = useCallback(
+    (entityType: string, entityId: string) => getDocsForEntity(documents, entityType, entityId),
+    [documents],
+  );
 
   const diagramTitle = activeFile
     ? (activeFile.split("/").pop() ?? "").replace(/\.json$/, "")

@@ -13,10 +13,10 @@
 - **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
 - **FS-2.1-06** ✅ **Scope isolation** — covered by PERSIST-7.1-03 in `persistence.test.ts` ("scope switch isolates diagrams (no cross-read)").
 - **FS-2.1-07** ✅ **`scopedKey` prefixes base key** — covered by PERSIST-7.1-01/02 in `persistence.test.ts` + dedicated tests in `directoryScope.test.ts`.
-- **FS-2.1-08** 🧪 **Tree scan returns sorted file list** — `e2e/goldenPath.spec.ts` seeds `alpha.md` / `beta.md` / `flow.json` and asserts all three appear in the explorer.
-- **FS-2.1-09** 🟡 **History sidecars skipped.** The `.*.history.json` filter lives inside the module-private tree-builder; user-visible effect verified incidentally in e2e (no sidecar shows up even with history entries).
-- **FS-2.1-10** 🟡 **Nested folders traversed.** Recursive walk runs in the private tree-builder; e2e exercises nested files via the fsMock seed format but folders render collapsed by default.
-- **FS-2.1-11** 🧪 **Tree entries carry metadata** — e2e folder-open test confirms each entry has a display name and is clickable (routing to the right pane requires `handle` + `fileType` metadata to be set).
+- **FS-2.1-08** ✅ **Tree scan returns sorted file list** — `fileTree.test.ts` asserts only `.md` / `.json` pass the filter, folders precede files, each group is alphabetical. Also verified end-to-end in `e2e/goldenPath.spec.ts`.
+- **FS-2.1-09** ✅ **History sidecars skipped** — `fileTree.test.ts` covers `.<name>.history.json` exclusion and confirms `history.md` / `my-history.json` ARE included (only the hidden `.<name>.history.json` pattern is filtered).
+- **FS-2.1-10** ✅ **Nested folders traversed** — `fileTree.test.ts` exercises multi-level paths (`notes/sub/deep.md`), asserts relative path construction, and covers folder `lastModified` = max of children.
+- **FS-2.1-11** ✅ **Tree entries carry metadata** — `fileTree.test.ts` asserts every file carries `name` + `path` + `type` + `fileType` + `handle` + `lastModified`; folders carry `dirHandle` + `children`.
 - **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright (Bucket 25).
 
 ## 2.2 Vault Configuration

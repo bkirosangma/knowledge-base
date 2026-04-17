@@ -5,19 +5,8 @@ import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, F
 import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 import { saveDirHandle, loadDirHandle, clearDirHandle } from "../utils/idbHandles";
-
-/* ── Tree types ── */
-
-export interface TreeNode {
-  name: string;
-  path: string; // relative path from root, e.g. "data/thanos.json"
-  type: "file" | "folder";
-  fileType?: "diagram" | "document"; // derived from extension
-  children?: TreeNode[];
-  handle?: FileSystemFileHandle;
-  dirHandle?: FileSystemDirectoryHandle;
-  lastModified?: number;
-}
+import { scanTree, flattenTree, type TreeNode } from "../utils/fileTree";
+export type { TreeNode };
 
 const DIR_NAME_KEY = "knowledge-base-directory-name";
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
@@ -34,56 +23,6 @@ function isDiagramData(data: unknown): data is DiagramData {
   return Array.isArray(d.layers) && Array.isArray(d.nodes) && Array.isArray(d.connections);
 }
 
-/** Recursively scan a directory and build a tree. Include .json and .md files. */
-async function scanTree(handle: FileSystemDirectoryHandle, prefix: string): Promise<TreeNode[]> {
-  const folders: TreeNode[] = [];
-  const files: TreeNode[] = [];
-
-  for await (const entry of handle.values()) {
-    if (entry.kind === "directory") {
-      const dirHandle = entry as unknown as FileSystemDirectoryHandle;
-      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      const children = await scanTree(dirHandle, path);
-      // Folder lastModified = max of children's lastModified
-      const maxMod = children.reduce((max, c) => Math.max(max, c.lastModified ?? 0), 0);
-      folders.push({ name: entry.name, path, type: "folder", dirHandle, children, lastModified: maxMod || undefined });
-    } else if (entry.kind === "file") {
-      const isJson = entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name);
-      const isMd = entry.name.endsWith(".md");
-      if (!isJson && !isMd) continue;
-      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      const fileHandle = entry as FileSystemFileHandle;
-      let lastModified: number | undefined;
-      try {
-        const file = await fileHandle.getFile();
-        lastModified = file.lastModified;
-      } catch { /* ignore */ }
-      const fileType: "diagram" | "document" = isJson ? "diagram" : "document";
-      files.push({ name: entry.name, path, type: "file", fileType, handle: fileHandle, lastModified });
-    }
-  }
-
-  folders.sort((a, b) => a.name.localeCompare(b.name));
-  files.sort((a, b) => a.name.localeCompare(b.name));
-  return [...folders, ...files];
-}
-
-/** Flatten tree to a map of path → handle for quick lookup. */
-function flattenTree(nodes: TreeNode[]): Map<string, { handle?: FileSystemFileHandle; dirHandle?: FileSystemDirectoryHandle }> {
-  const map = new Map<string, { handle?: FileSystemFileHandle; dirHandle?: FileSystemDirectoryHandle }>();
-  function walk(items: TreeNode[]) {
-    for (const item of items) {
-      if (item.type === "file") {
-        map.set(item.path, { handle: item.handle });
-      } else {
-        map.set(item.path, { dirHandle: item.dirHandle });
-        if (item.children) walk(item.children);
-      }
-    }
-  }
-  walk(nodes);
-  return map;
-}
 
 /** Find a unique name like "untitled.json", "untitled-1.json", etc. */
 function uniqueName(siblings: TreeNode[], base: string, ext: string): string {

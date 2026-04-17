@@ -129,9 +129,9 @@
 - **DOC-4.5-11** 🚫 **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).** Module-private helper.
 - **DOC-4.5-12** 🚫 **List / blockquote / code block buttons toggle block type.** Live editor.
 - **DOC-4.5-13** 🚫 **Force-exit rawBlock before structural commands.** Live editor.
-- **DOC-4.5-14** 🚫 **`getActiveRawFormats` — bold detected in rawBlock.** Module-private helper.
-- **DOC-4.5-15** 🚫 **`getRawHeadingLevel` — detects `#{N}` prefix.** Module-private helper.
-- **DOC-4.5-16** 🚫 **`isRawBlockquote` — detects `> ` prefix.** Module-private helper.
+- **DOC-4.5-14** ✅ **`getActiveRawFormats` — bold detected in rawBlock** — the pure string-parsing core was extracted to `rawBlockHelpers.computeActiveRawFormatsAt(text, cursor)` and is exhaustively tested in `rawBlockHelpers.test.ts` (bold / italic / strike / code / triple-asterisk / nested / plain / outside). The editor-coupled wrapper in `MarkdownEditor.tsx` delegates to this helper.
+- **DOC-4.5-15** ✅ **`getRawHeadingLevel` — detects `#{N}` prefix** — extracted as `rawBlockHelpers.parseHeadingPrefix(text)`; tests cover levels 1–6, 7+ rejection, missing-space rejection, empty input, and tab separator.
+- **DOC-4.5-16** ✅ **`isRawBlockquote` — detects `> ` prefix** — extracted as `rawBlockHelpers.hasBlockquotePrefix(text)`; tests cover `> ` / `>` without space / internal `> ` / empty input.
 - **DOC-4.5-17** 🚫 **Horizontal rule button inserts `<hr>`.** Live editor.
 - **DOC-4.5-18** 🚫 **Link button with text selected wraps selection.** Live editor.
 - **DOC-4.5-19** 🟡 **Link button with empty selection inserts empty link** — popover flow is covered by DOC-4.7 (`LinkEditorPopover.test.tsx`); the button → popover wiring is integration.

@@ -296,8 +296,8 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.18-03** 🟡 **Click badge opens attached doc** — `DocInfoBadge.test.tsx` asserts `onClick` fires with the right doc; pane routing is canvas-level.
 - **DIAG-3.18-04** 🟡 **`attachDocument` persists in diagram JSON** — the `documents` field round-trips via DIAG-3.19 save/load; the attach flow is canvas-level.
 - **DIAG-3.18-05** 🟡 **`detachDocument` removes reference.** Same — data shape covered via persistence; detach call site is canvas-level.
-- **DIAG-3.18-06** 🟡 **`getDocumentsForEntity` filters by entity type + id.** The filter is a three-line `useCallback` inside `DiagramView`; moving it to a pure util would unlock a direct test. Open a ticket.
-- **DIAG-3.18-07** 🟡 **`hasDocuments` returns true when any exist.** Same — inline `useCallback` in `DiagramView`.
+- **DIAG-3.18-06** ✅ **`getDocumentsForEntity` filters by entity type + id** — `documentAttachments.test.ts` covers match/no-match cases, multi-entity attachments, type-mismatch leakage, and empty inputs.
+- **DIAG-3.18-07** ✅ **`hasDocuments` returns true when any exist** — `documentAttachments.test.ts` covers every `attachedTo.type` variant (`node` / `connection` / `flow` / `root`) and the undefined / empty-array paths.
 
 ## 3.19 Persistence
 

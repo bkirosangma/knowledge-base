@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-18 (Buckets 1-25 complete — every ❌ triaged; Playwright FS mock lands the first end-to-end coverage of folder-open flows). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-18 (Buckets 1-26 complete — helper extractions unlock 9 more direct-unit cases on top of the Bucket 25 e2e mock). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
-| 02-file-system.md | 43 | 11 | 3 | 0 | 8 | 65 |
-| 03-diagram.md | 91 | 39 | 0 | 0 | 107 | 237 |
-| 04-document.md | 93 | 30 | 1 | 0 | 68 | 192 |
+| 02-file-system.md | 47 | 9 | 1 | 0 | 8 | 65 |
+| 03-diagram.md | 93 | 37 | 0 | 0 | 107 | 237 |
+| 04-document.md | 96 | 30 | 1 | 0 | 65 | 192 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
 | 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
-| **Total** | **345** | **110** | **7** | **0** | **218** | **680** |
+| **Total** | **354** | **106** | **5** | **0** | **215** | **680** |
 
-Covered (✅ + 🟡 + 🧪) = **462 / 680 (68%)**; consciously waived (🚫) = **218 (32%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡 + 🧪) = **465 / 680 (68%)**; consciously waived (🚫) = **215 (32%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
 
 ### Test suites that back these numbers
 
@@ -147,8 +147,8 @@ Covered (✅ + 🟡 + 🧪) = **462 / 680 (68%)**; consciously waived (🚫) = *
 
 1. **React Flow test harness** — a `DiagramTestHarness` that mounts `DiagramView` with fake `IntersectionObserver` and stubbed `getBoundingClientRect` would unlock most of DIAG-3.2/3.5/3.7 — potentially 40-60 cases.
 2. **Tiptap integration harness** — extend the pattern used in `LinkEditorPopover.test.tsx` (explicit `transaction` listener forceUpdate for JSDOM) to cover toolbar + raw-mode behaviors. Could unlock most of DOC-4.5.
-3. **Playwright File System Access mock** (Bucket 25) — one `page.addInitScript` that replaces `window.showDirectoryPicker` with an in-memory FS unlocks all golden-path flows (~20 cases across LINK-5.x and FS-2.1).
-4. **Extract module-private helpers** (PRs: `toggleRawSyntax`/`getActiveRawFormats` out of `MarkdownEditor.tsx`; `scanDirectory`/`buildTree` out of `useFileExplorer.ts`; `hasDocuments`/`getDocumentsForEntity` out of `DiagramView.tsx`) — each unlocks a few direct unit tests without harness work.
+3. ✅ **Playwright File System Access mock** (Bucket 25 — done) — `e2e/fixtures/fsMock.ts` + `page.addInitScript` replaces `window.showDirectoryPicker` with an in-memory FS; `e2e/goldenPath.spec.ts` drives the open-folder → click-file → pane-renders flows.
+4. ✅ **Extract module-private helpers** (Bucket 26 — done) — `fileTree.ts` (scanTree + flattenTree out of `useFileExplorer.ts`), `documentAttachments.ts` (hasDocuments + getDocumentsForEntity out of `DiagramView.tsx`), and `rawBlockHelpers.ts` (parseHeadingPrefix + hasBlockquotePrefix + computeActiveRawFormatsAt out of `MarkdownEditor.tsx`) — added 40 direct unit tests and flipped 9 🟡/🚫 markers to ✅.
 
 ### Regenerate the numbers
 
