@@ -329,7 +329,7 @@ function KnowledgeBaseInner() {
   );
 
   return (
-    <div className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
+    <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
         title={diagramBridge?.title ?? "Untitled"}
         titleInputValue={diagramBridge?.titleInputValue ?? "Untitled"}
