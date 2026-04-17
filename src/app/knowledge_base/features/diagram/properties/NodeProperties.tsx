@@ -280,7 +280,6 @@ export function NodeProperties({
                   type="number"
                   min={0} max={359} step={1}
                   disabled={readOnly}
-                  readOnly={readOnly}
                   className="w-12 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-blue-400 text-center disabled:opacity-50 disabled:cursor-not-allowed"
                   value={Math.round(node.rotation ?? 0)}
                   onChange={(e) => {

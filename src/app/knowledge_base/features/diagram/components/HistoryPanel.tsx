@@ -111,7 +111,7 @@ export default function HistoryPanel({
                     data-index={idx}
                     onClick={() => onGoToEntry(idx)}
                     disabled={readOnly}
-                    className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                       isSaved ? "border-l-2 border-green-400" : "border-l-2 border-transparent"
                     } ${
                       isCurrent
