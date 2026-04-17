@@ -61,7 +61,7 @@ import type { DocumentMeta } from "../document/types";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
-import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
+import { Activity, Tag, Map as MapIcon, LayoutGrid, ChevronRight, Lock, LockOpen } from "lucide-react";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -194,6 +194,34 @@ export default function DiagramView({
       return next;
     });
   }, []);
+
+  // Per-file Read Mode state. Read from localStorage keyed by activeFile
+  // on mount and whenever the active file changes (split-pane switch, refresh restore).
+  const storageKey = activeFile ? `diagram-read-only:${activeFile}` : null;
+  const [readOnly, setReadOnly] = useState(false);
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") { setReadOnly(false); return; }
+    setReadOnly(localStorage.getItem(storageKey) === "true");
+  }, [storageKey]);
+  const toggleReadOnly = useCallback(() => {
+    setReadOnly((v) => {
+      const next = !v;
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, String(next)); } catch { /* ignore */ }
+      }
+      return next;
+    });
+  }, [storageKey]);
+
+  // Clear stale overlays when entering Read Mode so nothing lingers.
+  useEffect(() => {
+    if (readOnly) {
+      setEditingLabel(null);
+      setContextMenu(null);
+      setAnchorPopup(null);
+    }
+  }, [readOnly]);
+
   const [hoveredLine, setHoveredLine] = useState<{
     id: string;
     label: string;
@@ -859,49 +887,95 @@ export default function DiagramView({
     );
   }, [documents]);
 
+  const pathParts = activeFile ? activeFile.split("/") : [];
+  const diagramTitle = activeFile
+    ? (activeFile.split("/").pop() ?? "").replace(/\.json$/, "")
+    : "";
+
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full">
-      {/* Diagram toolbar */}
       {activeFile && (
-        <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1.5 bg-slate-50 border-b border-slate-200 z-10">
-          <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
-            <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
-              <Activity size={13} />
-              <span className="hidden xl:inline">Live</span>
-            </button>
-            <button onClick={() => setShowLabels(l => !l)} className={toggleClass(showLabels)} title="Toggle data line labels">
-              <Tag size={13} />
-              <span className="hidden xl:inline">Labels</span>
-            </button>
+        <>
+          {/* Breadcrumb row */}
+          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
+            <div className="flex items-center gap-1 text-xs text-slate-400">
+              {pathParts.map((part, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <ChevronRight size={10} />}
+                  <span className={i === pathParts.length - 1 ? "text-slate-700 font-medium" : ""}>
+                    {part}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="flex-1" />
           </div>
-          <button
-            onClick={() => setShowMinimap(m => !m)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-              showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
-            }`}
-            title="Toggle minimap"
-          >
-            <MapIcon size={13} />
-            <span className="hidden xl:inline">Minimap</span>
-          </button>
 
-          <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100">
-            <button onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom out">&minus;</button>
+          {/* Title row */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-1 bg-white">
+            <h1 className="text-lg font-semibold text-slate-900 px-1 -mx-1">
+              {diagramTitle}
+            </h1>
+          </div>
+
+          {/* Diagram toolbar */}
+          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10 flex-wrap">
+            <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
+              <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
+                <Activity size={13} />
+                <span className="hidden xl:inline">Live</span>
+              </button>
+              <button onClick={() => setShowLabels(l => !l)} className={toggleClass(showLabels)} title="Toggle data line labels">
+                <Tag size={13} />
+                <span className="hidden xl:inline">Labels</span>
+              </button>
+            </div>
             <button
-              onClick={() => setZoomTo(1)}
-              className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
-                Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+              onClick={() => setShowMinimap(m => !m)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+                showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
               }`}
-              title="Reset zoom to 100%"
+              title="Toggle minimap"
             >
-              {Math.round(zoom * 100)}%
+              <MapIcon size={13} />
+              <span className="hidden xl:inline">Minimap</span>
             </button>
-            <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
-          </div>
 
-          <div className="h-5 w-px bg-slate-200" />
-          <AutoArrangeDropdown onSelect={handleAutoArrange} />
-        </div>
+            <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100">
+              <button onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom out">&minus;</button>
+              <button
+                onClick={() => setZoomTo(1)}
+                className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
+                  Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+                }`}
+                title="Reset zoom to 100%"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
+            </div>
+
+            <div className="h-5 w-px bg-slate-200" />
+            {!readOnly && <AutoArrangeDropdown onSelect={handleAutoArrange} />}
+
+            <div className="flex-1" />
+            <div className="h-5 w-px bg-slate-200" />
+            <button
+              onClick={toggleReadOnly}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+                readOnly
+                  ? "bg-white shadow-sm text-blue-600 border-slate-200"
+                  : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+              }`}
+              title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+              aria-pressed={readOnly}
+              aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+            >
+              {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+              <span>Read Mode</span>
+            </button>
+          </div>
+        </>
       )}
 
       <div className="flex-1 flex min-h-0 relative">
