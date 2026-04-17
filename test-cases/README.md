@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-18 (Buckets 1-24 complete — every ❌ triaged). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-18 (Buckets 1-25 complete — every ❌ triaged; Playwright FS mock lands the first end-to-end coverage of folder-open flows). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
-| 02-file-system.md | 43 | 9 | 0 | 0 | 13 | 65 |
+| 02-file-system.md | 43 | 11 | 3 | 0 | 8 | 65 |
 | 03-diagram.md | 91 | 39 | 0 | 0 | 107 | 237 |
-| 04-document.md | 93 | 30 | 0 | 0 | 69 | 192 |
+| 04-document.md | 93 | 30 | 1 | 0 | 68 | 192 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
 | 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
-| **Total** | **345** | **108** | **3** | **0** | **224** | **680** |
+| **Total** | **345** | **110** | **7** | **0** | **218** | **680** |
 
-Covered (✅ + 🟡 + 🧪) = **456 / 680 (67%)**; consciously waived (🚫) = **224 (33%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡 + 🧪) = **462 / 680 (68%)**; consciously waived (🚫) = **218 (32%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
 
 ### Test suites that back these numbers
 

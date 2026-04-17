@@ -6,7 +6,7 @@
 
 ## 4.1 Editor Orchestration
 
-- **DOC-4.1-01** 🚫 **DocumentView mounts for `.md` file.** Full Tiptap editor mount + pane wiring — integration target for Bucket 25 (Playwright) once the File System Access mock is in place.
+- **DOC-4.1-01** 🧪 **DocumentView mounts for `.md` file** — `e2e/goldenPath.spec.ts` opens a seeded vault, clicks a `.md` file, and asserts the ProseMirror surface renders the seeded content. Uses the in-browser File System Access mock.
 - **DOC-4.1-02** 🚫 **Focused state tracked.** Same.
 - **DOC-4.1-03** 🟡 **MarkdownPane header shows breadcrumb** — `PaneHeader` breadcrumb rendering is covered by SHELL-1.6-01; mount wiring is integration.
 - **DOC-4.1-04** 🚫 **Backlinks dropdown opens.** Integration.

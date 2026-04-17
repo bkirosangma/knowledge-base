@@ -387,6 +387,9 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **`@playwright/test`** configured (`playwright.config.ts`).
 - ✅ **`PLAYWRIGHT_BASE_URL` env-var override** — when set, Playwright targets that URL and skips the built-in `npm run dev` webServer (useful for re-using an already-running local dev server).
 - ✅ **`e2e/app.spec.ts`** — pre-folder shell smoke suite: app mounts with zero errors; Geist font CSS vars present (SHELL-1.1-02); root container is a full-height flex column (SHELL-1.1-03); "No file open" empty state and "Open Folder" button render; Header title defaults to "Untitled".
+- ✅ **`e2e/fixtures/fsMock.ts`** — in-browser File System Access mock installed via `page.addInitScript`. Exposes `window.__kbMockFS` with `seed(files)` / `read(path)` / `reset()` helpers so tests can pre-populate an in-memory vault and read back the app's writes without any native dialog.
+- ✅ **`e2e/goldenPath.spec.ts`** — folder-open → explorer-populates → click-file → pane-renders-content flows for both `.md` (MarkdownPane) and `.json` (DiagramView); pane-swap; "No file open" empty-state disappears; Save button disabled for clean docs.
+- ✅ **`e2e/fsMockSanity.spec.ts`** — mock-FS contract tests (addInitScript installs `showDirectoryPicker`, seed+`values()` round-trip, root-level file tree renders).
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
 ### 8.3 Tooling Hooks

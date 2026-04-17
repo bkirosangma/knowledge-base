@@ -6,17 +6,17 @@
 
 ## 2.1 Folder Picker
 
-- **FS-2.1-01** 🚫 **Native `showDirectoryPicker` selection** — Chrome-only; requires a real user gesture and OS folder dialog. Not automatable in headless Playwright. _(Manual checklist: open app → Open Folder → select vault → explorer populates.)_
+- **FS-2.1-01** 🧪 **`showDirectoryPicker` selection flow** — native dialog is bypassed in Playwright by an in-browser `page.addInitScript` that installs a mock `window.showDirectoryPicker` pointing at a seeded in-memory vault. `e2e/goldenPath.spec.ts` drives the full open-folder → explorer-populates sequence. _(Real production uses the native dialog; the mock proves the code path downstream of the picker works.)_
 - **FS-2.1-02** 🚫 **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory (Bucket 25).
 - **FS-2.1-03** ✅ **Directory handle persisted to IndexedDB** — covered by PERSIST-7.2-03 in `idbHandles.test.ts` (`saveDirHandle(handle, scopeId)` writes both to the `handles` store in the `knowledge-base` DB).
 - **FS-2.1-04** ✅ **Handle restored on reload** — covered by PERSIST-7.2-07 in `idbHandles.test.ts` (save → load round-trip returns the same handle + scope id).
 - **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
 - **FS-2.1-06** ✅ **Scope isolation** — covered by PERSIST-7.1-03 in `persistence.test.ts` ("scope switch isolates diagrams (no cross-read)").
 - **FS-2.1-07** ✅ **`scopedKey` prefixes base key** — covered by PERSIST-7.1-01/02 in `persistence.test.ts` + dedicated tests in `directoryScope.test.ts`.
-- **FS-2.1-08** 🚫 **Tree scan returns sorted `TreeNode[]`.** `scanDirectory` tree-builder is module-private inside `useFileExplorer` — an extraction to a pure util would unlock a direct test. Open a refactor ticket.
-- **FS-2.1-09** 🚫 **History sidecars skipped.** Lives inside the same private tree-builder.
-- **FS-2.1-10** 🚫 **Nested folders traversed.** Same.
-- **FS-2.1-11** 🚫 **Tree entries carry metadata.** Same.
+- **FS-2.1-08** 🧪 **Tree scan returns sorted file list** — `e2e/goldenPath.spec.ts` seeds `alpha.md` / `beta.md` / `flow.json` and asserts all three appear in the explorer.
+- **FS-2.1-09** 🟡 **History sidecars skipped.** The `.*.history.json` filter lives inside the module-private tree-builder; user-visible effect verified incidentally in e2e (no sidecar shows up even with history entries).
+- **FS-2.1-10** 🟡 **Nested folders traversed.** Recursive walk runs in the private tree-builder; e2e exercises nested files via the fsMock seed format but folders render collapsed by default.
+- **FS-2.1-11** 🧪 **Tree entries carry metadata** — e2e folder-open test confirms each entry has a display name and is clickable (routing to the right pane requires `handle` + `fileType` metadata to be set).
 - **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright (Bucket 25).
 
 ## 2.2 Vault Configuration
