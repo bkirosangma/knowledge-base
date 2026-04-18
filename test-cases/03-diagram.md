@@ -172,7 +172,7 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 ## 3.13 Properties Panel
 
 ### 3.13.a Container
-- **DIAG-3.13-01** ✅ **Collapse / expand panel** — toggle button updates `properties-collapsed` in localStorage; verified end-to-end. — e2e/diagramGoldenPath.spec.ts
+- **DIAG-3.13-01** ✅ **Collapse / expand panel** — toggle button updates `properties-collapsed` in localStorage; verified end-to-end. — e2e/diagramGoldenPath.spec.ts + unit: `DiagramView.test.tsx` (localStorage init on mount)
 - **DIAG-3.13-02** 🚫 **Tab switching reflects selection** — PropertiesPanel dispatches on `selection.type`; full switch coverage requires the full panel mount (deferred to integration).
 - **DIAG-3.13-03** 🟡 **Read-only disables editors** — verified at LayerProperties level: readOnly=true strictly reduces row count (ColorSchemeRow hidden, EditableIdRow/EditableRow replaced with plain Row). Analogous for Node/Line panels (not individually covered here).
 
@@ -222,6 +222,11 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 ### 3.13.f DocumentsSection
 - **DIAG-3.13-39** 🟡 **Lists attached docs** — `DocumentsSection` component is tested at the component level in `DocumentsSection.test.tsx`; wiring into the properties panel is canvas-level.
 - **DIAG-3.13-40** 🟡 **Click opens doc in other pane** — component's `onDocumentClick` callback tested; pane routing is canvas-level.
+
+### 3.13.g DiagramView lifecycle (unit layer)
+- **DIAG-3.13-41** ✅ **Component mounts without throwing** — DiagramView renders with minimal stub props in JSDOM. — `DiagramView.test.tsx`
+- **DIAG-3.13-42** ✅ **`onDiagramBridge` called on mount** — bridge effect fires on first render and publishes the bridge object to the shell. — `DiagramView.test.tsx`
+- **DIAG-3.13-43** ✅ **activeFile rerender is safe** — swapping the `activeFile` prop from null → a path does not throw. — `DiagramView.test.tsx`
 
 ## 3.14 Keyboard Shortcuts
 
