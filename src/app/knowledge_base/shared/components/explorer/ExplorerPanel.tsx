@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  ChevronLeft, ChevronRight, ChevronDown, FolderOpen, Folder, FileJson, FileText,
-  RefreshCw, FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
-  EllipsisVertical, ArrowUp, ArrowDown, Check,
+  ChevronLeft, ChevronRight, FolderOpen,
+  FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { ExplorerFilter } from "../../utils/types";
@@ -16,13 +15,6 @@ export type SortField = "name" | "created" | "modified";
 export type SortDirection = "asc" | "desc";
 export type SortGrouping = "folders-first" | "files-first" | "mixed";
 
-interface ExplorerContextMenu {
-  x: number;
-  y: number;
-  type: "file" | "folder";
-  path: string;
-  name: string;
-}
 
 interface ExplorerPanelProps {
   collapsed: boolean;
@@ -84,7 +76,7 @@ export default function ExplorerPanel({
   onFilterChange,
   onSelectDocument,
 }: ExplorerPanelProps) {
-  const [contextMenu, setContextMenu] = useState<ExplorerContextMenu | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editType, setEditType] = useState<"file" | "folder">("file");

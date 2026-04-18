@@ -72,7 +72,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **`isVaultDirectory`** — type guard on the `version` field.
 
 ### 2.3 File Explorer Panel
-`shared/components/explorer/ExplorerPanel.tsx`
+`shared/components/explorer/ExplorerPanel.tsx` — composition root that delegates to `TreeNodeRow.tsx` (recursive file/folder row renderer), `ExplorerHeader.tsx` (directory header + root drop target + ⋮ dot menu with Sort submenu + filter toggles), and `explorerTreeUtils.ts` (`sortTreeNodes` / `filterTreeNodes` pure helpers). Phase 1.4 (2026-04-18) reduced ExplorerPanel.tsx from 770 to 513 lines.
 - ✅ **Collapsible sidebar** — toggles between 36 px (icon-only) and 260 px (full) with animation.
 - ✅ **Tree rendering** — nested folders with chevrons, file icons by type (JSON/diagram vs text/doc), highlight on currently-open file.
 - ✅ **Sorting** — three fields (name, created, modified), two directions (asc/desc), three groupings (folders-first, files-first, mixed); preferences persisted to localStorage; recursive on nested folders.
