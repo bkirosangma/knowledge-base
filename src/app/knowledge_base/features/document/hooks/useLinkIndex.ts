@@ -4,11 +4,8 @@
 import { useState, useCallback } from "react";
 import type { LinkIndex, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
-import { readTextFile, writeTextFile, getSubdirectoryHandle } from "../../../shared/hooks/useFileExplorer";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
-
-const LINKS_FILE = "_links.json";
-const CONFIG_DIR = ".archdesigner";
+import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
 
 function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
@@ -83,31 +80,24 @@ export function useLinkIndex() {
   const [linkIndex, setLinkIndex] = useState<LinkIndex>(emptyIndex);
 
   const loadIndex = useCallback(async (rootHandle: FileSystemDirectoryHandle) => {
-    try {
-      const configDir = await getSubdirectoryHandle(rootHandle, CONFIG_DIR);
-      const fileHandle = await configDir.getFileHandle(LINKS_FILE);
-      const text = await readTextFile(fileHandle);
-      // Fix 3: Add JSON shape validation
-      const parsed = JSON.parse(text);
-      if (!parsed.documents || !parsed.backlinks) {
-        throw new Error("Invalid link index format");
-      }
-      setLinkIndex(parsed as LinkIndex);
-      return parsed as LinkIndex;
-    } catch {
-      const fresh = emptyIndex();
-      setLinkIndex(fresh);
-      return fresh;
+    const repo = createLinkIndexRepository(rootHandle);
+    const loaded = await repo.load();
+    if (loaded) {
+      setLinkIndex(loaded);
+      return loaded;
     }
+    const fresh = emptyIndex();
+    setLinkIndex(fresh);
+    return fresh;
   }, []);
 
   const saveIndex = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
     index: LinkIndex,
   ) => {
-    // Fix 1: Don't mutate the argument; clone with updated timestamp
+    const repo = createLinkIndexRepository(rootHandle);
     const updated = { ...index, updatedAt: new Date().toISOString() };
-    await writeTextFile(rootHandle, `${CONFIG_DIR}/${LINKS_FILE}`, JSON.stringify(updated, null, 2));
+    await repo.save(updated);
     setLinkIndex(updated);
   }, []);
 
@@ -173,17 +163,11 @@ export function useLinkIndex() {
     rootHandle: FileSystemDirectoryHandle,
     allDocPaths: string[],
   ) => {
+    const repo = createLinkIndexRepository(rootHandle);
     const index = emptyIndex();
     for (const docPath of allDocPaths) {
       try {
-        const parts = docPath.split("/");
-        let dirHandle = rootHandle;
-        for (const part of parts.slice(0, -1)) {
-          dirHandle = await dirHandle.getDirectoryHandle(part);
-        }
-        const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
-        const content = await readTextFile(fileHandle);
-        // Fix 2 & 4: use shared helpers
+        const content = await repo.readDocContent(docPath);
         const docDir = getDocDir(docPath);
         index.documents[docPath] = buildDocumentEntry(content, docDir);
       } catch {

@@ -65,7 +65,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **Tree scan** — recursive walk collecting `.json` (diagrams) and `.md` (documents); skips `.*.history.json` sidecars; returns sorted `TreeNode[]`.
 
 ### 2.2 Vault Configuration
-`features/document/utils/vaultConfig.ts`
+`features/document/utils/vaultConfig.ts` — low-level FS helpers. Phase 3a (2026-04-18) wrapped these behind the `VaultConfigRepository` interface (`domain/repositories.ts`) with a File System Access API implementation at `infrastructure/vaultConfigRepo.ts`; the shell calls `createVaultConfigRepository(rootHandle).read/init/touchLastOpened` instead of the utility functions directly. The same phase introduced `LinkIndexRepository` + `infrastructure/linkIndexRepo.ts` (consumed by `useLinkIndex`) — see `domain/repositories.ts` for the full interface set. DiagramRepository + DocumentRepository are Phase 3b.
 - ⚙️ **`initVault`** — creates `.archdesigner/config.json` with version, name, `created`, `lastOpened`.
 - ⚙️ **`readVaultConfig`** — returns parsed config or `null` if the folder is not a vault.
 - ⚙️ **`updateVaultLastOpened`** — touches `lastOpened` on open.
