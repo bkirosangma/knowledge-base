@@ -64,7 +64,9 @@ import type { DocumentMeta } from "../document/types";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
-import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
+import { Activity, Tag, Map as MapIcon } from "lucide-react";
+import AutoArrangeDropdown, { type ArrangeAlgorithm } from "./components/AutoArrangeDropdown";
+import { toggleClass } from "./utils/toolbarClass";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -93,58 +95,6 @@ export interface DiagramBridge {
   confirmAction: { type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null;
   setConfirmAction: React.Dispatch<React.SetStateAction<{ type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null>>;
 }
-
-type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
-
-function AutoArrangeDropdown({ onSelect }: { onSelect: (algo: ArrangeAlgorithm) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [open]);
-
-  const items: { key: ArrangeAlgorithm; label: string }[] = [
-    { key: "hierarchical-tb", label: "Hierarchical (Top \u2192 Bottom)" },
-    { key: "hierarchical-lr", label: "Hierarchical (Left \u2192 Right)" },
-    { key: "force", label: "Force-Directed" },
-  ];
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-        title="Auto Arrange"
-        onClick={() => setOpen(!open)}
-      >
-        <LayoutGrid size={16} />
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
-          {items.map((item) => (
-            <button
-              key={item.key}
-              className="block w-full text-left px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
-              onClick={() => { onSelect(item.key); setOpen(false); }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const toggleClass = (active: boolean) =>
-  `flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-    active ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
-  }`;
 
 export interface DiagramViewProps {
   focused: boolean;
