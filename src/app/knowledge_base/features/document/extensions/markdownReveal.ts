@@ -6,14 +6,10 @@
 import { Extension, Node as TiptapNode } from "@tiptap/react";
 import { getSplittedAttributes } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { DOMParser as PMDOMParser, Fragment } from "@tiptap/pm/model";
+import { DecorationSet } from "@tiptap/pm/view";
 import type {
-  Mark,
   Node as ProseMirrorNode,
-  Schema,
 } from "@tiptap/pm/model";
-import { markdownToHtml } from "./markdownSerializer";
 import {
   richBlockToRawFragment,
   rawBlockToRichNodes,
