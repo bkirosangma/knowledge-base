@@ -105,7 +105,7 @@ Top-level chrome that hosts every other feature.
 
 ## 3. Diagram Editor
 
-Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`.
+Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx` — a composition root that delegates to `components/DiagramOverlays.tsx` (properties panel + minimap + modals + context menus) and `components/AutoArrangeDropdown.tsx`, backed by state hooks `hooks/useDiagramLayoutState.ts` (toolbar toggles + localStorage-persisted properties-collapsed flag) and `hooks/useReadOnlyState.ts` (per-file Read Mode). Phase 1.1 (2026-04-18) reduced DiagramView from 1692 to 1475 lines; further canvas-subtree extraction deferred to a follow-up plan.
 
 ### 3.1 Data Model (`types.ts`)
 - ⚙️ **NodeData** — id, label, sublabel, icon name, position `(x, y)`, width `w`, optional `type`, custom colours (`borderColor`, `bgColor`, `textColor`), optional rotation, optional `shape: 'condition'`, optional `exits` and `size` for conditions.

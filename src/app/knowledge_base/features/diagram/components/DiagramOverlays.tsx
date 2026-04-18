@@ -83,7 +83,7 @@ export interface DiagramOverlaysProps {
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;
   setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>;
   setLayerDefs: React.Dispatch<React.SetStateAction<LayerDef[]>>;
-  setLayerManualSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
+  setLayerManualSizes: React.Dispatch<React.SetStateAction<Record<string, { left?: number; width?: number; top?: number; height?: number }>>>;
   setConnections: React.Dispatch<React.SetStateAction<Connection[]>>;
   setFlows: React.Dispatch<React.SetStateAction<FlowDef[]>>;
   setMeasuredSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
@@ -122,10 +122,10 @@ export interface DiagramOverlaysProps {
   handleRedo: () => void;
   handleGoToEntry: (index: number) => void;
   handleSelectFlow: (flowId: string) => void;
-  handleUpdateFlow: (flowId: string, updates: Partial<FlowDef>) => void;
+  handleUpdateFlow: (oldId: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
   handleDeleteFlow: (flowId: string) => void;
-  handleCreateFlow: () => void;
-  handleSelectLine: (id: string) => void;
+  handleCreateFlow: (connectionIds: string[]) => void;
+  handleSelectLine: (lineId: string) => void;
 
   // Utilities
   scheduleRecord: (description: string) => void;
