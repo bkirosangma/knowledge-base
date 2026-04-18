@@ -7,6 +7,7 @@ import { getConditionDimensions, getEffectiveConditionHeight } from "../utils/co
 import { clampNodePosition, type Rect } from "../utils/collisionUtils";
 import type { LevelMap } from "../utils/levelModel";
 import { snapToGrid } from "../utils/gridSnap";
+import { createConditionId } from "../utils/idFactory";
 import { GitBranch } from "lucide-react";
 
 type RegionBounds = { id: string; left: number; width: number; top: number; height: number; empty: boolean };
@@ -103,7 +104,7 @@ export function useAnchorConnections(
       condY = snapToGrid(clamped.y);
     }
 
-    const condId = `el-cond-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const condId = createConditionId();
     const newNode = {
       id: condId,
       label: "Condition",

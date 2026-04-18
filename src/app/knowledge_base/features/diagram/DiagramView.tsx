@@ -31,6 +31,7 @@ import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useSegmentDrag } from "./hooks/useSegmentDrag";
 import { computeLayout, type ArrangeAlgorithm } from "./utils/autoArrange";
+import { createLayerId } from "./utils/idFactory";
 import { useLineDrag } from "./hooks/useLineDrag";
 import { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
@@ -479,7 +480,7 @@ export default function DiagramView({
   );
 
   const handleCreateLayer = useCallback((layerTitle: string): string => {
-    const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newId = createLayerId();
     setLayerDefs((prev) => [...prev, { id: newId, title: layerTitle.toUpperCase(), bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
     setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: 0, width: 400, top: 0, height: 200 } }));
     scheduleRecord("Create layer from property");

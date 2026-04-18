@@ -7,6 +7,7 @@ import { findNonOverlappingLayerPosition, clampElementToAvoidLayerCollision } fr
 import { snapToGrid } from "../utils/gridSnap";
 import type { LevelMap } from "../utils/levelModel";
 import { predictLayerBounds } from "../utils/layerBounds";
+import { createElementId, createLayerId } from "../utils/idFactory";
 import type { ContextMenuTarget } from "../utils/geometry";
 
 type ManualSizes = Record<string, { left?: number; width?: number; top?: number; height?: number }>;
@@ -105,7 +106,7 @@ export function useContextMenuActions(
 
     finalX = snapToGrid(finalX);
     finalY = snapToGrid(finalY);
-    const newId = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newId = createElementId();
     setNodes((prev) => [...prev, { id: newId, label: "New Element", icon: Box, x: finalX, y: finalY, w: newW, layer: targetLayer }]);
     setSelection({ type: "node", id: newId });
     setContextMenu(null);
@@ -127,7 +128,7 @@ export function useContextMenuActions(
     const placeLeft = snapToGrid(pos.left);
     const placeTop = snapToGrid(pos.top);
 
-    const newId = `ly-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newId = createLayerId();
     setLayerDefs((prev) => [...prev, { id: newId, title: "NEW LAYER", bg: "#eff3f9", border: "#cdd6e4", textColor: "#334155" }]);
     setLayerManualSizes((prev) => ({ ...prev, [newId]: { left: placeLeft, width: snapToGrid(newW), top: placeTop, height: snapToGrid(newH) } }));
     setSelection({ type: "layer", id: newId });
