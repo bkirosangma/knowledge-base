@@ -64,6 +64,7 @@ import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 import { useReadOnlyState } from "./hooks/useReadOnlyState";
 import DiagramOverlays from "./components/DiagramOverlays";
+import DiagramLabelEditor from "./components/DiagramLabelEditor";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -1324,65 +1325,18 @@ export default function DiagramView({
               />
             )}
             {/* Inline label editor */}
-            {!readOnly && editingLabel && (() => {
-              let editX = 0, editY = 0;
-              if (editingLabel.type === "node") {
-                const n = nodes.find((nd) => nd.id === editingLabel.id);
-                if (n) { editX = n.x; editY = n.y; }
-              } else if (editingLabel.type === "layer") {
-                const r = regions.find((rg) => rg.id === editingLabel.id);
-                if (r) { editX = r.left + 12; editY = r.top + 12; }
-              } else if (editingLabel.type === "line") {
-                const line = lines.find((l) => l.id === editingLabel.id);
-                if (line) {
-                  const t = connections.find((c) => c.id === editingLabel.id)?.labelPosition ?? 0.5;
-                  const pts = line.points;
-                  if (pts.length >= 2) {
-                    let totalLen = 0;
-                    const segs: number[] = [];
-                    for (let i = 1; i < pts.length; i++) {
-                      const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
-                      segs.push(Math.sqrt(dx*dx + dy*dy));
-                      totalLen += segs[i-1];
-                    }
-                    const target = t * totalLen;
-                    let acc = 0;
-                    for (let i = 0; i < segs.length; i++) {
-                      if (acc + segs[i] >= target) {
-                        const f = (target - acc) / segs[i];
-                        editX = pts[i].x + (pts[i+1].x - pts[i].x) * f;
-                        editY = pts[i].y + (pts[i+1].y - pts[i].y) * f;
-                        break;
-                      }
-                      acc += segs[i];
-                    }
-                  }
-                }
-              }
-              const doCommit = () => commitLabel(editingLabel, editingLabelValue);
-              return (
-                <div
-                  className="absolute"
-                  style={{ left: editX, top: editY, transform: editingLabel.type === "node" ? "translate(-50%, -50%)" : undefined, zIndex: 60 }}
-                >
-                  <input
-                    autoFocus
-                    value={editingLabelValue}
-                    onChange={(e) => setEditingLabelValue(e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                    onBlur={doCommit}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                      else if (e.key === "Escape") { setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }
-                    }}
-                    maxLength={80}
-                    className="text-sm font-semibold bg-white/90 backdrop-blur-sm border-none outline-none px-1.5 py-0.5 rounded shadow-sm ring-1 ring-blue-300 focus:ring-2 focus:ring-blue-400 transition-shadow min-w-[60px]"
-                    style={{ width: Math.max(60, editingLabelValue.length * 8 + 16) }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  />
-                </div>
-              );
-            })()}
+            <DiagramLabelEditor
+              readOnly={readOnly}
+              editingLabel={editingLabel}
+              editingLabelValue={editingLabelValue}
+              setEditingLabelValue={setEditingLabelValue}
+              editingLabelBeforeRef={editingLabelBeforeRef}
+              commitLabel={commitLabel}
+              nodes={nodes}
+              regions={regions}
+              lines={lines}
+              connections={connections}
+            />
         </Canvas>
         </div>
         </div>
