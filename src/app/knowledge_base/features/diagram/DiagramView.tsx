@@ -7,11 +7,10 @@ import Canvas, {
   getWorldSize,
 } from "./components/Canvas";
 import Layer from "./components/Layer";
-import Element from "./components/Element";
-import DataLine, { interpolatePoints, closestT } from "./components/DataLine";
+import { interpolatePoints, closestT } from "./components/DataLine";
 import { rectsOverlap } from "./utils/collisionUtils";
 import FlowDots from "./components/FlowDots";
-import { getAnchorPosition, getAnchors, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "./utils/anchors";
+import { getAnchorPosition, getNodeAnchorPosition, getNodeAnchorDirection, getAnchorEdge } from "./utils/anchors";
 import { buildObstacles } from "./utils/orthogonalRouter";
 import { computePath } from "./utils/pathRouter";
 import { getNodeHeight } from "./utils/geometry";
@@ -44,8 +43,7 @@ import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
 import { useFooterContext } from "../../shell/FooterContext";
-import ConditionElement from "./components/ConditionElement";
-import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
+import { getConditionDimensions } from "./utils/conditionGeometry";
 import { loadDiagramFromData } from "../../shared/utils/persistence";
 import { useActionHistory } from "../../shared/hooks/useActionHistory";
 import type { DiagramSnapshot } from "../../shared/hooks/useActionHistory";
@@ -59,11 +57,13 @@ import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import { Activity, Tag, Map as MapIcon } from "lucide-react";
 import AutoArrangeDropdown from "./components/AutoArrangeDropdown";
-import type { ArrangeAlgorithm } from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 import { useReadOnlyState } from "./hooks/useReadOnlyState";
 import DiagramOverlays from "./components/DiagramOverlays";
+import DiagramLabelEditor from "./components/DiagramLabelEditor";
+import DiagramNodeLayer from "./components/DiagramNodeLayer";
+import DiagramLinesOverlay from "./components/DiagramLinesOverlay";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -953,74 +953,39 @@ export default function DiagramView({
             })}
 
             {/* SVG Lines */}
-            <svg
-              className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
-              style={{ zIndex: 5, left: world.x, top: world.y, width: world.w, height: world.h }}
-              viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
-            >
-              {sortedLines.map((line) => {
-                const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id)) || (typeDimSets != null && !typeDimSets.connIds.has(line.id));
-                return (
-                  <DataLine
-                    key={line.id}
-                    {...line}
-                    isOrthogonal={lineCurve === "orthogonal" || !lineCurve}
-                    onSegmentDragStart={readOnly ? undefined : handleSegmentDragStart}
-                    isLive={isLive}
-                    isHovered={hoveredLine?.id === line.id}
-                    showLabels={showLabels}
-                    isDraggingEndpoint={isBeingDragged}
-                    isSelected={isItemSelected(selection, 'line', line.id)}
-                    dimmed={dimmed}
-                    suppressLabel={showLabels}
-                    onHoverStart={(id, label, x, y) => { setHoveredLine({ id, label, x, y }); }}
-                    onHoverMove={(id, x, y) => { setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev)); }}
-                    onHoverEnd={() => { setHoveredLine((prev) => prev?.id === line.id ? null : prev); }}
-                    onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; if (readOnly) return; handleLineClick(id, e); }}
-                    onLabelPositionChange={(connId, t) => {
-                      if (readOnly) return;
-                      if (labelDragStartT.current === null) {
-                        const conn = connections.find((c) => c.id === connId);
-                        labelDragStartT.current = conn?.labelPosition ?? 0.5;
-                      }
-                      setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, labelPosition: t } : c));
-                    }}
-                    onLabelDragEnd={(connId) => {
-                      if (readOnly) return;
-                      const conn = connections.find((c) => c.id === connId);
-                      const endT = conn?.labelPosition ?? 0.5;
-                      if (labelDragStartT.current !== null && endT !== labelDragStartT.current) {
-                        scheduleRecord("Move label");
-                      }
-                      labelDragStartT.current = null;
-                    }}
-                    onDoubleClick={(connId) => {
-                      if (readOnly) return;
-                      const conn = connections.find((c) => c.id === connId);
-                      if (conn) {
-                        setEditingLabel({ type: "line", id: connId });
-                        setEditingLabelValue(conn.label);
-                        editingLabelBeforeRef.current = conn.label;
-                      }
-                    }}
-                    hasDocuments={hasDocuments("connection", line.id)}
-                    documentPaths={getDocumentsForEntity("connection", line.id).map(d => d.filename)}
-                    onDocNavigate={onOpenDocument}
-                  />
-                );
-              })}
-              {ghostLine && (() => {
-                const hasSnap = !!(draggingEndpoint?.snappedAnchor || creatingLine?.snappedAnchor);
-                return (
-                <g>
-                  <line x1={ghostLine.fromPos.x} y1={ghostLine.fromPos.y} x2={ghostLine.toPos.x} y2={ghostLine.toPos.y} stroke={ghostLine.color} strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
-                  <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-                  <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-                </g>
-                );
-              })()}
-            </svg>
+            <DiagramLinesOverlay
+              sortedLines={sortedLines}
+              connections={connections}
+              selection={selection}
+              world={world}
+              isZooming={isZooming}
+              lineCurve={lineCurve}
+              readOnly={readOnly}
+              isLive={isLive}
+              showLabels={showLabels}
+              hoveredLine={hoveredLine}
+              draggingEndpoint={draggingEndpoint}
+              creatingLine={creatingLine}
+              draggingId={draggingId}
+              draggingLayerId={draggingLayerId}
+              isMultiDrag={isMultiDrag}
+              flowDimSets={flowDimSets}
+              typeDimSets={typeDimSets}
+              ghostLine={ghostLine}
+              pendingSelection={pendingSelection}
+              labelDragStartT={labelDragStartT}
+              editingLabelBeforeRef={editingLabelBeforeRef}
+              setHoveredLine={setHoveredLine}
+              handleSegmentDragStart={handleSegmentDragStart}
+              handleLineClick={handleLineClick}
+              setConnections={setConnections}
+              scheduleRecord={scheduleRecord}
+              setEditingLabel={setEditingLabel}
+              setEditingLabelValue={setEditingLabelValue}
+              hasDocuments={hasDocuments}
+              getDocumentsForEntity={getDocumentsForEntity}
+              onOpenDocument={onOpenDocument}
+            />
 
             {/* Animated flow dots */}
             {(() => {
@@ -1044,152 +1009,41 @@ export default function DiagramView({
             })()}
 
             {/* Nodes */}
-            {displayNodes.map((node) => {
-              const isThisSingleDragged = draggingId === node.id;
-              const isThisMultiDragged = isMultiDrag && multiDragIds.includes(node.id);
-              const isThisDragged = isThisSingleDragged || isThisMultiDragged;
-              const dims = getNodeDimensions(node);
-              const isCondition = node.shape === "condition";
-              const anchors = isCondition
-                ? getConditionAnchors(node.x, node.y, dims.w, dims.h, node.conditionOutCount ?? 2, node.rotation ?? 0).map((a) => ({ id: a.id as import("./utils/anchors").AnchorId, x: a.x, y: a.y }))
-                : getAnchors(node.x, node.y, dims.w, dims.h);
-              const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id
-                || creatingLine?.snappedAnchor?.nodeId === node.id;
-
-              let dimmed = false;
-              let showAnchors = hoveredNodeId === node.id;
-              if (draggingEndpoint) {
-                const dragConn = connections.find((c) => c.id === draggingEndpoint.connectionId);
-                const fixedNodeId = dragConn ? (draggingEndpoint.end === "from" ? dragConn.to : dragConn.from) : null;
-                dimmed = node.id !== fixedNodeId && hoveredNodeId !== node.id;
-                showAnchors = hoveredNodeId === node.id;
-              }
-              if (creatingLine) {
-                dimmed = node.id !== creatingLine.fromNodeId && hoveredNodeId !== node.id;
-                showAnchors = hoveredNodeId === node.id || node.id === creatingLine.fromNodeId;
-              }
-              if (draggingId || isMultiDrag) { showAnchors = false; if (!isThisDragged) dimmed = true; }
-              const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
-              if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
-              if (flowDimSets != null && !flowDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
-              if (typeDimSets != null && !typeDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
-              if (readOnly) { showAnchors = false; }
-
-              let visualX = node.x;
-              let visualY = node.y;
-              if (isThisSingleDragged && elementDragPos) {
-                visualX = elementDragPos.x;
-                visualY = elementDragPos.y;
-              } else if (isThisMultiDragged && multiDragDelta) {
-                visualX = node.x + multiDragDelta.dx;
-                visualY = node.y + multiDragDelta.dy;
-              } else if (isInDraggedLayer && layerDragDelta) {
-                visualX = node.x + layerDragDelta.dx;
-                visualY = node.y + layerDragDelta.dy;
-              }
-
-              const commonProps = {
-                isDragging: isThisDragged,
-                isSelected: isItemSelected(selection, 'node', node.id),
-                showAnchors,
-                highlightedAnchor: isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null,
-                onAnchorDragStart: handleAnchorDragStart,
-                onAnchorHover: handleAnchorHover,
-                onAnchorHoverEnd: handleAnchorHoverEnd,
-                onResize: handleElementResize,
-                onMouseEnter: handleNodeMouseEnter,
-                onMouseLeave: handleNodeMouseLeave,
-                dimmed,
-                onDoubleClick: handleNodeDoubleClick,
-              };
-
-              if (isCondition) {
-                const condDims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
-                return (
-                  <React.Fragment key={node.id}>
-                    {isThisSingleDragged && elementDragRawPos && (
-                      <ConditionElement
-                        id={`${node.id}-ghost`}
-                        label={node.label}
-                        icon={node.icon}
-                        x={elementDragRawPos.x}
-                        y={elementDragRawPos.y}
-                        w={condDims.w}
-                        h={condDims.h}
-                        outCount={node.conditionOutCount ?? 2}
-                        rotation={node.rotation ?? 0}
-                        showLabels
-                        dimmed
-                      />
-                    )}
-                    {isThisMultiDragged && multiDragRawDelta && (
-                      <ConditionElement
-                        id={`${node.id}-ghost`}
-                        label={node.label}
-                        icon={node.icon}
-                        x={node.x + multiDragRawDelta.dx}
-                        y={node.y + multiDragRawDelta.dy}
-                        w={condDims.w}
-                        h={condDims.h}
-                        outCount={node.conditionOutCount ?? 2}
-                        rotation={node.rotation ?? 0}
-                        showLabels
-                        dimmed
-                      />
-                    )}
-                    <ConditionElement
-                      id={node.id}
-                      label={node.label}
-                      icon={node.icon}
-                      x={visualX}
-                      y={visualY}
-                      w={condDims.w}
-                      h={condDims.h}
-                      outCount={node.conditionOutCount ?? 2}
-                      rotation={node.rotation ?? 0}
-                      showLabels
-                      onDragStart={handleNodeDragStart}
-                      {...commonProps}
-                      onAddOutAnchor={readOnly ? undefined : () => {
-                        setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
-                        scheduleRecord("Add out anchor");
-                      }}
-                      onRotationDragStart={readOnly ? undefined : handleRotationDragStart}
-                      borderColor={node.borderColor}
-                      bgColor={node.bgColor}
-                      textColor={node.textColor}
-                      hasDocuments={hasDocuments("node", node.id)}
-                      documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                      onDocNavigate={onOpenDocument}
-                    />
-                  </React.Fragment>
-                );
-              }
-
-              return (
-                <React.Fragment key={node.id}>
-                  {isThisSingleDragged && elementDragRawPos && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels dimmed measuredHeight={dims.h} />
-                  )}
-                  {isThisMultiDragged && multiDragRawDelta && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels dimmed measuredHeight={dims.h} />
-                  )}
-                  <Element
-                    {...node}
-                    x={visualX}
-                    y={visualY}
-                    showLabels
-                    onDragStart={handleNodeDragStart}
-                    {...commonProps}
-                    anchors={anchors}
-                    measuredHeight={dims.h}
-                    hasDocuments={hasDocuments("node", node.id)}
-                    documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                    onDocNavigate={onOpenDocument}
-                  />
-                </React.Fragment>
-              );
-            })}
+            <DiagramNodeLayer
+              displayNodes={displayNodes}
+              connections={connections}
+              selection={selection}
+              draggingId={draggingId}
+              elementDragPos={elementDragPos}
+              elementDragRawPos={elementDragRawPos}
+              isMultiDrag={isMultiDrag}
+              multiDragIds={multiDragIds}
+              multiDragDelta={multiDragDelta}
+              multiDragRawDelta={multiDragRawDelta}
+              draggingLayerIds={draggingLayerIds}
+              layerDragDelta={layerDragDelta}
+              draggingEndpoint={draggingEndpoint}
+              creatingLine={creatingLine}
+              hoveredNodeId={hoveredNodeId}
+              readOnly={readOnly}
+              flowDimSets={flowDimSets}
+              typeDimSets={typeDimSets}
+              handleAnchorDragStart={handleAnchorDragStart}
+              handleAnchorHover={handleAnchorHover}
+              handleAnchorHoverEnd={handleAnchorHoverEnd}
+              handleElementResize={handleElementResize}
+              handleNodeMouseEnter={handleNodeMouseEnter}
+              handleNodeMouseLeave={handleNodeMouseLeave}
+              handleNodeDoubleClick={handleNodeDoubleClick}
+              handleNodeDragStart={handleNodeDragStart}
+              handleRotationDragStart={handleRotationDragStart}
+              setNodes={setNodes}
+              scheduleRecord={scheduleRecord}
+              getNodeDimensions={getNodeDimensions}
+              hasDocuments={hasDocuments}
+              getDocumentsForEntity={getDocumentsForEntity}
+              onOpenDocument={onOpenDocument}
+            />
             {/* Data line label overlay */}
             {showLabels && (
               <svg
@@ -1324,65 +1178,18 @@ export default function DiagramView({
               />
             )}
             {/* Inline label editor */}
-            {!readOnly && editingLabel && (() => {
-              let editX = 0, editY = 0;
-              if (editingLabel.type === "node") {
-                const n = nodes.find((nd) => nd.id === editingLabel.id);
-                if (n) { editX = n.x; editY = n.y; }
-              } else if (editingLabel.type === "layer") {
-                const r = regions.find((rg) => rg.id === editingLabel.id);
-                if (r) { editX = r.left + 12; editY = r.top + 12; }
-              } else if (editingLabel.type === "line") {
-                const line = lines.find((l) => l.id === editingLabel.id);
-                if (line) {
-                  const t = connections.find((c) => c.id === editingLabel.id)?.labelPosition ?? 0.5;
-                  const pts = line.points;
-                  if (pts.length >= 2) {
-                    let totalLen = 0;
-                    const segs: number[] = [];
-                    for (let i = 1; i < pts.length; i++) {
-                      const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
-                      segs.push(Math.sqrt(dx*dx + dy*dy));
-                      totalLen += segs[i-1];
-                    }
-                    const target = t * totalLen;
-                    let acc = 0;
-                    for (let i = 0; i < segs.length; i++) {
-                      if (acc + segs[i] >= target) {
-                        const f = (target - acc) / segs[i];
-                        editX = pts[i].x + (pts[i+1].x - pts[i].x) * f;
-                        editY = pts[i].y + (pts[i+1].y - pts[i].y) * f;
-                        break;
-                      }
-                      acc += segs[i];
-                    }
-                  }
-                }
-              }
-              const doCommit = () => commitLabel(editingLabel, editingLabelValue);
-              return (
-                <div
-                  className="absolute"
-                  style={{ left: editX, top: editY, transform: editingLabel.type === "node" ? "translate(-50%, -50%)" : undefined, zIndex: 60 }}
-                >
-                  <input
-                    autoFocus
-                    value={editingLabelValue}
-                    onChange={(e) => setEditingLabelValue(e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                    onBlur={doCommit}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                      else if (e.key === "Escape") { setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }
-                    }}
-                    maxLength={80}
-                    className="text-sm font-semibold bg-white/90 backdrop-blur-sm border-none outline-none px-1.5 py-0.5 rounded shadow-sm ring-1 ring-blue-300 focus:ring-2 focus:ring-blue-400 transition-shadow min-w-[60px]"
-                    style={{ width: Math.max(60, editingLabelValue.length * 8 + 16) }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  />
-                </div>
-              );
-            })()}
+            <DiagramLabelEditor
+              readOnly={readOnly}
+              editingLabel={editingLabel}
+              editingLabelValue={editingLabelValue}
+              setEditingLabelValue={setEditingLabelValue}
+              editingLabelBeforeRef={editingLabelBeforeRef}
+              commitLabel={commitLabel}
+              nodes={nodes}
+              regions={regions}
+              lines={lines}
+              connections={connections}
+            />
         </Canvas>
         </div>
         </div>
