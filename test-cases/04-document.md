@@ -139,6 +139,9 @@
 - **DOC-4.5-21** 🚫 **Hovering cell shows "N × M table".** Same.
 - **DOC-4.5-22** 🚫 **Click inserts table of chosen dims.** Same.
 - **DOC-4.5-23** 🚫 **Table picker disabled when cursor already in table.** Same.
+- **DOC-4.5-24** ✅ **Typing in WYSIWYG mode fires a debounced `onChange`.** — `MarkdownEditor.test.tsx` drives a toolbar transaction and asserts `onChange` is called with a string after 300ms.
+- **DOC-4.5-25** ✅ **Unmounting the editor flushes a pending `onChange` synchronously.** — `MarkdownEditor.test.tsx` triggers a transaction then unmounts before debounce fires; asserts flush happened.
+- **DOC-4.5-26** 🚫 **External content prop change does NOT echo back to `onChange`.** — Pre-existing bug: Tiptap's `setContent` defaults to `emitUpdate: true`, causing an echo that would create an infinite save loop. Fix: pass `{ emitUpdate: false }` to `editor.commands.setContent`. Test written but skipped; assertion documents the correct contract.
 
 ## 4.6 Table Floating Toolbar
 
