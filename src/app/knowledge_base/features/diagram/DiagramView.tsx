@@ -19,7 +19,6 @@ import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity }
 import type { LineCurveAlgorithm, Selection, FlowDef } from "./types";
 import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
-import PropertiesPanel from "./properties/PropertiesPanel";
 import { loadDefaults, serializeNodes } from "../../shared/utils/persistence";
 import { computeLevelMap } from "./utils/levelModel";
 import { computeRegions } from "./utils/layerBounds";
@@ -34,12 +33,10 @@ import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useSegmentDrag } from "./hooks/useSegmentDrag";
 import { hierarchicalLayout, forceDirectedLayout } from "./utils/autoArrange";
 import { useLineDrag } from "./hooks/useLineDrag";
-import Minimap from "./components/Minimap";
-import ContextMenu, { type ContextMenuTarget } from "./components/ContextMenu";
+import { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
 import { useDeletion, type PendingDeletion } from "./hooks/useDeletion";
-import { findBrokenFlowsByReconnect } from "./utils/flowUtils";
 import { useFlowManagement } from "./hooks/useFlowManagement";
 import { useLabelEditing } from "./hooks/useLabelEditing";
 import { useAnchorConnections } from "./hooks/useAnchorConnections";
@@ -47,9 +44,7 @@ import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
 import { detectContextMenuTarget } from "./utils/geometry";
 import { useFooterContext } from "../../shell/FooterContext";
-import AnchorPopupMenu from "./components/AnchorPopupMenu";
 import ConditionElement from "./components/ConditionElement";
-import FlowBreakWarningModal from "./components/FlowBreakWarningModal";
 import { getConditionAnchors, getConditionDimensions } from "./utils/conditionGeometry";
 import { loadDiagramFromData } from "../../shared/utils/persistence";
 import { useActionHistory } from "../../shared/hooks/useActionHistory";
@@ -57,14 +52,18 @@ import type { DiagramSnapshot } from "../../shared/hooks/useActionHistory";
 import { useSyncRef } from "../../shared/hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
-import DocumentPicker from "../../shared/components/DocumentPicker";
 import PaneHeader from "../../shared/components/PaneHeader";
 import PaneTitle from "../../shared/components/PaneTitle";
 import type { DocumentMeta } from "../document/types";
-import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
-import { Activity, Tag, Map as MapIcon, LayoutGrid } from "lucide-react";
+import { Activity, Tag, Map as MapIcon } from "lucide-react";
+import AutoArrangeDropdown from "./components/AutoArrangeDropdown";
+import type { ArrangeAlgorithm } from "./components/AutoArrangeDropdown";
+import { toggleClass } from "./utils/toolbarClass";
+import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
+import { useReadOnlyState } from "./hooks/useReadOnlyState";
+import DiagramOverlays from "./components/DiagramOverlays";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -93,58 +92,6 @@ export interface DiagramBridge {
   confirmAction: { type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null;
   setConfirmAction: React.Dispatch<React.SetStateAction<{ type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null>>;
 }
-
-type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
-
-function AutoArrangeDropdown({ onSelect }: { onSelect: (algo: ArrangeAlgorithm) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [open]);
-
-  const items: { key: ArrangeAlgorithm; label: string }[] = [
-    { key: "hierarchical-tb", label: "Hierarchical (Top \u2192 Bottom)" },
-    { key: "hierarchical-lr", label: "Hierarchical (Left \u2192 Right)" },
-    { key: "force", label: "Force-Directed" },
-  ];
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-        title="Auto Arrange"
-        onClick={() => setOpen(!open)}
-      >
-        <LayoutGrid size={16} />
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
-          {items.map((item) => (
-            <button
-              key={item.key}
-              className="block w-full text-left px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
-              onClick={() => { onSelect(item.key); setOpen(false); }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const toggleClass = (active: boolean) =>
-  `flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-    active ? "bg-white shadow-sm text-blue-600 border border-slate-200" : "text-slate-500 hover:text-slate-700 border border-transparent"
-  }`;
 
 export interface DiagramViewProps {
   focused: boolean;
@@ -182,39 +129,13 @@ export default function DiagramView({
   onDiagramBridge,
 }: DiagramViewProps) {
   // ─── Diagram State ───
-  const [isLive, setIsLive] = useState(false);
-  const [showLabels, setShowLabels] = useState(true);
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [historyCollapsed, setHistoryCollapsed] = useState(true);
-  const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("properties-collapsed") === "true";
-  });
-  const toggleProperties = useCallback(() => {
-    setPropertiesCollapsed((c) => {
-      const next = !c;
-      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, []);
+  const {
+    state: { isLive, showLabels, showMinimap, historyCollapsed, propertiesCollapsed },
+    actions: { setIsLive, setShowLabels, setShowMinimap, setHistoryCollapsed, toggleProperties },
+  } = useDiagramLayoutState();
 
-  // Per-file Read Mode state. Read from localStorage keyed by activeFile
-  // on mount and whenever the active file changes (split-pane switch, refresh restore).
-  const storageKey = activeFile ? `diagram-read-only:${activeFile}` : null;
-  const [readOnly, setReadOnly] = useState(false);
-  useEffect(() => {
-    if (!storageKey || typeof window === "undefined") { setReadOnly(false); return; }
-    setReadOnly(localStorage.getItem(storageKey) === "true");
-  }, [storageKey]);
-  const toggleReadOnly = useCallback(() => {
-    setReadOnly((v) => {
-      const next = !v;
-      if (storageKey) {
-        try { localStorage.setItem(storageKey, String(next)); } catch { /* ignore */ }
-      }
-      return next;
-    });
-  }, [storageKey]);
+  // Per-file Read Mode state. Persisted to localStorage keyed by activeFile.
+  const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile);
 
   // Clear stale overlays when entering Read Mode so nothing lingers.
   useEffect(() => {
@@ -1469,223 +1390,85 @@ export default function DiagramView({
 
       </div>
 
-      {/* Context Menu */}
-      {!readOnly && contextMenu && (
-        <ContextMenu
-          x={contextMenu.clientX}
-          y={contextMenu.clientY}
-          target={contextMenu.target}
-          onAddElement={handleAddElement}
-          onAddLayer={handleAddLayer}
-          onDeleteElement={(nodeId) => { const p = deleteSelection({ type: 'node', id: nodeId }); if (p) setPendingDeletion(p); }}
-          onDeleteLayer={(layerId) => { const p = deleteSelection({ type: 'layer', id: layerId }); if (p) setPendingDeletion(p); }}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {!readOnly && anchorPopup && (
-        <AnchorPopupMenu
-          x={anchorPopup.clientX}
-          y={anchorPopup.clientY}
-          sourceNodeId={anchorPopup.nodeId}
-          nodes={nodes}
-          onClose={() => setAnchorPopup(null)}
-          onConnectToElement={handleAnchorConnectToElement}
-          onCreateCondition={handleAnchorCreateCondition}
-          onConnectToType={handleAnchorConnectToType}
-          anchorEdge={anchorPopup.edge}
-          onMenuEnter={handleAnchorMenuEnter}
-          onMenuLeave={handleAnchorMenuLeave}
-        />
-      )}
-
-      {/* Properties Panel */}
-      <PropertiesPanel
-        collapsed={propertiesCollapsed}
-        onToggleCollapse={toggleProperties}
+      <DiagramOverlays
+        activeFile={activeFile}
         readOnly={readOnly}
         selection={selection}
         title={title}
         nodes={nodes}
         connections={connections}
-        regions={regions}
-        layerDefs={layerDefs}
-        levelMap={levelMap}
-        onSelectLayer={(layerId) => {
-          setSelection({ type: 'layer', id: layerId });
-          const region = regions.find((r) => r.id === layerId);
-          if (region) scrollToRect({ x: region.left, y: region.top, w: region.width, h: region.height });
-        }}
-        onSelectNode={(nodeId) => {
-          setSelection({ type: 'node', id: nodeId });
-          const node = nodes.find((n) => n.id === nodeId);
-          if (node) {
-            const dims = getNodeDimensions(node);
-            scrollToRect({ x: node.x - dims.w / 2, y: node.y - dims.h / 2, w: dims.w, h: dims.h });
-          }
-        }}
-        onUpdateTitle={(t) => { setTitle(t); scheduleRecord("Edit title"); }}
-        onUpdateNode={(oldId, updates) => {
-          const newId = updates.id;
-          setNodes((prev) => prev.map((n) => n.id === oldId ? { ...n, ...updates } : n));
-          if (newId && newId !== oldId) {
-            setConnections((prev) => prev.map((c) => ({
-              ...c,
-              from: c.from === oldId ? newId : c.from,
-              to: c.to === oldId ? newId : c.to,
-            })));
-            setMeasuredSizes((prev) => {
-              if (!(oldId in prev)) return prev;
-              const { [oldId]: val, ...rest } = prev;
-              return { ...rest, [newId]: val };
-            });
-            setSelection({ type: 'node', id: newId });
-          }
-          const editLabel = nodes.find(n => n.id === oldId)?.shape === "condition" ? "Edit conditional" : "Edit element";
-          scheduleRecord(editLabel);
-        }}
-        onUpdateLayer={(oldId, updates) => {
-          const newId = updates.id;
-          setLayerDefs((prev) => prev.map((l) => l.id === oldId ? { ...l, ...updates } : l));
-          if (newId && newId !== oldId) {
-            setNodes((prev) => prev.map((n) => n.layer === oldId ? { ...n, layer: newId } : n));
-            setLayerManualSizes((prev) => {
-              if (!(oldId in prev)) return prev;
-              const { [oldId]: val, ...rest } = prev;
-              return { ...rest, [newId]: val };
-            });
-            setSelection({ type: 'layer', id: newId });
-          }
-          scheduleRecord("Edit layer");
-        }}
-        onUpdateConnection={(oldId, updates) => {
-          const newId = updates.id;
-          if (updates.from !== undefined || updates.to !== undefined) {
-            const broken = findBrokenFlowsByReconnect(flows, oldId, updates.from as string | undefined, updates.to as string | undefined, connections);
-            if (broken.length > 0) {
-              setPendingReconnect({ oldId, updates, brokenFlows: broken });
-              return;
-            }
-          }
-          setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
-          if (newId && newId !== oldId) {
-            setFlows((prev) => prev.map((f) => ({
-              ...f,
-              connectionIds: f.connectionIds.map((cid) => cid === oldId ? newId : cid),
-            })));
-            setSelection({ type: 'line', id: newId });
-          }
-          scheduleRecord("Edit connection");
-        }}
-        lineCurve={lineCurve}
-        onUpdateLineCurve={(alg) => { setLineCurve(alg); scheduleRecord("Change line curve"); }}
         flows={flows}
-        onSelectFlow={handleSelectFlow}
-        onHoverFlow={setHoveredFlowId}
-        onUpdateFlow={handleUpdateFlow}
-        onDeleteFlow={handleDeleteFlow}
-        onCreateFlow={handleCreateFlow}
-        onSelectLine={handleSelectLine}
-        onCreateLayer={handleCreateLayer}
-        onDeleteAnchor={handleDeleteAnchor}
-        onSelectType={handleSelectType}
-        onHoverType={setHoveredType}
-        expandedType={expandedTypeInPanel}
-        onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
+        layerDefs={layerDefs}
+        displayNodes={displayNodes}
+        regions={regions}
+        levelMap={levelMap}
+        lineCurve={lineCurve}
+        measuredSizes={measuredSizes}
+        propertiesCollapsed={propertiesCollapsed}
+        historyCollapsed={historyCollapsed}
+        showMinimap={showMinimap}
+        showLabels={showLabels}
+        expandedTypeInPanel={expandedTypeInPanel}
+        contextMenu={contextMenu}
+        anchorPopup={anchorPopup}
+        hoveredLine={hoveredLine}
+        pendingDeletion={pendingDeletion}
+        pendingReconnect={pendingReconnect}
+        pickerTarget={pickerTarget}
+        canvasRef={canvasRef}
+        zoomRef={zoomRef}
+        world={world}
         backlinks={backlinks}
+        documents={documents}
+        fileExplorer={fileExplorer}
         onOpenDocument={onOpenDocument}
-        history={activeFile ? {
-          entries: history.entries,
-          currentIndex: history.currentIndex,
-          savedIndex: history.savedIndex,
-          canUndo: history.canUndo,
-          canRedo: history.canRedo,
-          onUndo: handleUndo,
-          onRedo: handleRedo,
-          onGoToEntry: handleGoToEntry,
-          collapsed: historyCollapsed,
-          onToggleCollapse: () => setHistoryCollapsed((c) => !c),
-        } : undefined}
+        onAttachDocument={onAttachDocument}
+        onCreateDocument={onCreateDocument}
+        history={history}
+        setSelection={setSelection}
+        setNodes={setNodes}
+        setLayerDefs={setLayerDefs}
+        setLayerManualSizes={setLayerManualSizes}
+        setConnections={setConnections}
+        setFlows={setFlows}
+        setMeasuredSizes={setMeasuredSizes}
+        setTitle={setTitle}
+        setLineCurve={setLineCurve}
+        setPendingDeletion={setPendingDeletion}
+        setPendingReconnect={setPendingReconnect}
+        setPickerTarget={setPickerTarget}
+        setContextMenu={setContextMenu}
+        setAnchorPopup={setAnchorPopup}
+        setHoveredFlowId={setHoveredFlowId}
+        setHoveredType={setHoveredType}
+        setExpandedTypeInPanel={setExpandedTypeInPanel}
+        setHistoryCollapsed={setHistoryCollapsed}
+        toggleProperties={toggleProperties}
+        handleAddElement={handleAddElement}
+        handleAddLayer={handleAddLayer}
+        deleteSelection={deleteSelection}
+        confirmDeletion={confirmDeletion}
+        handleAnchorConnectToElement={handleAnchorConnectToElement}
+        handleAnchorCreateCondition={handleAnchorCreateCondition}
+        handleAnchorConnectToType={handleAnchorConnectToType}
+        handleAnchorMenuEnter={handleAnchorMenuEnter}
+        handleAnchorMenuLeave={handleAnchorMenuLeave}
+        handleCreateLayer={handleCreateLayer}
+        handleDeleteAnchor={handleDeleteAnchor}
+        handleSelectType={handleSelectType}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+        handleGoToEntry={handleGoToEntry}
+        handleSelectFlow={handleSelectFlow}
+        handleUpdateFlow={handleUpdateFlow}
+        handleDeleteFlow={handleDeleteFlow}
+        handleCreateFlow={handleCreateFlow}
+        handleSelectLine={handleSelectLine}
+        scheduleRecord={scheduleRecord}
+        scrollToRect={scrollToRect}
+        getNodeDimensions={getNodeDimensions}
+        getDocumentsForEntity={getDocumentsForEntity}
       />
-
-      {/* Minimap */}
-      {showMinimap && activeFile && (
-        <div className="absolute bottom-4 left-4 z-30">
-          <Minimap
-            world={world}
-            viewportRef={canvasRef}
-            regions={regions}
-            nodes={displayNodes}
-            zoomRef={zoomRef}
-          />
-        </div>
-      )}
-
-      {/* Tooltip */}
-      {hoveredLine && !showLabels && (
-        <div
-          className="fixed z-50 bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-full"
-          style={{ left: hoveredLine.x, top: hoveredLine.y - 15 }}
-        >
-          {hoveredLine.label}
-        </div>
-      )}
-
-      {pendingDeletion && (
-        <FlowBreakWarningModal
-          description="The following flows will be deleted because their connections would no longer be contiguous:"
-          brokenFlows={pendingDeletion.brokenFlows}
-          onCancel={() => setPendingDeletion(null)}
-          onConfirm={() => { confirmDeletion(pendingDeletion); setPendingDeletion(null); }}
-        />
-      )}
-
-      {pendingReconnect && (
-        <FlowBreakWarningModal
-          description="Reconnecting this endpoint will break the contiguity of these flows, which will be deleted:"
-          brokenFlows={pendingReconnect.brokenFlows}
-          onCancel={() => setPendingReconnect(null)}
-          onConfirm={() => {
-            const { oldId, updates, brokenFlows } = pendingReconnect;
-            const brokenIds = new Set(brokenFlows.map((f) => f.id));
-            setConnections((prev) => prev.map((c) => c.id === oldId ? { ...c, ...updates } : c));
-            setFlows((prev) => prev.filter((f) => !brokenIds.has(f.id)));
-            scheduleRecord("Edit connection");
-            setPendingReconnect(null);
-          }}
-        />
-      )}
-
-      {/* Document Picker */}
-      {pickerTarget && (
-        <DocumentPicker
-          allDocPaths={
-            (() => {
-              const paths: string[] = [];
-              const walk = (items: TreeNode[]) => {
-                for (const item of items) {
-                  if (item.type === "file" && item.name.endsWith(".md")) paths.push(item.path);
-                  if (item.children) walk(item.children);
-                }
-              };
-              walk(fileExplorer.tree);
-              return paths;
-            })()
-          }
-          attachedPaths={getDocumentsForEntity(pickerTarget.type, pickerTarget.id).map(d => d.filename)}
-          onAttach={(path) => {
-            onAttachDocument(path, pickerTarget.type, pickerTarget.id);
-          }}
-          onCreate={async (path) => {
-            const rootHandle = fileExplorer.dirHandleRef.current;
-            if (rootHandle) {
-              await onCreateDocument(rootHandle, path);
-              onAttachDocument(path, pickerTarget.type, pickerTarget.id);
-            }
-          }}
-          onClose={() => setPickerTarget(null)}
-        />
-      )}
       </div>
     </div>
   );
