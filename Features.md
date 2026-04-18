@@ -161,7 +161,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 
 ### 3.8 Connections (Lines)
 `components/DataLine.tsx`, `utils/pathRouter.ts`, `utils/orthogonalRouter.ts`, `utils/geometry.ts`, `utils/anchors.ts`
-- ✅ **Three routing algorithms** — `orthogonal` (obstacle-avoiding with rounded corners), `bezier` (cubic with anchor-direction tangents), `straight`.
+- ✅ **Three routing algorithms** — `orthogonal` (obstacle-avoiding with rounded corners), `bezier` (cubic with anchor-direction tangents), `straight`. Dispatched via a Strategy registry (`routerRegistry` in `utils/pathRouter.ts`) — adding a new algorithm is a registry entry, not a `switch` edit (Phase 2, 2026-04-18).
 - ✅ **9-point anchor set per rect** — top/bottom/left/right × three positions each; plus condition-specific anchors.
 - ✅ **Label** — text, colour, `labelPosition` (0–1 along the path).
 - ✅ **Bidirectional toggle** and **sync / async connection type**.
@@ -221,7 +221,8 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Disabled inside inputs / contenteditable.**
 
 ### 3.15 Auto-Arrange / Grid / Collision
-- ✅ **Auto-arrange** (`utils/autoArrange.ts`) — Sugiyama-style hierarchical layout with topological sort, rank assignment, 2-pass barycenter ordering; 180 px rank spacing, 40 px node spacing; TB / LR directions.
+- ✅ **Auto-arrange** (`utils/autoArrange.ts`) — Sugiyama-style hierarchical layout with topological sort, rank assignment, 2-pass barycenter ordering; 180 px rank spacing, 40 px node spacing; TB / LR directions. Dispatched via a Strategy registry (`layoutRegistry` / `computeLayout`) — three entries: `hierarchical-tb`, `hierarchical-lr`, `force` (Phase 2, 2026-04-18).
+- ⚙️ **ID factory** (`utils/idFactory.ts`) — `createElementId`, `createLayerId`, `createConditionId`. Centralises the `el-<ts>-<rand>` / `ly-<ts>-<rand>` scheme so collision resistance or prefix changes are one-file edits (Phase 2, 2026-04-18).
 - ✅ **Grid snap** (`utils/gridSnap.ts`) — snap during drag; **has an existing unit test** (`utils/gridSnap.test.ts`).
 - ⚙️ **Collision utilities** (`utils/collisionUtils.ts`) — `clampNodePosition`, `clampMultiNodeDelta`, `findNonOverlappingLayerPosition`, `clampElementToAvoidLayerCollision`, `clampToAvoidOverlap`, `clampLayerDelta`.
 
