@@ -2,8 +2,9 @@
 
 import React from "react";
 import { LayoutGrid } from "lucide-react";
+import type { ArrangeAlgorithm } from "../utils/autoArrange";
 
-export type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
+export type { ArrangeAlgorithm };
 
 export default function AutoArrangeDropdown({
   onSelect,

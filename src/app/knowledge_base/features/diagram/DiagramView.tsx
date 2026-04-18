@@ -30,7 +30,7 @@ import { useLayerDrag } from "./hooks/useLayerDrag";
 import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useSegmentDrag } from "./hooks/useSegmentDrag";
-import { hierarchicalLayout, forceDirectedLayout } from "./utils/autoArrange";
+import { computeLayout, type ArrangeAlgorithm } from "./utils/autoArrange";
 import { useLineDrag } from "./hooks/useLineDrag";
 import { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
@@ -504,14 +504,8 @@ export default function DiagramView({
     scheduleRecord("Delete condition anchor");
   }, [scheduleRecord]);
 
-  const handleAutoArrange = useCallback((algorithm: "hierarchical-tb" | "hierarchical-lr" | "force") => {
-    let newPositions: Map<string, { x: number; y: number }>;
-    if (algorithm === "force") {
-      newPositions = forceDirectedLayout(nodes, connections);
-    } else {
-      const direction = algorithm === "hierarchical-lr" ? "LR" : "TB";
-      newPositions = hierarchicalLayout(nodes, connections, { direction });
-    }
+  const handleAutoArrange = useCallback((algorithm: ArrangeAlgorithm) => {
+    const newPositions = computeLayout(algorithm, nodes, connections);
     setNodes((prev) =>
       prev.map((n) => {
         const pos = newPositions.get(n.id);
