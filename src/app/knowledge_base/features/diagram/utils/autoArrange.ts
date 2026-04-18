@@ -190,3 +190,36 @@ export function forceDirectedLayout(
 
   return result;
 }
+
+/* ── Layout strategy registry ── */
+
+export type ArrangeAlgorithm = "hierarchical-tb" | "hierarchical-lr" | "force";
+
+export type LayoutStrategy = (
+  nodes: NodeData[],
+  connections: Connection[],
+) => Map<string, { x: number; y: number }>;
+
+/**
+ * Registry mapping `ArrangeAlgorithm` keys to their layout strategy. To add
+ * a new algorithm: write a new `LayoutStrategy` function and add it here —
+ * no caller `switch`/`if` changes required.
+ */
+export const layoutRegistry: Record<ArrangeAlgorithm, LayoutStrategy> = {
+  "hierarchical-tb": (nodes, connections) => hierarchicalLayout(nodes, connections, { direction: "TB" }),
+  "hierarchical-lr": (nodes, connections) => hierarchicalLayout(nodes, connections, { direction: "LR" }),
+  "force": (nodes, connections) => forceDirectedLayout(nodes, connections),
+};
+
+/**
+ * Apply the layout strategy for `algorithm` to `nodes`/`connections`. Thin
+ * wrapper over `layoutRegistry[algorithm]` that keeps caller code readable.
+ */
+export function computeLayout(
+  algorithm: ArrangeAlgorithm,
+  nodes: NodeData[],
+  connections: Connection[],
+): Map<string, { x: number; y: number }> {
+  const strategy = layoutRegistry[algorithm] ?? layoutRegistry["hierarchical-tb"];
+  return strategy(nodes, connections);
+}
