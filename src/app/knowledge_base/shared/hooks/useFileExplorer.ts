@@ -18,6 +18,7 @@ import {
   writeTextFile,
   getSubdirectoryHandle,
 } from "./fileExplorerHelpers";
+import { createDiagramRepository } from "../../infrastructure/diagramRepo";
 export type { TreeNode };
 
 // Re-export file-I/O helpers for callers that import them from this module.
@@ -119,19 +120,16 @@ export function useFileExplorer() {
   }, []);
 
   const selectFile = useCallback(async (filePath: string): Promise<{ data: DiagramData; diskJson: string; hasDraft: boolean } | null> => {
-    const entry = fileMap.get(filePath);
+    const rootHandle = dirHandleRef.current;
     let diskData: DiagramData | null = null;
     let diskJson = "";
-    if (entry?.handle) {
-      try {
-        const file = await entry.handle.getFile();
-        const text = await file.text();
-        const parsed = JSON.parse(text);
-        if (isDiagramData(parsed)) {
-          diskData = parsed;
-          diskJson = text;
-        }
-      } catch { /* ignore */ }
+    if (rootHandle) {
+      const repo = createDiagramRepository(rootHandle);
+      const loaded = await repo.read(filePath);
+      if (loaded) {
+        diskData = loaded;
+        diskJson = JSON.stringify(loaded, null, 2);
+      }
     }
 
     const draft = loadDraft(filePath);
@@ -143,7 +141,8 @@ export function useFileExplorer() {
     if (!diskData) return null;
     setActiveFile(filePath);
     return { data: diskData, diskJson, hasDraft: false };
-  }, [fileMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirHandleRef]);
 
   const saveFile = useCallback(async (
     filePath: string,
@@ -158,19 +157,18 @@ export function useFileExplorer() {
     documents?: DiagramData["documents"],
   ): Promise<boolean> => {
     const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows, ...(documents && documents.length > 0 ? { documents } : {}) };
-    const json = JSON.stringify(data, null, 2);
 
-    const entry = fileMap.get(filePath);
-    if (entry?.handle) {
+    const rootHandle = dirHandleRef.current;
+    if (rootHandle) {
       try {
-        const writable = await entry.handle.createWritable();
-        await writable.write(json);
-        await writable.close();
+        const repo = createDiagramRepository(rootHandle);
+        await repo.write(filePath, data);
         drafts.removeDraft(filePath);
         return true;
       } catch { return false; }
     }
-    // Fallback download
+    // Fallback download (no directory picker available — browser lacks FSA).
+    const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -180,22 +178,20 @@ export function useFileExplorer() {
     URL.revokeObjectURL(url);
     drafts.removeDraft(filePath);
     return true;
-  }, [fileMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirHandleRef]);
 
   /** Create a new file with a default name. Returns { path, data } or null. */
   const createFile = useCallback(async (parentPath: string = ""): Promise<{ path: string; data: DiagramData } | null> => {
     if (!dirHandleRef.current) return null;
     try {
-      const parentHandle = await resolveParentHandle(dirHandleRef.current, parentPath);
       const siblings = findChildren(tree, parentPath);
       const fileName = uniqueName(siblings, "untitled", ".json");
-      const fileHandle = await parentHandle.getFileHandle(fileName, { create: true });
       const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
       const title = fileName.replace(/\.json$/, "").replace(/[-_]/g, " ");
       const data = createEmptyDiagram(title);
-      const writable = await fileHandle.createWritable();
-      await writable.write(JSON.stringify(data, null, 2));
-      await writable.close();
+      const repo = createDiagramRepository(dirHandleRef.current);
+      await repo.write(filePath, data);
 
       await rescan();
       setActiveFile(filePath);
@@ -449,18 +445,16 @@ export function useFileExplorer() {
 
   /** Read file from disk, ignoring drafts. Clears any draft. Returns DiagramData or null. */
   const discardFile = useCallback(async (filePath: string): Promise<DiagramData | null> => {
-    const entry = fileMap.get(filePath);
-    if (!entry?.handle) return null;
-    try {
-      const file = await entry.handle.getFile();
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!isDiagramData(parsed)) return null;
-      drafts.removeDraft(filePath);
-      setActiveFile(filePath);
-      return parsed;
-    } catch { return null; }
-  }, [fileMap]);
+    const rootHandle = dirHandleRef.current;
+    if (!rootHandle) return null;
+    const repo = createDiagramRepository(rootHandle);
+    const parsed = await repo.read(filePath);
+    if (!parsed) return null;
+    drafts.removeDraft(filePath);
+    setActiveFile(filePath);
+    return parsed;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirHandleRef]);
 
   const refresh = useCallback(async () => {
     if (dirHandleRef.current) {
