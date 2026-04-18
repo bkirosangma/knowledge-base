@@ -6,7 +6,7 @@ import Header from "./shared/components/Header";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
-import { readVaultConfig, initVault, updateVaultLastOpened } from "./features/document/utils/vaultConfig";
+import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
 import { readTextFile, writeTextFile } from "./shared/hooks/useFileExplorer";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
@@ -253,11 +253,12 @@ function KnowledgeBaseInner() {
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle || fileExplorer.tree.length === 0) return;
     (async () => {
-      const config = await readVaultConfig(rootHandle);
+      const vaultRepo = createVaultConfigRepository(rootHandle);
+      const config = await vaultRepo.read();
       if (config) {
-        await updateVaultLastOpened(rootHandle);
+        await vaultRepo.touchLastOpened();
       } else if (fileExplorer.directoryName) {
-        await initVault(rootHandle, fileExplorer.directoryName);
+        await vaultRepo.init(fileExplorer.directoryName);
       }
       await linkManager.loadIndex(rootHandle);
     })();
