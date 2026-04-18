@@ -66,6 +66,7 @@ import { useReadOnlyState } from "./hooks/useReadOnlyState";
 import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
 import DiagramNodeLayer from "./components/DiagramNodeLayer";
+import DiagramLinesOverlay from "./components/DiagramLinesOverlay";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -955,74 +956,39 @@ export default function DiagramView({
             })}
 
             {/* SVG Lines */}
-            <svg
-              className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
-              style={{ zIndex: 5, left: world.x, top: world.y, width: world.w, height: world.h }}
-              viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
-            >
-              {sortedLines.map((line) => {
-                const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-                const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id)) || (typeDimSets != null && !typeDimSets.connIds.has(line.id));
-                return (
-                  <DataLine
-                    key={line.id}
-                    {...line}
-                    isOrthogonal={lineCurve === "orthogonal" || !lineCurve}
-                    onSegmentDragStart={readOnly ? undefined : handleSegmentDragStart}
-                    isLive={isLive}
-                    isHovered={hoveredLine?.id === line.id}
-                    showLabels={showLabels}
-                    isDraggingEndpoint={isBeingDragged}
-                    isSelected={isItemSelected(selection, 'line', line.id)}
-                    dimmed={dimmed}
-                    suppressLabel={showLabels}
-                    onHoverStart={(id, label, x, y) => { setHoveredLine({ id, label, x, y }); }}
-                    onHoverMove={(id, x, y) => { setHoveredLine((prev) => (prev?.id === id ? { ...prev, x, y } : prev)); }}
-                    onHoverEnd={() => { setHoveredLine((prev) => prev?.id === line.id ? null : prev); }}
-                    onLineClick={(id, e) => { pendingSelection.current = { type: 'line', id, x: e.clientX, y: e.clientY }; if (readOnly) return; handleLineClick(id, e); }}
-                    onLabelPositionChange={(connId, t) => {
-                      if (readOnly) return;
-                      if (labelDragStartT.current === null) {
-                        const conn = connections.find((c) => c.id === connId);
-                        labelDragStartT.current = conn?.labelPosition ?? 0.5;
-                      }
-                      setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, labelPosition: t } : c));
-                    }}
-                    onLabelDragEnd={(connId) => {
-                      if (readOnly) return;
-                      const conn = connections.find((c) => c.id === connId);
-                      const endT = conn?.labelPosition ?? 0.5;
-                      if (labelDragStartT.current !== null && endT !== labelDragStartT.current) {
-                        scheduleRecord("Move label");
-                      }
-                      labelDragStartT.current = null;
-                    }}
-                    onDoubleClick={(connId) => {
-                      if (readOnly) return;
-                      const conn = connections.find((c) => c.id === connId);
-                      if (conn) {
-                        setEditingLabel({ type: "line", id: connId });
-                        setEditingLabelValue(conn.label);
-                        editingLabelBeforeRef.current = conn.label;
-                      }
-                    }}
-                    hasDocuments={hasDocuments("connection", line.id)}
-                    documentPaths={getDocumentsForEntity("connection", line.id).map(d => d.filename)}
-                    onDocNavigate={onOpenDocument}
-                  />
-                );
-              })}
-              {ghostLine && (() => {
-                const hasSnap = !!(draggingEndpoint?.snappedAnchor || creatingLine?.snappedAnchor);
-                return (
-                <g>
-                  <line x1={ghostLine.fromPos.x} y1={ghostLine.fromPos.y} x2={ghostLine.toPos.x} y2={ghostLine.toPos.y} stroke={ghostLine.color} strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
-                  <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-                  <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-                </g>
-                );
-              })()}
-            </svg>
+            <DiagramLinesOverlay
+              sortedLines={sortedLines}
+              connections={connections}
+              selection={selection}
+              world={world}
+              isZooming={isZooming}
+              lineCurve={lineCurve}
+              readOnly={readOnly}
+              isLive={isLive}
+              showLabels={showLabels}
+              hoveredLine={hoveredLine}
+              draggingEndpoint={draggingEndpoint}
+              creatingLine={creatingLine}
+              draggingId={draggingId}
+              draggingLayerId={draggingLayerId}
+              isMultiDrag={isMultiDrag}
+              flowDimSets={flowDimSets}
+              typeDimSets={typeDimSets}
+              ghostLine={ghostLine}
+              pendingSelection={pendingSelection}
+              labelDragStartT={labelDragStartT}
+              editingLabelBeforeRef={editingLabelBeforeRef}
+              setHoveredLine={setHoveredLine}
+              handleSegmentDragStart={handleSegmentDragStart}
+              handleLineClick={handleLineClick}
+              setConnections={setConnections}
+              scheduleRecord={scheduleRecord}
+              setEditingLabel={setEditingLabel}
+              setEditingLabelValue={setEditingLabelValue}
+              hasDocuments={hasDocuments}
+              getDocumentsForEntity={getDocumentsForEntity}
+              onOpenDocument={onOpenDocument}
+            />
 
             {/* Animated flow dots */}
             {(() => {
