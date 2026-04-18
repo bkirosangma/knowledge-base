@@ -67,6 +67,7 @@ import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import { Activity, Tag, Map as MapIcon } from "lucide-react";
 import AutoArrangeDropdown, { type ArrangeAlgorithm } from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
+import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -132,21 +133,10 @@ export default function DiagramView({
   onDiagramBridge,
 }: DiagramViewProps) {
   // ─── Diagram State ───
-  const [isLive, setIsLive] = useState(false);
-  const [showLabels, setShowLabels] = useState(true);
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [historyCollapsed, setHistoryCollapsed] = useState(true);
-  const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("properties-collapsed") === "true";
-  });
-  const toggleProperties = useCallback(() => {
-    setPropertiesCollapsed((c) => {
-      const next = !c;
-      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, []);
+  const {
+    state: { isLive, showLabels, showMinimap, historyCollapsed, propertiesCollapsed },
+    actions: { setIsLive, setShowLabels, setShowMinimap, setHistoryCollapsed, toggleProperties },
+  } = useDiagramLayoutState();
 
   // Per-file Read Mode state. Read from localStorage keyed by activeFile
   // on mount and whenever the active file changes (split-pane switch, refresh restore).
