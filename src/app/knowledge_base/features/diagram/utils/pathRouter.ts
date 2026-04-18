@@ -14,6 +14,24 @@ interface Point {
   y: number;
 }
 
+export interface RouterContext {
+  fromPos: Point;
+  toPos: Point;
+  fromAnchor: AnchorId;
+  toAnchor: AnchorId;
+  obstacles: Rect[];
+  waypoints?: { x: number; y: number }[];
+  fromDir?: { dx: number; dy: number };
+  toDir?: { dx: number; dy: number };
+}
+
+export interface RouterResult {
+  path: string;
+  points: Point[];
+}
+
+export type LineRoutingStrategy = (ctx: RouterContext) => RouterResult;
+
 function computeStraightPath(from: Point, to: Point): string {
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 }
@@ -65,6 +83,44 @@ function sampleCubicBezier(p0: Point, cp1: Point, cp2: Point, p3: Point, segment
   return points;
 }
 
+/* ── Strategy implementations ── */
+
+const straightStrategy: LineRoutingStrategy = ({ fromPos, toPos }) => ({
+  path: computeStraightPath(fromPos, toPos),
+  points: [fromPos, toPos],
+});
+
+const bezierStrategy: LineRoutingStrategy = ({ fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir }) => {
+  const { cp1, cp2 } = computeBezierControlPoints(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir);
+  return {
+    path: computeBezierPath(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir),
+    points: sampleCubicBezier(fromPos, cp1, cp2, toPos, 16),
+  };
+};
+
+const orthogonalStrategy: LineRoutingStrategy = (ctx) =>
+  computeOrthogonalPath(
+    ctx.fromPos,
+    ctx.toPos,
+    ctx.fromAnchor,
+    ctx.toAnchor,
+    ctx.obstacles,
+    ctx.waypoints,
+    ctx.fromDir,
+    ctx.toDir,
+  );
+
+/**
+ * Registry mapping `LineCurveAlgorithm` keys to their routing strategy.
+ * To add a new algorithm: write a new `LineRoutingStrategy` function and
+ * add it here — no `computePath` changes required.
+ */
+export const routerRegistry: Record<LineCurveAlgorithm, LineRoutingStrategy> = {
+  straight: straightStrategy,
+  bezier: bezierStrategy,
+  orthogonal: orthogonalStrategy,
+};
+
 export function computePath(
   algorithm: LineCurveAlgorithm,
   fromPos: Point,
@@ -75,19 +131,7 @@ export function computePath(
   waypoints?: { x: number; y: number }[],
   fromDir?: { dx: number; dy: number },
   toDir?: { dx: number; dy: number },
-): { path: string; points: Point[] } {
-  switch (algorithm) {
-    case "straight":
-      return { path: computeStraightPath(fromPos, toPos), points: [fromPos, toPos] };
-    case "bezier": {
-      const { cp1, cp2 } = computeBezierControlPoints(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir);
-      return {
-        path: computeBezierPath(fromPos, toPos, fromAnchor, toAnchor, fromDir, toDir),
-        points: sampleCubicBezier(fromPos, cp1, cp2, toPos, 16),
-      };
-    }
-    case "orthogonal":
-    default:
-      return computeOrthogonalPath(fromPos, toPos, fromAnchor, toAnchor, obstacles, waypoints, fromDir, toDir);
-  }
+): RouterResult {
+  const strategy = routerRegistry[algorithm] ?? orthogonalStrategy;
+  return strategy({ fromPos, toPos, fromAnchor, toAnchor, obstacles, waypoints, fromDir, toDir });
 }
