@@ -3,7 +3,7 @@
 
 import { useState, useCallback } from "react";
 import type { DocumentMeta } from "../types";
-import { writeTextFile } from "../../../shared/hooks/useFileExplorer";
+import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 export function useDocuments() {
@@ -34,7 +34,8 @@ export function useDocuments() {
     path: string,
     initialContent = "",
   ) => {
-    await writeTextFile(rootHandle, path, initialContent);
+    const repo = createDocumentRepository(rootHandle);
+    await repo.write(path, initialContent);
     return path;
   }, []);
 
