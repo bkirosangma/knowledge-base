@@ -6,144 +6,26 @@ import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft, clear
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 import { saveDirHandle, loadDirHandle, clearDirHandle } from "../utils/idbHandles";
 import { scanTree, flattenTree, type TreeNode } from "../utils/fileTree";
+import {
+  isSupported,
+  isDiagramData,
+  uniqueName,
+  collectFilePaths,
+  collectAllFilePaths,
+  resolveParentHandle,
+  findChildren,
+  copyDirContents,
+  readTextFile,
+  writeTextFile,
+  getSubdirectoryHandle,
+} from "./fileExplorerHelpers";
 export type { TreeNode };
+
+// Re-export file-I/O helpers for callers that import them from this module.
+export { readTextFile, writeTextFile, getSubdirectoryHandle };
 
 const DIR_NAME_KEY = "knowledge-base-directory-name";
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
-
-/* ── Helpers ── */
-
-function isSupported(): boolean {
-  return typeof window !== "undefined" && "showDirectoryPicker" in window;
-}
-
-function isDiagramData(data: unknown): data is DiagramData {
-  if (!data || typeof data !== "object") return false;
-  const d = data as Record<string, unknown>;
-  return Array.isArray(d.layers) && Array.isArray(d.nodes) && Array.isArray(d.connections);
-}
-
-
-/** Find a unique name like "untitled.json", "untitled-1.json", etc. */
-function uniqueName(siblings: TreeNode[], base: string, ext: string): string {
-  const existing = new Set(siblings.map((n) => n.name));
-  const first = `${base}${ext}`;
-  if (!existing.has(first)) return first;
-  for (let i = 1; ; i++) {
-    const name = `${base}-${i}${ext}`;
-    if (!existing.has(name)) return name;
-  }
-}
-
-/** Collect all file paths under a folder path from the tree. */
-function collectFilePaths(nodes: TreeNode[], folderPath: string): string[] {
-  const result: string[] = [];
-  function walk(items: TreeNode[]) {
-    for (const item of items) {
-      if (item.type === "file" && item.path.startsWith(folderPath + "/")) {
-        result.push(item.path);
-      } else if (item.type === "folder" && item.children) {
-        walk(item.children);
-      }
-    }
-  }
-  walk(nodes);
-  return result;
-}
-
-/** Collect all file paths in the tree. */
-function collectAllFilePaths(nodes: TreeNode[]): Set<string> {
-  const result = new Set<string>();
-  function walk(items: TreeNode[]) {
-    for (const item of items) {
-      if (item.type === "file") result.add(item.path);
-      else if (item.children) walk(item.children);
-    }
-  }
-  walk(nodes);
-  return result;
-}
-
-/** Resolve parent dir handle from a path. Empty string = root. */
-async function resolveParentHandle(
-  rootHandle: FileSystemDirectoryHandle,
-  parentPath: string,
-): Promise<FileSystemDirectoryHandle> {
-  if (!parentPath) return rootHandle;
-  let current = rootHandle;
-  for (const part of parentPath.split("/")) {
-    current = await current.getDirectoryHandle(part);
-  }
-  return current;
-}
-
-/** Find children of a given folder path in the tree. */
-function findChildren(tree: TreeNode[], folderPath: string): TreeNode[] {
-  if (!folderPath) return tree;
-  const parts = folderPath.split("/");
-  let nodes = tree;
-  for (const part of parts) {
-    const folder = nodes.find((n) => n.type === "folder" && n.name === part);
-    if (!folder?.children) return [];
-    nodes = folder.children;
-  }
-  return nodes;
-}
-
-/** Recursively copy all contents from one directory to another. */
-async function copyDirContents(src: FileSystemDirectoryHandle, dest: FileSystemDirectoryHandle): Promise<void> {
-  for await (const entry of src.values()) {
-    if (entry.kind === "file") {
-      const fileHandle = entry as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
-      const content = await file.arrayBuffer();
-      const newHandle = await dest.getFileHandle(entry.name, { create: true });
-      const writable = await newHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
-    } else if (entry.kind === "directory") {
-      const dirHandle = entry as unknown as FileSystemDirectoryHandle;
-      const newDir = await dest.getDirectoryHandle(entry.name, { create: true });
-      await copyDirContents(dirHandle, newDir);
-    }
-  }
-}
-
-/* ── File system utilities ── */
-
-export async function readTextFile(handle: FileSystemFileHandle): Promise<string> {
-  const file = await handle.getFile();
-  return file.text();
-}
-
-export async function writeTextFile(
-  dirHandle: FileSystemDirectoryHandle,
-  path: string,
-  content: string,
-): Promise<FileSystemFileHandle> {
-  const parts = path.split("/");
-  let current = dirHandle;
-  for (const part of parts.slice(0, -1)) {
-    current = await current.getDirectoryHandle(part, { create: true });
-  }
-  const fileHandle = await current.getFileHandle(parts[parts.length - 1], { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(content);
-  await writable.close();
-  return fileHandle;
-}
-
-export async function getSubdirectoryHandle(
-  rootHandle: FileSystemDirectoryHandle,
-  path: string,
-  create = false,
-): Promise<FileSystemDirectoryHandle> {
-  let current = rootHandle;
-  for (const part of path.split("/").filter(Boolean)) {
-    current = await current.getDirectoryHandle(part, { create });
-  }
-  return current;
-}
 
 /* ── Hook ── */
 
