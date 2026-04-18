@@ -19,6 +19,7 @@ concurrency:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # Defensive: Playwright hangs or Next build deadlocks would otherwise eat the default 6h.
 
     steps:
       - name: Checkout
