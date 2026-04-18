@@ -108,7 +108,7 @@ describe('DiagramView — smoke', () => {
     ).not.toThrow()
   })
 
-  it('calls onDiagramBridge on mount to publish its bridge (DIAG-3.13-28)', async () => {
+  it('calls onDiagramBridge on mount to publish its bridge (DIAG-3.13-42)', async () => {
     const onDiagramBridge = vi.fn()
     renderDV(baseProps({ onDiagramBridge }))
     // Bridge is set inside a useEffect; waitFor flushes any pending effects.
