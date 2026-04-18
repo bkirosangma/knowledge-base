@@ -43,8 +43,8 @@ const TWO_NODE_DIAGRAM = {
   title: 'Test Flow',
   layers: [],
   nodes: [
-    { id: 'n1', label: 'Alpha', icon: 'Box',   x: 120, y: 120, w: 180, layer: null, type: 'default' },
-    { id: 'n2', label: 'Beta',  icon: 'Cloud', x: 420, y: 120, w: 180, layer: null, type: 'default' },
+    { id: 'n1', label: 'Alpha', icon: 'Box',   x: 120, y: 120, w: 180, layer: '', type: 'default' },
+    { id: 'n2', label: 'Beta',  icon: 'Cloud', x: 420, y: 120, w: 180, layer: '', type: 'default' },
   ],
   connections: [],
   flows: [],
@@ -108,6 +108,11 @@ test.describe('Diagram golden path', () => {
     const diagram = JSON.parse(saved) as { nodes: Array<{ id: string; x: number; y: number }> }
     const n1 = diagram.nodes.find(n => n.id === 'n1')!
     expect(Math.abs(n1.x - 120)).toBeGreaterThan(20)
+
+    // Other node must not have moved — catches drag handlers that lose selection scoping.
+    const n2 = diagram.nodes.find(n => n.id === 'n2')!
+    expect(n2.x).toBe(420)
+    expect(n2.y).toBe(120)
   })
 
   test('DIAG-3.14-03: selecting a node and pressing Delete removes it on save', async ({ page }) => {
