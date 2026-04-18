@@ -49,7 +49,6 @@ function stubFileExplorer() {
     setActiveFile: vi.fn(),
     refresh: vi.fn(async () => {}),
     handleFallbackInput: vi.fn(),
-    rescan: vi.fn(async () => {}),
   } as unknown as React.ComponentProps<typeof DiagramView>['fileExplorer']
 }
 
@@ -82,21 +81,22 @@ function renderDV(props: React.ComponentProps<typeof DiagramView>) {
 }
 
 describe('DiagramView — smoke', () => {
-  it('renders without throwing given minimal props', () => {
+  it('DIAG-3.13-41: renders without throwing given minimal props', () => {
     expect(() => renderDV(baseProps())).not.toThrow()
   })
 
-  it('DIAG-3.13-01: properties-collapsed initialises from localStorage on mount', () => {
+  it('DIAG-3.13-01: mount does not clobber properties-collapsed in localStorage', () => {
     localStorage.setItem('properties-collapsed', 'true')
     const { container } = renderDV(baseProps())
-    // The properties panel's collapsed/expanded state is read lazily from
-    // localStorage during the useState initialiser. We verify the component
-    // doesn't reset the stored value and mounts without throwing.
+    // Assert the pre-existing value survives a mount. This doesn't by itself
+    // prove the useState initializer READ the value (nothing in this test
+    // exercises the toggle path), but it pins the "mount doesn't reset the
+    // key" guarantee that Phase 1 must preserve.
     expect(localStorage.getItem('properties-collapsed')).toBe('true')
     expect(container).toBeTruthy()
   })
 
-  it('rerenders without crashing when activeFile prop changes', () => {
+  it('DIAG-3.13-43: rerenders without crashing when activeFile prop changes', () => {
     const props = baseProps({ activeFile: null })
     const { rerender } = renderDV(props)
     expect(() =>
