@@ -257,7 +257,7 @@ Root: `src/app/knowledge_base/features/document/`. Top-level is `DocumentView.ts
 ### 4.1 Editor Orchestration
 - ✅ **DocumentView** — pane + properties sidebar + link manager; manages focus, navigation, doc creation.
 - ✅ **MarkdownPane** — pane wrapper with header, title, backlinks dropdown, read-only toggle.
-- ✅ **MarkdownEditor** — Tiptap editor with WYSIWYG/Raw toggle, formatting toolbar, **200 ms debounced** HTML → markdown serialisation on keystroke (flushed on blur/unmount).
+- ✅ **MarkdownEditor** — Tiptap editor with WYSIWYG/Raw toggle, formatting toolbar, **200 ms debounced** HTML → markdown serialisation on keystroke (flushed on blur/unmount). Composes four focused pieces: `MarkdownToolbar.tsx` (toolbar JSX + rawBlock active-state), `TablePicker.tsx` (8×8 table-size grid popover), `ToolbarButton.tsx` (shared TBtn/Sep primitives), and `../extensions/rawSyntaxEngine.ts` (editor-coupled raw-syntax helpers: toggleRawSyntax / getActiveRawFormats / toggleRawBlockType / forceExitRawBlock). Phase 1.2 (2026-04-18) reduced MarkdownEditor.tsx from 1018 to 366 lines.
 
 ### 4.2 Tiptap Extensions
 Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6, paragraphs, bullet / ordered / task lists, blockquotes, inline bold / italic / strike / code, horizontal rule, hard break. Plus:
