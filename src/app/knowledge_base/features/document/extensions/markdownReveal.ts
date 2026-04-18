@@ -11,7 +11,6 @@ import type {
   Node as ProseMirrorNode,
 } from "@tiptap/pm/model";
 import {
-  richBlockToRawFragment,
   rawBlockToRichNodes,
   findMergeTarget,
 } from "./markdownRevealConversion";
@@ -19,6 +18,14 @@ import {
   SYNTAX_PATTERNS,
   buildSyntaxDecorations,
 } from "./markdownRevealDecorations";
+import {
+  findRawBlock,
+  findConvertibleBlockAtCursor,
+  maybeSyncRawBlockType,
+  maybeForceExitRawList,
+  restoreRawToRich,
+  convertRichToRaw,
+} from "./markdownRevealTransactions";
 
 // Re-export for backward compatibility — rawSyntaxEngine + tests import
 // rawBlockToRichNodes / SYNTAX_PATTERNS from this module.
@@ -27,19 +34,7 @@ export { rawBlockToRichNodes, SYNTAX_PATTERNS };
 const pluginKey = new PluginKey("markdownReveal");
 const syntaxKey = new PluginKey<DecorationSet>("markdownRevealSyntax");
 
-// Block types that can be converted to raw editing mode
-const CONVERTIBLE = new Set(["paragraph", "heading", "blockquote"]);
-// Top-level wrappers we descend into to find a deeper convertible block.
-// Lists themselves can't become a rawBlock (schema is `listItem+`), and
-// tables can't either (schema is `tableRow+`), so when the cursor is in one
-// of these wrappers we walk down to the paragraph inside the specific list
-// item or cell the cursor sits in — siblings stay rich.
-const DEEP_WRAPPERS = new Set([
-  "bulletList",
-  "orderedList",
-  "taskList",
-  "table",
-]);
+// CONVERTIBLE + DEEP_WRAPPERS live in ./markdownRevealTransactions now.
 
 
 /* ── Raw editing block node ── */
@@ -347,153 +342,31 @@ export const MarkdownReveal = Extension.create({
           // Existing rawBlocks are still restored to rich content below.
           const canReveal = editor.isEditable;
 
-          // ── Locate existing rawBlock (at most one, possibly inside a listItem) ──
-          // descendants() lets us find a rawBlock at any depth, not just the
-          // top level — required now that lists can host one.
-          let raw: { pos: number; node: ProseMirrorNode } | null = null;
-          doc.descendants((node, pos) => {
-            if (raw) return false;
-            if (node.type.name === "rawBlock") {
-              raw = { pos, node };
-              return false;
-            }
-            return true;
-          });
-          raw = raw as { pos: number; node: ProseMirrorNode } | null;
-
-          // ── Locate the convertible block under the cursor ──
-          // Top-level paragraph/heading/blockquote → convert at depth 1, which
-          // keeps blockquotes whole (with the `> ` prefix shown). Top-level
-          // list or table → descend until we find the paragraph inside *this*
-          // list item or cell so siblings stay rich.
-          let curPos = -1;
-          let curNode: ProseMirrorNode | null = null;
-          if ($head.depth >= 1) {
-            const top = $head.node(1);
-            if (CONVERTIBLE.has(top.type.name)) {
-              curPos = $head.before(1);
-              curNode = top;
-            } else if (DEEP_WRAPPERS.has(top.type.name)) {
-              for (let d = 2; d <= $head.depth; d++) {
-                const inner = $head.node(d);
-                if (CONVERTIBLE.has(inner.type.name)) {
-                  curPos = $head.before(d);
-                  curNode = inner;
-                  break;
-                }
-              }
-              // Fallback for table cells: prosemirror-tables sometimes places
-              // the cursor at the cell boundary rather than inside the cell's
-              // paragraph (empty cell, keyboard navigation, cell selection
-              // normalization). In that case `$head.depth` stops at the cell
-              // (depth 3 in `doc → table → row → cell`), so the depth-bounded
-              // loop above never reaches the paragraph at depth 4. Walk the
-              // cell's first child directly.
-              if (!curNode) {
-                for (let d = 2; d <= $head.depth; d++) {
-                  const ancestor = $head.node(d);
-                  if (
-                    ancestor.type.name === "tableCell" ||
-                    ancestor.type.name === "tableHeader"
-                  ) {
-                    const firstChild = ancestor.firstChild;
-                    if (firstChild && CONVERTIBLE.has(firstChild.type.name)) {
-                      // Cell content starts at $head.start(d); since the first
-                      // child sits right there, that's also its `before` pos.
-                      curPos = $head.start(d);
-                      curNode = firstChild;
-                    }
-                    break;
-                  }
-                }
-              }
-            }
-          }
+          const raw = findRawBlock(doc);
+          const cur = findConvertibleBlockAtCursor($head);
 
           // Cursor inside the existing rawBlock AND reveal is still allowed →
-          // keep it raw. Position-range check (vs. the old strict equality)
-          // covers nested rawBlocks where the convertible-paragraph lookup
-          // above doesn't surface raw.pos directly.
+          // keep it raw. Position-range check (vs. strict equality) covers
+          // nested rawBlocks where the convertible-block lookup above doesn't
+          // surface raw.pos directly.
           const cursorInRaw =
             raw &&
             $head.pos > raw.pos &&
             $head.pos < raw.pos + raw.node.nodeSize;
-          if (cursorInRaw && canReveal) {
-            // Keep the rawBlock's rendered tag (<h1>, <blockquote>, <p>) in
-            // sync with the text prefix as the user types.  Without this the
-            // visual change only appears after a full exit/re-enter cycle.
-            if (transactions.some((t) => t.docChanged) && raw) {
-              const text = raw.node.textContent;
-              const hMatch = text.match(/^(#{1,6}) /);
-              const isQuote = text.startsWith("> ");
-
-              let expectedType = "paragraph";
-              let expectedLevel: number | null = null;
-              if (hMatch) {
-                expectedType = "heading";
-                expectedLevel = hMatch[1].length;
-              } else if (isQuote) {
-                expectedType = "blockquote";
-              }
-
-              const { originalType, originalLevel } = raw.node.attrs as {
-                originalType: string;
-                originalLevel: number | null;
-              };
-              if (
-                originalType !== expectedType ||
-                originalLevel !== expectedLevel
-              ) {
-                const tr = newState.tr;
-                tr.setNodeMarkup(raw.pos, undefined, {
-                  originalType: expectedType,
-                  originalLevel: expectedLevel,
-                });
-                tr.setMeta("rawSwap", true);
-                tr.setMeta("addToHistory", false);
-                return tr;
-              }
-
-              // List prefix (`- `, `* `, `+ `, `1. `, etc.) — force-exit so
-              // markdown-it creates the proper list structure immediately.
-              const listMatch = text.match(/^(?:[-*+]|\d+\.) /);
-              if (listMatch) {
-                const $rawPos = newState.doc.resolve(raw.pos);
-                const parentName = $rawPos.parent.type.name;
-                if (parentName !== "listItem" && parentName !== "taskItem") {
-                  const rich = rawBlockToRichNodes(raw.node, schema);
-                  const tr = newState.tr;
-                  if (rich.length) {
-                    tr.replaceWith(raw.pos, raw.pos + raw.node.nodeSize, rich);
-                  } else {
-                    tr.replaceWith(
-                      raw.pos,
-                      raw.pos + raw.node.nodeSize,
-                      schema.nodes.paragraph.create(),
-                    );
-                  }
-                  // Place the cursor inside the paragraph within the new list.
-                  // Structure: list(+1) > listItem(+1) > paragraph(+1) > text
-                  const prefixLen = listMatch[0].length;
-                  const cursorInText = $head.pos - (raw.pos + 1);
-                  const targetOffset = Math.max(0, cursorInText - prefixLen);
-                  const paraContentLen = Math.max(0, text.length - prefixLen);
-                  const newPos =
-                    raw.pos + 3 + Math.min(targetOffset, paraContentLen);
-                  tr.setSelection(TextSelection.create(tr.doc, newPos));
-                  // No rawSwap — second pass converts the paragraph inside the
-                  // new list to a rawBlock, keeping the cursor in-place.
-                  tr.setMeta("addToHistory", false);
-                  return tr;
-                }
-              }
+          if (cursorInRaw && canReveal && raw) {
+            // Only the docChanged path runs rawBlock-text maintenance: attr
+            // sync (heading/quote/paragraph) and list-prefix force-exit.
+            if (transactions.some((t) => t.docChanged)) {
+              const syncTr = maybeSyncRawBlockType(raw, newState);
+              if (syncTr) return syncTr;
+              const listTr = maybeForceExitRawList(raw, newState, schema, $head);
+              if (listTr) return listTr;
             }
             return null;
           }
 
           // Convert only when allowed AND cursor is on a convertible block
-          const wantConvert =
-            canReveal && curNode && CONVERTIBLE.has(curNode.type.name);
+          const wantConvert = canReveal && cur !== null;
 
           // Nothing to restore AND not converting → bail
           if (!raw && !wantConvert) return null;
@@ -501,76 +374,11 @@ export const MarkdownReveal = Extension.create({
           const tr = newState.tr;
 
           // ── Step 1: Restore rawBlock → rich content ──
-          if (raw) {
-            const hasContent = raw.node.content.size > 0;
-            if (hasContent) {
-              const rich = rawBlockToRichNodes(raw.node, schema);
-              if (rich.length) {
-                tr.replaceWith(raw.pos, raw.pos + raw.node.nodeSize, rich);
-              } else {
-                tr.replaceWith(
-                  raw.pos,
-                  raw.pos + raw.node.nodeSize,
-                  schema.nodes.paragraph.create(),
-                );
-              }
-            } else {
-              // empty → restore as empty paragraph
-              tr.replaceWith(
-                raw.pos,
-                raw.pos + raw.node.nodeSize,
-                schema.nodes.paragraph.create(),
-              );
-            }
-          }
+          if (raw) restoreRawToRich(tr, raw, schema);
 
           // ── Step 2: Convert cursor block → rawBlock ──
-          if (curNode && wantConvert) {
-            const fragment = richBlockToRawFragment(curNode, schema);
-            const rawNode = schema.nodes.rawBlock.create(
-              {
-                originalType: curNode.type.name,
-                originalLevel: curNode.attrs?.level ?? null,
-              },
-              fragment,
-            );
-
-            // Map positions through step-1 changes
-            const mPos = tr.mapping.map(curPos);
-            const mEnd = tr.mapping.map(curPos + curNode.nodeSize);
-            tr.replaceWith(mPos, mEnd, rawNode);
-
-            // Preserve the position the user's click/arrow key landed on
-            // inside this block. ProseMirror already placed the caret at the
-            // correct column for us; we just need to shift it by the length of
-            // the block-level prefix (`# `, `## `, `> `) that we prepended to
-            // the raw content so the caret ends up at the equivalent character
-            // in the raw form, not at the start of the inserted prefix.
-            let prefixLen = 0;
-            if (curNode.type.name === "heading") {
-              const lvl = Math.min(
-                Math.max(Number(curNode.attrs?.level) || 1, 1),
-                6,
-              );
-              prefixLen = lvl + 1; // "###" + " "
-            } else if (curNode.type.name === "blockquote") {
-              prefixLen = 2; // "> "
-            }
-            const intendedOffset = Math.max(
-              0,
-              newState.selection.$head.pos - curPos - 1,
-            );
-            const rawContentStart = mPos + 1;
-            const rawContentEnd = rawContentStart + rawNode.content.size;
-            const targetPos = Math.min(
-              rawContentStart + intendedOffset + prefixLen,
-              rawContentEnd,
-            );
-            try {
-              tr.setSelection(TextSelection.create(tr.doc, targetPos));
-            } catch {
-              // position out of bounds — leave selection as-is
-            }
+          if (cur && wantConvert) {
+            convertRichToRaw(tr, cur.node, cur.pos, newState, schema);
           }
 
           if (!tr.docChanged) return null;
