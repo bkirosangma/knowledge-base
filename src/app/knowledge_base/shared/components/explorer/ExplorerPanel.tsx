@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { ExplorerFilter } from "../../utils/types";
+import { sortTreeNodes, filterTreeNodes } from "./explorerTreeUtils";
+import TreeNodeRow, { type ContextMenuState } from "./TreeNodeRow";
 
 export type SortField = "name" | "created" | "modified";
 export type SortDirection = "asc" | "desc";
@@ -52,36 +54,6 @@ interface ExplorerPanelProps {
 
 /* ── Sorting utility ── */
 
-function sortTree(nodes: TreeNode[], field: SortField, direction: SortDirection, grouping: SortGrouping): TreeNode[] {
-  const compare = (a: TreeNode, b: TreeNode): number => {
-    let result: number;
-    if (field === "name") {
-      result = a.name.localeCompare(b.name);
-    } else {
-      // Both "created" and "modified" use lastModified (only timestamp available from File API)
-      result = (a.lastModified ?? 0) - (b.lastModified ?? 0);
-    }
-    return direction === "desc" ? -result : result;
-  };
-
-  const sorted = [...nodes].map((n) =>
-    n.type === "folder" && n.children
-      ? { ...n, children: sortTree(n.children, field, direction, grouping) }
-      : n,
-  );
-
-  if (grouping === "folders-first") {
-    const folders = sorted.filter((n) => n.type === "folder").sort(compare);
-    const files = sorted.filter((n) => n.type === "file").sort(compare);
-    return [...folders, ...files];
-  } else if (grouping === "files-first") {
-    const files = sorted.filter((n) => n.type === "file").sort(compare);
-    const folders = sorted.filter((n) => n.type === "folder").sort(compare);
-    return [...files, ...folders];
-  } else {
-    return sorted.sort(compare);
-  }
-}
 
 export default function ExplorerPanel({
   collapsed,
@@ -142,26 +114,8 @@ export default function ExplorerPanel({
     });
   }, [leftPaneFile, rightPaneFile]);
 
-  const sortedTree = useMemo(() => sortTree(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
-
-  const filteredTree = useMemo(() => {
-    if (!explorerFilter || explorerFilter === "all") return sortedTree;
-    function filterNodes(nodes: TreeNode[]): TreeNode[] {
-      return nodes
-        .map(node => {
-          if (node.type === "folder") {
-            const children = filterNodes(node.children ?? []);
-            if (children.length === 0) return null;
-            return { ...node, children };
-          }
-          if (explorerFilter === "diagrams") return node.fileType === "diagram" ? node : null;
-          if (explorerFilter === "documents") return node.fileType === "document" ? node : null;
-          return node;
-        })
-        .filter((n): n is TreeNode => n !== null);
-    }
-    return filterNodes(sortedTree);
-  }, [sortedTree, explorerFilter]);
+  const sortedTree = useMemo(() => sortTreeNodes(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
+  const filteredTree = useMemo(() => filterTreeNodes(sortedTree, explorerFilter), [sortedTree, explorerFilter]);
 
   // Close context menu on outside click / Escape
   useEffect(() => {
@@ -320,147 +274,40 @@ export default function ExplorerPanel({
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors";
   const sortBtnClass = "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-slate-700 hover:bg-slate-100";
 
-  // Hover action button helper
-  const hoverBtn = (onClick: (e: React.MouseEvent) => void, title: string, children: React.ReactNode) => (
-    <button
-      className="p-0.5 rounded hover:bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
-      title={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {children}
-    </button>
+  const renderNode = (node: TreeNode, depth: number) => (
+    <TreeNodeRow
+      key={node.path}
+      node={node}
+      depth={depth}
+      editingPath={editingPath}
+      editValue={editValue}
+      expandedFolders={expandedFolders}
+      dragOverPath={dragOverPath}
+      dirtyFiles={dirtyFiles}
+      leftPaneFile={leftPaneFile}
+      rightPaneFile={rightPaneFile}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      sortGrouping={sortGrouping}
+      editInputRef={editInputRef}
+      setEditValue={setEditValue}
+      setEditingPath={setEditingPath}
+      setContextMenu={setContextMenu}
+      toggleFolder={toggleFolder}
+      commitRename={commitRename}
+      startRename={startRename}
+      handleCreateFile={handleCreateFile}
+      handleCreateFolder={handleCreateFolder}
+      handleDragStart={handleDragStart}
+      handleDragOver={handleDragOver}
+      handleDragEnter={handleDragEnter}
+      handleDragLeave={handleDragLeave}
+      handleDrop={handleDrop}
+      onSelectFile={onSelectFile}
+      onSelectDocument={onSelectDocument}
+      onDuplicateFile={onDuplicateFile}
+    />
   );
-
-  // Recursive tree item renderer
-  const renderNode = (node: TreeNode, depth: number) => {
-    const isEditing = editingPath === node.path;
-    const indent = depth * 16;
-    const isDragOver = dragOverPath === node.path;
-
-    if (node.type === "folder") {
-      const isExpanded = expandedFolders.has(node.path);
-      return (
-        <div key={node.path}>
-          <div
-            className={`group flex items-center gap-1 py-1 cursor-pointer hover:bg-slate-50 text-xs text-slate-700 select-none ${
-              isDragOver ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
-            }`}
-            style={{ paddingLeft: indent + 8 }}
-            onClick={() => toggleFolder(node.path)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: node.path, name: node.name });
-            }}
-            draggable={!isEditing}
-            onDragStart={(e) => handleDragStart(e, node.path, "folder")}
-            onDragOver={(e) => handleDragOver(e, node.path)}
-            onDragEnter={(e) => handleDragEnter(e, node.path)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, node.path)}
-          >
-            {isExpanded ? (
-              <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
-            ) : (
-              <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
-            )}
-            <Folder size={16} className="text-amber-500 flex-shrink-0" />
-            {isEditing ? (
-              <input
-                ref={editInputRef}
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitRename();
-                  if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
-              />
-            ) : (
-              <>
-                <span className="truncate flex-1">{node.name}</span>
-                <div className="ml-auto flex items-center gap-0.5 pr-1">
-                  {hoverBtn(() => handleCreateFile(node.path), "New Architecture", <FilePlus size={13} className="text-slate-400 hover:text-slate-600" />)}
-                  {hoverBtn(() => handleCreateFolder(node.path), "New Folder", <FolderPlus size={13} className="text-slate-400 hover:text-slate-600" />)}
-                  {hoverBtn(() => startRename(node.path, node.name, "folder"), "Rename", <Pencil size={13} className="text-slate-400 hover:text-slate-600" />)}
-                </div>
-              </>
-            )}
-          </div>
-          {isExpanded && node.children && sortTree(node.children, sortField, sortDirection, sortGrouping).map((child) => renderNode(child, depth + 1))}
-        </div>
-      );
-    }
-
-    // File node
-    const dirty = dirtyFiles.has(node.path);
-    return (
-      <div key={node.path}>
-        {isEditing ? (
-          <div
-            className="flex items-center gap-1.5 py-1"
-            style={{ paddingLeft: indent + 22 }}
-          >
-            {node.fileType === "document"
-              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-            }
-            <input
-              ref={editInputRef}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitRename();
-                if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
-              }}
-              className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
-            />
-          </div>
-        ) : (
-          <div
-            className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
-              leftPaneFile === node.path && rightPaneFile === node.path
-                ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"
-                : leftPaneFile === node.path
-                  ? "bg-blue-50 text-blue-600"
-                  : rightPaneFile === node.path
-                    ? "bg-green-50 text-green-600"
-                    : "text-slate-700 hover:bg-slate-50"
-            } ${dirty ? "font-semibold" : ""}`}
-            style={{ paddingLeft: indent + 22 }}
-            onClick={() => {
-              if (node.fileType === "document" && onSelectDocument) {
-                onSelectDocument(node.path);
-              } else {
-                onSelectFile(node.path);
-              }
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu({ x: e.clientX, y: e.clientY, type: "file", path: node.path, name: node.name });
-            }}
-            draggable
-            onDragStart={(e) => handleDragStart(e, node.path, "file")}
-          >
-            {node.fileType === "document"
-              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-            }
-            <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
-            <div className="ml-auto flex items-center gap-0.5 pr-1">
-              {hoverBtn(() => startRename(node.path, node.name, "file"), "Rename", <Pencil size={13} className="text-slate-400 hover:text-slate-600" />)}
-              {hoverBtn(() => onDuplicateFile(node.path), "Duplicate", <Copy size={13} className="text-slate-400 hover:text-slate-600" />)}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
