@@ -1,45 +1,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { emitCrossReferences, type CrossReference } from './graphifyBridge'
+import { MockDir } from '../testUtils/fsMock'
 
 // Covers LINK-5.3-01..07 (graphify bridge contract).
 // See test-cases/05-links-and-graph.md §5.3.
-
-// ── Minimal File System Access mock (same shape as useLinkIndex.test.ts) ───
-
-class MockFile { constructor(public data: string = '') {} }
-class MockFileHandle {
-  constructor(public name: string, public file: MockFile) {}
-  async createWritable() {
-    return {
-      write: async (d: string) => { this.file.data = d },
-      close: async () => {},
-    }
-  }
-  async getFile() { return { text: async () => this.file.data } }
-}
-class MockDir {
-  dirs = new Map<string, MockDir>()
-  files = new Map<string, MockFileHandle>()
-  constructor(public name = 'root') {}
-  async getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<MockDir> {
-    if (this.dirs.has(name)) return this.dirs.get(name)!
-    if (opts?.create) {
-      const d = new MockDir(name)
-      this.dirs.set(name, d)
-      return d
-    }
-    const err = new Error(`NotFoundError: ${name}`); err.name = 'NotFoundError'; throw err
-  }
-  async getFileHandle(name: string, opts?: { create?: boolean }): Promise<MockFileHandle> {
-    if (this.files.has(name)) return this.files.get(name)!
-    if (opts?.create) {
-      const fh = new MockFileHandle(name, new MockFile())
-      this.files.set(name, fh)
-      return fh
-    }
-    const err = new Error(`NotFoundError: ${name}`); err.name = 'NotFoundError'; throw err
-  }
-}
 
 function asRoot(dir: MockDir): FileSystemDirectoryHandle {
   return dir as unknown as FileSystemDirectoryHandle

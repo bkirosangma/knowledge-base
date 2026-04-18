@@ -6,73 +6,18 @@ import {
   isVaultDirectory,
 } from './vaultConfig'
 import type { VaultConfig } from '../../../shared/utils/types'
+import { MockDir } from '../../../shared/testUtils/fsMock'
 
 // Covers FS-2.2-01 through 2.2-06. See test-cases/02-file-system.md §2.2.
-//
-// The File System Access API isn't available in jsdom. We construct a minimal
-// in-memory mock that implements the subset vaultConfig uses:
-//   Dir.getDirectoryHandle(name, {create})
-//   Dir.getFileHandle(name, {create})
-//   FileHandle.createWritable() → { write, close }
-//   FileHandle.getFile() → { text() }
 
-class MockFileContents {
-  constructor(public data: string = '') {}
-}
-
-class MockFileHandle {
-  kind = 'file' as const
-  constructor(public name: string, public contents: MockFileContents) {}
-  async createWritable() {
-    return {
-      write: async (data: string) => { this.contents.data = data },
-      close: async () => {},
-    }
-  }
-  async getFile() {
-    return { text: async () => this.contents.data }
-  }
-}
-
-class MockDirHandle {
-  kind = 'directory' as const
-  dirs = new Map<string, MockDirHandle>()
-  files = new Map<string, MockFileHandle>()
-  constructor(public name: string = 'root') {}
-
-  async getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<MockDirHandle> {
-    if (this.dirs.has(name)) return this.dirs.get(name)!
-    if (opts?.create) {
-      const d = new MockDirHandle(name)
-      this.dirs.set(name, d)
-      return d
-    }
-    const err = new Error(`NotFoundError: ${name}`)
-    err.name = 'NotFoundError'
-    throw err
-  }
-
-  async getFileHandle(name: string, opts?: { create?: boolean }): Promise<MockFileHandle> {
-    if (this.files.has(name)) return this.files.get(name)!
-    if (opts?.create) {
-      const fh = new MockFileHandle(name, new MockFileContents())
-      this.files.set(name, fh)
-      return fh
-    }
-    const err = new Error(`NotFoundError: ${name}`)
-    err.name = 'NotFoundError'
-    throw err
-  }
-}
-
-function asRootHandle(dir: MockDirHandle): FileSystemDirectoryHandle {
+function asRootHandle(dir: MockDir): FileSystemDirectoryHandle {
   return dir as unknown as FileSystemDirectoryHandle
 }
 
-let root: MockDirHandle
+let root: MockDir
 
 beforeEach(() => {
-  root = new MockDirHandle()
+  root = new MockDir()
 })
 
 describe('initVault', () => {
@@ -90,13 +35,13 @@ describe('initVault', () => {
     expect(configDir).toBeDefined()
     const fileHandle = configDir!.files.get('config.json')
     expect(fileHandle).toBeDefined()
-    const text = fileHandle!.contents.data
+    const text = fileHandle!.file.data
     expect(JSON.parse(text)).toEqual(config)
   })
 
   it('FS-2.2-01: file content is JSON-pretty-printed (2-space indent)', async () => {
     await initVault(asRootHandle(root), 'v')
-    const text = root.dirs.get('.archdesigner')!.files.get('config.json')!.contents.data
+    const text = root.dirs.get('.archdesigner')!.files.get('config.json')!.file.data
     expect(text).toContain('\n  "version"')
   })
 })
