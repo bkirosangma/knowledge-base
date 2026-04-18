@@ -68,6 +68,7 @@ import { Activity, Tag, Map as MapIcon } from "lucide-react";
 import AutoArrangeDropdown, { type ArrangeAlgorithm } from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
+import { useReadOnlyState } from "./hooks/useReadOnlyState";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -138,23 +139,8 @@ export default function DiagramView({
     actions: { setIsLive, setShowLabels, setShowMinimap, setHistoryCollapsed, toggleProperties },
   } = useDiagramLayoutState();
 
-  // Per-file Read Mode state. Read from localStorage keyed by activeFile
-  // on mount and whenever the active file changes (split-pane switch, refresh restore).
-  const storageKey = activeFile ? `diagram-read-only:${activeFile}` : null;
-  const [readOnly, setReadOnly] = useState(false);
-  useEffect(() => {
-    if (!storageKey || typeof window === "undefined") { setReadOnly(false); return; }
-    setReadOnly(localStorage.getItem(storageKey) === "true");
-  }, [storageKey]);
-  const toggleReadOnly = useCallback(() => {
-    setReadOnly((v) => {
-      const next = !v;
-      if (storageKey) {
-        try { localStorage.setItem(storageKey, String(next)); } catch { /* ignore */ }
-      }
-      return next;
-    });
-  }, [storageKey]);
+  // Per-file Read Mode state. Persisted to localStorage keyed by activeFile.
+  const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile);
 
   // Clear stale overlays when entering Read Mode so nothing lingers.
   useEffect(() => {
