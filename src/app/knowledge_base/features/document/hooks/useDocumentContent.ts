@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { readTextFile, writeTextFile } from "../../../shared/hooks/useFileExplorer";
+import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
@@ -33,7 +33,8 @@ export function useDocumentContent(
   const save = useCallback(async () => {
     const rootHandle = dirHandleRef.current;
     if (!rootHandle || !filePath) return;
-    await writeTextFile(rootHandle, filePath, contentRef.current);
+    const repo = createDocumentRepository(rootHandle);
+    await repo.write(filePath, contentRef.current);
     setDirty(false);
   }, [dirHandleRef, filePath]);
 
@@ -45,28 +46,26 @@ export function useDocumentContent(
     if (filePath === prevPath) return;
 
     (async () => {
+      const rootHandle = dirHandleRef.current;
+
       // Auto-save previous document if dirty
-      if (prevPath && dirtyRef.current && dirHandleRef.current) {
+      if (prevPath && dirtyRef.current && rootHandle) {
         try {
-          await writeTextFile(dirHandleRef.current, prevPath, contentRef.current);
+          const repo = createDocumentRepository(rootHandle);
+          await repo.write(prevPath, contentRef.current);
         } catch { /* best-effort */ }
       }
 
       // Load new document
-      if (!filePath || !dirHandleRef.current) {
+      if (!filePath || !rootHandle) {
         setContent("");
         setDirty(false);
         return;
       }
 
       try {
-        const parts = filePath.split("/");
-        let dirHandle: FileSystemDirectoryHandle = dirHandleRef.current;
-        for (const part of parts.slice(0, -1)) {
-          dirHandle = await dirHandle.getDirectoryHandle(part);
-        }
-        const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
-        const text = await readTextFile(fileHandle);
+        const repo = createDocumentRepository(rootHandle);
+        const text = await repo.read(filePath);
         setContent(text);
         setDirty(false);
       } catch {
