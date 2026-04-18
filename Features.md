@@ -390,12 +390,17 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **`e2e/fixtures/fsMock.ts`** — in-browser File System Access mock installed via `page.addInitScript`. Exposes `window.__kbMockFS` with `seed(files)` / `read(path)` / `reset()` helpers so tests can pre-populate an in-memory vault and read back the app's writes without any native dialog.
 - ✅ **`e2e/goldenPath.spec.ts`** — folder-open → explorer-populates → click-file → pane-renders-content flows for both `.md` (MarkdownPane) and `.json` (DiagramView); pane-swap; "No file open" empty-state disappears; Save button disabled for clean docs.
 - ✅ **`e2e/fsMockSanity.spec.ts`** — mock-FS contract tests (addInitScript installs `showDirectoryPicker`, seed+`values()` round-trip, root-level file tree renders).
+- ✅ **`e2e/diagramGoldenPath.spec.ts`** — full diagram editor golden path: open `.json` vault, canvas renders, node selection/drag, Delete key removes node, properties panel collapse/persist, file-switch autosave; uses `fsMock.ts` in-memory FS.
+- ✅ **`e2e/documentGoldenPath.spec.ts`** — full document editor golden path: open `.md` vault, WYSIWYG content renders, `[[wiki-link]]` pill visible, Raw toggle round-trip, Cmd+S saves, dirty-flag cleared, file-switch autosave.
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
 ### 8.3 Tooling Hooks
 - ⚙️ **Build**: `next build` — Next.js 16 / React 19.
 - ⚙️ **Lint**: `eslint` with `eslint-config-next`.
 - ⚙️ **Type check**: strict TS 5 (`tsconfig.json`, `tsconfig.test.json`).
+
+### 8.4 Continuous Integration
+- ⚙️ **GitHub Actions CI** (`.github/workflows/ci.yml`) — gates every PR into `main` and every push to `main` on unit tests (`npm run test:run`), e2e tests (`npm run test:e2e`), and build (`npm run build`). Uses Node version from `.nvmrc`, caches npm, installs Chromium for Playwright, uploads the HTML report as an artifact on failure. Lint is intentionally not gated (pre-existing lint errors deferred to Phase 1).
 
 ---
 
