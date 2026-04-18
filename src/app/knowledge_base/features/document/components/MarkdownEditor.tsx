@@ -14,28 +14,14 @@ import { ListItem } from "@tiptap/extension-list-item";
 import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
-import { TextSelection } from "@tiptap/pm/state";
 import { getMarkRange } from "@tiptap/core";
 import { WikiLink } from "../extensions/wikiLink";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
-import {
-  toggleRawSyntax,
-  getActiveRawFormats,
-  getRawHeadingLevel,
-  isRawBlockquote,
-  toggleRawBlockType,
-  forceExitRawBlock,
-} from "../extensions/rawSyntaxEngine";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
 import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
-import {
-  Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered,
-  CheckSquare, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Minus, Link as LinkIcon,
-  Table as TableIcon, Undo2, Redo2, FileCode,
-} from "lucide-react";
 
 interface MarkdownEditorProps {
   content: string;
