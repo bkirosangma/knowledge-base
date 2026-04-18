@@ -17,7 +17,7 @@ import { Image } from "@tiptap/extension-image";
 import { TextSelection } from "@tiptap/pm/state";
 import { getMarkRange } from "@tiptap/core";
 import { WikiLink } from "../extensions/wikiLink";
-import { MarkdownReveal, RawBlock, rawBlockToRichNodes } from "../extensions/markdownReveal";
+import { MarkdownReveal, RawBlock, rawBlockToRichNodes, SYNTAX_PATTERNS } from "../extensions/markdownReveal";
 import {
   parseHeadingPrefix,
   hasBlockquotePrefix,
