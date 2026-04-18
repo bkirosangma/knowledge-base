@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
-import { loadDraft, clearDraft, listDrafts, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
+import { loadDraft, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
+import { useDrafts } from "./useDrafts";
 import { setDirectoryScope, clearDirectoryScope } from "../utils/directoryScope";
 import { saveDirHandle, loadDirHandle, clearDirHandle } from "../utils/idbHandles";
 import { scanTree, flattenTree, type TreeNode } from "../utils/fileTree";
@@ -37,7 +38,7 @@ export function useFileExplorer() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(() => listDrafts());
+  const drafts = useDrafts();
   const [pendingFile, setPendingFile] = useState<string | null>(null);
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -73,7 +74,7 @@ export function useFileExplorer() {
         setTree(nodes);
         // Clean up localStorage for files that no longer exist on disk
         cleanupOrphanedData(collectAllFilePaths(nodes));
-        setDirtyFiles(listDrafts());
+        drafts.refreshDrafts();
         setIsLoading(false);
 
         const lastFile = localStorage.getItem(ACTIVE_FILE_KEY);
@@ -94,7 +95,7 @@ export function useFileExplorer() {
     if (!dirHandleRef.current) return;
     const nodes = await scanTree(dirHandleRef.current, "");
     setTree(nodes);
-    setDirtyFiles(listDrafts());
+    drafts.refreshDrafts();
   }, []);
 
   const openFolder = useCallback(async () => {
@@ -111,7 +112,7 @@ export function useFileExplorer() {
         const nodes = await scanTree(handle, "");
         setTree(nodes);
         setActiveFile(null);
-        setDirtyFiles(listDrafts());
+        drafts.refreshDrafts();
         setIsLoading(false);
       } catch (e: unknown) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -139,7 +140,7 @@ export function useFileExplorer() {
     localStorage.setItem(DIR_NAME_KEY, folderName);
     setTree(nodes);
     setActiveFile(null);
-    setDirtyFiles(listDrafts());
+    drafts.refreshDrafts();
   }, []);
 
   const selectFile = useCallback(async (filePath: string): Promise<{ data: DiagramData; diskJson: string; hasDraft: boolean } | null> => {
@@ -190,8 +191,7 @@ export function useFileExplorer() {
         const writable = await entry.handle.createWritable();
         await writable.write(json);
         await writable.close();
-        clearDraft(filePath);
-        setDirtyFiles((prev) => { const next = new Set(prev); next.delete(filePath); return next; });
+        drafts.removeDraft(filePath);
         return true;
       } catch { return false; }
     }
@@ -203,8 +203,7 @@ export function useFileExplorer() {
     a.download = filePath.split("/").pop() || "diagram.json";
     a.click();
     URL.revokeObjectURL(url);
-    clearDraft(filePath);
-    setDirtyFiles((prev) => { const next = new Set(prev); next.delete(filePath); return next; });
+    drafts.removeDraft(filePath);
     return true;
   }, [fileMap]);
 
@@ -251,7 +250,7 @@ export function useFileExplorer() {
       const parentPath = parts.join("/");
       const parentHandle = await resolveParentHandle(dirHandleRef.current, parentPath);
       await parentHandle.removeEntry(name);
-      clearDraft(filePath);
+      drafts.removeDraft(filePath);
       await rescan();
       if (activeFile === filePath) {
         setActiveFile(null);
@@ -274,7 +273,7 @@ export function useFileExplorer() {
       // Clean up localStorage for all files in the folder
       const folderFiles = collectFilePaths(tree, folderPath);
       for (const fp of folderFiles) {
-        clearDraft(fp);
+        drafts.removeDraft(fp);
       }
       await parentHandle.removeEntry(name, { recursive: true });
       await rescan();
@@ -309,7 +308,7 @@ export function useFileExplorer() {
       await writable.close();
       // Delete old
       await parentHandle.removeEntry(oldName);
-      clearDraft(oldPath);
+      drafts.removeDraft(oldPath);
 
       const newPath = parentPath ? `${parentPath}/${finalName}` : finalName;
       migrateViewport(oldPath, newPath);
@@ -356,7 +355,7 @@ export function useFileExplorer() {
         const draft = loadDraft(fp);
         if (draft) {
           saveDraft(newFp, draft.title ?? "", draft.layers, draft.nodes as never[], draft.connections, draft.layerManualSizes ?? {}, draft.lineCurve ?? "orthogonal");
-          clearDraft(fp);
+          drafts.removeDraft(fp);
         }
       }
       await rescan();
@@ -443,7 +442,7 @@ export function useFileExplorer() {
         const draft = loadDraft(sourcePath);
         if (draft) {
           saveDraft(finalPath, draft.title ?? "", draft.layers, draft.nodes as never[], draft.connections, draft.layerManualSizes ?? {}, draft.lineCurve ?? "orthogonal");
-          clearDraft(sourcePath);
+          drafts.removeDraft(sourcePath);
         }
         migrateViewport(sourcePath, finalPath);
       } else if (entry?.dirHandle) {
@@ -482,21 +481,11 @@ export function useFileExplorer() {
       const text = await file.text();
       const parsed = JSON.parse(text);
       if (!isDiagramData(parsed)) return null;
-      clearDraft(filePath);
-      setDirtyFiles((prev) => { const next = new Set(prev); next.delete(filePath); return next; });
+      drafts.removeDraft(filePath);
       setActiveFile(filePath);
       return parsed;
     } catch { return null; }
   }, [fileMap]);
-
-  const markDirty = useCallback((filePath: string, dirty: boolean) => {
-    setDirtyFiles((prev) => {
-      const next = new Set(prev);
-      if (dirty) next.add(filePath);
-      else next.delete(filePath);
-      return next;
-    });
-  }, []);
 
   const refresh = useCallback(async () => {
     if (dirHandleRef.current) {
@@ -532,7 +521,7 @@ export function useFileExplorer() {
     activeFile,
     isLoading,
     supported: isSupported(),
-    dirtyFiles,
+    dirtyFiles: drafts.dirtyFiles,
     pendingFile,
     clearPendingFile,
     openFolder,
@@ -547,7 +536,7 @@ export function useFileExplorer() {
     duplicateFile,
     moveItem,
     discardFile,
-    markDirty,
+    markDirty: drafts.markDirty,
     refresh,
     handleFallbackInput,
     inputRef,
