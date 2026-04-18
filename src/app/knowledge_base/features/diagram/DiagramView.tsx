@@ -65,6 +65,7 @@ import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 import { useReadOnlyState } from "./hooks/useReadOnlyState";
 import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
+import DiagramNodeLayer from "./components/DiagramNodeLayer";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -1045,152 +1046,41 @@ export default function DiagramView({
             })()}
 
             {/* Nodes */}
-            {displayNodes.map((node) => {
-              const isThisSingleDragged = draggingId === node.id;
-              const isThisMultiDragged = isMultiDrag && multiDragIds.includes(node.id);
-              const isThisDragged = isThisSingleDragged || isThisMultiDragged;
-              const dims = getNodeDimensions(node);
-              const isCondition = node.shape === "condition";
-              const anchors = isCondition
-                ? getConditionAnchors(node.x, node.y, dims.w, dims.h, node.conditionOutCount ?? 2, node.rotation ?? 0).map((a) => ({ id: a.id as import("./utils/anchors").AnchorId, x: a.x, y: a.y }))
-                : getAnchors(node.x, node.y, dims.w, dims.h);
-              const isSnapTarget = draggingEndpoint?.snappedAnchor?.nodeId === node.id
-                || creatingLine?.snappedAnchor?.nodeId === node.id;
-
-              let dimmed = false;
-              let showAnchors = hoveredNodeId === node.id;
-              if (draggingEndpoint) {
-                const dragConn = connections.find((c) => c.id === draggingEndpoint.connectionId);
-                const fixedNodeId = dragConn ? (draggingEndpoint.end === "from" ? dragConn.to : dragConn.from) : null;
-                dimmed = node.id !== fixedNodeId && hoveredNodeId !== node.id;
-                showAnchors = hoveredNodeId === node.id;
-              }
-              if (creatingLine) {
-                dimmed = node.id !== creatingLine.fromNodeId && hoveredNodeId !== node.id;
-                showAnchors = hoveredNodeId === node.id || node.id === creatingLine.fromNodeId;
-              }
-              if (draggingId || isMultiDrag) { showAnchors = false; if (!isThisDragged) dimmed = true; }
-              const isInDraggedLayer = draggingLayerIds.length > 0 && draggingLayerIds.includes(node.layer);
-              if (draggingLayerIds.length > 0) { showAnchors = false; if (!isInDraggedLayer) dimmed = true; }
-              if (flowDimSets != null && !flowDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
-              if (typeDimSets != null && !typeDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
-              if (readOnly) { showAnchors = false; }
-
-              let visualX = node.x;
-              let visualY = node.y;
-              if (isThisSingleDragged && elementDragPos) {
-                visualX = elementDragPos.x;
-                visualY = elementDragPos.y;
-              } else if (isThisMultiDragged && multiDragDelta) {
-                visualX = node.x + multiDragDelta.dx;
-                visualY = node.y + multiDragDelta.dy;
-              } else if (isInDraggedLayer && layerDragDelta) {
-                visualX = node.x + layerDragDelta.dx;
-                visualY = node.y + layerDragDelta.dy;
-              }
-
-              const commonProps = {
-                isDragging: isThisDragged,
-                isSelected: isItemSelected(selection, 'node', node.id),
-                showAnchors,
-                highlightedAnchor: isSnapTarget ? (draggingEndpoint?.snappedAnchor?.anchorId ?? creatingLine?.snappedAnchor?.anchorId ?? null) : null,
-                onAnchorDragStart: handleAnchorDragStart,
-                onAnchorHover: handleAnchorHover,
-                onAnchorHoverEnd: handleAnchorHoverEnd,
-                onResize: handleElementResize,
-                onMouseEnter: handleNodeMouseEnter,
-                onMouseLeave: handleNodeMouseLeave,
-                dimmed,
-                onDoubleClick: handleNodeDoubleClick,
-              };
-
-              if (isCondition) {
-                const condDims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
-                return (
-                  <React.Fragment key={node.id}>
-                    {isThisSingleDragged && elementDragRawPos && (
-                      <ConditionElement
-                        id={`${node.id}-ghost`}
-                        label={node.label}
-                        icon={node.icon}
-                        x={elementDragRawPos.x}
-                        y={elementDragRawPos.y}
-                        w={condDims.w}
-                        h={condDims.h}
-                        outCount={node.conditionOutCount ?? 2}
-                        rotation={node.rotation ?? 0}
-                        showLabels
-                        dimmed
-                      />
-                    )}
-                    {isThisMultiDragged && multiDragRawDelta && (
-                      <ConditionElement
-                        id={`${node.id}-ghost`}
-                        label={node.label}
-                        icon={node.icon}
-                        x={node.x + multiDragRawDelta.dx}
-                        y={node.y + multiDragRawDelta.dy}
-                        w={condDims.w}
-                        h={condDims.h}
-                        outCount={node.conditionOutCount ?? 2}
-                        rotation={node.rotation ?? 0}
-                        showLabels
-                        dimmed
-                      />
-                    )}
-                    <ConditionElement
-                      id={node.id}
-                      label={node.label}
-                      icon={node.icon}
-                      x={visualX}
-                      y={visualY}
-                      w={condDims.w}
-                      h={condDims.h}
-                      outCount={node.conditionOutCount ?? 2}
-                      rotation={node.rotation ?? 0}
-                      showLabels
-                      onDragStart={handleNodeDragStart}
-                      {...commonProps}
-                      onAddOutAnchor={readOnly ? undefined : () => {
-                        setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
-                        scheduleRecord("Add out anchor");
-                      }}
-                      onRotationDragStart={readOnly ? undefined : handleRotationDragStart}
-                      borderColor={node.borderColor}
-                      bgColor={node.bgColor}
-                      textColor={node.textColor}
-                      hasDocuments={hasDocuments("node", node.id)}
-                      documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                      onDocNavigate={onOpenDocument}
-                    />
-                  </React.Fragment>
-                );
-              }
-
-              return (
-                <React.Fragment key={node.id}>
-                  {isThisSingleDragged && elementDragRawPos && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={elementDragRawPos.x} y={elementDragRawPos.y} w={node.w} showLabels dimmed measuredHeight={dims.h} />
-                  )}
-                  {isThisMultiDragged && multiDragRawDelta && (
-                    <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels dimmed measuredHeight={dims.h} />
-                  )}
-                  <Element
-                    {...node}
-                    x={visualX}
-                    y={visualY}
-                    showLabels
-                    onDragStart={handleNodeDragStart}
-                    {...commonProps}
-                    anchors={anchors}
-                    measuredHeight={dims.h}
-                    hasDocuments={hasDocuments("node", node.id)}
-                    documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                    onDocNavigate={onOpenDocument}
-                  />
-                </React.Fragment>
-              );
-            })}
+            <DiagramNodeLayer
+              displayNodes={displayNodes}
+              connections={connections}
+              selection={selection}
+              draggingId={draggingId}
+              elementDragPos={elementDragPos}
+              elementDragRawPos={elementDragRawPos}
+              isMultiDrag={isMultiDrag}
+              multiDragIds={multiDragIds}
+              multiDragDelta={multiDragDelta}
+              multiDragRawDelta={multiDragRawDelta}
+              draggingLayerIds={draggingLayerIds}
+              layerDragDelta={layerDragDelta}
+              draggingEndpoint={draggingEndpoint}
+              creatingLine={creatingLine}
+              hoveredNodeId={hoveredNodeId}
+              readOnly={readOnly}
+              flowDimSets={flowDimSets}
+              typeDimSets={typeDimSets}
+              handleAnchorDragStart={handleAnchorDragStart}
+              handleAnchorHover={handleAnchorHover}
+              handleAnchorHoverEnd={handleAnchorHoverEnd}
+              handleElementResize={handleElementResize}
+              handleNodeMouseEnter={handleNodeMouseEnter}
+              handleNodeMouseLeave={handleNodeMouseLeave}
+              handleNodeDoubleClick={handleNodeDoubleClick}
+              handleNodeDragStart={handleNodeDragStart}
+              handleRotationDragStart={handleRotationDragStart}
+              setNodes={setNodes}
+              scheduleRecord={scheduleRecord}
+              getNodeDimensions={getNodeDimensions}
+              hasDocuments={hasDocuments}
+              getDocumentsForEntity={getDocumentsForEntity}
+              onOpenDocument={onOpenDocument}
+            />
             {/* Data line label overlay */}
             {showLabels && (
               <svg
