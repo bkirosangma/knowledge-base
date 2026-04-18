@@ -111,6 +111,7 @@ export default function Canvas({ patches, children }: CanvasProps) {
   return (
     <div
       className="relative"
+      data-testid="diagram-canvas"
       style={{ width: world.w, height: world.h }}
     >
       {/* Render patch backgrounds */}

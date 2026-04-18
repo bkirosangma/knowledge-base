@@ -6,7 +6,7 @@
 
 ## 4.1 Editor Orchestration
 
-- **DOC-4.1-01** 🧪 **DocumentView mounts for `.md` file** — `e2e/goldenPath.spec.ts` opens a seeded vault, clicks a `.md` file, and asserts the ProseMirror surface renders the seeded content. Uses the in-browser File System Access mock.
+- **DOC-4.1-01** ✅ **DocumentView mounts for `.md` file** — `e2e/goldenPath.spec.ts` opens a seeded vault, clicks a `.md` file, and asserts the ProseMirror surface renders the seeded content. Also covered by `e2e/documentGoldenPath.spec.ts` (DOC-4.1-01). Uses the in-browser File System Access mock.
 - **DOC-4.1-02** 🚫 **Focused state tracked.** Same.
 - **DOC-4.1-03** 🟡 **MarkdownPane header shows breadcrumb** — `PaneHeader` breadcrumb rendering is covered by SHELL-1.6-01; mount wiring is integration.
 - **DOC-4.1-04** 🚫 **Backlinks dropdown opens.** Integration.
@@ -39,7 +39,7 @@
 ## 4.3 Custom Extensions
 
 ### 4.3.a WikiLink (`wikiLink.ts`)
-- **DOC-4.3-01** 🚫 **`[[foo]]` renders as blue pill.** NodeView rendering in a live editor — integration (Bucket 25).
+- **DOC-4.3-01** ✅ **`[[foo]]` renders as blue pill.** — `e2e/documentGoldenPath.spec.ts` (DOC-4.3-01): seeds index.md + target.md, opens index.md, and asserts the NodeView-rendered `.wiki-link.bg-blue-100` pill is visible and `[[target]]` plain text is absent.
 - **DOC-4.3-02** 🚫 **`[[nonexistent]]` renders as red pill.** Same.
 - **DOC-4.3-03** 🚫 **Doc icon on `.md` target.** Same.
 - **DOC-4.3-04** 🚫 **Diagram icon on `.json` target.** Same.
@@ -118,7 +118,7 @@
 
 - **DOC-4.5-01** ✅ **Toolbar hidden in read-only** — `MarkdownEditor.test.tsx` asserts Bold / H1 / Undo not rendered + the editor is `contenteditable=false` when `readOnly=true`.
 - **DOC-4.5-02** ✅ **Toolbar hidden in raw mode** — `MarkdownEditor.test.tsx` clicks "Raw" and asserts toolbar buttons disappear alongside the ProseMirror surface.
-- **DOC-4.5-03** ✅ **WYSIWYG ↔ Raw toggle** — `MarkdownEditor.test.tsx` verifies both directions (Raw → textarea, WYSIWYG → ProseMirror).
+- **DOC-4.5-03** ✅ **WYSIWYG ↔ Raw toggle** — `MarkdownEditor.test.tsx` verifies both directions (Raw → textarea, WYSIWYG → ProseMirror). Also covered end-to-end with content round-trip by `e2e/documentGoldenPath.spec.ts` (DOC-4.5-03).
 - **DOC-4.5-04** 🟡 **Undo disabled when stack empty** — Tiptap's History extension records initial content as a transaction so Undo is typically enabled right after mount. The disabled wiring (`disabled={!editor.can().undo()}`) is a thin wrapper over Tiptap's API; testing stay-disabled reliably would require disabling History.
 - **DOC-4.5-05** ✅ **Redo disabled when no undone history** — `MarkdownEditor.test.tsx` asserts Redo is disabled on a fresh mount.
 - **DOC-4.5-06** ✅ **H1 button active state** — `MarkdownEditor.test.tsx` mounts `# Already a heading`, focuses the editor, and asserts the H1 TBtn has `bg-blue-100` (active class) while H2 does not.
@@ -139,6 +139,9 @@
 - **DOC-4.5-21** 🚫 **Hovering cell shows "N × M table".** Same.
 - **DOC-4.5-22** 🚫 **Click inserts table of chosen dims.** Same.
 - **DOC-4.5-23** 🚫 **Table picker disabled when cursor already in table.** Same.
+- **DOC-4.5-24** ✅ **Typing in WYSIWYG mode fires a debounced `onChange`.** — `MarkdownEditor.test.tsx` drives a toolbar transaction and asserts `onChange` is called with a string after 300ms.
+- **DOC-4.5-25** ✅ **Unmounting the editor flushes a pending `onChange` synchronously.** — `MarkdownEditor.test.tsx` triggers a transaction then unmounts before debounce fires; asserts flush happened.
+- **DOC-4.5-26** 🚫 **External content prop change does NOT echo back to `onChange`.** — Pre-existing bug: Tiptap's `setContent` defaults to `emitUpdate: true`, causing an echo that would create an infinite save loop. Fix: pass `{ emitUpdate: false }` to `editor.commands.setContent`. Test written but skipped; assertion documents the correct contract.
 
 ## 4.6 Table Floating Toolbar
 
@@ -220,10 +223,10 @@
 ## 4.11 Document Persistence
 
 - **DOC-4.11-01** ✅ **Per-pane content + dirty state** — `useDocumentContent` is instantiated per pane; each instance has its own `content`/`dirty` state. Verified by loading and editing independently in a single hook instance (pane-level isolation is a composition guarantee, covered by the integration test in Bucket 18).
-- **DOC-4.11-02** ✅ **Auto-save on file switch** — when `filePath` prop changes and the previous file was dirty, the hook writes the previous content via `writeTextFile(dirHandleRef, prevPath, contentRef.current)` before loading the new file.
-- **DOC-4.11-03** ✅ **`save()` writes via File System Access API** — verified by asserting the mock file's contents after `save()`; routed through `writeTextFile`.
+- **DOC-4.11-02** ✅ **Auto-save on file switch** — when `filePath` prop changes and the previous file was dirty, the hook writes the previous content via `writeTextFile(dirHandleRef, prevPath, contentRef.current)` before loading the new file. Also covered end-to-end by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-02).
+- **DOC-4.11-03** ✅ **`save()` writes via File System Access API** — verified by asserting the mock file's contents after `save()`; routed through `writeTextFile`. Also covered end-to-end (Cmd+S path) by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
 - **DOC-4.11-04** ✅ **Dirty flag cleared after save** — `save()` sets `dirty = false` on success.
-- **DOC-4.11-05** ✅ **Dirty flag set on edit** — `updateContent(md)` sets content and flips `dirty = true`.
+- **DOC-4.11-05** ✅ **Dirty flag set on edit** — `updateContent(md)` sets content and flips `dirty = true`. Also covered end-to-end by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
 - **DOC-4.11-06** ✅ **Bridge exposes `save`, `dirty`, `filePath`, `content`** — `bridge.content` / `bridge.dirty` use ref-backed getters (reflect latest state without re-render); `bridge.save()` mirrors the hook's `save()`.
 - **DOC-4.11-07** 🟡 **`createDocument` writes new file with initial content** — trivially routes `writeTextFile(rootHandle, path, initialContent)`; asserted indirectly via the write helper's tests. Full path exercised in file-ops bucket.
 - **DOC-4.11-08** ✅ **`attachDocument` records link to entity** — creates a new `DocumentMeta` (or appends to existing) with `{type, id}`; idempotent on duplicate pairs.

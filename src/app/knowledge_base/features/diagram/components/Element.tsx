@@ -103,6 +103,8 @@ function Element({
   return (
     <div
       ref={ref}
+      data-testid={`node-${id}`}
+      data-node-label={label}
       className={`absolute rounded-lg shadow-[0_4px_15px_rgb(0,0,0,0.06)] border flex flex-col items-center justify-center text-center p-3 z-10 select-none ${isDragging ? "cursor-grabbing shadow-lg ring-2 ring-blue-400" : isSelected ? "ring-2 ring-blue-400 cursor-grab" : "cursor-grab"}`}
       style={{
         left: x,

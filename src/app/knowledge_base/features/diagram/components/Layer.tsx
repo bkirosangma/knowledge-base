@@ -50,6 +50,7 @@ function Layer({
   return (
     <>
       <div
+        data-testid={`layer-${id}`}
         className={`absolute rounded-xl border ${isSelected ? "border-blue-400 border-solid border-2" : "border-dashed"} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", backgroundColor: bg, ...(!isSelected ? { borderColor: border } : {}) }}
         onMouseDown={(e) => {

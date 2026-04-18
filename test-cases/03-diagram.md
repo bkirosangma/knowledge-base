@@ -24,6 +24,7 @@
 - **DIAG-3.2-09** 🟡 **Client→world coord transform** — logic lives inside `useCanvasCoords` hook and reads live DOM; the math is exercised indirectly by `useViewportPersistence`. Dedicated unit test requires extracting the transform — open a ticket.
 - **DIAG-3.2-10** 🚫 **Canvas click deselects.** Requires DOM click targeting inside the canvas element.
 - **DIAG-3.2-11** 🚫 **Pan by drag on empty canvas.** Pointer events + scroll — Playwright.
+- **DIAG-3.2-12** ✅ **Opening a .json renders canvas + nodes** — `[data-testid="diagram-canvas"]` visible, both seeded nodes appear as `[data-testid="node-<id>"]`. — e2e/diagramGoldenPath.spec.ts
 
 ## 3.3 Minimap
 
@@ -49,7 +50,7 @@
 - **DIAG-3.5-03** 🚫 **Icon, label, sublabel render.** The `Element` component's full render path depends on measured dimensions; Playwright.
 - **DIAG-3.5-04** 🚫 **Custom colours render.** Computed style under JSDOM.
 - **DIAG-3.5-05** 🚫 **Rotation applied.** Transform inspection needs browser layout.
-- **DIAG-3.5-06** 🚫 **Single-node drag moves node.** Pointer events.
+- **DIAG-3.5-06** ✅ **Single-node drag moves node.** Pointer events. — e2e/diagramGoldenPath.spec.ts
 - **DIAG-3.5-07** 🚫 **Single-node drag respects layer bounds.** Live drag + `layerBounds` math — the math is covered by `layerBounds.test.ts`, the drag wiring is canvas-level.
 - **DIAG-3.5-08** 🚫 **Multi-node drag moves all.** Pointer events.
 - **DIAG-3.5-09** 🚫 **Multi-node drag clamped by group bbox.** Live drag.
@@ -142,7 +143,7 @@
 
 ## 3.11 Selection
 
-- **DIAG-3.11-01** ✅ **Click selects single node** — `selectionUtils.test.ts` (`toggleItemInSelection` empty→single).
+- **DIAG-3.11-01** ✅ **Click selects single node** — `selectionUtils.test.ts` (`toggleItemInSelection` empty→single); also e2e/diagramGoldenPath.spec.ts (ring-2 class visible).
 - **DIAG-3.11-02** ✅ **Click selects single layer** — same test file.
 - **DIAG-3.11-03** ✅ **Click selects single line** — same test file.
 - **DIAG-3.11-04** ✅ **Ctrl/Cmd+click adds to selection** — `selectionUtils.test.ts` (toggle node + node → multi-node; different layer → multi-layer).
@@ -171,7 +172,7 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 ## 3.13 Properties Panel
 
 ### 3.13.a Container
-- **DIAG-3.13-01** 🚫 **Collapse / expand panel** — `collapsed` + `onToggleCollapse` props wire through; persistence is caller's (KnowledgeBase → Bucket 18).
+- **DIAG-3.13-01** ✅ **Collapse / expand panel** — toggle button updates `properties-collapsed` in localStorage; verified end-to-end. — covered at e2e layer by `e2e/diagramGoldenPath.spec.ts` (toggle + persistence); unit-layer smoke in `DiagramView.test.tsx` asserts mount does not clobber the key.
 - **DIAG-3.13-02** 🚫 **Tab switching reflects selection** — PropertiesPanel dispatches on `selection.type`; full switch coverage requires the full panel mount (deferred to integration).
 - **DIAG-3.13-03** 🟡 **Read-only disables editors** — verified at LayerProperties level: readOnly=true strictly reduces row count (ColorSchemeRow hidden, EditableIdRow/EditableRow replaced with plain Row). Analogous for Node/Line panels (not individually covered here).
 
@@ -222,11 +223,16 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-39** 🟡 **Lists attached docs** — `DocumentsSection` component is tested at the component level in `DocumentsSection.test.tsx`; wiring into the properties panel is canvas-level.
 - **DIAG-3.13-40** 🟡 **Click opens doc in other pane** — component's `onDocumentClick` callback tested; pane routing is canvas-level.
 
+### 3.13.g DiagramView lifecycle (unit layer)
+- **DIAG-3.13-41** ✅ **Component mounts without throwing** — DiagramView renders with minimal stub props in JSDOM. — `DiagramView.test.tsx`
+- **DIAG-3.13-42** ✅ **`onDiagramBridge` called on mount** — bridge effect fires on first render and publishes the bridge object to the shell. — `DiagramView.test.tsx`
+- **DIAG-3.13-43** ✅ **activeFile rerender is safe** — swapping the `activeFile` prop from null → a path does not throw. — `DiagramView.test.tsx`
+
 ## 3.14 Keyboard Shortcuts
 
 - **DIAG-3.14-01** 🚫 **Escape deselects.** Keyboard event wiring on the canvas root — Playwright.
 - **DIAG-3.14-02** 🚫 **Escape closes context menu.** Same.
-- **DIAG-3.14-03** 🚫 **Delete / Backspace deletes selection.** Same.
+- **DIAG-3.14-03** ✅ **Delete / Backspace deletes selection.** Node removed from DOM and from saved JSON on Delete key. — e2e/diagramGoldenPath.spec.ts
 - **DIAG-3.14-04** 🚫 **Delete with flow impact → warning modal.** Same.
 - **DIAG-3.14-05** 🚫 **Cmd/Ctrl+G creates flow.** Same; contiguity check itself is in `flowUtils.test.ts`.
 - **DIAG-3.14-06** 🟡 **Cmd/Ctrl+Z undoes** — `useActionHistory` undo path tested (HOOK-6.1-05); shortcut binding is canvas-level.
