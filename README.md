@@ -1,5 +1,7 @@
 # Knowledge Base
 
+[![CI](https://github.com/bkirosangma/knowledge-base/actions/workflows/ci.yml/badge.svg)](https://github.com/bkirosangma/knowledge-base/actions/workflows/ci.yml)
+
 A web-based knowledge management tool for creating architectural diagrams and markdown documents with intelligent cross-referencing.
 
 ## Features
