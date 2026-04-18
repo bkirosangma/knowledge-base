@@ -2,24 +2,19 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  ChevronLeft, ChevronRight, ChevronDown, FolderOpen, Folder, FileJson, FileText,
-  RefreshCw, FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
-  EllipsisVertical, ArrowUp, ArrowDown, Check,
+  ChevronLeft, ChevronRight, FolderOpen,
+  FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { ExplorerFilter } from "../../utils/types";
+import { sortTreeNodes, filterTreeNodes } from "./explorerTreeUtils";
+import TreeNodeRow, { type ContextMenuState } from "./TreeNodeRow";
+import ExplorerHeader from "./ExplorerHeader";
 
 export type SortField = "name" | "created" | "modified";
 export type SortDirection = "asc" | "desc";
 export type SortGrouping = "folders-first" | "files-first" | "mixed";
 
-interface ExplorerContextMenu {
-  x: number;
-  y: number;
-  type: "file" | "folder";
-  path: string;
-  name: string;
-}
 
 interface ExplorerPanelProps {
   collapsed: boolean;
@@ -52,36 +47,6 @@ interface ExplorerPanelProps {
 
 /* ── Sorting utility ── */
 
-function sortTree(nodes: TreeNode[], field: SortField, direction: SortDirection, grouping: SortGrouping): TreeNode[] {
-  const compare = (a: TreeNode, b: TreeNode): number => {
-    let result: number;
-    if (field === "name") {
-      result = a.name.localeCompare(b.name);
-    } else {
-      // Both "created" and "modified" use lastModified (only timestamp available from File API)
-      result = (a.lastModified ?? 0) - (b.lastModified ?? 0);
-    }
-    return direction === "desc" ? -result : result;
-  };
-
-  const sorted = [...nodes].map((n) =>
-    n.type === "folder" && n.children
-      ? { ...n, children: sortTree(n.children, field, direction, grouping) }
-      : n,
-  );
-
-  if (grouping === "folders-first") {
-    const folders = sorted.filter((n) => n.type === "folder").sort(compare);
-    const files = sorted.filter((n) => n.type === "file").sort(compare);
-    return [...folders, ...files];
-  } else if (grouping === "files-first") {
-    const files = sorted.filter((n) => n.type === "file").sort(compare);
-    const folders = sorted.filter((n) => n.type === "folder").sort(compare);
-    return [...files, ...folders];
-  } else {
-    return sorted.sort(compare);
-  }
-}
 
 export default function ExplorerPanel({
   collapsed,
@@ -111,7 +76,7 @@ export default function ExplorerPanel({
   onFilterChange,
   onSelectDocument,
 }: ExplorerPanelProps) {
-  const [contextMenu, setContextMenu] = useState<ExplorerContextMenu | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editType, setEditType] = useState<"file" | "folder">("file");
@@ -142,26 +107,8 @@ export default function ExplorerPanel({
     });
   }, [leftPaneFile, rightPaneFile]);
 
-  const sortedTree = useMemo(() => sortTree(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
-
-  const filteredTree = useMemo(() => {
-    if (!explorerFilter || explorerFilter === "all") return sortedTree;
-    function filterNodes(nodes: TreeNode[]): TreeNode[] {
-      return nodes
-        .map(node => {
-          if (node.type === "folder") {
-            const children = filterNodes(node.children ?? []);
-            if (children.length === 0) return null;
-            return { ...node, children };
-          }
-          if (explorerFilter === "diagrams") return node.fileType === "diagram" ? node : null;
-          if (explorerFilter === "documents") return node.fileType === "document" ? node : null;
-          return node;
-        })
-        .filter((n): n is TreeNode => n !== null);
-    }
-    return filterNodes(sortedTree);
-  }, [sortedTree, explorerFilter]);
+  const sortedTree = useMemo(() => sortTreeNodes(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
+  const filteredTree = useMemo(() => filterTreeNodes(sortedTree, explorerFilter), [sortedTree, explorerFilter]);
 
   // Close context menu on outside click / Escape
   useEffect(() => {
@@ -320,147 +267,40 @@ export default function ExplorerPanel({
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors";
   const sortBtnClass = "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-slate-700 hover:bg-slate-100";
 
-  // Hover action button helper
-  const hoverBtn = (onClick: (e: React.MouseEvent) => void, title: string, children: React.ReactNode) => (
-    <button
-      className="p-0.5 rounded hover:bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
-      title={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {children}
-    </button>
+  const renderNode = (node: TreeNode, depth: number) => (
+    <TreeNodeRow
+      key={node.path}
+      node={node}
+      depth={depth}
+      editingPath={editingPath}
+      editValue={editValue}
+      expandedFolders={expandedFolders}
+      dragOverPath={dragOverPath}
+      dirtyFiles={dirtyFiles}
+      leftPaneFile={leftPaneFile}
+      rightPaneFile={rightPaneFile}
+      sortField={sortField}
+      sortDirection={sortDirection}
+      sortGrouping={sortGrouping}
+      editInputRef={editInputRef}
+      setEditValue={setEditValue}
+      setEditingPath={setEditingPath}
+      setContextMenu={setContextMenu}
+      toggleFolder={toggleFolder}
+      commitRename={commitRename}
+      startRename={startRename}
+      handleCreateFile={handleCreateFile}
+      handleCreateFolder={handleCreateFolder}
+      handleDragStart={handleDragStart}
+      handleDragOver={handleDragOver}
+      handleDragEnter={handleDragEnter}
+      handleDragLeave={handleDragLeave}
+      handleDrop={handleDrop}
+      onSelectFile={onSelectFile}
+      onSelectDocument={onSelectDocument}
+      onDuplicateFile={onDuplicateFile}
+    />
   );
-
-  // Recursive tree item renderer
-  const renderNode = (node: TreeNode, depth: number) => {
-    const isEditing = editingPath === node.path;
-    const indent = depth * 16;
-    const isDragOver = dragOverPath === node.path;
-
-    if (node.type === "folder") {
-      const isExpanded = expandedFolders.has(node.path);
-      return (
-        <div key={node.path}>
-          <div
-            className={`group flex items-center gap-1 py-1 cursor-pointer hover:bg-slate-50 text-xs text-slate-700 select-none ${
-              isDragOver ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
-            }`}
-            style={{ paddingLeft: indent + 8 }}
-            onClick={() => toggleFolder(node.path)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: node.path, name: node.name });
-            }}
-            draggable={!isEditing}
-            onDragStart={(e) => handleDragStart(e, node.path, "folder")}
-            onDragOver={(e) => handleDragOver(e, node.path)}
-            onDragEnter={(e) => handleDragEnter(e, node.path)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, node.path)}
-          >
-            {isExpanded ? (
-              <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
-            ) : (
-              <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
-            )}
-            <Folder size={16} className="text-amber-500 flex-shrink-0" />
-            {isEditing ? (
-              <input
-                ref={editInputRef}
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitRename();
-                  if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
-              />
-            ) : (
-              <>
-                <span className="truncate flex-1">{node.name}</span>
-                <div className="ml-auto flex items-center gap-0.5 pr-1">
-                  {hoverBtn(() => handleCreateFile(node.path), "New Architecture", <FilePlus size={13} className="text-slate-400 hover:text-slate-600" />)}
-                  {hoverBtn(() => handleCreateFolder(node.path), "New Folder", <FolderPlus size={13} className="text-slate-400 hover:text-slate-600" />)}
-                  {hoverBtn(() => startRename(node.path, node.name, "folder"), "Rename", <Pencil size={13} className="text-slate-400 hover:text-slate-600" />)}
-                </div>
-              </>
-            )}
-          </div>
-          {isExpanded && node.children && sortTree(node.children, sortField, sortDirection, sortGrouping).map((child) => renderNode(child, depth + 1))}
-        </div>
-      );
-    }
-
-    // File node
-    const dirty = dirtyFiles.has(node.path);
-    return (
-      <div key={node.path}>
-        {isEditing ? (
-          <div
-            className="flex items-center gap-1.5 py-1"
-            style={{ paddingLeft: indent + 22 }}
-          >
-            {node.fileType === "document"
-              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-            }
-            <input
-              ref={editInputRef}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitRename();
-                if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
-              }}
-              className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
-            />
-          </div>
-        ) : (
-          <div
-            className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
-              leftPaneFile === node.path && rightPaneFile === node.path
-                ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"
-                : leftPaneFile === node.path
-                  ? "bg-blue-50 text-blue-600"
-                  : rightPaneFile === node.path
-                    ? "bg-green-50 text-green-600"
-                    : "text-slate-700 hover:bg-slate-50"
-            } ${dirty ? "font-semibold" : ""}`}
-            style={{ paddingLeft: indent + 22 }}
-            onClick={() => {
-              if (node.fileType === "document" && onSelectDocument) {
-                onSelectDocument(node.path);
-              } else {
-                onSelectFile(node.path);
-              }
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu({ x: e.clientX, y: e.clientY, type: "file", path: node.path, name: node.name });
-            }}
-            draggable
-            onDragStart={(e) => handleDragStart(e, node.path, "file")}
-          >
-            {node.fileType === "document"
-              ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-              : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-            }
-            <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
-            <div className="ml-auto flex items-center gap-0.5 pr-1">
-              {hoverBtn(() => startRename(node.path, node.name, "file"), "Rename", <Pencil size={13} className="text-slate-400 hover:text-slate-600" />)}
-              {hoverBtn(() => onDuplicateFile(node.path), "Duplicate", <Copy size={13} className="text-slate-400 hover:text-slate-600" />)}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -497,128 +337,31 @@ export default function ExplorerPanel({
             </div>
           ) : (
             <>
-              {/* Directory header — also a drop target for moving to root */}
-              <div
-                className={`flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 relative ${
-                  dragOverPath === "" ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
-                }`}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: "", name: directoryName });
-                }}
-                onDragOver={(e) => handleDragOver(e, "")}
-                onDragEnter={(e) => handleDragEnter(e, "")}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, "")}
-              >
-                <Folder size={16} className="text-amber-500 flex-shrink-0" />
-                <span className="text-xs font-semibold text-slate-700 truncate flex-1">
-                  {directoryName}
-                </span>
-                <button
-                  onClick={() => handleCreateFile("")}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                  title="New Architecture"
-                >
-                  <FilePlus size={14} className="text-slate-500" />
-                </button>
-                <button
-                  onClick={() => handleCreateFolder("")}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                  title="New Folder"
-                >
-                  <FolderPlus size={14} className="text-slate-500" />
-                </button>
-                <button
-                  onClick={onRefresh}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                  title="Refresh"
-                >
-                  <RefreshCw size={14} className={`text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
-                </button>
-                <button
-                  onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                  title="More actions"
-                >
-                  <EllipsisVertical size={14} className="text-slate-500" />
-                </button>
-
-                {/* 3-dot dropdown menu */}
-                {dotMenuOpen && (
-                  <div
-                    ref={dotMenuRef}
-                    className="absolute right-1 top-full mt-1 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px]"
-                  >
-                    <div
-                      className="relative"
-                      onMouseEnter={() => setSortSubMenuOpen(true)}
-                      onMouseLeave={() => setSortSubMenuOpen(false)}
-                    >
-                      <button
-                        className={`${sortBtnClass} justify-between`}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={() => setSortSubMenuOpen((v) => !v)}
-                      >
-                        <span>Sort</span>
-                        <ChevronRight size={13} className="text-slate-400" />
-                      </button>
-
-                      {/* Sort submenu */}
-                      {sortSubMenuOpen && (
-                        <div
-                          className="absolute left-full top-0 ml-0.5 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[180px]"
-                          onMouseDown={(e) => e.stopPropagation()}
-                        >
-                          <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Sort by</div>
-                          {([["name", "Name"], ["created", "Created Date"], ["modified", "Modified Date"]] as [SortField, string][]).map(([field, label]) => (
-                            <button
-                              key={field}
-                              className={`${sortBtnClass} justify-between ${sortField === field ? "bg-slate-50 font-medium" : ""}`}
-                              onClick={() => handleSortFieldClick(field)}
-                            >
-                              <span>{label}</span>
-                              {sortField === field && (
-                                sortDirection === "asc"
-                                  ? <ArrowDown size={13} className="text-blue-500" />
-                                  : <ArrowUp size={13} className="text-blue-500" />
-                              )}
-                            </button>
-                          ))}
-                          <div className="border-t border-slate-100 my-1" />
-                          {([["folders-first", "Folders First"], ["files-first", "Files First"], ["mixed", "Mixed"]] as [SortGrouping, string][]).map(([grouping, label]) => (
-                            <button
-                              key={grouping}
-                              className={`${sortBtnClass} justify-between`}
-                              onClick={() => handleGroupingClick(grouping)}
-                            >
-                              <span>{label}</span>
-                              {sortGrouping === grouping && <Check size={13} className="text-blue-500" />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Filter toggles */}
-              {onFilterChange && (
-                <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-slate-100">
-                  {(["all", "diagrams", "documents"] as ExplorerFilter[]).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => onFilterChange(f)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                        explorerFilter === f ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"
-                      }`}
-                    >
-                      {f === "all" ? "All" : f === "diagrams" ? "Diagrams" : "Documents"}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <ExplorerHeader
+                directoryName={directoryName}
+                isLoading={isLoading}
+                dragOverPath={dragOverPath}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                sortGrouping={sortGrouping}
+                explorerFilter={explorerFilter}
+                onFilterChange={onFilterChange}
+                onRefresh={onRefresh}
+                dotMenuOpen={dotMenuOpen}
+                setDotMenuOpen={setDotMenuOpen}
+                sortSubMenuOpen={sortSubMenuOpen}
+                setSortSubMenuOpen={setSortSubMenuOpen}
+                dotMenuRef={dotMenuRef}
+                setContextMenu={setContextMenu}
+                handleCreateFile={handleCreateFile}
+                handleCreateFolder={handleCreateFolder}
+                handleDragOver={handleDragOver}
+                handleDragEnter={handleDragEnter}
+                handleDragLeave={handleDragLeave}
+                handleDrop={handleDrop}
+                handleSortFieldClick={handleSortFieldClick}
+                handleGroupingClick={handleGroupingClick}
+              />
 
               {/* Tree */}
               <div className="flex-1 overflow-y-auto py-1">
