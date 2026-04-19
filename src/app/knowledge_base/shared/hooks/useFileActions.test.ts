@@ -19,11 +19,15 @@ function diagramData(title = 'T') {
 
 type CallRecord = { name: string; args: unknown[] }
 
+type ApplyDiagramFn = Parameters<typeof useFileActions>[2]
+type ConfirmActionArg = Parameters<typeof useFileActions>[6]
+type NullableDiagramResult = { path: string; data: ReturnType<typeof diagramData> } | null
+
 interface SetupOpts {
   isDirty?: boolean
   activeFile?: string | null
   saveFileResult?: boolean
-  confirmAction?: { type: 'delete-file' | 'delete-folder' | 'discard'; path?: string } | null
+  confirmAction?: ConfirmActionArg
   selectFileResult?: {
     data: ReturnType<typeof diagramData>
     diskJson: string
@@ -58,7 +62,7 @@ function setup(opts: SetupOpts = {}) {
       track('saveFile')(...args)
       return opts.saveFileResult ?? true
     }),
-    createFile: vi.fn(async (parent: string) => {
+    createFile: vi.fn(async (parent: string): Promise<NullableDiagramResult> => {
       track('createFile')(parent)
       return { path: parent ? `${parent}/new.json` : 'new.json', data: diagramData('new') }
     }),
@@ -70,7 +74,7 @@ function setup(opts: SetupOpts = {}) {
     deleteFolder: vi.fn(async (path: string) => { track('deleteFolder')(path) }),
     renameFile: vi.fn(async (o: string, n: string) => { track('renameFile')(o, n) }),
     renameFolder: vi.fn(async (o: string, n: string) => { track('renameFolder')(o, n) }),
-    duplicateFile: vi.fn(async (path: string) => {
+    duplicateFile: vi.fn(async (path: string): Promise<NullableDiagramResult> => {
       track('duplicateFile')(path)
       return { path: `${path}-copy`, data: diagramData('dup') }
     }),
@@ -87,7 +91,9 @@ function setup(opts: SetupOpts = {}) {
     goToSaved: vi.fn(() => null as ReturnType<typeof diagramData> | null),
   }
 
-  const applyDiagramToState = vi.fn(track('applyDiagramToState'))
+  const applyDiagramToState = vi.fn<ApplyDiagramFn>((data, opts) => {
+    calls.push({ name: 'applyDiagramToState', args: [data, opts] })
+  })
   const setLoadSnapshot = vi.fn(track('setLoadSnapshot'))
   const setConfirmAction = vi.fn(track('setConfirmAction'))
 
@@ -274,7 +280,7 @@ describe('delete flow (HOOK-6.2-07/08)', () => {
     // Now with a matching confirmAction.
     const withConfirm = setup({
       activeFile: 'active.json',
-      confirmAction: { type: 'delete-file', path: 'active.json' },
+      confirmAction: { type: 'delete-file', path: 'active.json', x: 0, y: 0 },
     })
     await act(async () => {
       await withConfirm.hook.result.current.handleConfirmAction()
@@ -298,7 +304,7 @@ describe('delete flow (HOOK-6.2-07/08)', () => {
 
   it('handleConfirmAction dispatches delete-folder', async () => {
     const { hook, fileExplorer } = setup({
-      confirmAction: { type: 'delete-folder', path: 'old-folder' },
+      confirmAction: { type: 'delete-folder', path: 'old-folder', x: 0, y: 0 },
     })
     await act(async () => {
       await hook.result.current.handleConfirmAction()
@@ -387,7 +393,7 @@ describe('discard flow', () => {
   it('handleConfirmAction with discard type calls discardFile', async () => {
     const { hook, fileExplorer } = setup({
       activeFile: 'doc.json',
-      confirmAction: { type: 'discard' },
+      confirmAction: { type: 'discard', x: 0, y: 0 },
     })
     await act(async () => {
       await hook.result.current.handleConfirmAction()
