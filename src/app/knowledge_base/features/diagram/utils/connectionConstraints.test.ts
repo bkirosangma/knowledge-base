@@ -6,9 +6,13 @@ import { validateConnection } from './connectionConstraints'
 // Covers the validateConnection contract — partial DIAG-3.9-05 "reconnect
 // blocked by constraints" at the logic layer.
 
-const node = (id: string, shape?: NodeData['shape']): NodeData => ({
-  id, label: id, layer: 'L', icon: Database, x: 0, y: 0, w: 100, shape,
-})
+const node = (id: string, shape?: NodeData['shape']): NodeData => {
+  const base = { id, label: id, layer: 'L', icon: Database, x: 0, y: 0, w: 100 };
+  if (shape === 'condition') {
+    return { ...base, shape: 'condition', conditionOutCount: 2, conditionSize: 1 as const };
+  }
+  return base;
+}
 const conn = (id: string, from: string, to: string, fromAnchor = 'right', toAnchor = 'left'): Connection => ({
   id, from, to,
   fromAnchor: fromAnchor as Connection['fromAnchor'],

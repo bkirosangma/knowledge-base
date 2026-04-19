@@ -4,10 +4,22 @@ import { scopedKey } from "./directoryScope";
 const STORAGE_KEY = "knowledge-base-data";
 
 function deserializeNodes(serialized: SerializedNodeData[]): NodeData[] {
-  return serialized.map((n) => ({
-    ...n,
-    icon: getIcon(n.icon) ?? getIcon("Database")!,
-  }));
+  return serialized.map((n): NodeData => {
+    const icon = getIcon(n.icon) ?? getIcon("Database")!;
+    if (n.shape === "condition") {
+      return {
+        ...n,
+        icon,
+        shape: "condition",
+        conditionOutCount: n.conditionOutCount ?? 2,
+        conditionSize: (n.conditionSize ?? 1) as 1 | 2 | 3 | 4 | 5,
+      };
+    }
+    // Strip any stray condition fields and any unknown shape from non-condition nodes.
+    const { conditionOutCount: _o, conditionSize: _s, shape: _sh, ...rest } = n;
+    void _o; void _s; void _sh;
+    return { ...rest, icon };
+  });
 }
 
 export function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
