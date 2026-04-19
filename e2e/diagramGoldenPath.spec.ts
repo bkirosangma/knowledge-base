@@ -153,11 +153,10 @@ test.describe('Diagram golden path', () => {
     expect(afterTwo).toBe(initial ?? 'false')
   })
 
-  // SHELL-1.2-22: autosave-on-switch is NOT implemented.
-  // handleLoadFile() in shared/hooks/useFileActions.ts loads the new file without
-  // flushing the previous file's dirty state. This test is skipped to document
-  // that the behaviour does not currently exist.
-  test.skip('SHELL-1.2-22: switching files from an unsaved diagram flushes the previous one to disk', async ({ page }) => {
+  // SHELL-1.2-22: autosave-on-switch. `handleLoadFile` in
+  // shared/hooks/useFileActions.ts flushes the outgoing file's dirty state
+  // via `fileExplorer.saveFile` before selecting the new one.
+  test('SHELL-1.2-22: switching files from an unsaved diagram flushes the previous one to disk', async ({ page }) => {
     await setupFs(page, {
       'one.json': JSON.stringify({ ...TWO_NODE_DIAGRAM, title: 'One' }),
       'two.json': JSON.stringify({ ...TWO_NODE_DIAGRAM, title: 'Two' }),
