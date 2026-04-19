@@ -50,38 +50,43 @@ describe('readVaultConfig', () => {
   it('FS-2.2-02: returns parsed config when present', async () => {
     await initVault(asRootHandle(root), 'my-vault')
     const config = await readVaultConfig(asRootHandle(root))
-    expect(config).not.toBeNull()
-    expect(config!.name).toBe('my-vault')
-    expect(config!.version).toBe('1.0')
+    expect(config.name).toBe('my-vault')
+    expect(config.version).toBe('1.0')
   })
 
-  it('FS-2.2-03: returns null when .archdesigner is missing (no throw)', async () => {
-    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+  it('FS-2.2-03: throws not-found when .archdesigner is missing (Phase 5c)', async () => {
+    await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
+      name: 'FileSystemError', kind: 'not-found',
+    })
   })
 
-  it('FS-2.2-03: returns null when config.json is missing inside an existing .archdesigner', async () => {
+  it('FS-2.2-03: throws not-found when config.json is missing inside an existing .archdesigner', async () => {
     await root.getDirectoryHandle('.archdesigner', { create: true })
-    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+    await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
+      name: 'FileSystemError', kind: 'not-found',
+    })
   })
 
-  it('FS-2.2-04: returns null when config.json is malformed JSON', async () => {
+  it('FS-2.2-04: throws malformed when config.json is not valid JSON (Phase 5c)', async () => {
     const configDir = await root.getDirectoryHandle('.archdesigner', { create: true })
     const fh = await configDir.getFileHandle('config.json', { create: true })
     const w = await fh.createWritable()
     await w.write('{not valid json')
     await w.close()
-    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+    await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
+      name: 'FileSystemError', kind: 'malformed',
+    })
   })
 
-  it('FS-2.2-07: returns null when config.json parses but fails shape check (Phase 5b)', async () => {
+  it('FS-2.2-07: throws malformed when config parses but fails shape check (Phase 5c)', async () => {
     const configDir = await root.getDirectoryHandle('.archdesigner', { create: true })
     const fh = await configDir.getFileHandle('config.json', { create: true })
     const w = await fh.createWritable()
-    // Missing `created` + `lastOpened`; old code silently cast this to
-    // VaultConfig, leaving callers to crash later.
     await w.write(JSON.stringify({ version: '1.0', name: 'v' }))
     await w.close()
-    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+    await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
+      name: 'FileSystemError', kind: 'malformed',
+    })
   })
 })
 
@@ -94,20 +99,22 @@ describe('updateVaultLastOpened', () => {
     await updateVaultLastOpened(asRootHandle(root))
 
     const after = await readVaultConfig(asRootHandle(root))
-    expect(after).not.toBeNull()
-    expect(after!.version).toBe(original.version)
-    expect(after!.name).toBe(original.name)
-    expect(after!.created).toBe(original.created)
-    expect(new Date(after!.lastOpened).getTime()).toBeGreaterThanOrEqual(
+    expect(after.version).toBe(original.version)
+    expect(after.name).toBe(original.name)
+    expect(after.created).toBe(original.created)
+    expect(new Date(after.lastOpened).getTime()).toBeGreaterThanOrEqual(
       new Date(original.lastOpened).getTime(),
     )
   })
 
-  it('FS-2.2-05: silently no-ops when config does not exist', async () => {
-    // Should not throw even though .archdesigner/config.json is absent.
+  it('FS-2.2-05: silently no-ops when config does not exist (not-found is still swallowed)', async () => {
+    // Best-effort behaviour: a missing config is not actionable, so the
+    // timestamp touch silently resolves. Non-not-found errors now surface.
     await expect(updateVaultLastOpened(asRootHandle(root))).resolves.toBeUndefined()
-    // And still no config after the call.
-    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+    // readVaultConfig on the still-missing folder now throws not-found.
+    await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
+      name: 'FileSystemError', kind: 'not-found',
+    })
   })
 })
 

@@ -8,6 +8,12 @@
  *
  * Phase 3a: LinkIndex + VaultConfig interfaces.
  * Phase 3b: DiagramRepository + DocumentRepository.
+ * Phase 5c (2026-04-19): every method throws `FileSystemError` on any
+ * failure (including "file not found"). Consumers that want the common
+ * "absent file is not an error" ergonomic wrap the read in the domain
+ * `readOrNull` helper; consumers that want to branch on error kind
+ * try/catch and inspect `.kind`. The previous "return null on any
+ * failure" contract was hiding data-loss bugs and has been removed.
  */
 
 import type { LinkIndex } from "../features/document/types";
@@ -19,11 +25,12 @@ import type { VaultConfig, DiagramData } from "../shared/utils/types";
  * `useLinkIndex` focus on the index update algorithm, not the FS plumbing.
  */
 export interface LinkIndexRepository {
-  /** Load the persisted index, or `null` if absent / unparseable. */
-  load(): Promise<LinkIndex | null>;
-  /** Persist the index; stamps `updatedAt` internally. */
+  /** Load the persisted index. Throws `FileSystemError` ("not-found" if the
+   *  file is absent; "malformed" on parse failure; etc). */
+  load(): Promise<LinkIndex>;
+  /** Persist the index; stamps `updatedAt` internally. Throws on failure. */
   save(index: LinkIndex): Promise<void>;
-  /** Read a document's raw text by vault-relative path. */
+  /** Read a document's raw text by vault-relative path. Throws on failure. */
   readDocContent(docPath: string): Promise<string>;
 }
 
@@ -32,11 +39,14 @@ export interface LinkIndexRepository {
  * Wraps the initialise / read / touch lifecycle plus a pure type-guard.
  */
 export interface VaultConfigRepository {
-  /** Create a fresh vault config with the given name; returns the config. */
+  /** Create a fresh vault config with the given name; returns the config.
+   *  Throws on write failure. */
   init(vaultName: string): Promise<VaultConfig>;
-  /** Read the persisted config, or `null` if absent / unparseable. */
-  read(): Promise<VaultConfig | null>;
-  /** Stamp `lastOpened = now` on the existing config. */
+  /** Read the persisted config. Throws `FileSystemError` ("not-found" when
+   *  `.archdesigner/config.json` is absent; "malformed" on parse or shape
+   *  failure). */
+  read(): Promise<VaultConfig>;
+  /** Stamp `lastOpened = now` on the existing config. Throws on failure. */
   touchLastOpened(): Promise<void>;
   /** Pure type-guard: does this look like a valid vault config? */
   isVault(config: VaultConfig | null): boolean;
@@ -47,9 +57,11 @@ export interface VaultConfigRepository {
  * raw text at a vault-relative path.
  */
 export interface DocumentRepository {
-  /** Read the document's raw text content. */
+  /** Read the document's raw text content. Throws `FileSystemError` on any
+   *  failure. */
   read(docPath: string): Promise<string>;
-  /** Overwrite the document's content. Creates parent dirs + file as needed. */
+  /** Overwrite the document's content. Creates parent dirs + file as
+   *  needed. Throws on failure. */
   write(docPath: string, content: string): Promise<void>;
 }
 
@@ -59,8 +71,11 @@ export interface DocumentRepository {
  * the domain type, not raw JSON.
  */
 export interface DiagramRepository {
-  /** Read + parse a diagram. Returns `null` if the file is absent / invalid. */
-  read(diagramPath: string): Promise<DiagramData | null>;
-  /** Serialise + write a diagram. Creates parent dirs + file as needed. */
+  /** Read + parse a diagram. Throws `FileSystemError` ("not-found" if file
+   *  absent; "malformed" if JSON or shape guard fails; "permission" if
+   *  FSA rejects). */
+  read(diagramPath: string): Promise<DiagramData>;
+  /** Serialise + write a diagram. Creates parent dirs + file as needed.
+   *  Throws on failure. */
   write(diagramPath: string, data: DiagramData): Promise<void>;
 }

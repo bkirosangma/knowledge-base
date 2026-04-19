@@ -6,6 +6,7 @@ import type { LinkIndex, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
 import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
+import { readOrNull } from "../../../domain/repositoryHelpers";
 
 function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
@@ -81,7 +82,17 @@ export function useLinkIndex() {
 
   const loadIndex = useCallback(async (rootHandle: FileSystemDirectoryHandle) => {
     const repo = createLinkIndexRepository(rootHandle);
-    const loaded = await repo.load();
+    // Missing index is not an error — the app starts with an empty index
+    // and rebuilds on demand. Other failures (permission / malformed /
+    // unknown) also fall back to empty here rather than blocking app
+    // boot; the re-thrown FileSystemError can be caught and reported by
+    // the boot wiring once Phase 5c's shell error surface is live.
+    let loaded: LinkIndex | null = null;
+    try {
+      loaded = await readOrNull(() => repo.load());
+    } catch {
+      loaded = null;
+    }
     if (loaded) {
       setLinkIndex(loaded);
       return loaded;

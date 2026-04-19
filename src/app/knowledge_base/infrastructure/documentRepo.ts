@@ -8,23 +8,32 @@ import {
   readTextFile,
   writeTextFile,
 } from "../shared/hooks/fileExplorerHelpers";
+import { classifyError } from "../domain/errors";
 
 export function createDocumentRepository(
   rootHandle: FileSystemDirectoryHandle,
 ): DocumentRepository {
   return {
     async read(docPath: string) {
-      const parts = docPath.split("/");
-      let dirHandle = rootHandle;
-      for (const part of parts.slice(0, -1)) {
-        dirHandle = await dirHandle.getDirectoryHandle(part);
+      try {
+        const parts = docPath.split("/");
+        let dirHandle = rootHandle;
+        for (const part of parts.slice(0, -1)) {
+          dirHandle = await dirHandle.getDirectoryHandle(part);
+        }
+        const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
+        return await readTextFile(fileHandle);
+      } catch (e) {
+        throw classifyError(e);
       }
-      const fileHandle = await dirHandle.getFileHandle(parts[parts.length - 1]);
-      return readTextFile(fileHandle);
     },
 
     async write(docPath: string, content: string) {
-      await writeTextFile(rootHandle, docPath, content);
+      try {
+        await writeTextFile(rootHandle, docPath, content);
+      } catch (e) {
+        throw classifyError(e);
+      }
     },
   };
 }
