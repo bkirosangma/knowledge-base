@@ -375,8 +375,8 @@ describe('cleanupOrphanedData (PERSIST-7.4-07 equivalent)', () => {
   })
 })
 
-describe('PERSIST-7.1-14: graceful fallback when localStorage.setItem throws', () => {
-  it('saveDiagram does not throw when storage is full', () => {
+describe('PERSIST-7.1-14: localStorage setItem failure behaviour', () => {
+  it('saveDiagram still swallows the error (best-effort snapshot)', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError')
     })
@@ -384,11 +384,18 @@ describe('PERSIST-7.1-14: graceful fallback when localStorage.setItem throws', (
     spy.mockRestore()
   })
 
-  it('saveDraft does not throw when storage is full', () => {
+  it('saveDraft throws a classified FileSystemError (Phase 5c regression) so the caller can reportError', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('QuotaExceededError')
+      const err = new Error('storage is full')
+      err.name = 'QuotaExceededError'
+      throw err
     })
-    expect(() => saveDraft('x.json', 't', [], [], [], {}, 'orthogonal', [])).not.toThrow()
+    let thrown: unknown
+    try {
+      saveDraft('x.json', 't', [], [], [], {}, 'orthogonal', [])
+    } catch (e) { thrown = e }
+    expect((thrown as { name?: string; kind?: string })?.name).toBe('FileSystemError')
+    expect((thrown as { kind?: string })?.kind).toBe('quota-exceeded')
     spy.mockRestore()
   })
 })

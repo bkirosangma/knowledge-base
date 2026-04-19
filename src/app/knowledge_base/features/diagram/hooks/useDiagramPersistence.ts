@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../types";
 import { saveDraft } from "../../../shared/utils/persistence";
+import { useShellErrors } from "../../../shell/ShellErrorContext";
 
 /**
  * Hydrates diagram state from localStorage on mount, and auto-saves
@@ -25,6 +26,7 @@ export function useDiagramPersistence(
   activeFile: string | null,
   onDirtyChange?: (fileName: string, dirty: boolean) => void,
 ) {
+  const { reportError } = useShellErrors();
   const hydratedRef = useRef(false);
   const snapshotRef = useRef<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -67,13 +69,20 @@ export function useDiagramPersistence(
       if (activeFile) {
         // Only write draft if actually changed from disk version
         if (dirty) {
-          saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
-          onDirtyChange?.(activeFile, true);
+          try {
+            saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
+            onDirtyChange?.(activeFile, true);
+          } catch (e) {
+            // Phase 5c (2026-04-19): quota-exceeded during autosave is a
+            // real data-loss vector. Surface to the shell banner so the
+            // user knows their pending edits are not being persisted.
+            reportError(e, `Auto-saving draft of ${activeFile}`);
+          }
         }
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, activeFile, takeSnapshot, onDirtyChange]);
+  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, activeFile, takeSnapshot, onDirtyChange, reportError]);
 
   return { isDirty, setLoadSnapshot };
 }

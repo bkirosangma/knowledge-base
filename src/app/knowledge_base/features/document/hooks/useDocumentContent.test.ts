@@ -4,6 +4,8 @@ import { createElement, type ReactNode } from 'react'
 import { useDocumentContent } from './useDocumentContent'
 import { MockDir } from '../../../shared/testUtils/fsMock'
 import { RepositoryProvider, StubRepositoryProvider, type Repositories } from '../../../shell/RepositoryContext'
+import { ShellErrorProvider, StubShellErrorProvider } from '../../../shell/ShellErrorContext'
+import { FileSystemError } from '../../../domain/errors'
 
 // Covers DOC-4.11-01 through 4.11-06 (per-pane content + dirty + bridge + save).
 // The integration blocks render under a real `RepositoryProvider` wrapping
@@ -27,13 +29,16 @@ let root: MockDir
 
 beforeEach(() => { root = new MockDir() })
 
-/** Render the hook under a RepositoryProvider bound to the mock root. */
+/** Render the hook under a RepositoryProvider bound to the mock root,
+ *  nested inside ShellErrorProvider so `useShellErrors` is available. */
 function renderDocContent(filePath: string | null) {
-  const wrapper = ({ children }: { children: ReactNode }) =>
-    createElement(RepositoryProvider, {
+  const wrapper = ({ children }: { children: ReactNode }) => {
+    const inner = createElement(RepositoryProvider, {
       rootHandle: root as unknown as FileSystemDirectoryHandle,
       children,
     })
+    return createElement(ShellErrorProvider, { children: inner })
+  }
   return renderHook(({ p }) => useDocumentContent(p), {
     initialProps: { p: filePath },
     wrapper,
@@ -198,8 +203,10 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       linkIndex: null,
       vaultConfig: null,
     }
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(StubRepositoryProvider, { value: stub, children })
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      const inner = createElement(StubRepositoryProvider, { value: stub, children })
+      return createElement(ShellErrorProvider, { children: inner })
+    }
     return renderHook(({ p }) => useDocumentContent(p), {
       initialProps: { p: filePath },
       wrapper,
@@ -228,5 +235,75 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     // Save is a no-op; nothing to assert other than no throw.
     await act(async () => { await result.current.save() })
     expect(result.current.dirty).toBe(false)
+  })
+
+  // Regression tests for the Phase 5c HIGH data-loss vectors from the audit.
+  // Each of these assertions FAILS on main — they guard the specific bugs
+  // Phase 5c fixes so a future regression surfaces in CI.
+
+  it('DOC-4.11-07 (regression): load failure does NOT silently set empty content — prevents save-over', async () => {
+    // Simulate a load that throws (e.g. permission revoked mid-session)
+    const read = vi.fn(async () => { throw new FileSystemError('permission', 'denied') })
+    const write = vi.fn(async () => {})
+    const { result } = renderWithStub('locked.md', { read, write })
+    // Wait for the async load effect to settle
+    await waitFor(() => expect(result.current.loadError).not.toBeNull())
+    expect(result.current.loadError?.kind).toBe('permission')
+    // Pre-fix behaviour: content was reset to '' and user could type into
+    // the empty buffer and save over the real file. Now: updateContent +
+    // save are gated by loadError.
+    act(() => { result.current.updateContent('user-typed-garbage') })
+    await act(async () => { await result.current.save() })
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('DOC-4.11-08 (regression): save() is blocked while loadError is set', async () => {
+    const read = vi.fn()
+      .mockResolvedValueOnce('# real content')
+      .mockImplementationOnce(async () => { throw new FileSystemError('permission', 'denied') })
+    const write = vi.fn(async () => {})
+    const { result, rerender } = renderWithStub('a.md', { read, write })
+    await waitFor(() => expect(result.current.content).toBe('# real content'))
+    // Switch to the failing path
+    rerender({ p: 'b.md' })
+    await waitFor(() => expect(result.current.loadError).not.toBeNull())
+    // Even if caller manually invokes save, refuse.
+    await act(async () => { await result.current.save() })
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('DOC-4.11-09 (regression): save-previous-on-switch failure is reported (not silent)', async () => {
+    const reportError = vi.fn()
+    const stub: Repositories = {
+      diagram: null,
+      document: {
+        read: vi.fn().mockResolvedValue('orig'),
+        write: vi.fn().mockRejectedValue(new FileSystemError('permission', 'denied')),
+      },
+      linkIndex: null,
+      vaultConfig: null,
+    }
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
+      return createElement(StubShellErrorProvider, {
+        value: { current: null, reportError, dismiss: () => {} },
+        children: innerProvider,
+      })
+    }
+    const { result, rerender } = renderHook(
+      ({ p }) => useDocumentContent(p),
+      { initialProps: { p: 'a.md' as string | null }, wrapper },
+    )
+    await waitFor(() => expect(result.current.content).toBe('orig'))
+    act(() => { result.current.updateContent('dirty changes') })
+    // Switch — the save-previous throws, which should reportError rather
+    // than silently drop the user's edits without trace.
+    rerender({ p: 'b.md' })
+    await waitFor(() => {
+      expect(reportError).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'permission' }),
+        expect.stringContaining('Auto-saving a.md'),
+      )
+    })
   })
 })

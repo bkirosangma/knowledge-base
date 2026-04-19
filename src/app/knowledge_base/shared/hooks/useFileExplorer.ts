@@ -19,6 +19,8 @@ import {
   getSubdirectoryHandle,
 } from "./fileExplorerHelpers";
 import { createDiagramRepository } from "../../infrastructure/diagramRepo";
+import { useShellErrors } from "../../shell/ShellErrorContext";
+import { readOrNull } from "../../domain/repositoryHelpers";
 export type { TreeNode };
 
 // Re-export file-I/O helpers for callers that import them from this module.
@@ -31,6 +33,7 @@ const ACTIVE_FILE_KEY = "knowledge-base-active-file";
 export function useFileExplorer() {
   const dirHandle = useDirectoryHandle();
   const { directoryName, dirHandleRef, rootHandle, inputRef, supported } = dirHandle;
+  const { reportError } = useShellErrors();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -125,10 +128,18 @@ export function useFileExplorer() {
     let diskJson = "";
     if (rootHandle) {
       const repo = createDiagramRepository(rootHandle);
-      const loaded = await repo.read(filePath);
-      if (loaded) {
-        diskData = loaded;
-        diskJson = JSON.stringify(loaded, null, 2);
+      try {
+        const loaded = await readOrNull(() => repo.read(filePath));
+        if (loaded) {
+          diskData = loaded;
+          diskJson = JSON.stringify(loaded, null, 2);
+        }
+      } catch (e) {
+        // Phase 5c: permission/malformed/unknown surfaces; absent file
+        // (readOrNull returned null) stays silent — that's treated as
+        // "fall through to draft" below.
+        reportError(e, `Loading ${filePath}`);
+        return null;
       }
     }
 
@@ -142,7 +153,7 @@ export function useFileExplorer() {
     setActiveFile(filePath);
     return { data: diskData, diskJson, hasDraft: false };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirHandleRef]);
+  }, [dirHandleRef, reportError]);
 
   const saveFile = useCallback(async (
     filePath: string,
@@ -165,7 +176,10 @@ export function useFileExplorer() {
         await repo.write(filePath, data);
         drafts.removeDraft(filePath);
         return true;
-      } catch { return false; }
+      } catch (e) {
+        reportError(e, `Saving ${filePath}`);
+        return false;
+      }
     }
     // Fallback download (no directory picker available — browser lacks FSA).
     const json = JSON.stringify(data, null, 2);
@@ -196,8 +210,11 @@ export function useFileExplorer() {
       await rescan();
       setActiveFile(filePath);
       return { path: filePath, data };
-    } catch { return null; }
-  }, [tree, rescan]);
+    } catch (e) {
+      reportError(e, `Creating file in ${parentPath || "(root)"}`);
+      return null;
+    }
+  }, [tree, rescan, reportError]);
 
   /** Create a new folder with a default name. Returns the path or null. */
   const createFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
@@ -210,8 +227,11 @@ export function useFileExplorer() {
       const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
       await rescan();
       return folderPath;
-    } catch { return null; }
-  }, [tree, rescan]);
+    } catch (e) {
+      reportError(e, `Creating folder in ${parentPath || "(root)"}`);
+      return null;
+    }
+  }, [tree, rescan, reportError]);
 
   const deleteFile = useCallback(async (filePath: string): Promise<boolean> => {
     if (!dirHandleRef.current) return false;
@@ -231,8 +251,11 @@ export function useFileExplorer() {
       // effect saves on file switch (which would otherwise re-create the key)
       setTimeout(() => clearViewport(filePath), 0);
       return true;
-    } catch { return false; }
-  }, [rescan, activeFile]);
+    } catch (e) {
+      reportError(e, `Deleting ${filePath}`);
+      return false;
+    }
+  }, [rescan, activeFile, drafts, reportError]);
 
   const deleteFolder = useCallback(async (folderPath: string): Promise<boolean> => {
     if (!dirHandleRef.current) return false;
@@ -256,8 +279,11 @@ export function useFileExplorer() {
       // Defer viewport cleanup so it runs after viewport persistence effect
       setTimeout(() => { for (const fp of folderFiles) clearViewport(fp); }, 0);
       return true;
-    } catch { return false; }
-  }, [rescan, activeFile]);
+    } catch (e) {
+      reportError(e, `Deleting folder ${folderPath}`);
+      return false;
+    }
+  }, [rescan, activeFile, drafts, tree, reportError]);
 
   const renameFile = useCallback(async (oldPath: string, newName: string): Promise<string | null> => {
     if (!dirHandleRef.current) return null;
@@ -286,8 +312,11 @@ export function useFileExplorer() {
       await rescan();
       if (activeFile === oldPath) setActiveFile(newPath);
       return newPath;
-    } catch { return null; }
-  }, [rescan, activeFile]);
+    } catch (e) {
+      reportError(e, `Renaming ${oldPath} → ${newName}`);
+      return null;
+    }
+  }, [rescan, activeFile, drafts, reportError]);
 
   const renameFolder = useCallback(async (oldPath: string, newName: string): Promise<string | null> => {
     if (!dirHandleRef.current) return null;
@@ -335,8 +364,11 @@ export function useFileExplorer() {
         setActiveFile(activeFile.replace(oldPath, newPath));
       }
       return newPath;
-    } catch { return null; }
-  }, [rescan, activeFile]);
+    } catch (e) {
+      reportError(e, `Renaming folder ${oldPath} → ${newName}`);
+      return null;
+    }
+  }, [rescan, activeFile, tree, drafts, reportError]);
 
   /** Duplicate a file. Returns { path, data } for the new copy, or null. */
   const duplicateFile = useCallback(async (sourcePath: string): Promise<{ path: string; data: DiagramData } | null> => {
@@ -368,8 +400,11 @@ export function useFileExplorer() {
       const parsed = JSON.parse(content);
       if (isDiagramData(parsed)) return { path: newPath, data: parsed };
       return { path: newPath, data: createEmptyDiagram(copyName.replace(/\.json$/, "")) };
-    } catch { return null; }
-  }, [fileMap, tree, rescan]);
+    } catch (e) {
+      reportError(e, `Duplicating ${sourcePath}`);
+      return null;
+    }
+  }, [fileMap, tree, rescan, reportError]);
 
   /** Move a file or folder into a target folder. Returns new path or null. */
   const moveItem = useCallback(async (sourcePath: string, targetFolderPath: string): Promise<string | null> => {
@@ -440,21 +475,28 @@ export function useFileExplorer() {
       }
 
       return newPath;
-    } catch { return null; }
-  }, [fileMap, tree, rescan, activeFile]);
+    } catch (e) {
+      reportError(e, `Moving ${sourcePath} → ${targetFolderPath || "(root)"}`);
+      return null;
+    }
+  }, [fileMap, tree, rescan, activeFile, drafts, reportError]);
 
   /** Read file from disk, ignoring drafts. Clears any draft. Returns DiagramData or null. */
   const discardFile = useCallback(async (filePath: string): Promise<DiagramData | null> => {
     const rootHandle = dirHandleRef.current;
     if (!rootHandle) return null;
     const repo = createDiagramRepository(rootHandle);
-    const parsed = await repo.read(filePath);
-    if (!parsed) return null;
-    drafts.removeDraft(filePath);
-    setActiveFile(filePath);
-    return parsed;
+    try {
+      const parsed = await repo.read(filePath);
+      drafts.removeDraft(filePath);
+      setActiveFile(filePath);
+      return parsed;
+    } catch (e) {
+      reportError(e, `Discarding draft of ${filePath}`);
+      return null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirHandleRef]);
+  }, [dirHandleRef, drafts, reportError]);
 
   const refresh = useCallback(async () => {
     if (dirHandleRef.current) {
@@ -468,7 +510,11 @@ export function useFileExplorer() {
           return;
         }
         await rescan();
-      } catch {
+      } catch (e) {
+        // Phase 5c: the handle is gone (folder moved / permission
+        // fully revoked). Report so the user knows we're not just
+        // being slow to respond; then reset to the no-folder state.
+        reportError(e, "Re-reading the vault folder");
         dirHandleRef.current = null;
         setTree([]);
       }

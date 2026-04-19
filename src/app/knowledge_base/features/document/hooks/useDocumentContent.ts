@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRepositories } from "../../../shell/RepositoryContext";
+import { useShellErrors } from "../../../shell/ShellErrorContext";
+import { FileSystemError, classifyError } from "../../../domain/errors";
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
@@ -15,30 +17,50 @@ export interface DocumentPaneBridge {
  * own content/dirty state, similar to how DiagramView manages diagram data.
  *
  * Routes every `.md` read/write through `useRepositories().document`
- * (Phase 3e, 2026-04-19). A null repo (pre-picker) produces the same
- * early-return behaviour as the prior inline `dirHandleRef.current` guard.
+ * (Phase 3e, 2026-04-19). Phase 5c (2026-04-19) closes the load-fail
+ * data-loss vector: a failing `.read()` no longer sets an empty
+ * content — it records the classified error, leaves the prior content
+ * untouched (so the editor renders the last-good doc, or stays empty if
+ * none), and refuses to `save()` while `loadError` is set. Callers
+ * (`DocumentView` / `MarkdownPane`) read the returned `loadError` to
+ * render an error state instead of a blank editable surface. Every
+ * actionable failure (load, save-on-switch, explicit save) also calls
+ * `reportError` so the shell banner renders it.
  */
 export function useDocumentContent(filePath: string | null) {
   const { document: documentRepo } = useRepositories();
+  const { reportError } = useShellErrors();
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [loadError, setLoadError] = useState<FileSystemError | null>(null);
   const prevPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
+  const loadErrorRef = useRef<FileSystemError | null>(null);
   const documentRepoRef = useRef(documentRepo);
   documentRepoRef.current = documentRepo;
 
   // Keep refs in sync for save-on-switch and bridge getters
   contentRef.current = content;
   dirtyRef.current = dirty;
+  loadErrorRef.current = loadError;
 
   // Save helper
   const save = useCallback(async () => {
     const repo = documentRepoRef.current;
     if (!repo || !filePath) return;
-    await repo.write(filePath, contentRef.current);
-    setDirty(false);
-  }, [filePath]);
+    // Phase 5c: if the most recent load failed, contentRef.current is
+    // the previous document's content (we no longer reset to empty on
+    // load failure). Refuse to save, otherwise we could overwrite a
+    // real file with stale content.
+    if (loadErrorRef.current) return;
+    try {
+      await repo.write(filePath, contentRef.current);
+      setDirty(false);
+    } catch (e) {
+      reportError(e, `Saving ${filePath}`);
+    }
+  }, [filePath, reportError]);
 
   // Load content when filePath changes; auto-save previous if dirty
   useEffect(() => {
@@ -50,17 +72,30 @@ export function useDocumentContent(filePath: string | null) {
     (async () => {
       const repo = documentRepoRef.current;
 
-      // Auto-save previous document if dirty
+      // Auto-save previous document if dirty. Phase 5c: failures surface
+      // to the shell banner instead of being silently dropped — the
+      // switch proceeds either way so the user isn't stuck on the old
+      // pane, but they see the error and can retry.
       if (prevPath && dirtyRef.current && repo) {
         try {
           await repo.write(prevPath, contentRef.current);
-        } catch { /* best-effort */ }
+        } catch (e) {
+          reportError(e, `Auto-saving ${prevPath} on switch`);
+        }
       }
 
       // Load new document
-      if (!filePath || !repo) {
+      if (!filePath) {
         setContent("");
         setDirty(false);
+        setLoadError(null);
+        return;
+      }
+      if (!repo) {
+        // Pre-picker — can't read. Not an error; show empty.
+        setContent("");
+        setDirty(false);
+        setLoadError(null);
         return;
       }
 
@@ -68,14 +103,23 @@ export function useDocumentContent(filePath: string | null) {
         const text = await repo.read(filePath);
         setContent(text);
         setDirty(false);
-      } catch {
-        setContent("");
+        setLoadError(null);
+      } catch (e) {
+        const fsErr = e instanceof FileSystemError ? e : classifyError(e);
+        setLoadError(fsErr);
         setDirty(false);
+        // Leave contentRef.current at the last-successful doc. Save is
+        // blocked while loadError is set so the prior content is never
+        // written over the failing path.
+        reportError(fsErr, `Loading ${filePath}`);
       }
     })();
-  }, [filePath]);
+  }, [filePath, reportError]);
 
   const updateContent = useCallback((markdown: string) => {
+    // Phase 5c: if the most recent load failed, edits are ignored so the
+    // user can't type into a stale buffer and save-over the real file.
+    if (loadErrorRef.current) return;
     setContent(markdown);
     setDirty(true);
   }, []);
@@ -89,5 +133,5 @@ export function useDocumentContent(filePath: string | null) {
     get content() { return contentRef.current; },
   }), [save, filePath]);
 
-  return { content, dirty, save, updateContent, bridge };
+  return { content, dirty, loadError, save, updateContent, bridge };
 }
