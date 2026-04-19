@@ -265,7 +265,6 @@ export default function ExplorerPanel({
   }, [sortField, sortDirection, onSortChange]);
 
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors";
-  const sortBtnClass = "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-slate-700 hover:bg-slate-100";
 
   const renderNode = (node: TreeNode, depth: number) => (
     <TreeNodeRow

@@ -25,9 +25,7 @@ export interface DocumentViewProps {
 }
 
 export default function DocumentView({
-  focused,
   filePath,
-  dirHandleRef,
   onDocBridge,
   linkManager,
   tree,

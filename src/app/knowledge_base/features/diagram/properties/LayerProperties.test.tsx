@@ -91,7 +91,7 @@ describe('LayerProperties — children list (DIAG-3.13-22)', () => {
 
 describe('LayerProperties — read-only mode (DIAG-3.13-03)', () => {
   it('read-only: ID and Label are plain rows (no edit-on-double-click markers)', () => {
-    const { container } = render(
+    render(
       <LayerProperties
         id="L1" regions={[region]} nodes={nodes} layerDefs={[layerDef]}
         allLayerIds={['L1']} readOnly

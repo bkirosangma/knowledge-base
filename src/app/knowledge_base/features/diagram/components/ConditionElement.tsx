@@ -47,7 +47,6 @@ function ConditionElement({
   h,
   outCount,
   rotation,
-  showLabels,
   onDragStart,
   isDragging,
   isSelected,

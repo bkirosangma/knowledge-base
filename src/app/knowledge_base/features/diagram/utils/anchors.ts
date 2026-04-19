@@ -122,8 +122,8 @@ export function pickBestTargetAnchor(
   sourcePos: { x: number; y: number },
   targetCx: number,
   targetCy: number,
-  targetW: number,
-  targetH: number,
+  _targetW: number,
+  _targetH: number,
 ): AnchorId {
   const dx = sourcePos.x - targetCx;
   const dy = sourcePos.y - targetCy;

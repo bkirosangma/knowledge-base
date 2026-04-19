@@ -7,7 +7,7 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPicker
 import { AutocompleteInput } from "./AutocompleteInput";
 
 export function NodeProperties({
-  id, nodes, connections, regions, layerDefs, onSelectLayer, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument, readOnly,
+  id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument, readOnly,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];

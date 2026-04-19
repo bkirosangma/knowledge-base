@@ -126,14 +126,12 @@ export interface DiagramViewProps {
 }
 
 export default function DiagramView({
-  focused,
   side,
   activeFile,
   fileExplorer,
   onOpenDocument,
   documents,
   onAttachDocument,
-  onDetachDocument,
   onCreateDocument,
   onLoadDocuments,
   backlinks,
@@ -705,7 +703,7 @@ export default function DiagramView({
   }, [pushFooterInfo, world.w, world.h, patches.length, zoom]);
   useEffect(() => () => pushFooterInfo(null), [pushFooterInfo]);
 
-  const { VIEWPORT_KEY } = useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom, activeFile);
+  useViewportPersistence(canvasRef, worldRef, zoomRef, zoom, setZoom, activeFile);
 
   // Compensate scroll when world origin shifts
   useLayoutEffect(() => {

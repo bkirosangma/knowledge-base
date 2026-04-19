@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 import DocInfoBadge from "./DocInfoBadge";
@@ -83,8 +83,7 @@ function Element({
     if (!el || !onResize) return;
 
     const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
+      for (const _ of entries) {
         // contentRect doesn't include padding/border, use offsetWidth/Height
         onResize(id, el.offsetWidth, el.offsetHeight);
       }

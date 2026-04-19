@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import DocInfoBadge from "./DocInfoBadge";
 
 /** Interpolate a point along a polyline at parameter t (0..1) */
@@ -111,8 +111,6 @@ function DataLine({
   id,
   path,
   color,
-  hideDot,
-  isLive,
   isHovered,
   showLabels,
   onHoverStart,

@@ -173,7 +173,7 @@ describe('clampElementToAvoidLayerCollision', () => {
     const result = clampElementToAvoidLayerCollision(
       0, 0, 30, 20, 'L1',
       /* existingNodes */ [],
-      /* getNodeDimensions */ (_n) => ({ w: 60, h: 40 }),
+      /* getNodeDimensions */ (_) => ({ w: 60, h: 40 }),
       /* layerManualSizes */ {},
       /* allRegions */ [layer('L1', -100, -100, 200, 200)],
       predictFn,
@@ -183,7 +183,7 @@ describe('clampElementToAvoidLayerCollision', () => {
 
   it('no layerShift flag when no alternate placement is needed', () => {
     const result = clampElementToAvoidLayerCollision(
-      0, 0, 30, 20, 'L1', [], (_n) => ({ w: 60, h: 40 }), {},
+      0, 0, 30, 20, 'L1', [], (_) => ({ w: 60, h: 40 }), {},
       [layer('L1', -100, -100, 200, 200)], predictFn,
     )
     expect(result.layerShift).toBeUndefined()

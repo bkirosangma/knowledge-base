@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { snapToGrid, GRID_SIZE } from './gridSnap'
+import { snapToGrid } from './gridSnap'
 
 describe('snapToGrid', () => {
   it('snaps a value to the nearest grid multiple', () => {

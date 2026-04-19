@@ -3,7 +3,6 @@
  * and writes `.archdesigner/config.json` under the given vault root.
  */
 
-import type { VaultConfig } from "../shared/utils/types";
 import type { VaultConfigRepository } from "../domain/repositories";
 import {
   initVault,

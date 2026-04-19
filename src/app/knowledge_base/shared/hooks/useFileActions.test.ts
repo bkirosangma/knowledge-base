@@ -268,7 +268,7 @@ describe('delete flow (HOOK-6.2-07/08)', () => {
   })
 
   it('HOOK-6.2-08: executeDeleteFile clears state when the deleted file was active', async () => {
-    const { hook, fileExplorer, applyDiagramToState } = setup({
+    const { hook, fileExplorer } = setup({
       activeFile: 'active.json',
     })
     await act(async () => {

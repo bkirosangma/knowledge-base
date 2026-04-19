@@ -21,8 +21,6 @@ interface LayerProps {
   dimmed?: boolean;
 }
 
-const HANDLE_SIZE = 8;
-
 function Layer({
   id,
   title,
@@ -37,7 +35,6 @@ function Layer({
   onResizeStart,
   onDoubleClick,
   isDragging,
-  isResizing,
   isSelected,
   dimmed,
 }: LayerProps) {
