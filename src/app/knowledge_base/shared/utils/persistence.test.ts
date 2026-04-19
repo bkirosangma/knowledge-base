@@ -44,12 +44,32 @@ afterEach(() => {
 })
 
 /** Build a minimal NodeData with a real icon component. */
-function node(overrides: Partial<NodeData> = {}): NodeData {
-  return {
+type NodeOverrides = {
+  id?: string; label?: string; sub?: string; type?: string; layer?: string;
+  icon?: NodeData['icon'];
+  x?: number; y?: number; w?: number; rotation?: number;
+  borderColor?: string; bgColor?: string; textColor?: string;
+  shape?: 'rect' | 'condition';
+  conditionOutCount?: number;
+  conditionSize?: 1 | 2 | 3 | 4 | 5;
+}
+
+function node(overrides: NodeOverrides = {}): NodeData {
+  const base = {
     id: 'n1', label: 'Node', icon: Database as unknown as NodeData['icon'],
     x: 0, y: 0, w: 150, layer: '',
-    ...overrides,
   }
+  const { shape, conditionOutCount, conditionSize, ...rest } = overrides
+  const merged = { ...base, ...rest }
+  if (shape === 'condition') {
+    return {
+      ...merged,
+      shape: 'condition',
+      conditionOutCount: conditionOutCount ?? 2,
+      conditionSize: (conditionSize ?? 1) as 1 | 2 | 3 | 4 | 5,
+    }
+  }
+  return merged
 }
 
 describe('serializeNodes (DIAG-3.19-01)', () => {

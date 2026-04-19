@@ -11,11 +11,11 @@ function node(
   layer: string,
   shape?: 'rect' | 'condition',
 ): NodeData {
-  return {
-    id, label: id, icon: getIcon('Box')!, x: 0, y: 0, w: 150,
-    layer,
-    ...(shape ? { shape } : {}),
+  const base = { id, label: id, icon: getIcon('Box')!, x: 0, y: 0, w: 150, layer };
+  if (shape === 'condition') {
+    return { ...base, shape: 'condition', conditionOutCount: 2, conditionSize: 1 as const };
   }
+  return base;
 }
 
 /** Minimal Connection factory with configurable toAnchor (so we can test cond-in gating). */

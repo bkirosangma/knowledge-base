@@ -1,24 +1,49 @@
 import type { ComponentType } from "react";
 import type { AnchorId } from "./utils/anchors";
 
-export interface NodeData {
+/** Stable identity + logical placement within a diagram. */
+export interface NodeIdentity {
   id: string;
   label: string;
   sub?: string;
-  icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  type?: string;
+  layer: string;
+}
+
+/** Spatial placement. `w` is width; height is derived from shape. */
+export interface NodeGeometry {
   x: number;
   y: number;
   w: number;
-  layer: string;
-  type?: string;
-  shape?: 'rect' | 'condition';
-  conditionOutCount?: number;
-  conditionSize?: 1 | 2 | 3 | 4 | 5;
   rotation?: number;
+}
+
+/** Visual attributes. */
+export interface NodeAppearance {
+  icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
 }
+
+/**
+ * Shape-specific fields. Condition nodes require `conditionOutCount` and
+ * `conditionSize` so downstream code can rely on their presence without a
+ * default. `?: never` on the rect branch keeps unnarrowed reads
+ * (`n.conditionOutCount ?? 2`) legal without forcing every consumer to
+ * narrow via `n.shape === "condition"`.
+ */
+export type NodeShape =
+  | { shape?: 'rect'; conditionOutCount?: never; conditionSize?: never }
+  | {
+      shape: 'condition';
+      conditionOutCount: number;
+      conditionSize: 1 | 2 | 3 | 4 | 5;
+    };
+
+/** Full runtime node. Composes via intersection; consumers should prefer the
+ *  narrowest slice that satisfies their needs. */
+export type NodeData = NodeIdentity & NodeGeometry & NodeAppearance & NodeShape;
 
 export interface LayerDef {
   id: string;

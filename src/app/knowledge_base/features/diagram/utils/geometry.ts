@@ -1,4 +1,4 @@
-import type { NodeData } from "../types";
+import type { NodeIdentity, NodeGeometry, NodeShape } from "../types";
 import { getConditionDimensions } from "./conditionGeometry";
 
 /** Compute standard node height from its width */
@@ -6,9 +6,14 @@ export function getNodeHeight(w: number): number {
   return w === 110 || w === 130 ? 60 : 70;
 }
 
-/** Resolve actual node dimensions using measured sizes with fallback to defaults */
+/**
+ * Resolve actual node dimensions using measured sizes with fallback to
+ * defaults. Only reads identity (`id`), geometry (`w`), and shape fields —
+ * so accepts any node that satisfies those three slices. `NodeData` is the
+ * common caller; focused tests or partial fixtures compose equally.
+ */
 export function getNodeDims(
-  node: NodeData,
+  node: Pick<NodeIdentity, "id"> & NodeGeometry & NodeShape,
   measuredSizes: Record<string, { w: number; h: number }>,
 ): { w: number; h: number } {
   const measured = measuredSizes[node.id];

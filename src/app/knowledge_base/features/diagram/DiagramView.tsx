@@ -509,9 +509,10 @@ export default function DiagramView({
         return c;
       })
     );
-    setNodes((prev) => prev.map((n) =>
-      n.id === nodeId ? { ...n, conditionOutCount: Math.max(2, (n.conditionOutCount ?? 2) - 1) } : n
-    ));
+    setNodes((prev) => prev.map((n) => {
+      if (n.id !== nodeId || n.shape !== "condition") return n;
+      return { ...n, conditionOutCount: Math.max(2, n.conditionOutCount - 1) };
+    }));
     scheduleRecord("Delete condition anchor");
   }, [scheduleRecord]);
 

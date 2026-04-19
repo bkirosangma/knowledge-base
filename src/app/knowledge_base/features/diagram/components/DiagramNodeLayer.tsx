@@ -222,7 +222,10 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                 onDragStart={handleNodeDragStart}
                 {...commonProps}
                 onAddOutAnchor={readOnly ? undefined : () => {
-                  setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, conditionOutCount: (n.conditionOutCount ?? 2) + 1 } : n));
+                  setNodes((prev) => prev.map((n) => {
+                    if (n.id !== node.id || n.shape !== "condition") return n;
+                    return { ...n, conditionOutCount: n.conditionOutCount + 1 };
+                  }));
                   scheduleRecord("Add out anchor");
                 }}
                 onRotationDragStart={readOnly ? undefined : handleRotationDragStart}

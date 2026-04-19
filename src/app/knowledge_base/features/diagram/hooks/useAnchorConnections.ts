@@ -115,6 +115,7 @@ export function useAnchorConnections(
       layer: "",
       shape: "condition" as const,
       conditionOutCount: 2,
+      conditionSize: 1 as const,
       rotation: 0,
     };
     const conn = {
