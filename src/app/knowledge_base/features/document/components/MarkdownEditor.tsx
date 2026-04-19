@@ -190,7 +190,11 @@ export default function MarkdownEditor({
       if (editor.isDestroyed || editor.isFocused) return;
       const currentMd = htmlToMarkdown(editor.getHTML());
       if (currentMd.trim() !== content.trim()) {
-        editor.commands.setContent(markdownToHtml(content));
+        // `emitUpdate: false`: prevent the save loop where parent-driven
+        // content changes (e.g. an external save landing) echo back
+        // through onUpdate → debounced onChange → parent saves again.
+        // See DOC-4.5-26 for the regression test.
+        editor.commands.setContent(markdownToHtml(content), { emitUpdate: false });
         setRawContent(content);
       }
     });
