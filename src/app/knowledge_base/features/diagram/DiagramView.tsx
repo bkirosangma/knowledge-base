@@ -899,7 +899,7 @@ export default function DiagramView({
         ref={canvasRef}
         className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
         style={{ scrollbarWidth: 'none' }}
-        onMouseDown={(e) => { handleCanvasMouseDown(e); }}
+        onMouseDown={(e) => { if (e.button === 0 && selection?.type === 'flow') setSelection(null); handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
         onScroll={() => setContextMenu(null)}
         onContextMenu={(e) => {

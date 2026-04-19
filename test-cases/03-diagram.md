@@ -152,6 +152,7 @@
 - **DIAG-3.11-07** ✅ **Rubber-band promotes mixed types** — multi-layer promotion + line-only cases covered.
 - **DIAG-3.11-08** 🚫 **Drag threshold = 25 px.** Pointer events + timing; Playwright (Bucket 25).
 - **DIAG-3.11-09** 🟡 **Selection cleared on Escape.** Setting selection to null is a trivial setter; the keybind → setter wiring lives in the canvas keyboard handler (Playwright coverage).
+- **DIAG-3.11-10** ✅ **Canvas click deselects flow.** Selecting a flow from Architecture panel then clicking empty canvas clears selection and flow highlight. Fixed by clearing `expandedFlowId` in `ArchitectureProperties` when `activeFlowId` becomes undefined, and adding safety clause in `useSelectionRect` for stale-pendingSelection edge case.
 
 ## 3.12 Context Menu
 

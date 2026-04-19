@@ -160,7 +160,7 @@ function FlowGroup({
 
 export function ArchitectureProperties({
   title, regions, nodes, connections, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
-  flows, onHoverFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
+  flows, onHoverFlow, onSelectFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,
   backlinks, onOpenDocument, readOnly,
 }: {
@@ -172,6 +172,7 @@ export function ArchitectureProperties({
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
   flows?: FlowDef[];
   onHoverFlow?: (flowId: string | null) => void;
+  onSelectFlow?: (flowId: string | null) => void;
   onUpdateFlow?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
   onDeleteFlow?: (id: string) => void;
   onSelectLine?: (lineId: string) => void;
@@ -192,12 +193,16 @@ export function ArchitectureProperties({
   const [expandedFlowId, setExpandedFlowId] = useState<string | null>(activeFlowId ?? null);
 
   useEffect(() => {
-    if (activeFlowId) setExpandedFlowId(activeFlowId);
+    setExpandedFlowId(activeFlowId ?? null);
   }, [activeFlowId]);
 
   const toggleFlow = useCallback((flowId: string) => {
-    setExpandedFlowId((prev) => prev === flowId ? null : flowId);
-  }, []);
+    setExpandedFlowId((prev) => {
+      const next = prev === flowId ? null : flowId;
+      onSelectFlow?.(next);
+      return next;
+    });
+  }, [onSelectFlow]);
 
   const handleHover = useCallback((flowId: string | null) => {
     onHoverFlow?.(flowId ?? expandedFlowId ?? null);

@@ -28,7 +28,7 @@ interface PropertiesPanelProps {
   lineCurve?: LineCurveAlgorithm;
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
   flows: FlowDef[];
-  onSelectFlow?: (flowId: string) => void;
+  onSelectFlow?: (flowId: string | null) => void;
   onHoverFlow?: (flowId: string | null) => void;
   onUpdateFlow?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
   onDeleteFlow?: (id: string) => void;
@@ -133,6 +133,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             onUpdateLineCurve={onUpdateLineCurve}
             flows={flows}
             onHoverFlow={onHoverFlow}
+            onSelectFlow={onSelectFlow}
             onUpdateFlow={onUpdateFlow}
             onDeleteFlow={onDeleteFlow}
             onSelectLine={onSelectLine}
