@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeLevelMap, getCollisionPeers } from './levelModel'
+import { getIcon } from './iconRegistry'
 import type { NodeData, Connection } from '../types'
 
 // Covers DIAG-3.7-10 through 3.7-13. See test-cases/03-diagram.md §3.7.
@@ -11,7 +12,7 @@ function node(
   shape?: 'rect' | 'condition',
 ): NodeData {
   return {
-    id, label: id, icon: 'Box', x: 0, y: 0, w: 150,
+    id, label: id, icon: getIcon('Box')!, x: 0, y: 0, w: 150,
     layer,
     ...(shape ? { shape } : {}),
   }

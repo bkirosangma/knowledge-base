@@ -46,7 +46,9 @@ function LinkEditorHost({
     if (!editor) return
     const fn = () => forceUpdate((n) => n + 1)
     editor.on('transaction', fn)
-    return () => editor.off('transaction', fn)
+    return () => {
+      editor.off('transaction', fn)
+    }
   }, [editor])
 
   if (!editor) return null
