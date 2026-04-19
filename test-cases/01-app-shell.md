@@ -34,7 +34,7 @@
 - **SHELL-1.2-19** ✅ **Split toggle exits split view** — `isSplit=true` swaps the `title` to `"Exit split view"`; same callback toggles the flag externally.
 - **SHELL-1.2-20** 🚫 **`Cmd/Ctrl+S` triggers save** — keyboard shortcut lives in `useKeyboardShortcuts` (Bucket 18 shell integration).
 - **SHELL-1.2-21** 🚫 **`Cmd/Ctrl+S` noop when clean** — same; Bucket 18.
-- **SHELL-1.2-22** 🚫 **Switching files from dirty diagram autosaves previous file** — `handleLoadFile` in `shared/hooks/useFileActions.ts` loads the new file without flushing the previous file's dirty state; autosave-on-switch is not implemented. Test is `test.skip`-ped in e2e/diagramGoldenPath.spec.ts pending implementation.
+- **SHELL-1.2-22** ✅ **Switching files from dirty diagram autosaves previous file** — `handleLoadFile` in `shared/hooks/useFileActions.ts` now flushes the outgoing file's dirty state via `fileExplorer.saveFile` before selecting the new one (skipped when no active file, not dirty, or re-selecting the same file). — e2e/diagramGoldenPath.spec.ts
 
 ## 1.3 Footer
 

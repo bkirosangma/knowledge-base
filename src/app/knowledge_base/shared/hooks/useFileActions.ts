@@ -48,6 +48,18 @@ export function useFileActions(
   onLoadDocuments?: (docs: DocumentMeta[]) => void,
 ) {
   const handleLoadFile = useCallback(async (fileName: string) => {
+    // SHELL-1.2-22: flush the outgoing file's dirty state to disk before
+    // swapping in the new one so the user doesn't lose unsaved edits on
+    // pane click. Matches the save path in `handleSave` below; skipped
+    // when there's nothing to flush (no active file, not dirty, or we're
+    // re-selecting the same file).
+    const outgoing = fileExplorer.activeFile;
+    if (isDirty && outgoing && outgoing !== fileName) {
+      await (fileExplorer.saveFile as Function)(
+        outgoing, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows, documents,
+      );
+    }
+
     const result = await fileExplorer.selectFile(fileName);
     if (!result) return;
     const { data, diskJson, hasDraft } = result;
@@ -68,7 +80,11 @@ export function useFileActions(
       flows: diskData.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [fileExplorer.selectFile, fileExplorer.dirHandleRef, applyDiagramToState, history.initHistory]);
+  }, [
+    fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, fileExplorer.dirHandleRef,
+    applyDiagramToState, history.initHistory,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
+  ]);
 
   const handleSave = useCallback(async () => {
     if (!fileExplorer.activeFile || !isDirty) return;
