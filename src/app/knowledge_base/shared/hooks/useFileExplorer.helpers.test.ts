@@ -4,6 +4,7 @@ import {
   writeTextFile,
   getSubdirectoryHandle,
 } from './useFileExplorer'
+import { isDiagramData } from './fileExplorerHelpers'
 import { MockDir, MockFile, MockFileHandle } from '../testUtils/fsMock'
 
 // Covers HOOK-6.5-06 (resolveParentHandle — tested via writeTextFile/getSubdirectoryHandle)
@@ -82,5 +83,47 @@ describe('getSubdirectoryHandle', () => {
     // slashes and `//` collapse away.
     const result = await getSubdirectoryHandle(asRoot(root), '/a/b/', true)
     expect((result as unknown as MockDir).name).toBe('b')
+  })
+})
+
+describe('isDiagramData (Phase 5b schema guard)', () => {
+  const goodDiagram = { title: 'x', layers: [], nodes: [], connections: [] }
+
+  it('accepts a minimal valid diagram', () => {
+    expect(isDiagramData(goodDiagram)).toBe(true)
+  })
+
+  it('rejects non-objects', () => {
+    expect(isDiagramData(null)).toBe(false)
+    expect(isDiagramData('x')).toBe(false)
+    expect(isDiagramData(42)).toBe(false)
+    expect(isDiagramData(undefined)).toBe(false)
+  })
+
+  it('rejects missing or non-string title', () => {
+    expect(isDiagramData({ ...goodDiagram, title: undefined })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, title: 42 })).toBe(false)
+  })
+
+  it('rejects non-array layers / nodes / connections', () => {
+    expect(isDiagramData({ ...goodDiagram, layers: {} })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, nodes: null })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, connections: 'x' })).toBe(false)
+  })
+
+  it('rejects unknown lineCurve values', () => {
+    expect(isDiagramData({ ...goodDiagram, lineCurve: 'wavy' })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, lineCurve: 'bezier' })).toBe(true)
+  })
+
+  it('rejects non-array optional flows / documents', () => {
+    expect(isDiagramData({ ...goodDiagram, flows: {} })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, documents: 'x' })).toBe(false)
+  })
+
+  it('rejects non-object layerManualSizes', () => {
+    expect(isDiagramData({ ...goodDiagram, layerManualSizes: 'x' })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, layerManualSizes: null })).toBe(false)
+    expect(isDiagramData({ ...goodDiagram, layerManualSizes: {} })).toBe(true)
   })
 })
