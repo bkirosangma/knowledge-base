@@ -3,20 +3,32 @@
 import { createContext, useContext, useState, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 
-export interface DiagramFooterInfo {
+/**
+ * Diagram-produced footer bridge — the typed payload DiagramView pushes into
+ * `FooterContext` so the Footer can render world size / patch count / zoom.
+ * Peer of `HeaderBridge` + `ExplorerBridge` (DiagramView.tsx §72): the three
+ * together are the ISP-sliced shell surface DiagramView exposes. Unlike the
+ * header/explorer slices — which travel through the `onDiagramBridge`
+ * callback — the footer slice is plumbed through React context because
+ * `useFooterContext` is available from any diagram pane side without
+ * threading a ref up to `knowledgeBase.tsx`.
+ */
+export interface DiagramFooterBridge {
   kind: "diagram";
   world: { w: number; h: number };
   patches: number;
   zoom: number;
 }
 
-export type FooterInfo = DiagramFooterInfo;
+/** Union of every footer-bridge variant. One shape today; broadens when a
+ *  non-diagram pane starts pushing its own footer info. */
+export type FooterBridge = DiagramFooterBridge;
 
 interface FooterContextValue {
-  leftInfo: FooterInfo | null;
-  rightInfo: FooterInfo | null;
-  setLeftInfo: (info: FooterInfo | null) => void;
-  setRightInfo: (info: FooterInfo | null) => void;
+  leftInfo: FooterBridge | null;
+  rightInfo: FooterBridge | null;
+  setLeftInfo: (info: FooterBridge | null) => void;
+  setRightInfo: (info: FooterBridge | null) => void;
 }
 
 const FooterContext = createContext<FooterContextValue | null>(null);
@@ -28,11 +40,11 @@ export function useFooterContext(): FooterContextValue {
 }
 
 export function FooterProvider({ children }: { children: ReactNode }) {
-  const [leftInfo, setLeftInfoState] = useState<FooterInfo | null>(null);
-  const [rightInfo, setRightInfoState] = useState<FooterInfo | null>(null);
+  const [leftInfo, setLeftInfoState] = useState<FooterBridge | null>(null);
+  const [rightInfo, setRightInfoState] = useState<FooterBridge | null>(null);
 
-  const setLeftInfo = useCallback((info: FooterInfo | null) => setLeftInfoState(info), []);
-  const setRightInfo = useCallback((info: FooterInfo | null) => setRightInfoState(info), []);
+  const setLeftInfo = useCallback((info: FooterBridge | null) => setLeftInfoState(info), []);
+  const setRightInfo = useCallback((info: FooterBridge | null) => setRightInfoState(info), []);
 
   const value = useMemo<FooterContextValue>(
     () => ({ leftInfo, rightInfo, setLeftInfo, setRightInfo }),

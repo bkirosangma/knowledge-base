@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { useEffect } from 'react'
 import Footer from './Footer'
-import { FooterProvider, useFooterContext, type DiagramFooterInfo } from './FooterContext'
+import { FooterProvider, useFooterContext, type DiagramFooterBridge } from './FooterContext'
 import { ToolbarProvider, useToolbarContext, type PaneType, type FocusedPane } from './ToolbarContext'
 import type { PaneEntry } from './PaneManager'
 
@@ -21,8 +21,8 @@ function FooterHarness({
 }: {
   focusedEntry: PaneEntry | null
   isSplit: boolean
-  leftInfo?: DiagramFooterInfo | null
-  rightInfo?: DiagramFooterInfo | null
+  leftInfo?: DiagramFooterBridge | null
+  rightInfo?: DiagramFooterBridge | null
   leftPaneType?: PaneType | null
   rightPaneType?: PaneType | null
   focused?: FocusedPane
@@ -87,7 +87,7 @@ describe('Footer — filename display', () => {
 })
 
 describe('Footer — diagram stats', () => {
-  const info: DiagramFooterInfo = {
+  const info: DiagramFooterBridge = {
     kind: 'diagram',
     world: { w: 1234, h: 567 },
     patches: 5,
@@ -114,10 +114,10 @@ describe('Footer — diagram stats', () => {
   })
 
   it('split view reads info for the FOCUSED pane', () => {
-    const leftInfo: DiagramFooterInfo = {
+    const leftInfo: DiagramFooterBridge = {
       kind: 'diagram', world: { w: 100, h: 100 }, patches: 1, zoom: 1,
     }
-    const rightInfo: DiagramFooterInfo = {
+    const rightInfo: DiagramFooterBridge = {
       kind: 'diagram', world: { w: 999, h: 999 }, patches: 9, zoom: 2,
     }
     render(
