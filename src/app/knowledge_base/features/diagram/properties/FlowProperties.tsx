@@ -18,9 +18,9 @@ export function FlowProperties({
   allFlowIds: string[];
 }) {
   const flow = flows.find((f) => f.id === id);
-  if (!flow) return <p className="text-xs text-slate-400">Flow not found.</p>;
 
   const connectionItems = useMemo(() => {
+    if (!flow) return [];
     return flow.connectionIds
       .map((cid) => {
         const conn = connections.find((c) => c.id === cid);
@@ -34,9 +34,10 @@ export function FlowProperties({
         };
       })
       .filter((item): item is NonNullable<typeof item> => item != null);
-  }, [flow.connectionIds, connections, nodes]);
+  }, [flow, connections, nodes]);
 
   const nodeItems = useMemo(() => {
+    if (!flow) return [];
     const nodeIds = new Set<string>();
     for (const cid of flow.connectionIds) {
       const conn = connections.find((c) => c.id === cid);
@@ -51,7 +52,9 @@ export function FlowProperties({
         return node ? { id: node.id, name: node.label } : null;
       })
       .filter((item): item is NonNullable<typeof item> => item != null);
-  }, [flow.connectionIds, connections, nodes]);
+  }, [flow, connections, nodes]);
+
+  if (!flow) return <p className="text-xs text-slate-400">Flow not found.</p>;
 
   return (
     <>

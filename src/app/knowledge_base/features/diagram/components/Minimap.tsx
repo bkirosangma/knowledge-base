@@ -38,10 +38,9 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
     return () => el.removeEventListener("scroll", onScroll);
   }, [viewportRef]);
 
-  if (world.w === 0 || world.h === 0) return null;
-
-  // Uniform scale preserving aspect ratio — always computed at base size
-  const scale = Math.min(MINIMAP_WIDTH / world.w, MINIMAP_MAX_HEIGHT / world.h);
+  // Uniform scale preserving aspect ratio — always computed at base size.
+  // Falls back to 0 when world has no dimensions; early return below prevents any render.
+  const scale = (world.w > 0 && world.h > 0) ? Math.min(MINIMAP_WIDTH / world.w, MINIMAP_MAX_HEIGHT / world.h) : 0;
   const miniW = world.w * scale;
   const miniH = world.h * scale;
 
@@ -173,6 +172,8 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDraggingIndicator, toMinimapCoords, scrollToMinimapPos]);
+
+  if (world.w === 0 || world.h === 0) return null;
 
   return (
     <div

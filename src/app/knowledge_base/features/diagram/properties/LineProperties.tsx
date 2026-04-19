@@ -66,15 +66,16 @@ export function LineProperties({
   readOnly?: boolean;
 }) {
   const conn = connections.find((c) => c.id === id);
-  if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
-
-  const fromNode = nodes.find((n) => n.id === conn.from);
-  const toNode = nodes.find((n) => n.id === conn.to);
 
   const memberFlows = useMemo(() =>
     (flows ?? []).filter((f) => f.connectionIds.includes(id)).map((f) => ({ id: f.id, name: f.name })),
     [flows, id],
   );
+
+  if (!conn) return <p className="text-xs text-slate-400">Connection not found.</p>;
+
+  const fromNode = nodes.find((n) => n.id === conn.from);
+  const toNode = nodes.find((n) => n.id === conn.to);
 
   return (
     <>

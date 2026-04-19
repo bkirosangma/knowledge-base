@@ -26,10 +26,6 @@ export function NodeProperties({
   readOnly?: boolean;
 }) {
   const node = nodes.find((n) => n.id === id);
-  if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
-
-  const Icon = node.icon;
-  const iconName = (Icon as unknown as { displayName?: string }).displayName ?? Icon.name ?? "—";
 
   const memberFlows = useMemo(() =>
     (flows ?? []).filter((f) =>
@@ -57,7 +53,7 @@ export function NodeProperties({
 
   // Elements reachable through condition nodes
   const viaConditionItems = useMemo(() => {
-    if (node.shape === "condition") return [];
+    if (!node || node.shape === "condition") return [];
     const items: { id: string; name: string; sub: string }[] = [];
     // Outbound: this → condition → targets
     for (const c of connections) {
@@ -82,7 +78,12 @@ export function NodeProperties({
       }
     }
     return items;
-  }, [id, node.shape, connections, nodes]);
+  }, [id, node, connections, nodes]);
+
+  if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
+
+  const Icon = node.icon;
+  const iconName = (Icon as unknown as { displayName?: string }).displayName ?? Icon.name ?? "—";
 
   return (
     <>
