@@ -65,6 +65,7 @@ import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
 import DiagramNodeLayer from "./components/DiagramNodeLayer";
 import DiagramLinesOverlay from "./components/DiagramLinesOverlay";
+import { computeFlowRoles } from "./utils/flowUtils";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -556,6 +557,14 @@ export default function DiagramView({
     return { connIds, nodeIds, layerIds };
   }, [selection, hoveredFlowId, flows, connections, nodes]);
 
+  const flowOrderData = useMemo(() => {
+    const activeFlowId = hoveredFlowId ?? (selection?.type === 'flow' ? selection.id : null);
+    if (!activeFlowId) return null;
+    const flow = flows.find((f) => f.id === activeFlowId);
+    if (!flow) return null;
+    return computeFlowRoles(flow.connectionIds, connections);
+  }, [selection, hoveredFlowId, flows, connections]);
+
   // Type focus
   const typeDimSets = useMemo(() => {
     if (!hoveredType) return null;
@@ -1035,6 +1044,7 @@ export default function DiagramView({
               readOnly={readOnly}
               flowDimSets={flowDimSets}
               typeDimSets={typeDimSets}
+              flowOrderData={flowOrderData}
               handleAnchorDragStart={handleAnchorDragStart}
               handleAnchorHover={handleAnchorHover}
               handleAnchorHoverEnd={handleAnchorHoverEnd}
@@ -1060,6 +1070,7 @@ export default function DiagramView({
               >
                 {sortedLines.map((line) => {
                   if (!line.label) return null;
+                  if (flowDimSets != null && !flowDimSets.connIds.has(line.id)) return null;
                   const pt = interpolatePoints(line.points, line.labelPosition);
                   const isHovered = hoveredLine?.id === line.id;
                   const isSelected = isItemSelected(selection, 'line', line.id);

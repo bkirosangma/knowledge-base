@@ -140,6 +140,14 @@
 - **DIAG-3.10-15** 🚫 **ArchitectureProperties — flat grouping.** Same.
 - **DIAG-3.10-16** 🚫 **ArchitectureProperties — grouped.** Same.
 - **DIAG-3.10-17** 🚫 **Hover flow dims others.** Hover + opacity inspection; Playwright.
+- **DIAG-3.10-18** ✅ **`flowOrderData` null when no active flow** — no flow selected or hovered → memo returns null → no glows rendered.
+- **DIAG-3.10-19** ✅ **Single-path flow: one start, one end** — linear A→B→C flow → A gets green glow (source: appears as `from`, never as `to`), C gets red glow (sink: appears as `to`, never as `from`), B has no glow.
+- **DIAG-3.10-20** ✅ **Multiple sources get green glow** — fan-in flow where A→C and B→C → both A and B classified as sources and glow green; C classified as sink and glows red.
+- **DIAG-3.10-21** ✅ **Multiple sinks get red glow** — fan-out flow where A→B and A→C → A glows green; both B and C classified as sinks and glow red.
+- **DIAG-3.10-22** ✅ **Middle nodes (appear as both `from` and `to`) have no glow** — in A→B→C, node B appears in both sets → role `middle` → no colored shadow.
+- **DIAG-3.10-23** ✅ **Condition node (diamond) shows glow** — `ConditionElement` honours `flowRole` identically to `Element`.
+- **DIAG-3.10-24** ✅ **Glows disappear when flow deselected** — clearing selection removes all role glows.
+- **DIAG-3.10-25** ✅ **Labels hidden for non-flow connections** — when a flow is active, connection labels not in the flow are omitted from the overlay SVG. Covered by `e2e/flowHighlight.spec.ts`.
 
 ## 3.11 Selection
 

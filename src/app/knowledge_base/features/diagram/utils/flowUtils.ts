@@ -164,3 +164,31 @@ export function findBrokenFlowsByReconnect(
     return !isContiguous(flow.connectionIds, simulated);
   });
 }
+
+/**
+ * Classify each node in a flow as 'start' (source), 'end' (sink), or 'middle'.
+ * A source appears as a `from` endpoint but never as a `to` endpoint.
+ * A sink appears as a `to` endpoint but never as a `from` endpoint.
+ * Returns null for an empty connection set.
+ */
+export function computeFlowRoles(
+  connectionIds: string[],
+  connections: Connection[],
+): Map<string, { role: 'start' | 'end' | 'middle' }> | null {
+  if (connectionIds.length === 0) return null;
+  const allFroms = new Set<string>();
+  const allTos = new Set<string>();
+  for (const cid of connectionIds) {
+    const c = connections.find((x) => x.id === cid);
+    if (!c) continue;
+    allFroms.add(c.from);
+    allTos.add(c.to);
+  }
+  const result = new Map<string, { role: 'start' | 'end' | 'middle' }>();
+  for (const nid of new Set([...allFroms, ...allTos])) {
+    const isSource = allFroms.has(nid) && !allTos.has(nid);
+    const isSink = allTos.has(nid) && !allFroms.has(nid);
+    result.set(nid, { role: isSource ? 'start' : isSink ? 'end' : 'middle' });
+  }
+  return result;
+}

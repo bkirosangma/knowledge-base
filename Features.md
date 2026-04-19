@@ -180,6 +180,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ⚙️ **Algorithms** — `isContiguous`, `orderConnections`, `findBrokenFlows`, `findBrokenFlowsByReconnect`.
 - ✅ **Edit name, category, membership; delete flow.**
 - ✅ **Categorised grouping** — flows with `category` grouped under that category in the panel; otherwise flat.
+- ✅ **Flow start/end highlighting** — when a flow is active (selected or hovered), source nodes (appear as `from` but never as `to`) glow green and sink nodes (appear as `to` but never as `from`) glow red; multiple sources and sinks are all highlighted; connection labels outside the flow are hidden. Implemented in `DiagramView.tsx` (`flowOrderData` memo), `components/DiagramNodeLayer.tsx`, `components/Element.tsx`, `components/ConditionElement.tsx`.
 
 ### 3.11 Selection
 `hooks/useSelectionRect.ts`, `hooks/useKeyboardShortcuts.ts`, `utils/selectionUtils.ts`
