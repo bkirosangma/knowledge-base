@@ -197,12 +197,10 @@ export function ArchitectureProperties({
   }, [activeFlowId]);
 
   const toggleFlow = useCallback((flowId: string) => {
-    setExpandedFlowId((prev) => {
-      const next = prev === flowId ? null : flowId;
-      onSelectFlow?.(next);
-      return next;
-    });
-  }, [onSelectFlow]);
+    const next = expandedFlowId === flowId ? null : flowId;
+    setExpandedFlowId(next);
+    onSelectFlow?.(next);
+  }, [expandedFlowId, onSelectFlow]);
 
   const handleHover = useCallback((flowId: string | null) => {
     onHoverFlow?.(flowId ?? expandedFlowId ?? null);
