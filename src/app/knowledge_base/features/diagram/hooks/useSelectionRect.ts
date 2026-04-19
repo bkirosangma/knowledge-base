@@ -57,9 +57,13 @@ export function useSelectionRect({
     // Snapshot: was there a pending element/layer selection when we started?
     // If so, the global mouseup handler owns the click logic (toggle/select).
     const hadPendingSelection = !!pendingSelectionRef.current;
-    // Clear selection immediately on mousedown when clicking empty canvas
+    // Clear selection immediately on mousedown when clicking empty canvas.
+    // Always clear flow selections since flows are selected from the sidebar,
+    // not via the pendingSelection mechanism.
     if (!hadPendingSelection) {
       setSelection(null);
+    } else {
+      setSelection((prev) => (prev?.type === 'flow' ? null : prev));
     }
     const isToggle = e.metaKey || e.ctrlKey;
     // Snapshot selection at drag start so toggle computes against the original

@@ -26,7 +26,8 @@ export function useFlowManagement(
     scheduleRecord("Create flow");
   }, [scheduleRecord]);
 
-  const handleSelectFlow = useCallback((flowId: string) => {
+  const handleSelectFlow = useCallback((flowId: string | null) => {
+    if (flowId == null) { setSelection(null); return; }
     setSelection({ type: 'flow', id: flowId });
   }, []);
 
