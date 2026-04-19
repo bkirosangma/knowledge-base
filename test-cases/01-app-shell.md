@@ -22,7 +22,7 @@
 - **SHELL-1.2-05** ✅ **Escape cancels title edit** — Escape reverts the draft to the prop title and exits edit mode; `onTitleChange` is not called.
 - **SHELL-1.2-06** ✅ **Blur commits title** — blur with a trimmed, changed value calls `onTitleChange`; blur with empty/whitespace value does not commit; blur with unchanged value is a no-op.
 - **SHELL-1.2-07** 🚫 **80-char cap** — the old `Header` enforced `maxLength={80}`. `PaneTitle` lets the diagram-title `useState` accept any length; layout truncates visually via `truncate` instead. Revisit if users start pasting absurdly long titles.
-- **SHELL-1.2-08** 🟡 **Title input auto-widens** — no longer applicable to the new `PaneTitle` (input takes the flex-1 width of the title row). Visual behaviour verified via Playwright in Bucket 20.
+- **SHELL-1.2-08** 🚫 **Title input auto-widens** — obsolete. The old `Header` measured `scrollWidth` of a hidden span and set `titleWidth` as a style; the new `PaneTitle` just lets the input take the flex-1 row and truncates with CSS. Keeping the ID to preserve history, but nothing to test.
 - **SHELL-1.2-09** ✅ **Dirty indicator visible** — `PaneTitle` renders a dot with `title="Unsaved changes"` when `isDirty && (onSave||onDiscard)`.
 - **SHELL-1.2-10** ✅ **Dirty indicator hidden when clean** — `isDirty=false` → dot not rendered. Also hidden when the pane doesn't own Save/Discard (suppresses stray dots on static titles).
 - **SHELL-1.2-11** ✅ **Save button disabled when clean** — `disabled={!hasActiveFile || !isDirty}` on the Save button.
@@ -37,6 +37,10 @@
 - **SHELL-1.2-20** 🚫 **`Cmd/Ctrl+S` triggers save** — keyboard shortcut lives in `useKeyboardShortcuts` (Bucket 18 shell integration).
 - **SHELL-1.2-21** 🚫 **`Cmd/Ctrl+S` noop when clean** — same; Bucket 18.
 - **SHELL-1.2-22** ✅ **Switching files from dirty diagram autosaves previous file** — `handleLoadFile` in `shared/hooks/useFileActions.ts` now flushes the outgoing file's dirty state via `fileExplorer.saveFile` before selecting the new one (skipped when no active file, not dirty, or re-selecting the same file). — e2e/diagramGoldenPath.spec.ts
+- **SHELL-1.2-23** ✅ **Document pane `PaneTitle` is read-only** — when `onTitleChange` is omitted the `<h1>` does not switch to an input on click. Document panes pass no `onTitleChange`; editing happens in the editor body, and the displayed H1 updates automatically on the next debounce tick.
+- **SHELL-1.2-24** ✅ **Dirty dot suppressed without Save/Discard** — when neither `onSave` nor `onDiscard` is provided, the dirty dot does not render even if `isDirty` is true. Keeps stray dots off any static-title host that happens to receive `isDirty` transitively.
+- **SHELL-1.2-25** ✅ **Save / Discard buttons absent when handlers omitted** — omitting `onSave` hides the Save button; omitting `onDiscard` hides the Discard button. Panes that don't wire those handlers (none today, but future hosts) get a clean title row.
+- **SHELL-1.2-26** 🟡 **Document pane title reflects debounced first H1** — `DocumentView` runs `getFirstHeading(content)` through a 250 ms `setTimeout` and pushes the result into `PaneTitle`. First-H1 extraction is unit-tested in `DOC-4.13-01..14`; the debounce + prop plumbing is integration-level (Bucket 20).
 
 ## 1.3 Footer
 
@@ -59,7 +63,7 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-04** ✅ **Exit split from right focus closes left** — focus right, Exit Split → left closes; right pane becomes the single pane.
 - **SHELL-1.4-05** ✅ **`lastClosedPane` restores** — after Exit Split, re-enter split → closed pane's prior file reopens on that side. (Hook captures `lastClosedPane`; restoration wiring lives in `KnowledgeBaseInner`.)
 - **SHELL-1.4-06** ✅ **Open file routes to focused pane** — split view, focus right, open file from explorer → file opens in right pane.
-- **SHELL-1.4-07** 🟡 **Pane type drives Header controls** — focus diagram pane → Header shows diagram-specific actions; focus doc pane → doc-specific actions. (Covered indirectly via `ToolbarContext.activePaneType` derivation + PaneManager sync tests.)
+- **SHELL-1.4-07** 🚫 **Pane type drives Header controls** — obsolete. The 2026-04-19 header strip-down removed all pane-specific controls from the top-level bar; each pane now renders its own Save/Discard in `PaneTitle`, so there's nothing for `activePaneType` to switch between up top. Footer still reads `ToolbarContext.activePaneType` (covered under 1.5).
 - **SHELL-1.4-08** ✅ **Focus indicator rendered** — mouse-down in a pane adds 2 px blue border; previously focused pane loses border.
 - **SHELL-1.4-09** ✅ **Focus persists across clicks within pane** — mouse-down in left/right pane fires `setFocusedSide`.
 - **SHELL-1.4-10** ✅ **Divider drag resizes panes** — drag divider left → left pane narrows, right widens; released ratio sticks.

@@ -110,20 +110,29 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-18 (Buckets 1-27 complete — MarkdownEditor harness lands DOC-4.5 toolbar coverage). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-19 (Buckets 1-27 complete + shell header strip-down + Pane Header H1 derivation). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 41 | 11 | 3 | 0 | 6 | 61 |
+| 01-app-shell.md | 43 | 10 | 3 | 0 | 9 | 65 |
 | 02-file-system.md | 47 | 9 | 1 | 0 | 8 | 65 |
 | 03-diagram.md | 93 | 37 | 0 | 0 | 107 | 237 |
-| 04-document.md | 105 | 32 | 1 | 0 | 54 | 192 |
+| 04-document.md | 121 | 34 | 1 | 0 | 55 | 211 |
 | 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
 | 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
 | 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
-| **Total** | **363** | **108** | **5** | **0** | **204** | **680** |
+| **Total** | **381** | **109** | **5** | **0** | **208** | **703** |
 
-Covered (✅ + 🟡 + 🧪) = **476 / 680 (70%)**; consciously waived (🚫) = **204 (30%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡 + 🧪) = **495 / 703 (70%)**; consciously waived (🚫) = **208 (30%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+
+**2026-04-19 — shell header strip-down + Pane Header H1 derivation.** Title editing, dirty dot, Save, and Discard moved from the top-level `Header` into each pane's `PaneTitle` row:
+
+- `SHELL-1.2-02..06` and `SHELL-1.2-09..13` stay ✅ but now run against `PaneTitle.test.tsx` instead of `Header.test.tsx`.
+- `SHELL-1.2-01` (Back button), `SHELL-1.2-07` (80-char cap), and `SHELL-1.2-08` (auto-widen) → 🚫: component gone / layout uses flex + `truncate` instead of those pixel-level constraints.
+- `SHELL-1.4-07` (Pane type drives Header controls) → 🚫: there are no pane-specific controls in the top-level bar anymore; `ToolbarContext.activePaneType` is still read by the Footer (1.5).
+- Four new `PaneTitle` cases added as `SHELL-1.2-23..26` (read-only doc-pane mode, dirty-dot + button suppression when handlers omitted, debounced H1 derivation wiring).
+- Document pane persistence gains `DOC-4.11-17..19` (bridge `discard()` re-reads from disk, honours `loadError` guard, reports failures).
+- New section `DOC-4.13 Pane Header Title (first-heading derivation)` with 16 cases covering ATX H1, frontmatter skip, fallback stripping of list/blockquote/lower-heading markers, debounce, and the `#hashtag` / code-fence edge cases.
 
 ### Test suites that back these numbers
 

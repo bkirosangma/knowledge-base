@@ -239,6 +239,9 @@
 - **DOC-4.11-14** ✅ **Load failure does NOT empty the editor (Phase 5c regression)** — when `repo.read` throws, `useDocumentContent` keeps the previous document's content in `contentRef`, records a classified `loadError`, and ignores subsequent `updateContent` / `save` calls. Prevents the pre-fix vector where a permission-revoked read reset the editor to empty and the user could type + save over the real file.
 - **DOC-4.11-15** ✅ **`save()` is blocked while `loadError` is set (Phase 5c regression)** — even if the caller invokes save directly, the repo write is skipped so stale content is never written to the failing path.
 - **DOC-4.11-16** ✅ **Save-previous-on-switch failure is reported (Phase 5c regression)** — dirty content on the outgoing pane now surfaces via `reportError(e, 'Auto-saving <prev>')` when the write fails, instead of silently dropping the user's edits.
+- **DOC-4.11-17** ✅ **`discard()` re-reads the file from disk** — new since 2026-04-19. `useDocumentContent.discard()` calls `repo.read(filePath)`, replaces `content` state with the on-disk text, and resets `dirty` to `false`. Wired through `DocumentPaneBridge.discard` so `PaneTitle`'s Discard button has a symmetric partner to Save.
+- **DOC-4.11-18** ✅ **`discard()` is blocked while `loadError` is set** — mirrors DOC-4.11-15. If the last read failed, `discard()` refuses to run so it doesn't re-enter the failing read path and stomp the in-memory last-good copy. Read failures still surface via `reportError`.
+- **DOC-4.11-19** ✅ **`discard()` failure is reported** — when the re-read throws, the error goes through `reportError(e, 'Discarding changes to <path>')` so the shell banner renders it; in-memory state is left untouched.
 
 ## 4.12 Read-Only Mode (Document)
 
@@ -248,3 +251,24 @@
 - **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
 - **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — see 4.3-15; same NodeView click integration.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.
+
+## 4.13 Pane Header Title (first-heading derivation)
+
+> Added 2026-04-19 with the shell header strip-down. `PaneTitle` for document panes displays the document's first heading (debounced) instead of the file name. Derivation is pure (`utils/getFirstHeading.ts`) so it's unit-testable; the debounce + prop wiring lives in `DocumentView.tsx`.
+
+- **DOC-4.13-01** ✅ **Empty content → empty title** — `getFirstHeading("")` returns `""`.
+- **DOC-4.13-02** ✅ **Plain ATX H1 is surfaced** — `getFirstHeading("# Hello World\n\nbody")` returns `"Hello World"`.
+- **DOC-4.13-03** ✅ **Inline non-word characters preserved** — `"# Foo: bar × baz"` returns `"Foo: bar × baz"` — colons, multiplication signs, etc. stay intact.
+- **DOC-4.13-04** ✅ **Trailing closing-hashes stripped** — `"# Title ##"` returns `"Title"`. Matches the CommonMark optional closing sequence.
+- **DOC-4.13-05** ✅ **H1 preferred even if paragraphs precede it** — `"Intro.\n\n# Real Title\n\nmore"` returns `"Real Title"`.
+- **DOC-4.13-06** ✅ **Fallback to first non-empty line when no H1 exists** — `"First line\n\nSecond"` returns `"First line"`.
+- **DOC-4.13-07** ✅ **List markers stripped on fallback** — `"- first bullet\n- second"` returns `"first bullet"` (same for `*` / `+`).
+- **DOC-4.13-08** ✅ **Blockquote markers stripped on fallback** — `"> quoted line"` returns `"quoted line"`.
+- **DOC-4.13-09** ✅ **Lower heading levels normalised on fallback** — `"## Subheading only\n\nbody"` returns `"Subheading only"` (H1 regex misses it, fallback strips `^##{1,6} `).
+- **DOC-4.13-10** ✅ **YAML frontmatter skipped** — `"---\ntitle: ignored\n---\n\n# Real"` returns `"Real"`; the title is read from the body, not the metadata.
+- **DOC-4.13-11** ✅ **Frontmatter + body-without-H1** — `"---\nkey: value\n---\n\nJust a paragraph."` returns `"Just a paragraph."`.
+- **DOC-4.13-12** ✅ **Whitespace-only document → empty** — `"   \n\n  \n"` returns `""`.
+- **DOC-4.13-13** ✅ **`#hashtag` (no space) is not treated as an H1** — `"#hashtag in body"` returns `"#hashtag in body"` verbatim; the fallback marker strip only removes `#` followed by a space.
+- **DOC-4.13-14** 🚫 **Code-fenced H1s are not excluded** — documented limitation. `getFirstHeading("\`\`\`\n# not a real heading\n\`\`\`\n\n# Real One")` returns `"not a real heading"` because the parser doesn't track fences. Callers are expected to keep their H1 outside code blocks; covered here so future work doesn't change it by accident.
+- **DOC-4.13-15** 🟡 **Debounce settles title after ~250 ms** — `DocumentView` schedules `setDerivedTitle(getFirstHeading(content))` inside a `setTimeout(250 ms)` and clears the pending timer on every keystroke, so the pane header stops churning while the user is typing and catches up once they pause. Code reviewed; dedicated timer-based test deferred to Bucket 20 integration.
+- **DOC-4.13-16** 🟡 **File-name fallback when body yields empty** — when `getFirstHeading` returns `""` (brand-new doc, whitespace-only body), `DocumentView` falls back to the `.md` basename so the pane title is never empty in the UI. Code reviewed; integration test deferred to Bucket 20.

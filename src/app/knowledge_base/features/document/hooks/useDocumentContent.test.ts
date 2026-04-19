@@ -190,6 +190,40 @@ describe('DOC-4.11-06: bridge getters return latest values', () => {
   })
 })
 
+describe('DOC-4.11-17..19: discard()', () => {
+  it('DOC-4.11-17: discard re-reads the file and drops unsaved edits', async () => {
+    await seedFile(root, 'a.md', 'on-disk')
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('on-disk'))
+
+    act(() => { result.current.updateContent('in-memory edit') })
+    expect(result.current.dirty).toBe(true)
+
+    await act(async () => { await result.current.discard() })
+    expect(result.current.content).toBe('on-disk')
+    expect(result.current.dirty).toBe(false)
+    // File itself untouched.
+    expect(root.files.get('a.md')!.file.data).toBe('on-disk')
+  })
+
+  it('DOC-4.11-17: bridge.discard mirrors the hook\'s discard()', async () => {
+    await seedFile(root, 'a.md', 'disk')
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('disk'))
+
+    act(() => { result.current.updateContent('mem') })
+    await act(async () => { await result.current.bridge.discard() })
+    expect(result.current.content).toBe('disk')
+    expect(result.current.dirty).toBe(false)
+  })
+
+  it('discard is a no-op when filePath is null', async () => {
+    const { result } = renderDocContent(null)
+    await act(async () => { await result.current.discard() })
+    expect(result.current.dirty).toBe(false)
+  })
+})
+
 // Phase 3e test-seam demo — exercise hook logic without any FS mock.
 // The StubRepositoryProvider accepts a Repositories bag built from pure
 // spies; consumers never see a FileSystemDirectoryHandle. Future consumer
@@ -255,6 +289,56 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     act(() => { result.current.updateContent('user-typed-garbage') })
     await act(async () => { await result.current.save() })
     expect(write).not.toHaveBeenCalled()
+  })
+
+  it('DOC-4.11-18: discard() is blocked while loadError is set', async () => {
+    // Symmetrical to 4.11-15 for save. If the last read failed, re-reading
+    // would just hit the same error — and worse, could replace the
+    // last-good in-memory copy with whatever the (possibly now different)
+    // read returns. Refuse.
+    const read = vi.fn(async () => { throw new FileSystemError('permission', 'denied') })
+    const write = vi.fn(async () => {})
+    const { result } = renderWithStub('locked.md', { read, write })
+    await waitFor(() => expect(result.current.loadError).not.toBeNull())
+    // discard should not invoke read a second time.
+    const callsBefore = read.mock.calls.length
+    await act(async () => { await result.current.discard() })
+    expect(read.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('DOC-4.11-19: discard() failure is reported via reportError', async () => {
+    const reportError = vi.fn()
+    // First read succeeds (file loads). Then `discard()` triggers a second
+    // read, which fails — that path should route through `reportError`.
+    const read = vi.fn()
+      .mockResolvedValueOnce('good')
+      .mockRejectedValueOnce(new FileSystemError('permission', 'denied'))
+    const stub: Repositories = {
+      diagram: null,
+      document: { read, write: vi.fn(async () => {}) },
+      linkIndex: null,
+      vaultConfig: null,
+    }
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
+      return createElement(StubShellErrorProvider, {
+        value: { current: null, reportError, dismiss: () => {} },
+        children: innerProvider,
+      })
+    }
+    const { result } = renderHook(() => useDocumentContent('a.md'), { wrapper })
+    await waitFor(() => expect(result.current.content).toBe('good'))
+
+    // Dirty the buffer, then discard → second read throws.
+    act(() => { result.current.updateContent('dirty') })
+    await act(async () => { await result.current.discard() })
+
+    expect(reportError).toHaveBeenCalled()
+    const [, context] = reportError.mock.calls[reportError.mock.calls.length - 1]
+    expect(context).toContain('Discarding changes')
+    // In-memory content should remain the dirty buffer — never silently
+    // wiped to "".
+    expect(result.current.content).toBe('dirty')
   })
 
   it('DOC-4.11-15 (regression): save() is blocked while loadError is set', async () => {
