@@ -4,6 +4,7 @@ import {
   orderConnections,
   findBrokenFlows,
   findBrokenFlowsByReconnect,
+  computeFlowRoles,
 } from './flowUtils'
 import type { Connection, FlowDef } from '../types'
 
@@ -236,5 +237,62 @@ describe('findBrokenFlowsByReconnect', () => {
       [solo], 'c1', 'X', 'Y', allConns,
     )
     expect(broken).toEqual([])
+  })
+})
+
+describe('computeFlowRoles', () => {
+  it('DIAG-3.10-18: empty connectionIds → null', () => {
+    expect(computeFlowRoles([], [])).toBeNull()
+  })
+
+  it('DIAG-3.10-19: linear A→B→C — A is start, C is end, B is middle', () => {
+    const conns = [conn('c1', 'A', 'B'), conn('c2', 'B', 'C')]
+    const roles = computeFlowRoles(['c1', 'c2'], conns)!
+    expect(roles.get('A')?.role).toBe('start')
+    expect(roles.get('B')?.role).toBe('middle')
+    expect(roles.get('C')?.role).toBe('end')
+  })
+
+  it('DIAG-3.10-20: fan-in (A→C and B→C) — both A and B are sources', () => {
+    const conns = [conn('c1', 'A', 'C'), conn('c2', 'B', 'C')]
+    const roles = computeFlowRoles(['c1', 'c2'], conns)!
+    expect(roles.get('A')?.role).toBe('start')
+    expect(roles.get('B')?.role).toBe('start')
+    expect(roles.get('C')?.role).toBe('end')
+  })
+
+  it('DIAG-3.10-21: fan-out (A→B and A→C) — both B and C are sinks', () => {
+    const conns = [conn('c1', 'A', 'B'), conn('c2', 'A', 'C')]
+    const roles = computeFlowRoles(['c1', 'c2'], conns)!
+    expect(roles.get('A')?.role).toBe('start')
+    expect(roles.get('B')?.role).toBe('end')
+    expect(roles.get('C')?.role).toBe('end')
+  })
+
+  it('DIAG-3.10-22: node appearing as both from and to is middle', () => {
+    const conns = [conn('c1', 'A', 'B'), conn('c2', 'B', 'C'), conn('c3', 'B', 'D')]
+    const roles = computeFlowRoles(['c1', 'c2', 'c3'], conns)!
+    expect(roles.get('B')?.role).toBe('middle')
+  })
+
+  it('DIAG-3.10-24: missing connection IDs are skipped gracefully', () => {
+    const conns = [conn('c1', 'A', 'B')]
+    const roles = computeFlowRoles(['c1', 'c-missing'], conns)!
+    expect(roles.get('A')?.role).toBe('start')
+    expect(roles.get('B')?.role).toBe('end')
+    expect(roles.has('undefined')).toBe(false)
+  })
+
+  it('single connection — from is start, to is end', () => {
+    const roles = computeFlowRoles(['c1'], [conn('c1', 'X', 'Y')])!
+    expect(roles.get('X')?.role).toBe('start')
+    expect(roles.get('Y')?.role).toBe('end')
+  })
+
+  it('cycle (A→B→A) — both nodes appear as both from and to → both middle', () => {
+    const conns = [conn('c1', 'A', 'B'), conn('c2', 'B', 'A')]
+    const roles = computeFlowRoles(['c1', 'c2'], conns)!
+    expect(roles.get('A')?.role).toBe('middle')
+    expect(roles.get('B')?.role).toBe('middle')
   })
 })

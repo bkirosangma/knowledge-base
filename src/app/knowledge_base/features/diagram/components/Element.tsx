@@ -41,6 +41,7 @@ interface ElementProps {
   hasDocuments?: boolean;
   documentPaths?: string[];
   onDocNavigate?: (path: string) => void;
+  flowRole?: 'start' | 'end' | 'middle';
 }
 
 function Element({
@@ -73,6 +74,7 @@ function Element({
   hasDocuments,
   documentPaths,
   onDocNavigate,
+  flowRole,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -117,6 +119,11 @@ function Element({
         transitionDelay: dimmed ? "0.15s" : "0s",
         backgroundColor: bgColor ?? "#ffffff",
         borderColor: borderColor ?? "#e2e8f0",
+        boxShadow: flowRole === 'start'
+          ? '0 0 0 2px #22c55e, 0 0 12px #22c55e80, 0 4px 15px rgb(0,0,0,0.06)'
+          : flowRole === 'end'
+          ? '0 0 0 2px #ef4444, 0 0 12px #ef444480, 0 4px 15px rgb(0,0,0,0.06)'
+          : undefined,
       }}
       onMouseDown={(e) => {
         e.preventDefault();

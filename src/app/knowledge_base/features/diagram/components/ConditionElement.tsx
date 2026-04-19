@@ -35,6 +35,7 @@ interface ConditionElementProps {
   hasDocuments?: boolean;
   documentPaths?: string[];
   onDocNavigate?: (path: string) => void;
+  flowRole?: 'start' | 'end' | 'middle';
 }
 
 function ConditionElement({
@@ -66,6 +67,7 @@ function ConditionElement({
   hasDocuments,
   documentPaths,
   onDocNavigate,
+  flowRole,
 }: ConditionElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const effectiveH = getEffectiveConditionHeight(h, w, outCount);
@@ -120,6 +122,11 @@ function ConditionElement({
         transitionProperty: "opacity",
         transitionDuration: "150ms",
         transitionDelay: dimmed ? "0.15s" : "0s",
+        filter: flowRole === 'start'
+          ? 'drop-shadow(0 0 6px #22c55e)'
+          : flowRole === 'end'
+          ? 'drop-shadow(0 0 6px #ef4444)'
+          : undefined,
       }}
       onMouseDown={(e) => { e.preventDefault(); onDragStart?.(id, e); }}
       onMouseEnter={() => { setHovered(true); onMouseEnter?.(id); }}

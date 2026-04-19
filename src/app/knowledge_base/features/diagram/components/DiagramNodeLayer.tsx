@@ -45,6 +45,9 @@ export interface DiagramNodeLayerProps {
   flowDimSets: DimSets;
   typeDimSets: DimSets;
 
+  // Flow order overlays
+  flowOrderData?: Map<string, { role: 'start' | 'end' | 'middle' }> | null;
+
   // Handlers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleAnchorDragStart: (...args: any[]) => void;
@@ -96,6 +99,7 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     readOnly,
     flowDimSets,
     typeDimSets,
+    flowOrderData,
     handleAnchorDragStart,
     handleAnchorHover,
     handleAnchorHoverEnd,
@@ -159,6 +163,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           visualY = node.y + layerDragDelta.dy;
         }
 
+        const flowEntry = flowOrderData?.get(node.id);
+
         const commonProps = {
           isDragging: isThisDragged,
           isSelected: isItemSelected(selection, 'node', node.id),
@@ -172,6 +178,7 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           onMouseLeave: handleNodeMouseLeave,
           dimmed,
           onDoubleClick: handleNodeDoubleClick,
+          flowRole: flowEntry?.role,
         };
 
         if (isCondition) {
