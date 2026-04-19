@@ -825,10 +825,6 @@ export default function DiagramView({
     [documents],
   );
 
-  const diagramTitle = activeFile
-    ? (activeFile.split("/").pop() ?? "").replace(/\.json$/, "")
-    : "";
-
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full">
       {activeFile && (
@@ -840,8 +836,15 @@ export default function DiagramView({
             onToggleReadOnly={toggleReadOnly}
           />
 
-          {/* Title row */}
-          <PaneTitle title={diagramTitle} />
+          {/* Title row — editable diagram title + save / discard */}
+          <PaneTitle
+            title={title}
+            onTitleChange={(v) => { setTitle(v); scheduleRecord("Edit title"); }}
+            isDirty={isDirty}
+            hasActiveFile={!!activeFile}
+            onSave={handleSave}
+            onDiscard={handleDiscard}
+          />
 
           {/* Diagram toolbar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">

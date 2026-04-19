@@ -7,6 +7,9 @@ import { useDocumentContent } from "./hooks/useDocumentContent";
 import type { DocumentPaneBridge } from "./hooks/useDocumentContent";
 import type { useLinkIndex } from "./hooks/useLinkIndex";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
+import { getFirstHeading } from "./utils/getFirstHeading";
+
+const TITLE_DEBOUNCE_MS = 250;
 
 export type { DocumentPaneBridge };
 
@@ -31,7 +34,21 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge } = useDocumentContent(filePath);
+  const { content, dirty, updateContent, bridge, save, discard } = useDocumentContent(filePath);
+
+  // Debounced H1 / first-line derivation. `content` changes on every
+  // keystroke; re-rendering PaneTitle that often is wasteful, and the user
+  // doesn't need instant title sync — 250 ms settles nicely once they pause.
+  // File-name fallback keeps the pane header populated before the first H1.
+  const fileBase = filePath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
+  const [derivedTitle, setDerivedTitle] = useState(() => getFirstHeading(content) || fileBase);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const heading = getFirstHeading(content);
+      setDerivedTitle(heading || fileBase);
+    }, TITLE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [content, fileBase]);
 
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -100,7 +117,10 @@ export default function DocumentView({
         <MarkdownPane
           filePath={filePath}
           content={content}
-          title={filePath?.split("/").pop()?.replace(".md", "") ?? ""}
+          title={derivedTitle}
+          isDirty={dirty}
+          onSave={save}
+          onDiscard={discard}
           onChange={updateContent}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}

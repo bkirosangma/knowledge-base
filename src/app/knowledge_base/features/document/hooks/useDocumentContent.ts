@@ -7,6 +7,12 @@ import { FileSystemError, classifyError } from "../../../domain/errors";
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
+  /**
+   * Revert unsaved edits by re-reading the file from disk. If the file
+   * can't be read the error surfaces to the shell banner and the in-memory
+   * content is left untouched.
+   */
+  discard: () => Promise<void>;
   readonly dirty: boolean;
   readonly filePath: string | null;
   readonly content: string;
@@ -124,14 +130,31 @@ export function useDocumentContent(filePath: string | null) {
     setDirty(true);
   }, []);
 
+  // Discard helper: re-read the file from disk, throwing away unsaved edits.
+  // Symmetrical to `save`: refuses to run while a prior load failed (so we
+  // don't wipe the in-memory last-good copy with yet another failing read).
+  const discard = useCallback(async () => {
+    const repo = documentRepoRef.current;
+    if (!repo || !filePath) return;
+    if (loadErrorRef.current) return;
+    try {
+      const text = await repo.read(filePath);
+      setContent(text);
+      setDirty(false);
+    } catch (e) {
+      reportError(e, `Discarding changes to ${filePath}`);
+    }
+  }, [filePath, reportError]);
+
   // Bridge object with ref-backed getters so parent reads latest values
   // without triggering re-renders on every keystroke
   const bridge = useMemo<DocumentPaneBridge>(() => ({
     save,
+    discard,
     get dirty() { return dirtyRef.current; },
     get filePath() { return filePath; },
     get content() { return contentRef.current; },
-  }), [save, filePath]);
+  }), [save, discard, filePath]);
 
-  return { content, dirty, loadError, save, updateContent, bridge };
+  return { content, dirty, loadError, save, discard, updateContent, bridge };
 }
