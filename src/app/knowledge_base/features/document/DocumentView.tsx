@@ -31,7 +31,7 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge } = useDocumentContent(dirHandleRef, filePath);
+  const { content, dirty, updateContent, bridge } = useDocumentContent(filePath);
 
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;

@@ -30,7 +30,7 @@ const ACTIVE_FILE_KEY = "knowledge-base-active-file";
 
 export function useFileExplorer() {
   const dirHandle = useDirectoryHandle();
-  const { directoryName, dirHandleRef, inputRef, supported } = dirHandle;
+  const { directoryName, dirHandleRef, rootHandle, inputRef, supported } = dirHandle;
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -482,6 +482,7 @@ export function useFileExplorer() {
 
   return {
     directoryName: tree.length > 0 || dirHandleRef.current ? directoryName : null,
+    rootHandle,
     tree,
     activeFile,
     isLoading,
