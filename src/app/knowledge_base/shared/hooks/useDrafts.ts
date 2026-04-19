@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { listDrafts, clearDraft } from "../utils/persistence";
 
 /**
@@ -54,5 +54,14 @@ export function useDrafts(): {
     });
   }, []);
 
-  return { dirtyFiles, refreshDrafts, removeDraft, markDirty };
+  // Stabilise the returned object across renders. Consumers (e.g.
+  // `useFileExplorer`) list this object in their `useCallback` dep arrays;
+  // handing back a fresh literal every render cascades new identities
+  // through `renameFile` / `renameFolder` / `moveItem` / `deleteFolder` /
+  // `discardFile`, which — via the `useFileActions` handlers that sit in
+  // `DiagramView`'s bridge effect deps — drove a Max Update Depth loop.
+  return useMemo(
+    () => ({ dirtyFiles, refreshDrafts, removeDraft, markDirty }),
+    [dirtyFiles, refreshDrafts, removeDraft, markDirty],
+  );
 }
