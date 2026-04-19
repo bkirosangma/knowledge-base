@@ -264,15 +264,7 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     expect(onChange).toHaveBeenCalled()
   })
 
-  // BLOCKED: This test documents a pre-existing bug. Tiptap's setContent
-  // defaults to `emitUpdate: true`, so the content-sync useEffect at ~line 745
-  // of MarkdownEditor.tsx triggers onUpdate → debounce → onChange after every
-  // external content prop change. That creates an infinite save loop:
-  //   parent saves → sets content prop → editor fires onChange → parent saves…
-  // Fix: pass `{ emitUpdate: false }` to `editor.commands.setContent(…)`.
-  // Until fixed, this test is skipped to avoid a failing CI. The assertion
-  // documents the correct contract; do NOT invert it.
-  it.skip('DOC-4.5-26: onChange is NOT called when content prop changes externally without user edits', async () => {
+  it('DOC-4.5-26: onChange is NOT called when content prop changes externally without user edits', async () => {
     const onChange = vi.fn()
     const { rerender, container } = render(
       <MarkdownEditor content="# A" onChange={onChange} />,
@@ -280,7 +272,10 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     await waitFor(() => {
       expect(container.querySelector('.ProseMirror')).not.toBeNull()
     })
-    // Clear any calls from initial mount/stabilisation.
+    // Initial mount may schedule a 200 ms debounced onChange from Tiptap's
+    // init transaction; wait past that window and then clear so the
+    // assertion only measures echoes from the external-content rerender.
+    await new Promise((r) => setTimeout(r, 300))
     onChange.mockClear()
 
     // Rerender with a new content prop (simulates an external save landing).
@@ -288,8 +283,8 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     rerender(<MarkdownEditor content="# B" onChange={onChange} />)
 
     // Wait well past the 200 ms debounce; onChange must stay silent because
-    // setContent should not echo back to onChange. An echo here would cause an
-    // infinite save loop.
+    // setContent({ emitUpdate: false }) should not echo back to onChange.
+    // An echo here would cause an infinite save loop.
     await new Promise((r) => setTimeout(r, 300))
     expect(onChange).not.toHaveBeenCalled()
   })
