@@ -21,12 +21,8 @@ Top-level chrome that hosts every other feature.
 
 ### 1.2 Header
 `src/app/knowledge_base/shared/components/Header.tsx`
-- ✅ **Back button** — navigates to `/`.
-- ✅ **Inline title editing** — click-to-edit with auto-width input, 80-char cap, Enter commits, Escape cancels, blur commits.
-- ✅ **Dirty indicator** — small coloured dot when the active pane has unsaved changes.
-- ✅ **Save / Discard buttons** — disabled when clean; Discard opens a confirmation popover with optional "Don't ask me again".
-- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state.
-- ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane.
+- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Only cross-pane chrome left at the top level — title editing, dirty dot, Save, and Discard relocated to each pane's `PaneTitle` row on 2026-04-19.
+- ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
@@ -45,12 +41,12 @@ Top-level chrome that hosts every other feature.
 - ✅ **Layout restore on directory load** — reopens previous pane layout when re-opening a known folder.
 
 ### 1.5 Contexts
-- ⚙️ **ToolbarContext** (`shell/ToolbarContext.tsx`) — publishes `activePaneType` (`diagram | document | mixed`), `focusedPane`, `paneCount`; used by the Header to show pane-specific controls.
+- ⚙️ **ToolbarContext** (`shell/ToolbarContext.tsx`) — publishes `activePaneType` (`diagram | document | mixed`), `focusedPane`, `paneCount`. Consumed by the Footer for pane-aware status text; the Header no longer reads it after the 2026-04-19 strip-down.
 - ⚙️ **FooterContext** (`shell/FooterContext.tsx`) — per-side diagram info (world size, patches, zoom) feeding the Footer.
 
 ### 1.6 Pane Content Chrome
 - ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle, right-side action slot.
-- ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — editable inline title on Enter/Escape commit/cancel.
+- ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — title row between the breadcrumb and the toolbar. Shows the diagram's editable title (click-to-edit, Enter/Escape commit/cancel) for diagram panes; shows the debounced first H1 of the markdown (read-only, 250 ms) for document panes. Hosts the dirty dot + Save + Discard buttons on the right of each pane's title.
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
 
 ---

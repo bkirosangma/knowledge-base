@@ -83,9 +83,12 @@ test('Open Folder button is a real clickable control', async ({ page }) => {
   // from Playwright without a page-injected File System Access mock.
 })
 
-test('Header title input defaults to "Untitled" before any file is open', async ({ page }) => {
+test('top-level Header renders only the Split toggle before any file is open', async ({ page }) => {
+  // Title editing + Save/Discard moved into each pane's `PaneTitle` on
+  // 2026-04-19, so the shell header no longer shows an "Untitled" fallback
+  // input before a file is open. Only the Split toggle remains up top.
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
-  const defaultTitleInput = page.locator('input[value="Untitled"]').first()
-  await expect(defaultTitleInput).toBeVisible()
+  await expect(page.locator('input[value="Untitled"]')).toHaveCount(0)
+  await expect(page.locator('button[title="Split view"]').first()).toBeVisible()
 })

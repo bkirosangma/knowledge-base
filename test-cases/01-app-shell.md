@@ -13,16 +13,18 @@
 
 ## 1.2 Header
 
-- **SHELL-1.2-01** 🚫 **Back button navigates home** — Next.js `<Link href="/">` renders; navigation is app-router state. Covered by Playwright in Bucket 20.
-- **SHELL-1.2-02** ✅ **Title renders as read-only when clean** — input displays the current title and is not auto-focused.
-- **SHELL-1.2-03** 🟡 **Click title to edit** — input is always present; clicking focuses via native click→focus. Caret visibility is a UA concern; verified at the Playwright level.
-- **SHELL-1.2-04** ✅ **Enter commits title** — Enter calls `e.currentTarget.blur()` → `onBlur` commits trimmed changed value via `onTitleCommit`.
-- **SHELL-1.2-05** ✅ **Escape cancels title edit** — Escape reverts the input value to the pre-focus title (captured in `titleBeforeEdit` ref on focus) and blurs; `onTitleCommit` is not called.
-- **SHELL-1.2-06** ✅ **Blur commits title** — blur with a trimmed, changed value calls `onTitleCommit`; blur with empty/whitespace value reverts without committing; blur with unchanged value is a no-op.
-- **SHELL-1.2-07** ✅ **80-char cap** — input has `maxLength={80}` attribute.
-- **SHELL-1.2-08** 🟡 **Title input auto-widens** — implemented via `titleMeasureRef.scrollWidth` effect; in jsdom `scrollWidth` is always 0, so the computed width isn't observable. Behaviour verified via Playwright in Bucket 20.
-- **SHELL-1.2-09** ✅ **Dirty indicator visible** — `isDirty` renders a span with `title="Unsaved changes"`.
-- **SHELL-1.2-10** ✅ **Dirty indicator hidden when clean** — `isDirty=false` → the marker is not rendered.
+> Title editing, dirty dot, Save, and Discard moved from the top-level `Header` into each pane's `PaneTitle` row on 2026-04-19 — diagram pane renders the editable diagram title (with Save/Discard on the right); document pane renders the debounced first H1 (Save/Discard on the right, title read-only). The top-level bar now only hosts the Split toggle.
+
+- **SHELL-1.2-01** 🚫 **Back button navigates home** — removed; the top-level bar no longer has a Back button. See header strip-down on 2026-04-19.
+- **SHELL-1.2-02** ✅ **Title renders as read-only when clean** — `PaneTitle` renders the current title as an `<h1>`; click-to-edit only when `onTitleChange` is provided.
+- **SHELL-1.2-03** 🟡 **Click title to edit** — click switches `<h1>` → `<input>` with autofocus (diagram pane only; document pane is read-only). Caret visibility is a UA concern; verified at the Playwright level.
+- **SHELL-1.2-04** ✅ **Enter commits title** — Enter blurs the input → `onBlur` commits the trimmed changed value via `onTitleChange`.
+- **SHELL-1.2-05** ✅ **Escape cancels title edit** — Escape reverts the draft to the prop title and exits edit mode; `onTitleChange` is not called.
+- **SHELL-1.2-06** ✅ **Blur commits title** — blur with a trimmed, changed value calls `onTitleChange`; blur with empty/whitespace value does not commit; blur with unchanged value is a no-op.
+- **SHELL-1.2-07** 🚫 **80-char cap** — the old `Header` enforced `maxLength={80}`. `PaneTitle` lets the diagram-title `useState` accept any length; layout truncates visually via `truncate` instead. Revisit if users start pasting absurdly long titles.
+- **SHELL-1.2-08** 🟡 **Title input auto-widens** — no longer applicable to the new `PaneTitle` (input takes the flex-1 width of the title row). Visual behaviour verified via Playwright in Bucket 20.
+- **SHELL-1.2-09** ✅ **Dirty indicator visible** — `PaneTitle` renders a dot with `title="Unsaved changes"` when `isDirty && (onSave||onDiscard)`.
+- **SHELL-1.2-10** ✅ **Dirty indicator hidden when clean** — `isDirty=false` → dot not rendered. Also hidden when the pane doesn't own Save/Discard (suppresses stray dots on static titles).
 - **SHELL-1.2-11** ✅ **Save button disabled when clean** — `disabled={!hasActiveFile || !isDirty}` on the Save button.
 - **SHELL-1.2-12** ✅ **Save button enabled when dirty AND has active file** — conversely, both flags must be true to enable.
 - **SHELL-1.2-13** ✅ **Discard button disabled when clean** — same disabled expression as Save.

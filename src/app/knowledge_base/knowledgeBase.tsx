@@ -66,9 +66,10 @@ function KnowledgeBaseInner() {
     try { localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping })); } catch { /* ignore */ }
   }, []);
 
-  // Derived state from bridge (with safe defaults)
-  const isDirty = diagramBridge?.isDirty ?? false;
-  const title = diagramBridge?.title ?? "Untitled";
+  // Derived state from bridge (with safe defaults). Title / isDirty now live
+  // in each pane's `PaneTitle` row and don't need lifting to the shell —
+  // only the confirm-popover stays here because it's shell chrome that
+  // overlays the whole viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
   // ─── Wiki-link aware rename/delete ───
@@ -287,40 +288,6 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
-  // ─── Determine active pane type for header ───
-  const activePaneType = panes.activeEntry?.fileType ?? "diagram";
-
-  // ─── Stable Header callbacks (route through diagramBridgeRef) ───
-  //
-  // The Header receives several callbacks that each route back to the
-  // current `DiagramView` bridge. We MUST NOT inline `(v) =>
-  // diagramBridge?.setTitleInputValue(v)` in JSX — those arrows recreate
-  // on every KnowledgeBaseInner render, and Header's useEffect has
-  // `setTitleWidth` in its deps, so Header would re-run the effect every
-  // render. Combined with the bridge effect in DiagramView (which
-  // publishes a new bridge object whenever its deps change), this
-  // produces an infinite Max Update Depth loop on mount.
-  //
-  // Wrapping each arrow in an empty-deps useCallback that reads
-  // `diagramBridgeRef.current` preserves the "latest bridge" behaviour
-  // (the ref is updated synchronously in `handleDiagramBridge`) while
-  // giving Header stable references.
-  const setTitleInputValue = useCallback((v: string) => {
-    diagramBridgeRef.current?.setTitleInputValue(v);
-  }, []);
-  const setTitleWidth = useCallback((w: number | string) => {
-    diagramBridgeRef.current?.setTitleWidth(w);
-  }, []);
-  const onTitleCommit = useCallback((v: string) => {
-    diagramBridgeRef.current?.onTitleCommit(v);
-  }, []);
-  const onHeaderDiscard = useCallback((e: React.MouseEvent) => {
-    diagramBridgeRef.current?.onDiscard(e);
-  }, []);
-  const onHeaderSave = useCallback(() => {
-    diagramBridgeRef.current?.onSave();
-  }, []);
-
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
     if (entry.fileType === "diagram") {
@@ -393,17 +360,6 @@ function KnowledgeBaseInner() {
     <RepositoryProvider rootHandle={fileExplorer.rootHandle}>
     <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
-        title={diagramBridge?.title ?? "Untitled"}
-        titleInputValue={diagramBridge?.titleInputValue ?? "Untitled"}
-        setTitleInputValue={setTitleInputValue}
-        titleWidth={diagramBridge?.titleWidth ?? "auto"}
-        setTitleWidth={setTitleWidth}
-        onTitleCommit={onTitleCommit}
-        isDirty={isDirty}
-        hasActiveFile={!!(panes.leftPane || panes.rightPane)}
-        onDiscard={onHeaderDiscard}
-        onSave={onHeaderSave}
-        activePaneType={activePaneType}
         isSplit={panes.isSplit}
         onToggleSplit={() => {
           if (panes.isSplit) {

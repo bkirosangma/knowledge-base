@@ -9,11 +9,17 @@ import PaneTitle from "../../../shared/components/PaneTitle";
 interface MarkdownPaneProps {
   filePath: string | null;           // currently open document path
   content: string;                   // raw markdown
-  title: string;                     // document title (derived from filename)
+  /** Title shown in the pane header — the document's H1 (debounced). Read-only. */
+  title: string;
   onChange?: (markdown: string) => void;
   onNavigateLink?: (path: string, section?: string) => void;
   onCreateDocument?: (path: string) => void;
-  onTitleChange?: (newTitle: string) => void;
+  /** Whether there are unsaved edits — drives dirty dot + Save/Discard state. */
+  isDirty?: boolean;
+  /** Save current document to disk. */
+  onSave?: () => void;
+  /** Discard unsaved edits (re-read from disk). */
+  onDiscard?: (e: React.MouseEvent) => void;
   existingDocPaths?: Set<string>;
   allDocPaths?: string[];
   backlinks?: { sourcePath: string; section?: string }[];
@@ -28,7 +34,9 @@ export default function MarkdownPane({
   onChange,
   onNavigateLink,
   onCreateDocument,
-  onTitleChange,
+  isDirty,
+  onSave,
+  onDiscard,
   existingDocPaths,
   allDocPaths,
   backlinks = [],
@@ -68,8 +76,14 @@ export default function MarkdownPane({
         )}
       </PaneHeader>
 
-      {/* Title */}
-      <PaneTitle title={title} onTitleChange={onTitleChange} />
+      {/* Title row — derived H1 (read-only) + save / discard */}
+      <PaneTitle
+        title={title}
+        isDirty={isDirty}
+        hasActiveFile={!!filePath}
+        onSave={onSave}
+        onDiscard={onDiscard}
+      />
 
       {/* Backlinks dropdown */}
       {showBacklinks && backlinks.length > 0 && (
