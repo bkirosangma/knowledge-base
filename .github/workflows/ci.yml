@@ -1,10 +1,6 @@
 name: CI
 
-# Gates every PR (and push to main) on test + build.
-# Lint is intentionally NOT gated here — the repo currently has ~93 lint
-# errors that pre-date the Phase 0 safety-net work. Cleaning lint to zero
-# and re-adding `npm run lint` to this workflow is tracked as a Phase 1
-# follow-up.
+# Gates every PR (and push to main) on typecheck + lint + test + build.
 
 on:
   pull_request:
@@ -40,6 +36,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Unit + integration tests
         run: npm run test:run
