@@ -73,7 +73,7 @@ export function useFileActions(
     const outgoing = fileExplorer.activeFile;
     const s = currentStateRef.current;
     if (s.isDirty && outgoing && outgoing !== fileName) {
-      await (fileExplorer.saveFile as Function)(
+      await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
         outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
       );
     }
@@ -103,7 +103,7 @@ export function useFileActions(
   const handleSave = useCallback(async () => {
     const s = currentStateRef.current;
     if (!fileExplorer.activeFile || !s.isDirty) return;
-    const success = await (fileExplorer.saveFile as Function)(
+    const success = await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
       fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
     );
     if (success) {

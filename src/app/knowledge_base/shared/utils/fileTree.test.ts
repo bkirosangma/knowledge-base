@@ -10,14 +10,14 @@ class MockFile {
   constructor(public data: string = '', public lastModified: number = 0) {}
 }
 class MockFileHandle {
-  kind: 'file' = 'file'
+  kind = 'file' as const
   constructor(public name: string, public file: MockFile) {}
   async getFile() {
     return { text: async () => this.file.data, lastModified: this.file.lastModified }
   }
 }
 class MockDir {
-  kind: 'directory' = 'directory'
+  kind = 'directory' as const
   children = new Map<string, MockDir | MockFileHandle>()
   constructor(public name = 'root') {}
   async *values(): AsyncIterableIterator<MockDir | MockFileHandle> {

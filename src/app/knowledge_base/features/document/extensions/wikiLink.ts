@@ -201,7 +201,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
   addProseMirrorPlugins() {
     const editor = this.editor;
-    const extension = this;
+    const options = this.options;
     return [
       // Inline text editing AND navigation. DOM-level click handlers on atoms
       // get eaten in some container contexts (notably inside list items) —
@@ -230,8 +230,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             // click behavior agree.
             const path = node.attrs.path as string;
             const section = node.attrs.section as string | null;
-            const dir = extension.options.currentDocDir ?? "";
-            const set = extension.options.existingDocPaths ?? new Set<string>();
+            const dir = options.currentDocDir ?? "";
+            const set = options.existingDocPaths ?? new Set<string>();
             const candidates: string[] = [];
             candidates.push(resolveWikiLinkPath(path, dir));
             if (!/\.[a-z0-9]+$/i.test(path)) {
@@ -244,9 +244,9 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             }
             const exists = candidates.some((c) => set.has(c));
             if (exists) {
-              extension.options.onNavigate?.(path, section ?? undefined);
+              options.onNavigate?.(path, section ?? undefined);
             } else {
-              extension.options.onCreateDocument?.(path);
+              options.onCreateDocument?.(path);
             }
             return true;
           },

@@ -35,9 +35,8 @@ function renderDocContent(filePath: string | null) {
   const wrapper = ({ children }: { children: ReactNode }) => {
     const inner = createElement(RepositoryProvider, {
       rootHandle: root as unknown as FileSystemDirectoryHandle,
-      children,
-    })
-    return createElement(ShellErrorProvider, { children: inner })
+    }, children)
+    return createElement(ShellErrorProvider, null, inner)
   }
   return renderHook(({ p }) => useDocumentContent(p), {
     initialProps: { p: filePath },
@@ -238,8 +237,8 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
-      const inner = createElement(StubRepositoryProvider, { value: stub, children })
-      return createElement(ShellErrorProvider, { children: inner })
+      const inner = createElement(StubRepositoryProvider, { value: stub }, children)
+      return createElement(ShellErrorProvider, null, inner)
     }
     return renderHook(({ p }) => useDocumentContent(p), {
       initialProps: { p: filePath },
@@ -320,11 +319,10 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
-      const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
+      const innerProvider = createElement(StubRepositoryProvider, { value: stub }, children)
       return createElement(StubShellErrorProvider, {
         value: { current: null, reportError, dismiss: () => {} },
-        children: innerProvider,
-      })
+      }, innerProvider)
     }
     const { result } = renderHook(() => useDocumentContent('a.md'), { wrapper })
     await waitFor(() => expect(result.current.content).toBe('good'))
@@ -368,11 +366,10 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
-      const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
+      const innerProvider = createElement(StubRepositoryProvider, { value: stub }, children)
       return createElement(StubShellErrorProvider, {
         value: { current: null, reportError, dismiss: () => {} },
-        children: innerProvider,
-      })
+      }, innerProvider)
     }
     const { result, rerender } = renderHook(
       ({ p }) => useDocumentContent(p),
