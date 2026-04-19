@@ -18,6 +18,9 @@ import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
+import { ShellErrorProvider } from "./shell/ShellErrorContext";
+import ShellErrorBanner from "./shell/ShellErrorBanner";
+import ShellErrorBoundary from "./shell/ShellErrorBoundary";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
@@ -451,10 +454,15 @@ function KnowledgeBaseInner() {
 
 export default function KnowledgeBase() {
   return (
-    <ToolbarProvider>
-      <FooterProvider>
-        <KnowledgeBaseInner />
-      </FooterProvider>
-    </ToolbarProvider>
+    <ShellErrorBoundary>
+      <ShellErrorProvider>
+        <ShellErrorBanner />
+        <ToolbarProvider>
+          <FooterProvider>
+            <KnowledgeBaseInner />
+          </FooterProvider>
+        </ToolbarProvider>
+      </ShellErrorProvider>
+    </ShellErrorBoundary>
   );
 }
