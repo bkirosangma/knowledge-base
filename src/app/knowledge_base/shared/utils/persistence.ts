@@ -1,4 +1,5 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
+import { classifyError } from "../../domain/errors";
 import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
 import { scopedKey } from "./directoryScope";
 const STORAGE_KEY = "knowledge-base-data";
@@ -201,8 +202,13 @@ export function saveDraft(
   };
   try {
     localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));
-  } catch {
-    // Storage full or unavailable
+  } catch (e) {
+    // Phase 5c (2026-04-19): classify + re-throw instead of silently
+    // swallowing. Quota-exceeded during autosave was the highest-impact
+    // data-loss vector — user types into diagram, autosave fails, the
+    // tab closes, work is gone with no UI indication. Callers now catch
+    // + reportError.
+    throw classifyError(e);
   }
 }
 

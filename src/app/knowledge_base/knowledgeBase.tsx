@@ -18,6 +18,10 @@ import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
+import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
+import ShellErrorBanner from "./shell/ShellErrorBanner";
+import ShellErrorBoundary from "./shell/ShellErrorBoundary";
+import { readOrNull } from "./domain/repositoryHelpers";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
@@ -26,6 +30,7 @@ const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";
 
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
+  const { reportError } = useShellErrors();
   const fileExplorer = useFileExplorer();
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
@@ -78,7 +83,11 @@ function KnowledgeBaseInner() {
     const dir = oldPath.includes("/") ? oldPath.substring(0, oldPath.lastIndexOf("/")) : "";
     const newPath = dir ? `${dir}/${newName}` : newName;
 
-    await linkManager.renameDocumentInIndex(rootHandle, oldPath, newPath);
+    try {
+      await linkManager.renameDocumentInIndex(rootHandle, oldPath, newPath);
+    } catch (e) {
+      reportError(e, `Updating link index after renaming ${oldPath}`);
+    }
 
     const backlinks = linkManager.getBacklinksFor(oldPath);
     for (const bl of backlinks) {
@@ -99,7 +108,11 @@ function KnowledgeBaseInner() {
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
     diagramBridgeRef.current?.handleDeleteFile(path, event);
     if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
-      await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
+      try {
+        await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
+      } catch (e) {
+        reportError(e, `Updating link index after deleting ${path}`);
+      }
     }
   }, [fileExplorer.dirHandleRef, linkManager]);
 
@@ -185,7 +198,8 @@ function KnowledgeBaseInner() {
             const rootHandle = fileExplorer.dirHandleRef.current;
             docBridge.save().then(() => {
               if (rootHandle && docBridge.filePath) {
-                linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content);
+                linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)
+                  .catch((e) => reportError(e, `Updating link index for ${docBridge.filePath}`));
               }
             });
           }
@@ -255,11 +269,18 @@ function KnowledgeBaseInner() {
     if (!rootHandle || fileExplorer.tree.length === 0) return;
     (async () => {
       const vaultRepo = createVaultConfigRepository(rootHandle);
-      const config = await vaultRepo.read();
-      if (config) {
-        await vaultRepo.touchLastOpened();
-      } else if (fileExplorer.directoryName) {
-        await vaultRepo.init(fileExplorer.directoryName);
+      try {
+        // Phase 5c: readOrNull maps "not a vault folder" (no .archdesigner
+        // config) to null → we create one. Any other failure (permission,
+        // malformed) surfaces to the shell banner.
+        const config = await readOrNull(() => vaultRepo.read());
+        if (config) {
+          await vaultRepo.touchLastOpened();
+        } else if (fileExplorer.directoryName) {
+          await vaultRepo.init(fileExplorer.directoryName);
+        }
+      } catch (e) {
+        reportError(e, "Initializing vault config");
       }
       await linkManager.loadIndex(rootHandle);
     })();
@@ -287,7 +308,11 @@ function KnowledgeBaseInner() {
             docManager.detachDocument(docPath, entityType, entityId);
           }}
           onCreateDocument={async (rootHandle, path) => {
-            await docManager.createDocument(rootHandle, path);
+            try {
+              await docManager.createDocument(rootHandle, path);
+            } catch (e) {
+              reportError(e, `Creating ${path}`);
+            }
           }}
           onLoadDocuments={docManager.setDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
@@ -310,9 +335,12 @@ function KnowledgeBaseInner() {
         onNavigateLink={handleNavigateWikiLink}
         onCreateDocument={async (path) => {
           const rootHandle = fileExplorer.dirHandleRef.current;
-          if (rootHandle) {
+          if (!rootHandle) return;
+          try {
             await docManager.createDocument(rootHandle, path);
             handleOpenDocument(path);
+          } catch (e) {
+            reportError(e, `Creating ${path}`);
           }
         }}
       />
@@ -451,10 +479,15 @@ function KnowledgeBaseInner() {
 
 export default function KnowledgeBase() {
   return (
-    <ToolbarProvider>
-      <FooterProvider>
-        <KnowledgeBaseInner />
-      </FooterProvider>
-    </ToolbarProvider>
+    <ShellErrorBoundary>
+      <ShellErrorProvider>
+        <ShellErrorBanner />
+        <ToolbarProvider>
+          <FooterProvider>
+            <KnowledgeBaseInner />
+          </FooterProvider>
+        </ToolbarProvider>
+      </ShellErrorProvider>
+    </ShellErrorBoundary>
   );
 }

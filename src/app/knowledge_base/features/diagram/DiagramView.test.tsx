@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, cleanup, waitFor } from '@testing-library/react'
 import DiagramView from './DiagramView'
 import { FooterProvider } from '../../shell/FooterContext'
+import { ShellErrorProvider } from '../../shell/ShellErrorContext'
 
 // Characterization-layer smoke tests for DiagramView. The component is too
 // intertwined with Canvas + 20 hooks to exercise every interaction here;
@@ -74,9 +75,11 @@ function baseProps(
 
 function renderDV(props: React.ComponentProps<typeof DiagramView>) {
   return render(
-    <FooterProvider>
-      <DiagramView {...props} />
-    </FooterProvider>,
+    <ShellErrorProvider>
+      <FooterProvider>
+        <DiagramView {...props} />
+      </FooterProvider>
+    </ShellErrorProvider>,
   )
 }
 
@@ -101,9 +104,11 @@ describe('DiagramView — smoke', () => {
     const { rerender } = renderDV(props)
     expect(() =>
       rerender(
-        <FooterProvider>
-          <DiagramView {...baseProps({ activeFile: 'flow.json' })} />
-        </FooterProvider>,
+        <ShellErrorProvider>
+          <FooterProvider>
+            <DiagramView {...baseProps({ activeFile: 'flow.json' })} />
+          </FooterProvider>
+        </ShellErrorProvider>,
       ),
     ).not.toThrow()
   })
