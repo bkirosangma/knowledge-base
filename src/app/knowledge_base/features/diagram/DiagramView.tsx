@@ -68,8 +68,8 @@ import DiagramLinesOverlay from "./components/DiagramLinesOverlay";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
-/** Bridge object that DiagramView exposes to the shell for Header integration. */
-export interface DiagramBridge {
+/** Title + save/discard surface consumed by the Header. */
+export interface HeaderBridge {
   isDirty: boolean;
   title: string;
   titleInputValue: string;
@@ -79,7 +79,10 @@ export interface DiagramBridge {
   onTitleCommit: (value: string) => void;
   onSave: () => void;
   onDiscard: (e: React.MouseEvent) => void;
-  /** File-operation callbacks that the shell needs for the explorer. */
+}
+
+/** File-ops + confirm-popover surface consumed by the explorer tree and rename/delete wrappers. */
+export interface ExplorerBridge {
   handleLoadFile: (fileName: string) => Promise<void>;
   handleCreateFile: (parentPath?: string) => Promise<string | null>;
   handleCreateFolder: (parentPath?: string) => Promise<string | null>;
@@ -93,6 +96,13 @@ export interface DiagramBridge {
   confirmAction: { type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null;
   setConfirmAction: React.Dispatch<React.SetStateAction<{ type: "delete-file" | "delete-folder" | "discard"; path?: string; x: number; y: number } | null>>;
 }
+
+/**
+ * Bridge object that DiagramView exposes to the shell.
+ * Consumers that only need one slice should prefer `HeaderBridge` or
+ * `ExplorerBridge` in their own parameter types.
+ */
+export type DiagramBridge = HeaderBridge & ExplorerBridge;
 
 export interface DiagramViewProps {
   focused: boolean;
