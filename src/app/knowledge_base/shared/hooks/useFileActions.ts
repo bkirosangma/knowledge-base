@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef, DocumentMeta } from "../utils/types";
 import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/persistence";
 import type { DiagramSnapshot } from "./useActionHistory";
@@ -47,6 +47,23 @@ export function useFileActions(
   documents?: DocumentMeta[],
   onLoadDocuments?: (docs: DocumentMeta[]) => void,
 ) {
+  // Keep the "current diagram state" accessible to handleLoadFile /
+  // handleSave without listing every state value in their useCallback
+  // deps. Without this, `handleLoadFile` recreates on every node-drag,
+  // title-edit, etc., causing the `DiagramBridge` effect in DiagramView
+  // (which has `handleLoadFile` in its deps) to re-publish a fresh bridge
+  // object — that flows to `KnowledgeBaseInner` as `setDiagramBridge`
+  // state churn, which combined with Header's inline-arrow props caused
+  // a Max Update Depth loop. Keeping the refs in lock-step with props
+  // preserves "latest known state" reads inside the callbacks while
+  // shrinking the dep list back to stable callables.
+  const currentStateRef = useRef({
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
+  });
+  currentStateRef.current = {
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
+  };
+
   const handleLoadFile = useCallback(async (fileName: string) => {
     // SHELL-1.2-22: flush the outgoing file's dirty state to disk before
     // swapping in the new one so the user doesn't lose unsaved edits on
@@ -54,9 +71,10 @@ export function useFileActions(
     // when there's nothing to flush (no active file, not dirty, or we're
     // re-selecting the same file).
     const outgoing = fileExplorer.activeFile;
-    if (isDirty && outgoing && outgoing !== fileName) {
+    const s = currentStateRef.current;
+    if (s.isDirty && outgoing && outgoing !== fileName) {
       await (fileExplorer.saveFile as Function)(
-        outgoing, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows, documents,
+        outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
       );
     }
 
@@ -67,7 +85,7 @@ export function useFileActions(
     const snapshotSource = hasDraft ? loadDiagramFromData(JSON.parse(diskJson)) : undefined;
     applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
     // Restore document attachments from the loaded diagram
-    onLoadDocuments?.(data.documents ?? []);
+    currentStateRef.current.onLoadDocuments?.(data.documents ?? []);
     isRestoringRef.current = true;
     const diskData = JSON.parse(diskJson);
     await history.initHistory(diskJson, {
@@ -80,23 +98,20 @@ export function useFileActions(
       flows: diskData.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [
-    fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, fileExplorer.dirHandleRef,
-    applyDiagramToState, history.initHistory,
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
-  ]);
+  }, [fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, fileExplorer.dirHandleRef, applyDiagramToState, history.initHistory, isRestoringRef]);
 
   const handleSave = useCallback(async () => {
-    if (!fileExplorer.activeFile || !isDirty) return;
+    const s = currentStateRef.current;
+    if (!fileExplorer.activeFile || !s.isDirty) return;
     const success = await (fileExplorer.saveFile as Function)(
-      fileExplorer.activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, serializeNodes, flows, documents,
+      fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
     );
     if (success) {
-      setLoadSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
-      const savedData = { title, layers: layerDefs, nodes: serializeNodes(nodes), connections, layerManualSizes, lineCurve, flows };
+      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows);
+      const savedData = { title: s.title, layers: s.layerDefs, nodes: serializeNodes(s.nodes), connections: s.connections, layerManualSizes: s.layerManualSizes, lineCurve: s.lineCurve, flows: s.flows };
       history.onSave(JSON.stringify(savedData));
     }
-  }, [fileExplorer.activeFile, fileExplorer.saveFile, isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, setLoadSnapshot, history.onSave]);
+  }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);
 
   const handleCreateFile = useCallback(async (parentPath: string = ""): Promise<string | null> => {
     const result = await fileExplorer.createFile(parentPath);

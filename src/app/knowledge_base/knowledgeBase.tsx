@@ -290,6 +290,37 @@ function KnowledgeBaseInner() {
   // ─── Determine active pane type for header ───
   const activePaneType = panes.activeEntry?.fileType ?? "diagram";
 
+  // ─── Stable Header callbacks (route through diagramBridgeRef) ───
+  //
+  // The Header receives several callbacks that each route back to the
+  // current `DiagramView` bridge. We MUST NOT inline `(v) =>
+  // diagramBridge?.setTitleInputValue(v)` in JSX — those arrows recreate
+  // on every KnowledgeBaseInner render, and Header's useEffect has
+  // `setTitleWidth` in its deps, so Header would re-run the effect every
+  // render. Combined with the bridge effect in DiagramView (which
+  // publishes a new bridge object whenever its deps change), this
+  // produces an infinite Max Update Depth loop on mount.
+  //
+  // Wrapping each arrow in an empty-deps useCallback that reads
+  // `diagramBridgeRef.current` preserves the "latest bridge" behaviour
+  // (the ref is updated synchronously in `handleDiagramBridge`) while
+  // giving Header stable references.
+  const setTitleInputValue = useCallback((v: string) => {
+    diagramBridgeRef.current?.setTitleInputValue(v);
+  }, []);
+  const setTitleWidth = useCallback((w: number | string) => {
+    diagramBridgeRef.current?.setTitleWidth(w);
+  }, []);
+  const onTitleCommit = useCallback((v: string) => {
+    diagramBridgeRef.current?.onTitleCommit(v);
+  }, []);
+  const onHeaderDiscard = useCallback((e: React.MouseEvent) => {
+    diagramBridgeRef.current?.onDiscard(e);
+  }, []);
+  const onHeaderSave = useCallback(() => {
+    diagramBridgeRef.current?.onSave();
+  }, []);
+
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
     if (entry.fileType === "diagram") {
@@ -364,14 +395,14 @@ function KnowledgeBaseInner() {
       <Header
         title={diagramBridge?.title ?? "Untitled"}
         titleInputValue={diagramBridge?.titleInputValue ?? "Untitled"}
-        setTitleInputValue={(v) => diagramBridge?.setTitleInputValue(v)}
+        setTitleInputValue={setTitleInputValue}
         titleWidth={diagramBridge?.titleWidth ?? "auto"}
-        setTitleWidth={(w) => diagramBridge?.setTitleWidth(w)}
-        onTitleCommit={(v) => diagramBridge?.onTitleCommit(v)}
+        setTitleWidth={setTitleWidth}
+        onTitleCommit={onTitleCommit}
         isDirty={isDirty}
         hasActiveFile={!!(panes.leftPane || panes.rightPane)}
-        onDiscard={(e) => diagramBridge?.onDiscard(e)}
-        onSave={() => diagramBridge?.onSave()}
+        onDiscard={onHeaderDiscard}
+        onSave={onHeaderSave}
         activePaneType={activePaneType}
         isSplit={panes.isSplit}
         onToggleSplit={() => {
