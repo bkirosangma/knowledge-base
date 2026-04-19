@@ -20,7 +20,7 @@ describe('FooterContext', () => {
     expect(result.current.rightInfo).toBeNull()
   })
 
-  it('setLeftInfo / setRightInfo round-trip DiagramFooterInfo payloads', () => {
+  it('setLeftInfo / setRightInfo round-trip DiagramFooterBridge payloads', () => {
     const { result } = renderHook(() => useFooterContext(), { wrapper })
     const info = {
       kind: 'diagram' as const,
