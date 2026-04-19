@@ -85,3 +85,15 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.6-05** ✅ **PaneTitle edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit.
 - **SHELL-1.6-06** ✅ **PaneTitle edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
 - **SHELL-1.6-07** 🚫 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`; covered in Bucket 18 (shell integration).
+
+## 1.7 Error Surface (Phase 5c)
+
+Shell-level typed-error surface introduced in Phase 5c (2026-04-19). `ShellErrorProvider` holds a single-slot current error; consumers publish via `useShellErrors().reportError(e, context)`; `ShellErrorBanner` renders it; `ShellErrorBoundary` catches uncaught render throws. See [`src/app/knowledge_base/shell/ShellErrorContext.tsx`](../src/app/knowledge_base/shell/ShellErrorContext.tsx) + [`ShellErrorBanner.tsx`](../src/app/knowledge_base/shell/ShellErrorBanner.tsx) + [`ShellErrorBoundary.tsx`](../src/app/knowledge_base/shell/ShellErrorBoundary.tsx).
+
+- **SHELL-1.7-01** ✅ **Provider starts empty** — `useShellErrors().current` is `null` on mount.
+- **SHELL-1.7-02** ✅ **`reportError` classifies + publishes** — accepts a raw Error (classifies via `classifyError`) or a pre-built `FileSystemError` (passes through); `current` reflects `{ kind, message, context, at }`.
+- **SHELL-1.7-03** ✅ **Single-slot replacement** — a second `reportError` replaces the first (no queue).
+- **SHELL-1.7-04** ✅ **Dismiss clears** — `dismiss()` sets `current` back to `null`.
+- **SHELL-1.7-05** 🟡 **Banner renders current error** — `ShellErrorBanner` reads `current` and shows `kindLabel(kind)` + `context` + `message` + Dismiss button. Visual-only; the state round-trip is covered by SHELL-1.7-02..04.
+- **SHELL-1.7-06** 🟡 **Boundary catches render throws** — `ShellErrorBoundary` React class renders a fallback on uncaught render errors, logs via `classifyError`. No assertion coverage — component is never exercised in the current test suite because no rendered component throws synchronously during normal operation.
+- **SHELL-1.7-07** ✅ **`useShellErrors` without provider throws** — guard asserted in `ShellErrorContext.test.tsx`.

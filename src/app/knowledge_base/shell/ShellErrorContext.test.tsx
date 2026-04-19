@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { ShellErrorProvider, useShellErrors } from './ShellErrorContext'
 import { FileSystemError } from '../domain/errors'
 
-// Covers SHELL-1.4-01..04 (typed error surface — Phase 5c, 2026-04-19).
+// Covers SHELL-1.7-01..04 (typed error surface — Phase 5c, 2026-04-19).
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <ShellErrorProvider>{children}</ShellErrorProvider>
@@ -15,12 +15,12 @@ beforeEach(() => { errSpy = vi.spyOn(console, 'error').mockImplementation(() => 
 afterEach(() => { errSpy.mockRestore() })
 
 describe('ShellErrorProvider / useShellErrors', () => {
-  it('SHELL-1.4-01: starts with no current error', () => {
+  it('SHELL-1.7-01: starts with no current error', () => {
     const { result } = renderHook(() => useShellErrors(), { wrapper })
     expect(result.current.current).toBeNull()
   })
 
-  it('SHELL-1.4-02: reportError classifies a raw Error and publishes it', () => {
+  it('SHELL-1.7-02: reportError classifies a raw Error and publishes it', () => {
     const { result } = renderHook(() => useShellErrors(), { wrapper })
     act(() => {
       result.current.reportError(
@@ -33,7 +33,7 @@ describe('ShellErrorProvider / useShellErrors', () => {
     expect(result.current.current?.context).toBe('saving diagram')
   })
 
-  it('SHELL-1.4-02: reportError preserves a FileSystemError unchanged', () => {
+  it('SHELL-1.7-02: reportError preserves a FileSystemError unchanged', () => {
     const err = new FileSystemError('quota-exceeded', 'full')
     const { result } = renderHook(() => useShellErrors(), { wrapper })
     act(() => { result.current.reportError(err, 'draft write') })
@@ -41,7 +41,7 @@ describe('ShellErrorProvider / useShellErrors', () => {
     expect(result.current.current?.message).toBe('full')
   })
 
-  it('SHELL-1.4-03: a second reportError replaces the first (no queue)', () => {
+  it('SHELL-1.7-03: a second reportError replaces the first (no queue)', () => {
     const { result } = renderHook(() => useShellErrors(), { wrapper })
     act(() => {
       result.current.reportError(new FileSystemError('permission', 'a'))
@@ -53,7 +53,7 @@ describe('ShellErrorProvider / useShellErrors', () => {
     expect(result.current.current?.message).toBe('b')
   })
 
-  it('SHELL-1.4-04: dismiss clears the current error', () => {
+  it('SHELL-1.7-04: dismiss clears the current error', () => {
     const { result } = renderHook(() => useShellErrors(), { wrapper })
     act(() => { result.current.reportError(new FileSystemError('unknown', 'x')) })
     expect(result.current.current).not.toBeNull()

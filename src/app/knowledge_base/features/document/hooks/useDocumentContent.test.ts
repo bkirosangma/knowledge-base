@@ -241,7 +241,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
   // Each of these assertions FAILS on main — they guard the specific bugs
   // Phase 5c fixes so a future regression surfaces in CI.
 
-  it('DOC-4.11-07 (regression): load failure does NOT silently set empty content — prevents save-over', async () => {
+  it('DOC-4.11-14 (regression): load failure does NOT silently set empty content — prevents save-over', async () => {
     // Simulate a load that throws (e.g. permission revoked mid-session)
     const read = vi.fn(async () => { throw new FileSystemError('permission', 'denied') })
     const write = vi.fn(async () => {})
@@ -257,7 +257,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     expect(write).not.toHaveBeenCalled()
   })
 
-  it('DOC-4.11-08 (regression): save() is blocked while loadError is set', async () => {
+  it('DOC-4.11-15 (regression): save() is blocked while loadError is set', async () => {
     const read = vi.fn()
       .mockResolvedValueOnce('# real content')
       .mockImplementationOnce(async () => { throw new FileSystemError('permission', 'denied') })
@@ -272,7 +272,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     expect(write).not.toHaveBeenCalled()
   })
 
-  it('DOC-4.11-09 (regression): save-previous-on-switch failure is reported (not silent)', async () => {
+  it('DOC-4.11-16 (regression): save-previous-on-switch failure is reported (not silent)', async () => {
     const reportError = vi.fn()
     const stub: Repositories = {
       diagram: null,
