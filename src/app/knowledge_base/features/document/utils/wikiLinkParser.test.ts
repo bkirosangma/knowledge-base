@@ -121,9 +121,11 @@ describe('resolveWikiLinkPath', () => {
     expect(resolveWikiLinkPath('foo', '')).toBe('foo.md')
   })
 
-  it('.. beyond root is kept as a literal segment (current behavior)', () => {
-    // `..` only pops when the normalized stack is non-empty; otherwise it is pushed.
-    expect(resolveWikiLinkPath('../../foo', 'a')).toBe('../foo.md')
+  it('DOC-4.8-13: .. beyond root is clamped (dropped, not emitted as a literal segment)', () => {
+    // Extra `..` past the vault root are discarded so the resolver never
+    // produces a path that escapes the vault. See Phase 5a (2026-04-19).
+    expect(resolveWikiLinkPath('../../foo', 'a')).toBe('foo.md')
+    expect(resolveWikiLinkPath('../../../foo', '')).toBe('foo.md')
   })
 
   it('strips double slashes from absolute paths', () => {

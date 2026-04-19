@@ -27,6 +27,7 @@
 - **FS-2.2-04** ✅ **`readVaultConfig` returns null on malformed JSON** — `JSON.parse` error is swallowed and `null` returned.
 - **FS-2.2-05** ✅ **`updateVaultLastOpened` touches timestamp** — rewrites `config.json` with a fresh ISO `lastOpened`; `version`, `name`, `created` survive unchanged. When config is missing the function resolves silently (no-op).
 - **FS-2.2-06** ✅ **`isVaultDirectory` type guard** — returns `true` when `config !== null && config.version != null`; returns `false` for `null`, and for configs missing the `version` field.
+- **FS-2.2-07** ✅ **`readVaultConfig` rejects partial shapes (Phase 5b, 2026-04-19)** — `JSON.parse` may succeed on `{ version: '1.0', name: 'v' }` but the shape is incomplete; the I/O-boundary guard returns `null` instead of handing a cast-but-unvalidated object to callers.
 
 ## 2.3 File Explorer Panel
 

@@ -72,6 +72,17 @@ describe('readVaultConfig', () => {
     await w.close()
     expect(await readVaultConfig(asRootHandle(root))).toBeNull()
   })
+
+  it('FS-2.2-07: returns null when config.json parses but fails shape check (Phase 5b)', async () => {
+    const configDir = await root.getDirectoryHandle('.archdesigner', { create: true })
+    const fh = await configDir.getFileHandle('config.json', { create: true })
+    const w = await fh.createWritable()
+    // Missing `created` + `lastOpened`; old code silently cast this to
+    // VaultConfig, leaving callers to crash later.
+    await w.write(JSON.stringify({ version: '1.0', name: 'v' }))
+    await w.close()
+    expect(await readVaultConfig(asRootHandle(root))).toBeNull()
+  })
 })
 
 describe('updateVaultLastOpened', () => {

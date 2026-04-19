@@ -22,6 +22,17 @@ export async function initVault(
   return config;
 }
 
+function isValidVaultConfig(data: unknown): data is VaultConfig {
+  if (!data || typeof data !== "object") return false;
+  const c = data as Record<string, unknown>;
+  return (
+    typeof c.version === "string" &&
+    typeof c.name === "string" &&
+    typeof c.created === "string" &&
+    typeof c.lastOpened === "string"
+  );
+}
+
 export async function readVaultConfig(
   rootHandle: FileSystemDirectoryHandle,
 ): Promise<VaultConfig | null> {
@@ -30,7 +41,10 @@ export async function readVaultConfig(
     const fileHandle = await configDir.getFileHandle(CONFIG_FILE);
     const file = await fileHandle.getFile();
     const text = await file.text();
-    return JSON.parse(text) as VaultConfig;
+    const parsed = JSON.parse(text);
+    // Phase 5b (2026-04-19): validate the full shape at the I/O boundary
+    // rather than handing a cast-but-unvalidated object to callers.
+    return isValidVaultConfig(parsed) ? parsed : null;
   } catch {
     return null;
   }

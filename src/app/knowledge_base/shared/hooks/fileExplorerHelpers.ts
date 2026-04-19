@@ -25,7 +25,22 @@ export function isSupported(): boolean {
 export function isDiagramData(data: unknown): data is DiagramData {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  return Array.isArray(d.layers) && Array.isArray(d.nodes) && Array.isArray(d.connections);
+  // Required top-level fields (Phase 5b, 2026-04-19): title string +
+  // non-null array for each of the three structural collections. Element
+  // shapes (NodeData etc.) are validated at serialize/deserialize time;
+  // this guard stays a cheap shallow schema check.
+  if (typeof d.title !== "string") return false;
+  if (!Array.isArray(d.layers) || !Array.isArray(d.nodes) || !Array.isArray(d.connections)) return false;
+  // Optional fields: if present, must be the right kind — otherwise a
+  // corrupt vault would still deserialise and downstream routing / flow
+  // code would hit `undefined` at runtime.
+  if (d.lineCurve !== undefined && d.lineCurve !== "straight" && d.lineCurve !== "bezier" && d.lineCurve !== "orthogonal") {
+    return false;
+  }
+  if (d.flows !== undefined && !Array.isArray(d.flows)) return false;
+  if (d.documents !== undefined && !Array.isArray(d.documents)) return false;
+  if (d.layerManualSizes !== undefined && (typeof d.layerManualSizes !== "object" || d.layerManualSizes === null)) return false;
+  return true;
 }
 
 /** Find a unique name like "untitled.json", "untitled-1.json", etc. */

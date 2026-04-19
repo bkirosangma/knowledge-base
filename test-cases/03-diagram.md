@@ -321,5 +321,6 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.19-12** ✅ **Save clears draft** — `clearDraft(fileName)` removes that file's draft; `hasDraft` correctly reports presence.
 - **DIAG-3.19-13** ✅ **`listDrafts` returns all scoped drafts** — scans `localStorage.key(i)` for the scoped prefix and returns the file-name tails; invisible across scope switches.
 - **DIAG-3.19-14** ✅ **`clearDraft` removes only the named file's draft** — other files are untouched.
+- **DIAG-3.19-15** ✅ **`isDiagramData` shape guard strengthened (Phase 5b, 2026-04-19)** — requires `title: string`, `Array.isArray` on each of `layers`/`nodes`/`connections`, and — if present — rejects unknown `lineCurve` values, non-array `flows`/`documents`, and non-object `layerManualSizes`. Closes the gap where a corrupt vault used to deserialise and surface runtime errors in router/flow code.
 
 Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_base/shared/utils/persistence.test.ts): `createEmptyDiagram`, `loadDefaults`, `savePaneLayout`/`loadPaneLayout` (incl. `lastClosedPane` + corrupt-JSON tolerance), `migrateViewport`, `clearViewport`, `cleanupOrphanedData`, and graceful `QuotaExceededError` handling in both `saveDiagram` and `saveDraft`.
