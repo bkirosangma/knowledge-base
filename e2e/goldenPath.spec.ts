@@ -60,7 +60,7 @@ test.describe('Golden path — folder open + explorer tree', () => {
     await expect(page.getByText('This is a test note.').first()).toBeVisible()
   })
 
-  test('opening a .json routes to the diagram view and the diagram title shows up in the Header', async ({ page }) => {
+  test('opening a .json routes to the diagram view and the diagram title shows up in the PaneTitle', async ({ page }) => {
     await setupFs(page, {
       'arch.json': JSON.stringify({
         title: 'Architecture Overview',
@@ -70,8 +70,12 @@ test.describe('Golden path — folder open + explorer tree', () => {
     await openFolder(page)
     await page.getByText('arch.json').first().click()
 
-    // The diagram title is reflected in the Header's editable title input.
-    await expect(page.locator('input[value="Architecture Overview"]').first()).toBeVisible({ timeout: 5000 })
+    // The diagram title moved to the pane's `PaneTitle` row (click-to-edit
+    // `<h1>` above the toolbar, next to Save / Discard). Pre-click the
+    // heading is static text, not an input.
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Architecture Overview' }),
+    ).toBeVisible({ timeout: 5000 })
   })
 })
 
