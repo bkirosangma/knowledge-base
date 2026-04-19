@@ -46,11 +46,17 @@ export function resolveWikiLinkPath(
     resolved = currentDocDir ? `${currentDocDir}/${linkPath}` : linkPath;
   }
   // Normalize path: remove double slashes, resolve . and ..
+  // `..` beyond the vault root is clamped (discarded) rather than emitted as
+  // a literal `..` segment, so the resolver can never produce a path that
+  // escapes the vault. See DOC-4.8-13.
   const parts = resolved.split("/").filter(Boolean);
   const normalized: string[] = [];
   for (const part of parts) {
     if (part === ".") continue;
-    if (part === ".." && normalized.length > 0) { normalized.pop(); continue; }
+    if (part === "..") {
+      if (normalized.length > 0) normalized.pop();
+      continue;
+    }
     normalized.push(part);
   }
   resolved = normalized.join("/");
