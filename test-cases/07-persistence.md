@@ -21,7 +21,7 @@
 - **PERSIST-7.1-11** ✅ **Per-diagram drafts persisted** — `saveDraft`/`loadDraft`/`hasDraft`/`clearDraft`/`listDrafts` all scoped; `cleanupOrphanedData` prunes drafts for files no longer in the vault.
 - **PERSIST-7.1-12** ✅ **Document-properties collapse flag persisted** — `"properties-collapsed"` boolean key read/written in `DocumentView.tsx` and `DiagramView.tsx` (unscoped global — same state shared across vaults, by design).
 - **PERSIST-7.1-13** ✅ **Reset App clears every scoped and unscoped key** — covered by SHELL-1.3-07 in `Footer.test.tsx` (`localStorage.clear()` + `window.location.reload()`).
-- **PERSIST-7.1-14** ✅ **Graceful fallback when localStorage is full / unavailable** — `saveDiagram` and `saveDraft` swallow `QuotaExceededError` and return without throwing; `loadDiagram` / `loadPaneLayout` / `loadDraft` return defaults / null on corrupt JSON.
+- **PERSIST-7.1-14** ✅ **Graceful handling when localStorage is full / unavailable** — `saveDiagram` still swallows `QuotaExceededError` (best-effort snapshot; no caller depends on success). Phase 5c (2026-04-19) flipped `saveDraft` to throw a classified `FileSystemError(kind='quota-exceeded')` so the caller in `useDiagramPersistence` can `reportError` — previously a silent swallow was the highest-impact data-loss vector in the audit. `loadDiagram` / `loadPaneLayout` / `loadDraft` still return defaults / null on corrupt JSON.
 - **PERSIST-7.1-15** 🚫 **Private mode** — equivalent to 7.1-14 at the localStorage API level; covered by the quota-error test since jsdom cannot simulate browser private-mode semantics directly.
 
 ## 7.2 IndexedDB

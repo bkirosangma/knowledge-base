@@ -236,6 +236,9 @@
 - **DOC-4.11-11** ✅ **`hasDocuments` true when any attached** — boolean form of 4.11-10.
 - **DOC-4.11-12** ✅ **`collectDocPaths` extracts all `.md` paths from tree** — depth-first walk; includes only `type === "file" && fileType === "document"`.
 - **DOC-4.11-13** ✅ **`existingDocPaths` Set for O(1) membership** — returns a `new Set(collectDocPaths(tree))`.
+- **DOC-4.11-14** ✅ **Load failure does NOT empty the editor (Phase 5c regression)** — when `repo.read` throws, `useDocumentContent` keeps the previous document's content in `contentRef`, records a classified `loadError`, and ignores subsequent `updateContent` / `save` calls. Prevents the pre-fix vector where a permission-revoked read reset the editor to empty and the user could type + save over the real file.
+- **DOC-4.11-15** ✅ **`save()` is blocked while `loadError` is set (Phase 5c regression)** — even if the caller invokes save directly, the repo write is skipped so stale content is never written to the failing path.
+- **DOC-4.11-16** ✅ **Save-previous-on-switch failure is reported (Phase 5c regression)** — dirty content on the outgoing pane now surfaces via `reportError(e, 'Auto-saving <prev>')` when the write fails, instead of silently dropping the user's edits.
 
 ## 4.12 Read-Only Mode (Document)
 

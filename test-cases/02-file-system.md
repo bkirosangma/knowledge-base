@@ -101,3 +101,15 @@
 - **FS-2.5-06** ✅ **Create-new button prompts** — toggles to an input field with autofocus; Enter or clicking `Create` invokes `onCreate(path)` + `onClose()`.
 - **FS-2.5-07** ✅ **Create-new normalises extension** — path without `.md` auto-appends `.md` before calling `onCreate`; path already ending in `.md` passes through unchanged.
 - **FS-2.5-08** ✅ **Cancel closes without attach** — backdrop click, X button, and the close button all call `onClose`. Escape in the create input reverts to the toggle (does NOT call `onClose` or `onCreate`). Empty/whitespace create names are rejected (no `onCreate`/`onClose`).
+
+## 2.6 Boundary Error Surface (Phase 5c)
+
+Typed error layer at the repository boundary introduced in Phase 5c (2026-04-19). Every repo read + write throws a classified `FileSystemError`; consumers use the `readOrNull` helper or try/catch + `reportError`. See [`src/app/knowledge_base/domain/errors.ts`](../src/app/knowledge_base/domain/errors.ts) + [`repositoryHelpers.ts`](../src/app/knowledge_base/domain/repositoryHelpers.ts).
+
+- **FS-2.6-01** ✅ **`FileSystemError` carries `kind` + `message` + optional `cause`** — subclass of `Error`, idiomatic `instanceof` works.
+- **FS-2.6-02** ✅ **`classifyError` maps `NotFoundError` → `not-found`** — and preserves the original throw as `cause`.
+- **FS-2.6-03** ✅ **`classifyError` maps `NotAllowedError` / `SecurityError` → `permission`**.
+- **FS-2.6-04** ✅ **`classifyError` maps `QuotaExceededError` → `quota-exceeded`**.
+- **FS-2.6-05** ✅ **`classifyError` falls through to `unknown`** — non-DOMException errors and non-Error throws wrap with kind `unknown`.
+- **FS-2.6-06** ✅ **`readOrNull` returns null on `not-found`** — only; value on success, re-throw otherwise.
+- **FS-2.6-07** ✅ **`readOrNull` classifies + re-throws other kinds** — raw DOMException-like throws classified first so callers always receive a `FileSystemError`, never a raw DOMException.
