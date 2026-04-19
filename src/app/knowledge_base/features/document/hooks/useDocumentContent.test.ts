@@ -1,11 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useRef } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { useDocumentContent } from './useDocumentContent'
 import { MockDir } from '../../../shared/testUtils/fsMock'
+import { RepositoryProvider, StubRepositoryProvider, type Repositories } from '../../../shell/RepositoryContext'
 
 // Covers DOC-4.11-01 through 4.11-06 (per-pane content + dirty + bridge + save).
-// Uses an in-memory FileSystemDirectoryHandle mock.
+// The integration blocks render under a real `RepositoryProvider` wrapping
+// a MockDir tree (end-to-end through the FSA impl). The seam block at the
+// bottom swaps in `StubRepositoryProvider` with a pure mock repo so hook
+// logic can be exercised without any FS mock — Phase 3e (2026-04-19) added
+// the context + stub specifically to enable this.
 
 /** Seed a file at a deep path in the mock FS. */
 async function seedFile(root: MockDir, path: string, content: string) {
@@ -22,12 +27,17 @@ let root: MockDir
 
 beforeEach(() => { root = new MockDir() })
 
-/** Render the hook with a ref pointing to the mock root. */
+/** Render the hook under a RepositoryProvider bound to the mock root. */
 function renderDocContent(filePath: string | null) {
-  return renderHook(({ p }) => {
-    const ref = useRef<FileSystemDirectoryHandle | null>(root as unknown as FileSystemDirectoryHandle)
-    return useDocumentContent(ref, p)
-  }, { initialProps: { p: filePath } })
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(RepositoryProvider, {
+      rootHandle: root as unknown as FileSystemDirectoryHandle,
+      children,
+    })
+  return renderHook(({ p }) => useDocumentContent(p), {
+    initialProps: { p: filePath },
+    wrapper,
+  })
 }
 
 describe('useDocumentContent — initial state', () => {
@@ -171,6 +181,52 @@ describe('DOC-4.11-06: bridge getters return latest values', () => {
 
     await act(async () => { await result.current.bridge.save() })
     expect(root.files.get('a.md')!.file.data).toBe('via-bridge')
+    expect(result.current.dirty).toBe(false)
+  })
+})
+
+// Phase 3e test-seam demo — exercise hook logic without any FS mock.
+// The StubRepositoryProvider accepts a Repositories bag built from pure
+// spies; consumers never see a FileSystemDirectoryHandle. Future consumer
+// tests that do not need FSA integration coverage should prefer this
+// pattern over the MockDir plumbing.
+describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
+  function renderWithStub(filePath: string | null, repo: Partial<Repositories['document']> | null) {
+    const stub: Repositories = {
+      diagram: null,
+      document: repo as Repositories['document'],
+      linkIndex: null,
+      vaultConfig: null,
+    }
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StubRepositoryProvider, { value: stub, children })
+    return renderHook(({ p }) => useDocumentContent(p), {
+      initialProps: { p: filePath },
+      wrapper,
+    })
+  }
+
+  it('DOC-4.11-01: hook reads via the provided stub repo with zero FS mock', async () => {
+    const read = vi.fn(async () => '# stubbed')
+    const { result } = renderWithStub('notes/a.md', { read, write: vi.fn(async () => {}) })
+    await waitFor(() => expect(result.current.content).toBe('# stubbed'))
+    expect(read).toHaveBeenCalledWith('notes/a.md')
+  })
+
+  it('DOC-4.11-04: save() routes through the stub repo\'s write', async () => {
+    const write = vi.fn(async () => {})
+    const { result } = renderWithStub('x.md', { read: vi.fn(async () => ''), write })
+    await waitFor(() => expect(result.current.content).toBe(''))
+    act(() => { result.current.updateContent('hello') })
+    await act(async () => { await result.current.save() })
+    expect(write).toHaveBeenCalledWith('x.md', 'hello')
+  })
+
+  it('null repo (pre-picker) results in empty content and a no-op save', async () => {
+    const { result } = renderWithStub('a.md', null)
+    await waitFor(() => expect(result.current.content).toBe(''))
+    // Save is a no-op; nothing to assert other than no throw.
+    await act(async () => { await result.current.save() })
     expect(result.current.dirty).toBe(false)
   })
 })

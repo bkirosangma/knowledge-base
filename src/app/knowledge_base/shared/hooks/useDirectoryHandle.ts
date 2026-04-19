@@ -27,6 +27,13 @@ export function useDirectoryHandle(): {
   directoryName: string | null;
   setDirectoryName: (name: string | null) => void;
   dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>;
+  /**
+   * Reactive companion to `dirHandleRef`. Exposed so components above the
+   * explorer tree (e.g. `RepositoryProvider`) can re-memoize repositories
+   * when the handle arrives or changes — `dirHandleRef.current` mutations
+   * do not trigger re-renders. This hook keeps both in lock-step.
+   */
+  rootHandle: FileSystemDirectoryHandle | null;
   inputRef: React.MutableRefObject<HTMLInputElement | null>;
   supported: boolean;
   /** Show the native picker; persist handle + scope; return them, or null on cancel. */
@@ -41,6 +48,7 @@ export function useDirectoryHandle(): {
     return localStorage.getItem(DIR_NAME_KEY);
   });
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+  const [rootHandle, setRootHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const setDirectoryName = useCallback((name: string | null) => {
@@ -56,6 +64,7 @@ export function useDirectoryHandle(): {
       const scopeId = crypto.randomUUID().slice(0, 8);
       setDirectoryScope(scopeId);
       dirHandleRef.current = handle;
+      setRootHandle(handle);
       setDirectoryName(handle.name);
       await saveDirHandle(handle, scopeId);
       return { handle, scopeId };
@@ -75,6 +84,7 @@ export function useDirectoryHandle(): {
       if (perm !== "granted") return null;
 
       dirHandleRef.current = handle;
+      setRootHandle(handle);
       setDirectoryScope(scopeId);
       setDirectoryName(handle.name);
       return { handle, scopeId };
@@ -87,6 +97,7 @@ export function useDirectoryHandle(): {
     await clearDirHandle();
     clearDirectoryScope();
     dirHandleRef.current = null;
+    setRootHandle(null);
     setDirectoryName(null);
   }, [setDirectoryName]);
 
@@ -102,6 +113,7 @@ export function useDirectoryHandle(): {
     directoryName,
     setDirectoryName,
     dirHandleRef,
+    rootHandle,
     inputRef,
     supported: isSupported(),
     acquirePickerHandle,

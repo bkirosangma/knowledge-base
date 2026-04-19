@@ -17,6 +17,7 @@ import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import { ToolbarProvider } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
+import { RepositoryProvider } from "./shell/RepositoryContext";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
@@ -330,6 +331,7 @@ function KnowledgeBaseInner() {
   );
 
   return (
+    <RepositoryProvider rootHandle={fileExplorer.rootHandle}>
     <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
         title={diagramBridge?.title ?? "Untitled"}
@@ -443,6 +445,7 @@ function KnowledgeBaseInner() {
         />
       )}
     </div>
+    </RepositoryProvider>
   );
 }
 

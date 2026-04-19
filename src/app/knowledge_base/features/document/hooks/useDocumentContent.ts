@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { createDocumentRepository } from "../../../infrastructure/documentRepo";
+import { useRepositories } from "../../../shell/RepositoryContext";
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
@@ -11,19 +11,22 @@ export interface DocumentPaneBridge {
 }
 
 /**
- * Per-pane document content manager.
- * Each DocumentView instance gets its own content/dirty state,
- * similar to how DiagramView manages its own diagram data.
+ * Per-pane document content manager. Each DocumentView instance gets its
+ * own content/dirty state, similar to how DiagramView manages diagram data.
+ *
+ * Routes every `.md` read/write through `useRepositories().document`
+ * (Phase 3e, 2026-04-19). A null repo (pre-picker) produces the same
+ * early-return behaviour as the prior inline `dirHandleRef.current` guard.
  */
-export function useDocumentContent(
-  dirHandleRef: React.RefObject<FileSystemDirectoryHandle | null>,
-  filePath: string | null,
-) {
+export function useDocumentContent(filePath: string | null) {
+  const { document: documentRepo } = useRepositories();
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
   const prevPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
+  const documentRepoRef = useRef(documentRepo);
+  documentRepoRef.current = documentRepo;
 
   // Keep refs in sync for save-on-switch and bridge getters
   contentRef.current = content;
@@ -31,12 +34,11 @@ export function useDocumentContent(
 
   // Save helper
   const save = useCallback(async () => {
-    const rootHandle = dirHandleRef.current;
-    if (!rootHandle || !filePath) return;
-    const repo = createDocumentRepository(rootHandle);
+    const repo = documentRepoRef.current;
+    if (!repo || !filePath) return;
     await repo.write(filePath, contentRef.current);
     setDirty(false);
-  }, [dirHandleRef, filePath]);
+  }, [filePath]);
 
   // Load content when filePath changes; auto-save previous if dirty
   useEffect(() => {
@@ -46,25 +48,23 @@ export function useDocumentContent(
     if (filePath === prevPath) return;
 
     (async () => {
-      const rootHandle = dirHandleRef.current;
+      const repo = documentRepoRef.current;
 
       // Auto-save previous document if dirty
-      if (prevPath && dirtyRef.current && rootHandle) {
+      if (prevPath && dirtyRef.current && repo) {
         try {
-          const repo = createDocumentRepository(rootHandle);
           await repo.write(prevPath, contentRef.current);
         } catch { /* best-effort */ }
       }
 
       // Load new document
-      if (!filePath || !rootHandle) {
+      if (!filePath || !repo) {
         setContent("");
         setDirty(false);
         return;
       }
 
       try {
-        const repo = createDocumentRepository(rootHandle);
         const text = await repo.read(filePath);
         setContent(text);
         setDirty(false);
@@ -73,7 +73,7 @@ export function useDocumentContent(
         setDirty(false);
       }
     })();
-  }, [filePath, dirHandleRef]);
+  }, [filePath]);
 
   const updateContent = useCallback((markdown: string) => {
     setContent(markdown);
