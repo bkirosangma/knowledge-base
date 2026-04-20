@@ -90,7 +90,7 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.6-04** ✅ **Right-side action slot renders** — `children` prop is rendered after the Read Mode toggle.
 - **SHELL-1.6-05** ✅ **PaneTitle edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit.
 - **SHELL-1.6-06** ✅ **PaneTitle edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
-- **SHELL-1.6-07** 🚫 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`.
+- **SHELL-1.6-07** ❌ **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`.
 
 ## 1.7 Error Surface (Phase 5c)
 

@@ -7,7 +7,7 @@
 ## 2.1 Folder Picker
 
 - **FS-2.1-01** ✅ **`showDirectoryPicker` selection flow** — native dialog is bypassed in Playwright by an in-browser `page.addInitScript` that installs a mock `window.showDirectoryPicker` pointing at a seeded in-memory vault. `e2e/goldenPath.spec.ts` drives the full open-folder → explorer-populates sequence. _(Real production uses the native dialog; the mock proves the code path downstream of the picker works.)_
-- **FS-2.1-02** 🚫 **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory
+- **FS-2.1-02** ❌ **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory
 - **FS-2.1-03** ✅ **Directory handle persisted to IndexedDB** — covered by PERSIST-7.2-03 in `idbHandles.test.ts` (`saveDirHandle(handle, scopeId)` writes both to the `handles` store in the `knowledge-base` DB).
 - **FS-2.1-04** ✅ **Handle restored on reload** — covered by PERSIST-7.2-07 in `idbHandles.test.ts` (save → load round-trip returns the same handle + scope id).
 - **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
@@ -81,11 +81,11 @@
 - **FS-2.3-42** 🟡 **Escape closes menu** — same wiring as ConfirmPopover; deferred with 40/41.
 - **FS-2.3-43** 🟡 **Click outside closes menu** — same.
 - **FS-2.3-44** ✅ **New Document button calls `onCreateDocument`** — `New Document` header button calls `onCreateDocument('')`; when a folder is selected it calls with the folder path. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-45** 🚫 **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright
+- **FS-2.3-45** ❌ **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright
 - **FS-2.3-46** ✅ **Clicking a folder selects it** — folder row gets `bg-blue-50 text-blue-700` highlight after click; second click on same folder deselects it. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-47** ✅ **Header create buttons use selected folder as parent** — when `selectedFolderPath` is set, New Diagram / Document / Folder buttons pass that path instead of `''`. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-48** ✅ **Header breadcrumb when folder selected** — header shows `vault / folderName` text when a folder is selected; reverts to just vault name when deselected. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-49** 🚫 **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright
+- **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright
 - **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
 ## 2.4 Confirmation Popover

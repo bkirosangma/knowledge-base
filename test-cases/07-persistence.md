@@ -56,7 +56,7 @@
 - **PERSIST-7.3-14** ✅ **Legacy colour classes migrated on load** — `bg-[#eff3f9]` → `#eff3f9`. DIAG-3.19-04 in `persistence.test.ts`.
 
 ### 7.3.c Failure modes
-- **PERSIST-7.3-15** 🚫 **Revoked permission surfaces error.** — requires a real browser to simulate File System Access permission revocation; covered at the Playwright layer when a mock is in place
+- **PERSIST-7.3-15** ❌ **Revoked permission surfaces error.** — requires a real browser to simulate File System Access permission revocation; covered at the Playwright layer when a mock is in place
 - **PERSIST-7.3-16** 🚫 **Partial write retry.** — no retry logic in the codebase; this is an explicit non-feature. Open a product ticket if retry semantics are desired.
 - **PERSIST-7.3-17** ✅ **External rename detection via FNV-1a** — checksum match restores history (HOOK-6.1-07) and mismatch discards stale sidecar and starts fresh (HOOK-6.1-08); both covered in `useActionHistory.test.ts` with a FS mock that returns prepared JSON.
 
