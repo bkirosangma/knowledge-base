@@ -2,7 +2,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useActionHistory, type DiagramSnapshot } from './useActionHistory'
 
-// Covers HOOK-6.1-01 through 6.1-10. See test-cases/06-shared-hooks.md §6.1.
+// Covers HOOK-6.1-01 through 6.1-13. See test-cases/06-shared-hooks.md §6.1.
+
+/** Mirror of the hook's internal FNV-1a so tests can compute expected checksums. */
+function fnv1a(str: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i)
+    hash = (hash * 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
 
 /** Minimal DiagramSnapshot factory — only fills fields the hook never reads internally. */
 function snapshot(title: string): DiagramSnapshot {
@@ -57,24 +67,25 @@ describe('recordAction / undo / redo', () => {
     expect(result.current.entries[1].description).toBe('edit1')
   })
 
-  it('cannot undo past the pinned saved entry (savedIndex=0)', async () => {
+  it('HOOK-6.1-11: fresh-start savedIndex=0 does NOT block undo — savedEntryPinned is false', async () => {
     const { result } = await init('load')
     act(() => { result.current.recordAction('edit1', snapshot('v1')) })
-    // savedIndex=0 (pin on initial load), length=2 → minUndoIndex=1, current=1 → canUndo=false.
-    expect(result.current.canUndo).toBe(false)
+    // savedEntryPinned=false (no pruning), so minUndoIndex=0, current=1 → canUndo=true.
+    expect(result.current.savedEntryPinned).toBe(false)
+    expect(result.current.canUndo).toBe(true)
     let undone: DiagramSnapshot | null = null
     act(() => { undone = result.current.undo() })
-    expect(undone).toBeNull()
+    expect(undone).not.toBeNull()
+    expect(undone!.title).toBe('load')
+    expect(result.current.currentIndex).toBe(0)
   })
 
-  it('after onSave, undo walks back through the full history', async () => {
+  it('undo walks back through the full history when savedEntryPinned is false', async () => {
     const { result } = await init('load')
     act(() => { result.current.recordAction('e1', snapshot('v1')) })
     act(() => { result.current.recordAction('e2', snapshot('v2')) })
 
-    // Mark "v2" as saved — unpins index 0 as the minimum undo target.
-    act(() => { result.current.onSave('{"saved":"v2"}') })
-    expect(result.current.savedIndex).toBe(2)
+    expect(result.current.savedEntryPinned).toBe(false)
     expect(result.current.canUndo).toBe(true)
 
     let snap: DiagramSnapshot | null = null
@@ -196,6 +207,56 @@ describe('clearHistory', () => {
   })
 })
 
+describe('HOOK-6.1-12: savedEntryPinned flag — pruning interaction', () => {
+  it('HOOK-6.1-12: savedEntryPinned=true after pruning discards the saved entry → undo blocked at index 1', async () => {
+    const { result } = renderHook(() => useActionHistory())
+    await act(async () => {
+      await result.current.initHistory('{}', snapshot('saved'), null, null)
+    })
+    // Record 150 actions — pruning will pin the "File loaded" entry at index 0.
+    for (let i = 0; i < 150; i++) {
+      act(() => { result.current.recordAction(`e${i}`, snapshot(`v${i}`)) })
+    }
+    expect(result.current.savedEntryPinned).toBe(true)
+    expect(result.current.savedIndex).toBe(0)
+    expect(result.current.canUndo).toBe(true) // currentIndex=100 > minUndoIndex=1
+
+    // Walk undo down to index 1 — it stops there.
+    for (let i = 0; i < 99; i++) {
+      act(() => { result.current.undo() })
+    }
+    expect(result.current.currentIndex).toBe(1)
+    expect(result.current.canUndo).toBe(false)
+    let snap: DiagramSnapshot | null = null
+    act(() => { snap = result.current.undo() })
+    expect(snap).toBeNull()
+  })
+
+  it('HOOK-6.1-13: onSave after pinning clears savedEntryPinned → undo reaches index 0', async () => {
+    const { result } = renderHook(() => useActionHistory())
+    await act(async () => {
+      await result.current.initHistory('{}', snapshot('saved'), null, null)
+    })
+    for (let i = 0; i < 150; i++) {
+      act(() => { result.current.recordAction(`e${i}`, snapshot(`v${i}`)) })
+    }
+    expect(result.current.savedEntryPinned).toBe(true)
+
+    // Save at the current tip — clears the pin flag.
+    act(() => { result.current.onSave('{}') })
+    expect(result.current.savedEntryPinned).toBe(false)
+    // minUndoIndex=0, currentIndex=100 → canUndo=true; undo can now go all the way to 0.
+    expect(result.current.canUndo).toBe(true)
+    for (let i = 0; i < 100; i++) {
+      act(() => { result.current.undo() })
+    }
+    expect(result.current.currentIndex).toBe(0)
+    let snap: DiagramSnapshot | null = null
+    act(() => { snap = result.current.undo() })
+    expect(snap).toBeNull() // stopped at index 0
+  })
+})
+
 describe('HOOK-6.1-05: MAX_HISTORY cap', () => {
   it('caps at 101 entries when the saved entry is pinned (MAX_HISTORY=100 + 1 pinned)', async () => {
     // Note: the spec says "Max 100 entries". The actual implementation prunes
@@ -291,5 +352,128 @@ describe('HOOK-6.1-09: sidecar filename convention', () => {
     // falls back to creating a new history — the hidden sidecar name is
     // `.<basename>.history.json`.
     expect(recordedCalls).toContain('.foo.history.json')
+  })
+})
+
+describe('HOOK-6.1-07 / HOOK-6.1-01: checksum match → restore from sidecar', () => {
+  it('HOOK-6.1-07: restores entries, currentIndex, and savedIndex when checksum matches', async () => {
+    const diagramJson = '{"title":"diagram"}'
+    const checksum = fnv1a(diagramJson)
+
+    const storedEntries = [
+      { id: 0, description: 'File loaded', timestamp: 1000, snapshot: snapshot('saved') },
+      { id: 1, description: 'edit1',       timestamp: 2000, snapshot: snapshot('v1') },
+    ]
+    const historyData = { checksum, currentIndex: 1, savedIndex: 0, entries: storedEntries }
+
+    class MockDirWithSidecar {
+      async getDirectoryHandle(_name: string) { return new MockDirWithSidecar() }
+      async getFileHandle(_name: string) {
+        return {
+          async getFile() {
+            return { async text() { return JSON.stringify(historyData) } }
+          },
+        }
+      }
+    }
+
+    const root = new MockDirWithSidecar() as unknown as FileSystemDirectoryHandle
+    const { result } = renderHook(() => useActionHistory())
+    await act(async () => {
+      await result.current.initHistory(diagramJson, snapshot('current'), root, 'diagram.json')
+    })
+
+    expect(result.current.entries).toHaveLength(2)
+    expect(result.current.currentIndex).toBe(1)
+    expect(result.current.savedIndex).toBe(0)
+    expect(result.current.entries[1].description).toBe('edit1')
+    expect(result.current.entries[1].snapshot.title).toBe('v1')
+  })
+})
+
+describe('HOOK-6.1-08: checksum mismatch → discard sidecar, fresh start', () => {
+  it('HOOK-6.1-08: ignores stale sidecar when checksum does not match', async () => {
+    const staleHistory = {
+      checksum: 'deadbeef', // does not match fnv1a('{"title":"new"}')
+      currentIndex: 1,
+      savedIndex: 0,
+      entries: [
+        { id: 0, description: 'File loaded', timestamp: 1000, snapshot: snapshot('old') },
+        { id: 1, description: 'stale-edit',  timestamp: 2000, snapshot: snapshot('stale') },
+      ],
+    }
+
+    class MockDirWithStaleSidecar {
+      async getDirectoryHandle(_name: string) { return new MockDirWithStaleSidecar() }
+      async getFileHandle(_name: string) {
+        return {
+          async getFile() {
+            return { async text() { return JSON.stringify(staleHistory) } }
+          },
+        }
+      }
+    }
+
+    const root = new MockDirWithStaleSidecar() as unknown as FileSystemDirectoryHandle
+    const { result } = renderHook(() => useActionHistory())
+    await act(async () => {
+      await result.current.initHistory('{"title":"new"}', snapshot('fresh'), root, 'diagram.json')
+    })
+
+    expect(result.current.entries).toHaveLength(1)
+    expect(result.current.entries[0].description).toBe('File loaded')
+    expect(result.current.entries[0].snapshot.title).toBe('fresh')
+    expect(result.current.currentIndex).toBe(0)
+    expect(result.current.savedIndex).toBe(0)
+  })
+})
+
+describe('HOOK-6.1-04: onSave debounced write', () => {
+  it('HOOK-6.1-04: onSave flushes history to disk after 1000 ms with updated checksum and savedIndex', async () => {
+    const written: string[] = []
+
+    class MockDirReadWrite {
+      async getDirectoryHandle(_name: string) { return new MockDirReadWrite() }
+      async getFileHandle(_name: string, opts?: { create?: boolean }) {
+        if (opts?.create) {
+          return {
+            async createWritable() {
+              return {
+                async write(data: string) { written.push(data) },
+                async close() {},
+              }
+            },
+          }
+        }
+        // read path — return null JSON so fresh-start path runs
+        return {
+          async getFile() {
+            return { async text() { return 'null' } }
+          },
+        }
+      }
+    }
+
+    const root = new MockDirReadWrite() as unknown as FileSystemDirectoryHandle
+    const { result } = renderHook(() => useActionHistory())
+    await act(async () => {
+      await result.current.initHistory('{}', snapshot('load'), root, 'test.json')
+    })
+    // Fire the init scheduleSave so its write doesn't interfere with the onSave assertion.
+    await act(async () => { vi.advanceTimersByTime(1000) })
+    written.length = 0
+
+    act(() => {
+      result.current.recordAction('e1', snapshot('v1'))
+      result.current.onSave('{"saved":"v1"}')
+    })
+    await act(async () => { vi.advanceTimersByTime(1000) })
+
+    expect(written).toHaveLength(1)
+    const persisted = JSON.parse(written[0])
+    expect(persisted.checksum).toBe(fnv1a('{"saved":"v1"}'))
+    expect(persisted.savedIndex).toBe(result.current.savedIndex)
+    expect(persisted.currentIndex).toBe(result.current.currentIndex)
+    expect(persisted.entries).toHaveLength(result.current.entries.length)
   })
 })

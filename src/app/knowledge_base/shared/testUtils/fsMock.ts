@@ -64,4 +64,12 @@ export class MockDir {
     err.name = "NotFoundError";
     throw err;
   }
+
+  async removeEntry(name: string): Promise<void> {
+    if (this.files.has(name)) { this.files.delete(name); return; }
+    if (this.dirs.has(name)) { this.dirs.delete(name); return; }
+    const err = new Error(`NotFoundError: ${name}`);
+    err.name = "NotFoundError";
+    throw err;
+  }
 }
