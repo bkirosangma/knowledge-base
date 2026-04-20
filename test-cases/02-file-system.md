@@ -64,13 +64,22 @@
 
 ### 2.3.e Create / Rename / Delete / Duplicate / Move
 - **FS-2.3-21** ✅ **Create diagram via header button** — the `New Diagram` button on the directory header calls `onCreateFile('')`. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-22** ❌ **Create file default name** — name generation (`untitled.json`, `uniqueName` helper) lives inside `useFileExplorer`; not observable from the panel component.
-- **FS-2.3-23** ❌ **Create file unique-name fallback** — `uniqueName` helper in `useFileExplorer`;
+- **FS-2.3-22** ✅ **Create file default name** — `createFile("")` produces `untitled.json` at root; `createFile("sub")` produces `sub/untitled.json`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-23** ✅ **Create file unique-name fallback** — when `untitled.json` already exists, `createFile` generates `untitled-1.json`. _(useFileExplorer.operations.test.tsx)_
 - **FS-2.3-24** ✅ **Create folder** — `New Folder` button on the directory header calls `onCreateFolder('')`.
-- **FS-2.3-25..29** ❌ **Rename file + wiki-link + link-index side effects** — orchestrated by `useFileExplorer.renameFile`;
-- **FS-2.3-30..34** ❌ **Delete file confirmation + cascades** — popover + link-index cleanup handled outside this component (`useFileActions.executeDeleteFile`).
-- **FS-2.3-35** ❌ **Duplicate file** — `useFileExplorer.duplicateFile`;
-- **FS-2.3-36/37** ❌ **Move file / history sidecar** — `useFileExplorer.moveItem`;
+- **FS-2.3-25** ✅ **Rename file creates new file** — `renameFile("old.json","new.json")` writes content to `new.json`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-26** ✅ **Rename file removes original** — `old.json` is deleted after rename. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-27** ✅ **Rename file returns new path** — resolves to the new full path. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-28** ✅ **Rename file no-op on identical name** — returns old path, no FS changes. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-29** ✅ **Rename file renames sidecar** — `.old.history.json` is renamed to `.renamed.history.json`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-30** ✅ **Delete file returns false when no handle** — guard before any FS access. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-31** ✅ **Delete file removes from FS** — `deleteFile("bye.json")` removes the entry and returns `true`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-32** ✅ **Delete file clears activeFile when active** — `activeFile` becomes `null` if the deleted path was active. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-33** ✅ **Delete file leaves other activeFile intact** — deleting a non-active file does not change `activeFile`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-34** ✅ **Delete file resolves nested paths** — `deleteFile("sub/nested.json")` removes from subdirectory. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-35** ✅ **Duplicate file** — `duplicateFile("arch.json")` creates `arch-copy.json` with same content; returns null when no handle. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-36** ✅ **Move file to target folder** — file appears at new path, is gone from old path. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-37** ✅ **Move file returns null for self-move** — `moveItem(path, path)` returns null without FS changes. _(useFileExplorer.operations.test.tsx)_
 - **FS-2.3-38** ✅ **Refresh button** — click on the spinner icon calls `onRefresh`; `isLoading` triggers the `animate-spin` class.
 
 ### 2.3.f Drag-and-drop feedback

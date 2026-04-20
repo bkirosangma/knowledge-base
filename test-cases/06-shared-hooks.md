@@ -68,7 +68,7 @@ Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hook
 - **HOOK-6.5-06** ✅ **Path resolution** — `getSubdirectoryHandle(root, "a/b")` walks into `a/b` (create=false) or creates missing segments when `create=true`; empty segments are filtered; `writeTextFile` auto-creates intermediate directories for nested paths (same traversal logic as `resolveParentHandle`).
 
 Also covered in [useFileExplorer.helpers.test.ts](../src/app/knowledge_base/shared/hooks/useFileExplorer.helpers.test.ts): `readTextFile` round-trip (non-empty + empty files), `writeTextFile` at root / nested / overwrite.
-- **HOOK-6.5-07** ❌ **`createDocument`** — `createDocument(parentPath)` generates a unique `.md` filename via `uniqueName`, writes an empty file, rescans the tree, and returns the new path; returns `null` when no directory handle is open.
+- **HOOK-6.5-07** ✅ **`createDocument`** — `createDocument(parentPath)` generates a unique `.md` filename via `uniqueName`, writes an empty file, rescans the tree, and returns the new path; returns `null` when no directory handle is open. _(useFileExplorer.createDocument.test.tsx)_
 
 ## 6.6 Document Hooks (`useDocuments`, `useLinkIndex`, `useDocumentContent`)
 

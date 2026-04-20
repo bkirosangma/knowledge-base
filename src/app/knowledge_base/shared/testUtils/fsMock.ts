@@ -25,7 +25,12 @@ export class MockFileHandle {
     };
   }
   async getFile() {
-    return { text: async () => this.file.data };
+    const data = this.file.data
+    return {
+      text: async () => (typeof data === 'string' ? data : ''),
+      arrayBuffer: async () => new TextEncoder().encode(typeof data === 'string' ? data : '').buffer,
+      lastModified: 0,
+    }
   }
 }
 
@@ -63,6 +68,11 @@ export class MockDir {
     const err = new Error(`NotFoundError: ${name}`);
     err.name = "NotFoundError";
     throw err;
+  }
+
+  async *values(): AsyncIterableIterator<MockDir | MockFileHandle> {
+    for (const d of this.dirs.values()) yield d
+    for (const f of this.files.values()) yield f
   }
 
   async removeEntry(name: string): Promise<void> {
