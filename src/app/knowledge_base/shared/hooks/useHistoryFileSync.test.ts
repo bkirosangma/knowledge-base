@@ -113,3 +113,76 @@ describe('useHistoryFileSync — clearHistory', () => {
     expect(result.current.currentIndex).toBe(-1)
   })
 })
+
+describe('useHistoryFileSync — recordAction triggers debounced write', () => {
+  it('does not write immediately after recordAction', async () => {
+    const { result } = renderHook(() => useHistoryFileSync<string>())
+    const fakeHandle = {} as FileSystemDirectoryHandle
+    await act(async () => {
+      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+    })
+    act(() => { result.current.recordAction('edit', 'v1') })
+    expect(mockWrite).not.toHaveBeenCalled()
+  })
+
+  it('writes after 1000ms debounce following recordAction', async () => {
+    const { result } = renderHook(() => useHistoryFileSync<string>())
+    const fakeHandle = {} as FileSystemDirectoryHandle
+    await act(async () => {
+      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+    })
+    act(() => { result.current.recordAction('edit', 'v1') })
+    act(() => { vi.advanceTimersByTime(1100) })
+    expect(mockWrite).toHaveBeenCalledOnce()
+  })
+
+  it('does NOT write when no dirHandle is provided', async () => {
+    const { result } = renderHook(() => useHistoryFileSync<string>())
+    await act(async () => {
+      await result.current.initHistory('v0', 'v0', null, null)
+    })
+    act(() => { result.current.recordAction('edit', 'v1') })
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(mockWrite).not.toHaveBeenCalled()
+  })
+
+  it('multiple rapid recordActions only trigger one write', async () => {
+    const { result } = renderHook(() => useHistoryFileSync<string>())
+    const fakeHandle = {} as FileSystemDirectoryHandle
+    await act(async () => {
+      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+    })
+    act(() => { result.current.recordAction('edit1', 'v1') })
+    act(() => { vi.advanceTimersByTime(500) })
+    act(() => { result.current.recordAction('edit2', 'v2') })
+    act(() => { vi.advanceTimersByTime(500) })
+    // timer not yet expired
+    expect(mockWrite).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(600) })
+    expect(mockWrite).toHaveBeenCalledOnce()
+  })
+})
+
+describe('useHistoryFileSync — file switch re-initializes state', () => {
+  it('re-init clears prior entries and loads fresh history', async () => {
+    const { result } = renderHook(() => useHistoryFileSync<string>())
+    const fakeHandle = {} as FileSystemDirectoryHandle
+    // Init for file A
+    await act(async () => {
+      await result.current.initHistory('fileA', 'fileA', fakeHandle, 'a.md')
+    })
+    act(() => { result.current.recordAction('edit', 'fileA-v2') })
+    expect(result.current.entries).toHaveLength(2)
+
+    // Switch to file B (no disk history)
+    mockRead.mockResolvedValueOnce(null)
+    await act(async () => {
+      await result.current.initHistory('fileB', 'fileB', fakeHandle, 'b.md')
+    })
+    expect(result.current.entries).toHaveLength(1)
+    expect(result.current.entries[0].description).toBe('File loaded')
+    expect(result.current.entries[0].snapshot).toBe('fileB')
+    expect(result.current.currentIndex).toBe(0)
+    expect(result.current.savedIndex).toBe(0)
+  })
+})

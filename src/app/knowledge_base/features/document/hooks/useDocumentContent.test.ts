@@ -391,3 +391,56 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     })
   })
 })
+
+describe('useDocumentContent — loadedPath field', () => {
+  it('loadedPath is null before any file is loaded', () => {
+    const { result } = renderDocContent(null)
+    expect(result.current.loadedPath).toBeNull()
+  })
+
+  it('loadedPath is set to filePath after a successful load', async () => {
+    await seedFile(root, 'doc.md', '# Hello')
+    const { result } = renderDocContent('doc.md')
+    await waitFor(() => expect(result.current.loadedPath).toBe('doc.md'))
+    expect(result.current.content).toBe('# Hello')
+  })
+
+  it('loadedPath remains null after a failed load', async () => {
+    const read = vi.fn(async () => { throw new Error('not found') })
+    const stub: Repositories = {
+      diagram: null,
+      document: { read, write: vi.fn(async () => {}) },
+      linkIndex: null,
+      vaultConfig: null,
+    }
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      const inner = createElement(StubRepositoryProvider, { value: stub, children })
+      return createElement(ShellErrorProvider, { children: inner })
+    }
+    const { result } = renderHook(({ p }) => useDocumentContent(p), {
+      initialProps: { p: 'missing.md' as string | null },
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.loadError).not.toBeNull())
+    expect(result.current.loadedPath).toBeNull()
+  })
+
+  it('loadedPath resets to null when filePath becomes null', async () => {
+    await seedFile(root, 'a.md', 'content')
+    const { result, rerender } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.loadedPath).toBe('a.md'))
+
+    rerender({ p: null })
+    await waitFor(() => expect(result.current.loadedPath).toBeNull())
+  })
+
+  it('loadedPath updates when switching to a different file', async () => {
+    await seedFile(root, 'a.md', 'aaa')
+    await seedFile(root, 'b.md', 'bbb')
+    const { result, rerender } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.loadedPath).toBe('a.md'))
+
+    rerender({ p: 'b.md' })
+    await waitFor(() => expect(result.current.loadedPath).toBe('b.md'))
+  })
+})

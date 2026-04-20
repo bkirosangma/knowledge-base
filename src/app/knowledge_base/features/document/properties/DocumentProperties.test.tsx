@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import DocumentProperties from './DocumentProperties'
+
+// HistoryPanel uses scrollIntoView internally
+beforeAll(() => { Element.prototype.scrollIntoView = vi.fn() })
 
 // Covers DOC-4.9-01, 4.9-03..08, 4.9-10.
 // DOC-4.9-02 (char count display): 🚫 — stats.chars is computed but not rendered in the UI.
@@ -233,5 +236,160 @@ describe('DocumentProperties — null filePath', () => {
       />,
     )
     expect(screen.getByText('design.md')).toBeTruthy()
+  })
+})
+
+// ── History prop (HistoryPanel integration) ───────────────────────────────────
+
+function makeHistoryBridge(overrides: Partial<Parameters<typeof DocumentProperties>[0]['history']> = {}) {
+  return {
+    entries: [],
+    currentIndex: -1,
+    savedIndex: -1,
+    canUndo: false,
+    canRedo: false,
+    onUndo: vi.fn(),
+    onRedo: vi.fn(),
+    onGoToEntry: vi.fn(),
+    collapsed: false,
+    onToggleCollapse: vi.fn(),
+    ...overrides,
+  }
+}
+
+describe('DocumentProperties — history panel (HIST)', () => {
+  it('renders HistoryPanel when history prop is provided', () => {
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={makeHistoryBridge()}
+      />,
+    )
+    expect(screen.getByText('No history yet')).toBeTruthy()
+  })
+
+  it('does NOT render HistoryPanel when history prop is omitted', () => {
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+      />,
+    )
+    expect(screen.queryByText('No history yet')).toBeNull()
+  })
+
+  it('does NOT render HistoryPanel when history prop is null', () => {
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={null}
+      />,
+    )
+    expect(screen.queryByText('No history yet')).toBeNull()
+  })
+
+  it('passes entries to HistoryPanel and renders them', () => {
+    const entries = [
+      { id: 0, description: 'File loaded', timestamp: Date.now(), snapshot: 'v0' },
+      { id: 1, description: 'Draft', timestamp: Date.now(), snapshot: 'v1' },
+    ]
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0 })}
+      />,
+    )
+    expect(screen.getByText('File loaded')).toBeTruthy()
+    expect(screen.getByText('Draft')).toBeTruthy()
+  })
+
+  it('HistoryPanel Undo button calls history.onUndo', () => {
+    const onUndo = vi.fn()
+    const entries = [
+      { id: 0, description: 'v0', timestamp: Date.now(), snapshot: '' },
+      { id: 1, description: 'v1', timestamp: Date.now(), snapshot: '' },
+    ]
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, canUndo: true, onUndo })}
+      />,
+    )
+    fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
+    expect(onUndo).toHaveBeenCalledOnce()
+  })
+
+  it('HistoryPanel Redo button calls history.onRedo', () => {
+    const onRedo = vi.fn()
+    const entries = [
+      { id: 0, description: 'v0', timestamp: Date.now(), snapshot: '' },
+      { id: 1, description: 'v1', timestamp: Date.now(), snapshot: '' },
+    ]
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={makeHistoryBridge({ entries: entries as any, currentIndex: 0, savedIndex: 0, canRedo: true, onRedo })}
+      />,
+    )
+    fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
+    expect(onRedo).toHaveBeenCalledOnce()
+  })
+
+  it('clicking an entry calls history.onGoToEntry with the correct index', () => {
+    const onGoToEntry = vi.fn()
+    const entries = [
+      { id: 0, description: 'Step A', timestamp: Date.now(), snapshot: '' },
+      { id: 1, description: 'Step B', timestamp: Date.now(), snapshot: '' },
+    ]
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, onGoToEntry })}
+      />,
+    )
+    fireEvent.click(screen.getByText('Step A'))
+    expect(onGoToEntry).toHaveBeenCalledWith(0)
+  })
+
+  it('passes readOnly to HistoryPanel — disables entry buttons', () => {
+    const onGoToEntry = vi.fn()
+    const entries = [
+      { id: 0, description: 'entry', timestamp: Date.now(), snapshot: '' },
+      { id: 1, description: 'entry2', timestamp: Date.now(), snapshot: '' },
+    ]
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[]}
+        readOnly
+        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, onGoToEntry })}
+      />,
+    )
+    const btn = screen.getByText('entry').closest('button')!
+    expect((btn as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(btn)
+    expect(onGoToEntry).not.toHaveBeenCalled()
   })
 })
