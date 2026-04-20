@@ -53,7 +53,10 @@ export function useDocumentHistory(): DocumentHistory {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    sync.recordAction("Saved", content);
+    const { entries, currentIndex } = sync.getLatestState();
+    if (entries[currentIndex]?.snapshot !== content) {
+      sync.recordAction("Draft", content);
+    }
     sync.onFileSave(content);
   }, [sync]);
 

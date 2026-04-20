@@ -10,8 +10,10 @@ import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
+import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 
 const TITLE_DEBOUNCE_MS = 250;
+const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";
 
 export type { DocumentPaneBridge };
 
@@ -35,12 +37,13 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge, save, discard, loadedPath } = useDocumentContent(filePath);
+  const { content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath } = useDocumentContent(filePath);
   const history = useDocumentHistory();
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
   const bumpToken = () => setHistoryToken((t) => t + 1);
   const [readOnly, setReadOnly] = useState(false);
+  const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
   // keystroke; re-rendering PaneTitle that often is wasteful, and the user
@@ -154,19 +157,34 @@ export default function DocumentView({
     history.onContentChange(markdown);
   }, [updateContent, history]);
 
-  // Wrapped save that also marks a saved checkpoint in history
+  // Wrapped save: flush pending draft + mark saved checkpoint (no new entry)
   const handleSave = useCallback(async () => {
     await save();
     history.onFileSave(content);
   }, [save, history, content]);
 
-
-  // Wrapped discard: resets content from disk AND rewinds history to savedIndex
-  const handleDiscard = useCallback(async () => {
+  // History-first discard: restore saved snapshot from history; fall back to
+  // disk only if history has no saved state (e.g. freshly opened file).
+  const executeDiscard = useCallback(async () => {
+    const saved = history.goToSaved();
+    if (saved !== null) {
+      resetToContent(saved);
+      bumpToken();
+      return;
+    }
     await discard();
-    history.goToSaved();
     bumpToken();
-  }, [discard, history]);
+  }, [history, resetToContent, discard]);
+
+  // Show confirmation popover (with "don't ask again" option) before discarding
+  const handleDiscard = useCallback((e: React.MouseEvent) => {
+    if (!dirty) return;
+    if (typeof window !== "undefined" && localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true") {
+      executeDiscard();
+      return;
+    }
+    setDiscardConfirmPos({ x: e.clientX, y: e.clientY });
+  }, [dirty, executeDiscard]);
 
   // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z
   useDocumentKeyboardShortcuts({
@@ -231,6 +249,20 @@ export default function DocumentView({
           }
         />
       </div>
+      {discardConfirmPos && (
+        <ConfirmPopover
+          message="Discard unsaved changes?"
+          confirmLabel="Discard"
+          confirmColor="red"
+          showDontAsk
+          position={discardConfirmPos}
+          onConfirm={() => { setDiscardConfirmPos(null); executeDiscard(); }}
+          onCancel={() => setDiscardConfirmPos(null)}
+          onDontAskChange={(checked) => {
+            if (checked) localStorage.setItem(SKIP_DISCARD_CONFIRM_KEY, "true");
+          }}
+        />
+      )}
     </div>
   );
 }

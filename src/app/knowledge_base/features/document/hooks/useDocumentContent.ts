@@ -141,6 +141,13 @@ export function useDocumentContent(filePath: string | null) {
     setDirty(true);
   }, []);
 
+  // Apply a snapshot string directly — no disk I/O. Used when history can
+  // restore the saved state without re-reading the file (history-first discard).
+  const resetToContent = useCallback((text: string) => {
+    setContent(text);
+    setDirty(false);
+  }, []);
+
   // Discard helper: re-read the file from disk, throwing away unsaved edits.
   // Symmetrical to `save`: refuses to run while a prior load failed (so we
   // don't wipe the in-memory last-good copy with yet another failing read).
@@ -167,5 +174,5 @@ export function useDocumentContent(filePath: string | null) {
     get content() { return contentRef.current; },
   }), [save, discard, filePath]);
 
-  return { content, dirty, loadError, loadedPath, save, discard, updateContent, bridge };
+  return { content, dirty, loadError, loadedPath, save, discard, resetToContent, updateContent, bridge };
 }
