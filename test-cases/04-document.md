@@ -17,7 +17,7 @@
 
 ## 4.2 Tiptap Extensions (StarterKit + ecosystem)
 
-- **DOC-4.2-01** 🟡 **H1–H6 render** — markdown↔HTML conversion for all 6 heading levels covered by DOC-4.4-01..22 in `markdownSerializer.test.ts`; live Tiptap DOM rendering is integration-level (Bucket 25).
+- **DOC-4.2-01** 🟡 **H1–H6 render** — markdown↔HTML conversion for all 6 heading levels covered by DOC-4.4-01..22 in `markdownSerializer.test.ts`; live Tiptap DOM rendering is integration-level
 - **DOC-4.2-02** 🟡 **Paragraphs render** — covered by markdown round-trip tests; live mount is integration.
 - **DOC-4.2-03** 🟡 **Bullet list** — covered by markdown round-trip; live render is integration.
 - **DOC-4.2-04** 🟡 **Ordered list** — covered by markdown round-trip; live render is integration.
@@ -56,7 +56,7 @@
 - **DOC-4.3-15** 🚫 **Click in read-mode navigates.** Click handling on live NodeView.
 - **DOC-4.3-16** 🚫 **Click unresolved in read-mode creates.** Same.
 - **DOC-4.3-17** ✅ **Path resolution: current-dir `.md`** — DOC-4.8-04 in `wikiLinkParser.test.ts`.
-- **DOC-4.3-18** 🟡 **Path resolution: current-dir `.json` fallback** — `.json` extension preserved (DOC-4.8-09); the "prefer .md, fallback to .json" order lives in the click-time resolver (integration).
+- **DOC-4.3-18** 🟡 **Path resolution: current-dir `.json` fallback** — `.json` extension preserved (DOC-4.8-09); the "prefer .md, fallback to .json" order lives in the click-time resolver.
 - **DOC-4.3-19** ✅ **Path resolution: as-written** — DOC-4.8-08 ("preserves .md extension, no double-append").
 - **DOC-4.3-20** 🟡 **Path resolution: root `.md` fallback** — vault-root resolution covered by DOC-4.8-05; multi-candidate fallback is integration.
 - **DOC-4.3-21** 🟡 **Path resolution: root `.json` fallback** — same scope as 4.3-20.
@@ -119,11 +119,11 @@
 - **DOC-4.5-01** ✅ **Toolbar hidden in read-only** — `MarkdownEditor.test.tsx` asserts Bold / H1 / Undo not rendered + the editor is `contenteditable=false` when `readOnly=true`.
 - **DOC-4.5-02** ✅ **Toolbar hidden in raw mode** — `MarkdownEditor.test.tsx` clicks "Raw" and asserts toolbar buttons disappear alongside the ProseMirror surface.
 - **DOC-4.5-03** ✅ **WYSIWYG ↔ Raw toggle** — `MarkdownEditor.test.tsx` verifies both directions (Raw → textarea, WYSIWYG → ProseMirror). Also covered end-to-end with content round-trip by `e2e/documentGoldenPath.spec.ts` (DOC-4.5-03).
-- **DOC-4.5-04** 🟡 **Undo disabled when stack empty** — Tiptap's History extension records initial content as a transaction so Undo is typically enabled right after mount. The disabled wiring (`disabled={!editor.can().undo()}`) is a thin wrapper over Tiptap's API; testing stay-disabled reliably would require disabling History.
+- **DOC-4.5-04** 🟡 **Undo disabled when stack empty** — Tiptap's History extension records initial content as a transaction so Undo is typically enabled right after mount. The disabled wiring (`disabled={!editor.can.undo}`) is a thin wrapper over Tiptap's API; testing stay-disabled reliably would require disabling History.
 - **DOC-4.5-05** ✅ **Redo disabled when no undone history** — `MarkdownEditor.test.tsx` asserts Redo is disabled on a fresh mount.
 - **DOC-4.5-06** ✅ **H1 button active state** — `MarkdownEditor.test.tsx` mounts `# Already a heading`, focuses the editor, and asserts the H1 TBtn has `bg-blue-100` (active class) while H2 does not.
 - **DOC-4.5-07** ✅ **H1 button toggles heading** — `MarkdownEditor.test.tsx` clicks Heading 2 on a plain paragraph and asserts `<h2>` appears in the ProseMirror output (H1 path covered by the active-state test since toggle-to-rich uses the same code path).
-- **DOC-4.5-08** 🟡 **Bold / italic / strike / inline-code buttons toggle respective marks** — toolbar render + enabled state covered in `MarkdownEditor.test.tsx`; the actual mark application on a selection isn't directly testable in JSDOM because native Selection doesn't propagate to ProseMirror. Playwright (Bucket 25).
+- **DOC-4.5-08** 🟡 **Bold / italic / strike / inline-code buttons toggle respective marks** — toolbar render + enabled state covered in `MarkdownEditor.test.tsx`; the actual mark application on a selection isn't directly testable in JSDOM because native Selection doesn't propagate to ProseMirror. Playwright
 - **DOC-4.5-09** 🚫 **Bold in rawBlock toggles `**…**` syntax (`toggleRawSyntax`).** `toggleRawSyntax` is module-private in `MarkdownEditor.tsx` — would need extraction to unit-test.
 - **DOC-4.5-10** 🚫 **`toggleRawSyntax` detects `*` vs `**`.** Same — module-private.
 - **DOC-4.5-11** 🚫 **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).** Module-private helper.
@@ -209,12 +209,12 @@
 ## 4.10 Link Index (`_links.json`)
 
 - **DOC-4.10-01** ✅ **`loadIndex`** — reads `.archdesigner/_links.json`, parses JSON, validates shape (`documents` and `backlinks` keys present), and returns the typed `LinkIndex`.
-- **DOC-4.10-02** ✅ **`loadIndex` missing file** — `NotFoundError` on either the directory or file level returns an `emptyIndex()` (fresh, timestamped) — no throw.
+- **DOC-4.10-02** ✅ **`loadIndex` missing file** — `NotFoundError` on either the directory or file level returns an `emptyIndex` (fresh, timestamped) — no throw.
 - **DOC-4.10-03** ✅ **`loadIndex` malformed JSON** — `JSON.parse` errors OR validation-rejected shapes return the empty index.
 - **DOC-4.10-04** ✅ **`saveIndex`** — writes `.archdesigner/_links.json` with a pretty-printed `{ ...index, updatedAt }`. Never mutates the input argument (clones with fresh timestamp).
 - **DOC-4.10-05** ✅ **`updateDocumentLinks` outbound** — parses wiki-links from the markdown content, splits into `outboundLinks` (no section) and `sectionLinks` (with section). Link `type` is `"diagram"` when the resolved path ends in `.json`, else `"document"`.
 - **DOC-4.10-06** ✅ **`updateDocumentLinks` rebuilds backlinks** — every outbound and section link produces a reverse edge in `index.backlinks[targetPath].linkedFrom`.
-- **DOC-4.10-07** 🟡 **`updateDocumentLinks` emits graphify cross-refs** — `updateDocumentLinks` calls `emitCrossReferences` after saving; observable through the mock's `.archdesigner/cross-references.json` write. Asserted indirectly via the `updateDocumentLinks` test writing `_links.json`; direct cross-ref assertion deferred to Bucket 19 integration tests.
+- **DOC-4.10-07** 🟡 **`updateDocumentLinks` emits graphify cross-refs** — `updateDocumentLinks` calls `emitCrossReferences` after saving; observable through the mock's `.archdesigner/cross-references.json` write. Asserted indirectly via the `updateDocumentLinks` test writing `_links.json`; direct cross-ref assertion integration tests.
 - **DOC-4.10-08** ✅ **`removeDocumentFromIndex`** — deletes `documents[docPath]` then rebuilds backlinks so orphaned entries disappear.
 - **DOC-4.10-09** ✅ **`renameDocumentInIndex`** — moves `documents[old]` → `documents[new]`, rewrites every outbound/section `targetPath === old` to `new`, then rebuilds backlinks.
 - **DOC-4.10-10** ✅ **`getBacklinksFor`** — returns `linkIndex.backlinks[docPath]?.linkedFrom ?? []`; empty array for unknown paths.
@@ -223,13 +223,13 @@
 
 ## 4.11 Document Persistence
 
-- **DOC-4.11-01** ✅ **Per-pane content + dirty state** — `useDocumentContent` is instantiated per pane; each instance has its own `content`/`dirty` state. Verified by loading and editing independently in a single hook instance (pane-level isolation is a composition guarantee, covered by the integration test in Bucket 18).
+- **DOC-4.11-01** ✅ **Per-pane content + dirty state** — `useDocumentContent` is instantiated per pane; each instance has its own `content`/`dirty` state. Verified by loading and editing independently in a single hook instance (pane-level isolation is a composition guarantee, covered by the integration test).
 - **DOC-4.11-02** ✅ **Auto-save on file switch** — when `filePath` prop changes and the previous file was dirty, the hook writes the previous content via `writeTextFile(dirHandleRef, prevPath, contentRef.current)` before loading the new file. Also covered end-to-end by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-02).
-- **DOC-4.11-03** ✅ **`save()` writes via File System Access API** — verified by asserting the mock file's contents after `save()`; routed through `writeTextFile`. Also covered end-to-end (Cmd+S path) by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
-- **DOC-4.11-04** ✅ **Dirty flag cleared after save** — `save()` sets `dirty = false` on success.
+- **DOC-4.11-03** ✅ **`save` writes via File System Access API** — verified by asserting the mock file's contents after `save`; routed through `writeTextFile`. Also covered end-to-end (Cmd+S path) by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
+- **DOC-4.11-04** ✅ **Dirty flag cleared after save** — `save` sets `dirty = false` on success.
 - **DOC-4.11-05** ✅ **Dirty flag set on edit** — `updateContent(md)` sets content and flips `dirty = true`. Also covered end-to-end by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
-- **DOC-4.11-06** ✅ **Bridge exposes `save`, `dirty`, `filePath`, `content`** — `bridge.content` / `bridge.dirty` use ref-backed getters (reflect latest state without re-render); `bridge.save()` mirrors the hook's `save()`.
-- **DOC-4.11-07** 🟡 **`createDocument` writes new file with initial content** — trivially routes `writeTextFile(rootHandle, path, initialContent)`; asserted indirectly via the write helper's tests. Full path exercised in file-ops bucket.
+- **DOC-4.11-06** ✅ **Bridge exposes `save`, `dirty`, `filePath`, `content`** — `bridge.content` / `bridge.dirty` use ref-backed getters (reflect latest state without re-render); `bridge.save` mirrors the hook's `save`.
+- **DOC-4.11-07** 🟡 **`createDocument` writes new file with initial content** — trivially routes `writeTextFile(rootHandle, path, initialContent)`; asserted indirectly via the write helper's tests. Full path exercised in integration tests.
 - **DOC-4.11-08** ✅ **`attachDocument` records link to entity** — creates a new `DocumentMeta` (or appends to existing) with `{type, id}`; idempotent on duplicate pairs.
 - **DOC-4.11-09** ✅ **`detachDocument` removes link** — removes one `{type, id}` attachment; purges the `DocumentMeta` entirely when no attachments remain; no-op on unknown document.
 - **DOC-4.11-10** ✅ **`getDocumentsForEntity` filters by entity** — returns all `DocumentMeta` whose `attachedTo` includes the `(type, id)` pair.
@@ -237,11 +237,11 @@
 - **DOC-4.11-12** ✅ **`collectDocPaths` extracts all `.md` paths from tree** — depth-first walk; includes only `type === "file" && fileType === "document"`.
 - **DOC-4.11-13** ✅ **`existingDocPaths` Set for O(1) membership** — returns a `new Set(collectDocPaths(tree))`.
 - **DOC-4.11-14** ✅ **Load failure does NOT empty the editor (Phase 5c regression)** — when `repo.read` throws, `useDocumentContent` keeps the previous document's content in `contentRef`, records a classified `loadError`, and ignores subsequent `updateContent` / `save` calls. Prevents the pre-fix vector where a permission-revoked read reset the editor to empty and the user could type + save over the real file.
-- **DOC-4.11-15** ✅ **`save()` is blocked while `loadError` is set (Phase 5c regression)** — even if the caller invokes save directly, the repo write is skipped so stale content is never written to the failing path.
+- **DOC-4.11-15** ✅ **`save` is blocked while `loadError` is set (Phase 5c regression)** — even if the caller invokes save directly, the repo write is skipped so stale content is never written to the failing path.
 - **DOC-4.11-16** ✅ **Save-previous-on-switch failure is reported (Phase 5c regression)** — dirty content on the outgoing pane now surfaces via `reportError(e, 'Auto-saving <prev>')` when the write fails, instead of silently dropping the user's edits.
-- **DOC-4.11-17** ✅ **`discard()` re-reads the file from disk** — new since 2026-04-19. `useDocumentContent.discard()` calls `repo.read(filePath)`, replaces `content` state with the on-disk text, and resets `dirty` to `false`. Wired through `DocumentPaneBridge.discard` so `PaneTitle`'s Discard button has a symmetric partner to Save.
-- **DOC-4.11-18** ✅ **`discard()` is blocked while `loadError` is set** — mirrors DOC-4.11-15. If the last read failed, `discard()` refuses to run so it doesn't re-enter the failing read path and stomp the in-memory last-good copy. Read failures still surface via `reportError`.
-- **DOC-4.11-19** ✅ **`discard()` failure is reported** — when the re-read throws, the error goes through `reportError(e, 'Discarding changes to <path>')` so the shell banner renders it; in-memory state is left untouched.
+- **DOC-4.11-17** ✅ **`discard` re-reads the file from disk** — new since 2026-04-19. `useDocumentContent.discard` calls `repo.read(filePath)`, replaces `content` state with the on-disk text, and resets `dirty` to `false`. Wired through `DocumentPaneBridge.discard` so `PaneTitle`'s Discard button has a symmetric partner to Save.
+- **DOC-4.11-18** ✅ **`discard` is blocked while `loadError` is set** — mirrors DOC-4.11-15. If the last read failed, `discard` refuses to run so it doesn't re-enter the failing read path and stomp the in-memory last-good copy. Read failures still surface via `reportError`.
+- **DOC-4.11-19** ✅ **`discard` failure is reported** — when the re-read throws, the error goes through `reportError(e, 'Discarding changes to <path>')` so the shell banner renders it; in-memory state is left untouched.
 
 ## 4.12 Read-Only Mode (Document)
 
@@ -267,8 +267,8 @@
 - **DOC-4.13-09** ✅ **Lower heading levels normalised on fallback** — `"## Subheading only\n\nbody"` returns `"Subheading only"` (H1 regex misses it, fallback strips `^##{1,6} `).
 - **DOC-4.13-10** ✅ **YAML frontmatter skipped** — `"---\ntitle: ignored\n---\n\n# Real"` returns `"Real"`; the title is read from the body, not the metadata.
 - **DOC-4.13-11** ✅ **Frontmatter + body-without-H1** — `"---\nkey: value\n---\n\nJust a paragraph."` returns `"Just a paragraph."`.
-- **DOC-4.13-12** ✅ **Whitespace-only document → empty** — `"   \n\n  \n"` returns `""`.
+- **DOC-4.13-12** ✅ **Whitespace-only document → empty** — `" \n\n \n"` returns `""`.
 - **DOC-4.13-13** ✅ **`#hashtag` (no space) is not treated as an H1** — `"#hashtag in body"` returns `"#hashtag in body"` verbatim; the fallback marker strip only removes `#` followed by a space.
 - **DOC-4.13-14** 🚫 **Code-fenced H1s are not excluded** — documented limitation. `getFirstHeading("\`\`\`\n# not a real heading\n\`\`\`\n\n# Real One")` returns `"not a real heading"` because the parser doesn't track fences. Callers are expected to keep their H1 outside code blocks; covered here so future work doesn't change it by accident.
-- **DOC-4.13-15** 🟡 **Debounce settles title after ~250 ms** — `DocumentView` schedules `setDerivedTitle(getFirstHeading(content))` inside a `setTimeout(250 ms)` and clears the pending timer on every keystroke, so the pane header stops churning while the user is typing and catches up once they pause. Code reviewed; dedicated timer-based test deferred to Bucket 20 integration.
-- **DOC-4.13-16** 🟡 **File-name fallback when body yields empty** — when `getFirstHeading` returns `""` (brand-new doc, whitespace-only body), `DocumentView` falls back to the `.md` basename so the pane title is never empty in the UI. Code reviewed; integration test deferred to Bucket 20.
+- **DOC-4.13-15** 🟡 **Debounce settles title after ~250 ms** — `DocumentView` schedules `setDerivedTitle(getFirstHeading(content))` inside a `setTimeout(250 ms)` and clears the pending timer on every keystroke, so the pane header stops churning while the user is typing and catches up once they pause. Code reviewed; dedicated timer-based test integration.
+- **DOC-4.13-16** 🟡 **File-name fallback when body yields empty** — when `getFirstHeading` returns `""` (brand-new doc, whitespace-only body), `DocumentView` falls back to the `.md` basename so the pane title is never empty in the UI. Code reviewed; integration test

@@ -16,19 +16,19 @@
 - **LINK-5.1-06** ✅ **Rename handles `.md` written explicitly** — `[[foo.md]]` → `[[bar]]`. (DOC-4.8-11.)
 - **LINK-5.1-07** ✅ **Rename updates link index** — `_links.json` outbound + backlinks both reflect new path. (Covered by DOC-4.10-09 `renameDocumentInIndex` in `useLinkIndex.test.ts`.)
 - **LINK-5.1-08** ✅ **Rename of diagram (`.json`) propagates** — `updateWikiLinkPaths` now strips both `.md` and `.json` before matching, so `[[arch]]` and `[[arch.json]]` both rewrite on `arch.json → infra.json`. Covered by LINK-5.1-08 test in `wikiLinkParser.test.ts`. (Bug fixed: util previously only stripped `.md`.)
-- **LINK-5.1-09** 🚫 **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. (Integration across explorer + PaneManager + file handles; Playwright Bucket 20.)
-- **LINK-5.1-10** 🚫 **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves; Playwright Bucket 20.)
-- **LINK-5.1-11** 🚫 **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (End-to-end across hook + content rewrite; Playwright Bucket 20.)
-- **LINK-5.1-12** 🚫 **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion; Playwright Bucket 20.)
+- **LINK-5.1-09** ❌ **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. (Integration across explorer + PaneManager + file handles.)
+- **LINK-5.1-10** ❌ **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves.)
+- **LINK-5.1-11** ❌ **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (End-to-end across hook + content rewrite.)
+- **LINK-5.1-12** ❌ **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion.)
 
 ## 5.2 Wiki-Link Delete Propagation
 
 - **LINK-5.2-01** ✅ **Delete removes outbound entries from index** — deleted doc's `_links.json` entry removed. (Covered by DOC-4.10-08 `removeDocumentFromIndex` in `useLinkIndex.test.ts`.)
 - **LINK-5.2-02** ✅ **Delete removes backlinks pointing to it** — index backlink `linkedFrom` entries are purged. (DOC-4.10-08.)
-- **LINK-5.2-03** 🚫 **Deleted doc's links become red pills** — other docs referencing it via `[[x]]` now show "click to create" state. (Pill-state rendering lives in the `wikiLink` extension NodeView; requires full editor + link-index integration. Playwright Bucket 20.)
-- **LINK-5.2-04** 🚫 **Delete closes the doc in any open pane** — left pane showing it clears; right pane too. (End-to-end across explorer + PaneManager; Playwright Bucket 20.)
-- **LINK-5.2-05** 🚫 **Delete tree row removed.** (Explorer tree + file ops; Playwright Bucket 20.)
-- **LINK-5.2-06** 🚫 **Delete is reversible only by undoing in the OS** — confirm popover shown; no in-app undo. (Product behavior + popover UI; Playwright Bucket 20.)
+- **LINK-5.2-03** ❌ **Deleted doc's links become red pills** — other docs referencing it via `[[x]]` now show "click to create" state. (Pill-state rendering lives in the `wikiLink` extension NodeView; requires full editor + link-index integration.)
+- **LINK-5.2-04** ❌ **Delete closes the doc in any open pane** — left pane showing it clears; right pane too. (End-to-end across explorer + PaneManager.)
+- **LINK-5.2-05** ❌ **Delete tree row removed.** (Explorer tree + file ops.)
+- **LINK-5.2-06** ❌ **Delete is reversible only by undoing in the OS** — confirm popover shown; no in-app undo. (Product behavior + popover UI.)
 
 ## 5.3 Graphify Bridge
 
@@ -44,16 +44,16 @@
 
 > These cases are integration-level: they assert the full chain (explorer → `useFileActions` → `updateWikiLinkPaths` → link index → pane state).
 
-- **LINK-5.4-01** 🚫 **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. (Full chain: explorer + `useFileActions` + `updateWikiLinkPaths` + editor state; Playwright Bucket 20.)
-- **LINK-5.4-02** 🚫 **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state; Playwright Bucket 20.)
-- **LINK-5.4-03** 🚫 **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution; Playwright Bucket 20.)
-- **LINK-5.4-04** 🚫 **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered indirectly via `useLinkIndex.test.ts` save→load; the reload half is Playwright Bucket 20.)
+- **LINK-5.4-01** ❌ **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. (Full chain: explorer + `useFileActions` + `updateWikiLinkPaths` + editor state.)
+- **LINK-5.4-02** ❌ **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state.)
+- **LINK-5.4-03** ❌ **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution.)
+- **LINK-5.4-04** ❌ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered indirectly via `useLinkIndex.test.ts` save→load; the reload half is)
 
 ## 5.5 Wiki-Link Navigation
 
-- **LINK-5.5-01** 🚫 **Click resolved wiki-link opens target in other pane** — editor in left pane → click → right pane opens target. (Requires full Tiptap editor + PaneManager + click handling; Playwright Bucket 20.)
-- **LINK-5.5-02** 🚫 **Click in single-pane mode opens in same pane** — verify routing when no split exists. (Same integration scope; Playwright Bucket 20.)
-- **LINK-5.5-03** 🚫 **Click unresolved wiki-link creates file** — red pill → click → new file created at resolved path; opens in other pane. (Integration with file-creation + PaneManager; Playwright Bucket 20.)
+- **LINK-5.5-01** ❌ **Click resolved wiki-link opens target in other pane** — editor in left pane → click → right pane opens target. (Requires full Tiptap editor + PaneManager + click handling.)
+- **LINK-5.5-02** ❌ **Click in single-pane mode opens in same pane** — verify routing when no split exists. (Same integration scope.)
+- **LINK-5.5-03** ❌ **Click unresolved wiki-link creates file** — red pill → click → new file created at resolved path; opens in other pane. (Integration with file-creation + PaneManager.)
 - **LINK-5.5-04** ✅ **Create uses relative path from current doc** — `[[notes/x]]` in `area/intro.md` → `area/notes/x.md`. (Covered by DOC-4.8-04 `resolveWikiLinkPath` in `wikiLinkParser.test.ts`.)
 - **LINK-5.5-05** ✅ **Create appends `.md` if absent** — `[[x]]` → `x.md`. (Covered by DOC-4.8-08 in `wikiLinkParser.test.ts`.)
-- **LINK-5.5-06** 🚫 **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. (Requires real editor + scroll; Playwright Bucket 20.)
+- **LINK-5.5-06** ❌ **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. (Requires real editor + scroll.)

@@ -114,11 +114,11 @@ _Snapshot at 2026-04-20 (Buckets 1-27 complete + shell header strip-down + Pane 
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 49 | 12 | 3 | 0 | 9 | 73 |
+| 01-app-shell.md | 52 | 12 | 0 | 3 | 6 | 73 |
 | 02-file-system.md | 63 | 8 | 1 | 0 | 11 | 83 |
 | 03-diagram.md | 113 | 34 | 0 | 0 | 104 | 251 |
 | 04-document.md | 130 | 34 | 0 | 0 | 54 | 218 |
-| 05-links-and-graph.md | 19 | 0 | 0 | 0 | 16 | 35 |
+| 05-links-and-graph.md | 19 | 0 | 0 | 16 | 0 | 35 |
 | 06-shared-hooks.md | 42 | 0 | 0 | 1 | 0 | 43 |
 | 07-persistence.md | 36 | 7 | 0 | 0 | 8 | 51 |
 | **Total** | **452** | **95** | **4** | **1** | **202** | **754** |
