@@ -9,7 +9,7 @@ import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
 import { DiagramProperties } from "./DiagramProperties";
-import HistoryPanel from "../components/HistoryPanel";
+import HistoryPanel from "../../../shared/components/HistoryPanel";
 
 interface PropertiesPanelProps {
   selection: Selection;

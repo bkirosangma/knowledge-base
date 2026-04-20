@@ -5,13 +5,13 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 import HistoryPanel from './HistoryPanel'
-import type { HistoryEntry, DiagramSnapshot } from '../../../shared/hooks/useDiagramHistory'
+import type { HistoryEntry } from '../utils/historyPersistence'
 
 // Covers DIAG-3.16-10 (lists entries) and DIAG-3.16-11 (click reverts).
 
-const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] } as unknown as DiagramSnapshot
+const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] }
 
-function makeEntries(n: number): HistoryEntry<DiagramSnapshot>[] {
+function makeEntries(n: number): HistoryEntry<unknown>[] {
   return Array.from({ length: n }, (_, i) => ({
     id: i,
     description: `Action ${i}`,
@@ -121,5 +121,21 @@ describe('DIAG-3.16-11: HistoryPanel click reverts to entry', () => {
     expect((btn as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(btn)
     expect(onGoToEntry).not.toHaveBeenCalled()
+  })
+})
+
+describe('HistoryPanel works with string snapshots', () => {
+  it('renders entries with string snapshots without error', () => {
+    const entries: HistoryEntry<string>[] = [
+      { id: 0, description: 'File loaded', timestamp: Date.now(), snapshot: 'content v0' },
+      { id: 1, description: 'Draft', timestamp: Date.now(), snapshot: 'content v1' },
+    ]
+    render(
+      <HistoryPanel
+        {...baseProps({ entries: entries as HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0 })}
+      />
+    )
+    expect(screen.getByText('File loaded')).toBeInTheDocument()
+    expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 })
