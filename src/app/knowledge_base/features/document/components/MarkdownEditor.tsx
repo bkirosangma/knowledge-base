@@ -40,6 +40,9 @@ interface MarkdownEditorProps {
    *  current markdown content. Used by the shared action history to save a
    *  checkpoint without debounce lag. */
   onBlockChange?: (content: string) => void;
+  /** Increment to force-apply `content` to the editor even when focused.
+   *  Used by undo/redo to bypass the isFocused guard in the content-sync effect. */
+  historyToken?: number;
 }
 
 
@@ -68,6 +71,7 @@ export default function MarkdownEditor({
   readOnly = false,
   rightSidebar,
   onBlockChange,
+  historyToken,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -221,6 +225,22 @@ export default function MarkdownEditor({
     });
   }, [content, editor]);
 
+
+  // When historyToken changes, force-apply content to the editor even if focused.
+  // The normal content-sync effect skips updates while the editor is focused to
+  // prevent echo loops during typing; undo/redo must bypass that guard.
+  useEffect(() => {
+    if (!editor || historyToken === undefined) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      const currentMd = htmlToMarkdown(editor.getHTML());
+      if (currentMd.trim() !== content.trim()) {
+        editor.commands.setContent(markdownToHtml(content), { emitUpdate: false });
+        setRawContent(content);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyToken]);
   // Sync editable state when readOnly prop changes (Tiptap's `editable` option
   // is only read at init — later changes require setEditable). When locking,
   // dispatch a no-op transaction so the markdownReveal plugin re-runs with the

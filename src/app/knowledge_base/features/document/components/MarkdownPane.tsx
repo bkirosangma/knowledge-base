@@ -26,6 +26,7 @@ interface MarkdownPaneProps {
   onNavigateBacklink?: (sourcePath: string) => void;
   rightSidebar?: React.ReactNode;
   onBlockChange?: (content: string) => void;
+  historyToken?: number;
   /** Whether the editor is in read-only (locked) mode. Controlled by parent. */
   readOnly?: boolean;
   /** Called when the user clicks the read-only toggle in the pane header. */
@@ -48,6 +49,7 @@ export default function MarkdownPane({
   onNavigateBacklink,
   rightSidebar,
   onBlockChange,
+  historyToken,
   readOnly = false,
   onToggleReadOnly,
 }: MarkdownPaneProps) {
@@ -114,6 +116,7 @@ export default function MarkdownPane({
           content={content}
           onChange={onChange}
           onBlockChange={onBlockChange}
+          historyToken={historyToken}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}

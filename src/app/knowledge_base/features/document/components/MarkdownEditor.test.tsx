@@ -325,3 +325,29 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 })
+
+// ── historyToken force-apply (undo/redo bypass) ─────────────────────────────
+
+describe('MarkdownEditor — historyToken forces content update', () => {
+  it('applies new content when historyToken increments even when editor is focused', async () => {
+    const { container, rerender } = render(
+      <MarkdownEditor content="# Before" historyToken={0} />,
+    )
+    await waitFor(() => expect(container.querySelector('.ProseMirror')).not.toBeNull())
+
+    // Focus the editor (simulates user actively working in it)
+    const pm = container.querySelector('.ProseMirror') as HTMLElement
+    act(() => { pm.focus() })
+
+    // Content changes but historyToken stays the same — isFocused guard blocks update
+    rerender(<MarkdownEditor content="# After" historyToken={0} />)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(pm.textContent).toContain('Before')
+
+    // Incrementing historyToken must bypass the focus guard
+    rerender(<MarkdownEditor content="# After" historyToken={1} />)
+    await waitFor(() => {
+      expect(pm.textContent).toContain('After')
+    })
+  })
+})

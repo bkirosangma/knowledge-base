@@ -38,6 +38,8 @@ export default function DocumentView({
   const { content, dirty, updateContent, bridge, save, discard, loadedPath } = useDocumentContent(filePath);
   const history = useDocumentHistory();
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [historyToken, setHistoryToken] = useState(0);
+  const bumpToken = () => setHistoryToken((t) => t + 1);
   const [readOnly, setReadOnly] = useState(false);
 
   // Debounced H1 / first-line derivation. `content` changes on every
@@ -162,11 +164,11 @@ export default function DocumentView({
   useDocumentKeyboardShortcuts({
     onUndo: useCallback(() => {
       const s = history.undo();
-      if (s !== null) updateContent(s);
+      if (s !== null) { updateContent(s); bumpToken(); }
     }, [history, updateContent]),
     onRedo: useCallback(() => {
       const s = history.redo();
-      if (s !== null) updateContent(s);
+      if (s !== null) { updateContent(s); bumpToken(); }
     }, [history, updateContent]),
     readOnly,
   });
@@ -178,9 +180,9 @@ export default function DocumentView({
     savedIndex: history.savedIndex,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
-    onUndo: () => { const s = history.undo(); if (s !== null) updateContent(s); },
-    onRedo: () => { const s = history.redo(); if (s !== null) updateContent(s); },
-    onGoToEntry: (i: number) => { const s = history.goToEntry(i); if (s !== null) updateContent(s); },
+    onUndo: () => { const s = history.undo(); if (s !== null) { updateContent(s); bumpToken(); } },
+    onRedo: () => { const s = history.redo(); if (s !== null) { updateContent(s); bumpToken(); } },
+    onGoToEntry: (i: number) => { const s = history.goToEntry(i); if (s !== null) { updateContent(s); bumpToken(); } },
     collapsed: historyCollapsed,
     onToggleCollapse: () => setHistoryCollapsed((c) => !c),
   };
@@ -197,6 +199,7 @@ export default function DocumentView({
           onDiscard={discard}
           onChange={handleContentChange}
           onBlockChange={history.onBlockChange}
+          historyToken={historyToken}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
