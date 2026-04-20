@@ -242,6 +242,12 @@
 - **DOC-4.11-17** ✅ **`discard` re-reads the file from disk** — new since 2026-04-19. `useDocumentContent.discard` calls `repo.read(filePath)`, replaces `content` state with the on-disk text, and resets `dirty` to `false`. Wired through `DocumentPaneBridge.discard` so `PaneTitle`'s Discard button has a symmetric partner to Save.
 - **DOC-4.11-18** ✅ **`discard` is blocked while `loadError` is set** — mirrors DOC-4.11-15. If the last read failed, `discard` refuses to run so it doesn't re-enter the failing read path and stomp the in-memory last-good copy. Read failures still surface via `reportError`.
 - **DOC-4.11-19** ✅ **`discard` failure is reported** — when the re-read throws, the error goes through `reportError(e, 'Discarding changes to <path>')` so the shell banner renders it; in-memory state is left untouched.
+- **DOC-4.11-20** ✅ **`updateContent` is a no-op when content is identical** — if `markdown === contentRef.current`, neither `setContent` nor `setDirty(true)` fires; dirty flag stays false after save when Tiptap fires spurious `onUpdate` events (structural normalizations, trailing-node plugin) without a real content change.
+- **DOC-4.11-21** ✅ **`resetToContent` applies snapshot without disk I/O** — sets `content` to the given string and clears `dirty` to false; no `repo.write` or `repo.read` call made.
+- **DOC-4.11-22** ❌ **`DocumentView` discard is history-first** — `executeDiscard` calls `history.goToSaved()`; if it returns a snapshot, that snapshot is applied via `resetToContent` (no disk read); disk `discard` is called only when history has no saved state.
+- **DOC-4.11-23** ❌ **`DocumentView` discard shows confirmation popover when dirty** — `handleDiscard` sets `discardConfirmPos` when `dirty` is true and `SKIP_DISCARD_CONFIRM_KEY` is not set in localStorage; actual discard deferred until `ConfirmPopover.onConfirm`.
+- **DOC-4.11-24** ❌ **`DocumentView` discard skips popover when skip flag is set** — when `localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true"`, `executeDiscard` runs directly without showing the confirmation popover.
+- **DOC-4.11-25** ❌ **`DocumentView` bridge `save` goes through full save path** — the `DocumentPaneBridge` published to the parent exposes `handleSave` (not the bare `save`), so Cmd+S via the parent calls `history.onFileSave` in addition to disk write; `savedIndex` is correctly advanced.
 
 ## 4.12 Read-Only Mode (Document)
 

@@ -37,3 +37,13 @@
 | HIST-7.3-01 | initHistory with mismatched checksum: discards stale history and seeds a fresh "File loaded" entry | ✅ |
 | HIST-7.4-01 | onFileSave: marks the saved position and schedules a debounced write | ✅ |
 | HIST-7.5-01 | clearHistory: resets state to empty and cancels any pending debounced writes | ✅ |
+
+## HIST-8 — useDocumentHistory
+
+| ID | Scenario | Status |
+|----|----------|--------|
+| HIST-8.1-01 | onFileSave: flushes pending debounce as "Draft" when content differs from current entry, then marks savedIndex — no separate "Saved" entry recorded | ✅ |
+| HIST-8.1-02 | onFileSave: does not record a new entry when content matches current snapshot | ✅ |
+| HIST-8.2-01 | onBlockChange: records "Block changed" entry when content differs from current entry snapshot | ❌ |
+| HIST-8.2-02 | onBlockChange: is a no-op when content matches current entry snapshot | ❌ |
+| HIST-8.3-01 | goToSaved: returns saved snapshot and positions currentIndex at savedIndex | ✅ |
