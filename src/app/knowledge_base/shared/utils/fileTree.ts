@@ -7,11 +7,17 @@
  * Rules the scanner enforces (covered by `fileTree.test.ts`):
  *   - Only `.md` and `.json` files appear in the tree.
  *   - History sidecars matching `/^\..*\.history\.json$/` are excluded.
+ *   - System files (`CLAUDE.md`, `MEMORY.md`, `AGENTS.md`) are excluded.
+ *   - Dot-prefixed folders (`.archdesigner`, `.claude`, etc.) and the
+ *     `memory` folder are excluded.
  *   - Entries are sorted: folders first, then files, each group alphabetical.
  *   - Every file carries `fileType` (`"diagram"` for `.json`, `"document"`
  *     for `.md`), the raw `FileSystemFileHandle`, and `lastModified` from
  *     `File.lastModified` (best-effort; swallowed on error).
  */
+
+const HIDDEN_FOLDER_NAMES = new Set(["memory"]);
+const HIDDEN_FILE_NAMES = new Set(["CLAUDE.md", "MEMORY.md", "AGENTS.md"]);
 
 export interface TreeNode {
   name: string;
@@ -35,6 +41,7 @@ export async function scanTree(
 
   for await (const entry of handle.values()) {
     if (entry.kind === "directory") {
+      if (entry.name.startsWith(".") || HIDDEN_FOLDER_NAMES.has(entry.name)) continue;
       const dirHandle = entry as unknown as FileSystemDirectoryHandle;
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const children = await scanTree(dirHandle, path);
@@ -51,6 +58,7 @@ export async function scanTree(
         lastModified: maxMod || undefined,
       });
     } else if (entry.kind === "file") {
+      if (HIDDEN_FILE_NAMES.has(entry.name)) continue;
       const isJson =
         entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name);
       const isMd = entry.name.endsWith(".md");

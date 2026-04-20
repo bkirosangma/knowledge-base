@@ -18,6 +18,9 @@
 - **FS-2.1-10** ✅ **Nested folders traversed** — `fileTree.test.ts` exercises multi-level paths (`notes/sub/deep.md`), asserts relative path construction, and covers folder `lastModified` = max of children.
 - **FS-2.1-11** ✅ **Tree entries carry metadata** — `fileTree.test.ts` asserts every file carries `name` + `path` + `type` + `fileType` + `handle` + `lastModified`; folders carry `dirHandle` + `children`.
 - **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright (Bucket 25).
+- **FS-2.1-13** ✅ **Dot-prefixed folders hidden** — `scanTree` skips folders whose name starts with `.` (`.archdesigner`, `.claude`); they do not appear in the tree. _(fileTree.test.ts)_
+- **FS-2.1-14** ✅ **`memory` folder hidden** — `scanTree` skips the `memory` folder by name; its contents never appear in the tree. _(fileTree.test.ts)_
+- **FS-2.1-15** ✅ **System files hidden** — `CLAUDE.md`, `MEMORY.md`, and `AGENTS.md` are excluded from the tree regardless of location; other `.md` files in the same directory are unaffected. _(fileTree.test.ts)_
 
 ## 2.2 Vault Configuration
 

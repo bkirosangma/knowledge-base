@@ -21,6 +21,7 @@ function renderPanel(overrides: Partial<P> = {}) {
     onOpenFolder: vi.fn(),
     onSelectFile: vi.fn(),
     onCreateFile: vi.fn(async () => null),
+    onCreateDocument: vi.fn(async () => null),
     onCreateFolder: vi.fn(async () => null),
     onDeleteFile: vi.fn(),
     onDeleteFolder: vi.fn(),
@@ -84,7 +85,7 @@ describe('ExplorerPanel — directory header bar', () => {
   it('renders the directory name and action buttons', () => {
     renderPanel({ directoryName: 'sample-vault' })
     expect(screen.getByText('sample-vault')).toBeTruthy()
-    expect(screen.getByTitle('New Architecture')).toBeTruthy()
+    expect(screen.getByTitle('New Diagram')).toBeTruthy()
     expect(screen.getByTitle('New Folder')).toBeTruthy()
     expect(screen.getByTitle('Refresh')).toBeTruthy()
     expect(screen.getByTitle('More actions')).toBeTruthy()
@@ -107,10 +108,10 @@ describe('ExplorerPanel — directory header bar', () => {
     expect(svg).toBeDefined()
   })
 
-  it('clicking New Architecture calls onCreateFile with empty parent', () => {
+  it('clicking New Diagram calls onCreateFile with empty parent', () => {
     const onCreateFile = vi.fn(async () => null)
     renderPanel({ onCreateFile })
-    fireEvent.click(screen.getByTitle('New Architecture'))
+    fireEvent.click(screen.getByTitle('New Diagram'))
     expect(onCreateFile).toHaveBeenCalledWith('')
   })
 

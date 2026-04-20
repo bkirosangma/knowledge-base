@@ -49,6 +49,7 @@ export interface TreeNodeRowProps {
   commitRename: () => void;
   startRename: (path: string, name: string, type: "file" | "folder") => void;
   handleCreateFile: (parentPath?: string) => void;
+  handleCreateDocument: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
   handleDragStart: (e: React.DragEvent, path: string, type: "file" | "folder") => void;
   handleDragOver: (e: React.DragEvent, folderPath: string) => void;
@@ -108,6 +109,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     commitRename,
     startRename,
     handleCreateFile,
+    handleCreateDocument,
     handleCreateFolder,
     handleDragStart,
     handleDragOver,
@@ -168,8 +170,11 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
             <>
               <span className="truncate flex-1">{node.name}</span>
               <div className="ml-auto flex items-center gap-0.5 pr-1">
-                <HoverBtn onClick={() => handleCreateFile(node.path)} title="New Architecture">
+                <HoverBtn onClick={() => handleCreateFile(node.path)} title="New Diagram">
                   <FilePlus size={13} className="text-slate-400 hover:text-slate-600" />
+                </HoverBtn>
+                <HoverBtn onClick={() => handleCreateDocument(node.path)} title="New Document">
+                  <FileText size={13} className="text-slate-400 hover:text-slate-600" />
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateFolder(node.path)} title="New Folder">
                   <FolderPlus size={13} className="text-slate-400 hover:text-slate-600" />

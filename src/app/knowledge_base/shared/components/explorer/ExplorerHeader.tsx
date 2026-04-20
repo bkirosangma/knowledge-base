@@ -2,7 +2,7 @@
 
 import React from "react";
 import {
-  Folder, FilePlus, FolderPlus, RefreshCw,
+  Folder, FilePlus, FileText, FolderPlus, RefreshCw,
   EllipsisVertical, ChevronRight,
   ArrowUp, ArrowDown, Check,
 } from "lucide-react";
@@ -36,6 +36,7 @@ export interface ExplorerHeaderProps {
   // Callbacks
   setContextMenu: (m: ContextMenuState | null) => void;
   handleCreateFile: (parentPath?: string) => void;
+  handleCreateDocument: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
   handleDragOver: (e: React.DragEvent, folderPath: string) => void;
   handleDragEnter: (e: React.DragEvent, folderPath: string) => void;
@@ -67,6 +68,7 @@ export default function ExplorerHeader({
   dotMenuRef,
   setContextMenu,
   handleCreateFile,
+  handleCreateDocument,
   handleCreateFolder,
   handleDragOver,
   handleDragEnter,
@@ -98,9 +100,16 @@ export default function ExplorerHeader({
         <button
           onClick={() => handleCreateFile("")}
           className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Architecture"
+          title="New Diagram"
         >
           <FilePlus size={14} className="text-slate-500" />
+        </button>
+        <button
+          onClick={() => handleCreateDocument("")}
+          className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+          title="New Document"
+        >
+          <FileText size={14} className="text-slate-500" />
         </button>
         <button
           onClick={() => handleCreateFolder("")}

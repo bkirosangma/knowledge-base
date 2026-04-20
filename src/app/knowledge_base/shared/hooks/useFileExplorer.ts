@@ -217,6 +217,22 @@ export function useFileExplorer() {
     }
   }, [tree, rescan, reportError]);
 
+  /** Create a new empty markdown document. Returns the path or null. */
+  const createDocument = useCallback(async (parentPath: string = ""): Promise<string | null> => {
+    if (!dirHandleRef.current) return null;
+    try {
+      const siblings = findChildren(tree, parentPath);
+      const fileName = uniqueName(siblings, "untitled", ".md");
+      const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
+      await writeTextFile(dirHandleRef.current, filePath, "");
+      await rescan();
+      return filePath;
+    } catch (e) {
+      reportError(e, `Creating document in ${parentPath || "(root)"}`);
+      return null;
+    }
+  }, [tree, rescan, reportError]);
+
   /** Create a new folder with a default name. Returns the path or null. */
   const createFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
     if (!dirHandleRef.current) return null;
@@ -542,6 +558,7 @@ export function useFileExplorer() {
     selectFile,
     saveFile,
     createFile,
+    createDocument,
     createFolder,
     deleteFile,
     deleteFolder,

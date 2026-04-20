@@ -397,6 +397,7 @@ function KnowledgeBaseInner() {
             onOpenFolder={fileExplorer.openFolder}
             onSelectFile={handleSelectFile}
             onCreateFile={(parentPath) => diagramBridgeRef.current?.handleCreateFile(parentPath) ?? Promise.resolve(null)}
+            onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
             onDeleteFolder={(path, event) => diagramBridgeRef.current?.handleDeleteFolder(path, event)}
