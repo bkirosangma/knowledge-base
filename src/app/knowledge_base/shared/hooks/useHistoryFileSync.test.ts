@@ -1,5 +1,5 @@
 // src/app/knowledge_base/shared/hooks/useHistoryFileSync.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useHistoryFileSync } from './useHistoryFileSync'
 import * as persistence from '../utils/historyPersistence'
