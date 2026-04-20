@@ -74,22 +74,27 @@ function KnowledgeBaseInner() {
 
   // ─── Wiki-link aware rename/delete ───
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
-    diagramBridgeRef.current?.handleRenameFile(oldPath, newName);
+    if (diagramBridgeRef.current) {
+      await diagramBridgeRef.current.handleRenameFile(oldPath, newName);
+    } else {
+      await fileExplorer.renameFile(oldPath, newName);
+    }
+
+    const dir = oldPath.includes("/") ? oldPath.substring(0, oldPath.lastIndexOf("/")) : "";
+    const newPath = dir ? `${dir}/${newName}` : newName;
+    panes.renamePanePath(oldPath, newPath);
 
     if (!oldPath.endsWith(".md") && !oldPath.endsWith(".json")) return;
 
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle) return;
 
-    const dir = oldPath.includes("/") ? oldPath.substring(0, oldPath.lastIndexOf("/")) : "";
-    const newPath = dir ? `${dir}/${newName}` : newName;
-
     try {
       await propagateRename(rootHandle, oldPath, newPath, linkManager);
     } catch (e) {
       reportError(e, `Updating link index after renaming ${oldPath}`);
     }
-  }, [fileExplorer.dirHandleRef, linkManager, reportError]);
+  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError]);
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
     diagramBridgeRef.current?.handleDeleteFile(path, event);

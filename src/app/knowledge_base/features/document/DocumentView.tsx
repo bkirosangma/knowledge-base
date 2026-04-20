@@ -26,6 +26,7 @@ export interface DocumentViewProps {
 
 export default function DocumentView({
   filePath,
+  dirHandleRef,
   onDocBridge,
   linkManager,
   tree,
@@ -67,6 +68,18 @@ export default function DocumentView({
     onDocBridgeRef.current?.(bridge);
     return () => onDocBridgeRef.current?.(null);
   }, [bridge]);
+
+  // Populate link index when a document is first opened so backlinks are
+  // available for rename/delete propagation even if the doc is never saved.
+  const indexedOnOpenRef = useRef<string | null>(null);
+  useEffect(() => { indexedOnOpenRef.current = null; }, [filePath]);
+  useEffect(() => {
+    const dh = dirHandleRef.current;
+    if (!filePath || !dh || !content || indexedOnOpenRef.current === filePath) return;
+    indexedOnOpenRef.current = filePath;
+    linkManager.updateDocumentLinks(dh, filePath, content).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filePath, content]);
 
   // Collect all wiki-linkable paths for link autocomplete
   const allDocPaths = React.useMemo(() => {

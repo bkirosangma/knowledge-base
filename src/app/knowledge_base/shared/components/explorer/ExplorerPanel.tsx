@@ -81,6 +81,8 @@ export default function ExplorerPanel({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const editValueRef = useRef(editValue);
+  editValueRef.current = editValue;
   const [editType, setEditType] = useState<"file" | "folder">("file");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
@@ -200,21 +202,22 @@ export default function ExplorerPanel({
   }, [onCreateFolder]);
 
   const commitRename = useCallback(() => {
-    if (!editingPath || !editValue.trim()) {
+    const val = editInputRef.current?.value ?? editValueRef.current;
+    if (!editingPath || !val.trim()) {
       setEditingPath(null);
       return;
     }
     const currentName = editingPath.split("/").pop() || "";
-    if (editValue.trim() !== currentName) {
+    if (val.trim() !== currentName) {
       if (editType === "file") {
-        onRenameFile(editingPath, editValue.trim());
+        onRenameFile(editingPath, val.trim());
       } else {
-        onRenameFolder(editingPath, editValue.trim());
+        onRenameFolder(editingPath, val.trim());
       }
     }
     setEditingPath(null);
     setEditValue("");
-  }, [editingPath, editValue, editType, onRenameFile, onRenameFolder]);
+  }, [editingPath, editType, onRenameFile, onRenameFolder]);
 
   const startRename = useCallback((path: string, name: string, type: "file" | "folder") => {
     setEditingPath(path);
