@@ -17,6 +17,7 @@ import {
   readTextFile,
   writeTextFile,
   getSubdirectoryHandle,
+  renameSidecar,
 } from "./fileExplorerHelpers";
 import { createDiagramRepository } from "../../infrastructure/diagramRepo";
 import { useShellErrors } from "../../shell/ShellErrorContext";
@@ -305,6 +306,7 @@ export function useFileExplorer() {
       await writable.close();
       // Delete old
       await parentHandle.removeEntry(oldName);
+      await renameSidecar(parentHandle, oldName, finalName);
       drafts.removeDraft(oldPath);
 
       const newPath = parentPath ? `${parentPath}/${finalName}` : finalName;

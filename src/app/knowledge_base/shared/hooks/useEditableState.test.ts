@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useEditableState } from './useEditableState'
 
@@ -113,14 +113,16 @@ describe('useEditableState', () => {
     expect(result.current.error).toBe(false)
   })
 
-  it('HOOK-6.3-07: inputRef is exposed for caller-driven focus management', () => {
+  it('HOOK-6.3-07: inputRef.current?.focus() called when editing flips true', () => {
     const { result } = renderHook(() => useEditableState('x'))
-    // The ref is an object with a .current slot (initially null).
-    expect(result.current.inputRef).toBeDefined()
-    expect(result.current.inputRef.current).toBeNull()
-    // The hook calls inputRef.current?.focus() inside effects when editing flips
-    // to true — we verify the ref exists; focus integration is covered in the
-    // component-level tests that actually attach the ref to a DOM element.
+    // Attach a real DOM input so the hook's useEffect([editing]) can call focus().
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    const focusSpy = vi.spyOn(input, 'focus')
+    act(() => { result.current.inputRef.current = input })
+    act(() => { result.current.setEditing(true) })
+    expect(focusSpy).toHaveBeenCalled()
+    document.body.removeChild(input)
   })
 
   it('function identities (cancel/showError/clearError/finishEditing) stable across renders with same value', () => {

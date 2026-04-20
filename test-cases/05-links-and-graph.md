@@ -15,7 +15,7 @@
 - **LINK-5.1-05** ✅ **Rename does not touch unrelated links** — `[[fooey]]` and `[[other]]` unchanged. (DOC-4.8-12.)
 - **LINK-5.1-06** ✅ **Rename handles `.md` written explicitly** — `[[foo.md]]` → `[[bar]]`. (DOC-4.8-11.)
 - **LINK-5.1-07** ✅ **Rename updates link index** — `_links.json` outbound + backlinks both reflect new path. (Covered by DOC-4.10-09 `renameDocumentInIndex` in `useLinkIndex.test.ts`.)
-- **LINK-5.1-08** 🟡 **Rename of diagram (`.json`) propagates** — wiki-links pointing to diagrams update similarly. (The `updateWikiLinkPaths` util is path-agnostic so `.json` rename works mechanically; no dedicated diagram-rename test.)
+- **LINK-5.1-08** ✅ **Rename of diagram (`.json`) propagates** — `updateWikiLinkPaths` now strips both `.md` and `.json` before matching, so `[[arch]]` and `[[arch.json]]` both rewrite on `arch.json → infra.json`. Covered by LINK-5.1-08 test in `wikiLinkParser.test.ts`. (Bug fixed: util previously only stripped `.md`.)
 - **LINK-5.1-09** 🚫 **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. (Integration across explorer + PaneManager + file handles; Playwright Bucket 20.)
 - **LINK-5.1-10** 🚫 **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves; Playwright Bucket 20.)
 - **LINK-5.1-11** 🚫 **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (End-to-end across hook + content rewrite; Playwright Bucket 20.)

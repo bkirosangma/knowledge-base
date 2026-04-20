@@ -17,6 +17,17 @@
 
 import type { DiagramData } from "../utils/types";
 import type { TreeNode } from "../utils/fileTree";
+import { updateWikiLinkPaths } from "../../features/document/utils/wikiLinkParser";
+
+/** Minimal surface of `useLinkIndex` needed for wiki-link propagation helpers. */
+export interface LinkPropagator {
+  renameDocumentInIndex(
+    rootHandle: FileSystemDirectoryHandle,
+    oldPath: string,
+    newPath: string,
+  ): Promise<unknown>;
+  getBacklinksFor(docPath: string): { sourcePath: string }[];
+}
 
 export function isSupported(): boolean {
   return typeof window !== "undefined" && "showDirectoryPicker" in window;
@@ -165,4 +176,80 @@ export async function getSubdirectoryHandle(
     current = await current.getDirectoryHandle(part, { create });
   }
   return current;
+}
+
+/**
+ * Update the link index and rewrite every backlink file after a rename.
+ * Throws if the index update fails (caller decides whether to reportError).
+ * Per-backlink file errors are swallowed so one unreadable file can't block
+ * the rest.
+ */
+export async function propagateRename(
+  rootHandle: FileSystemDirectoryHandle,
+  oldPath: string,
+  newPath: string,
+  lm: LinkPropagator,
+): Promise<void> {
+  await lm.renameDocumentInIndex(rootHandle, oldPath, newPath);
+  for (const bl of lm.getBacklinksFor(oldPath)) {
+    try {
+      const parts = bl.sourcePath.split("/");
+      let dh: FileSystemDirectoryHandle = rootHandle;
+      for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+      const fh = await dh.getFileHandle(parts[parts.length - 1]);
+      const content = await readTextFile(fh);
+      const updated = updateWikiLinkPaths(content, oldPath, newPath);
+      if (updated !== content) await writeTextFile(rootHandle, bl.sourcePath, updated);
+    } catch { /* skip unreadable/unwritable backlink files */ }
+  }
+}
+
+/**
+ * Propagate wiki-link updates after a move of a file or folder.
+ * Computes old→new path mapping, then calls `propagateRename` for each
+ * moved `.md`/`.json` file. Per-file index errors are swallowed so one
+ * failure doesn't block the rest.
+ */
+export async function propagateMoveLinks(
+  rootHandle: FileSystemDirectoryHandle,
+  sourcePath: string,
+  targetFolderPath: string,
+  tree: TreeNode[],
+  lm: LinkPropagator,
+): Promise<void> {
+  const srcName = sourcePath.split("/").pop()!;
+  const newBase = targetFolderPath ? `${targetFolderPath}/${srcName}` : srcName;
+  const isFile = sourcePath.endsWith(".md") || sourcePath.endsWith(".json");
+  const oldPaths = isFile ? [sourcePath] : collectFilePaths(tree, sourcePath);
+  for (const oldFilePath of oldPaths) {
+    const newFilePath = isFile ? newBase : oldFilePath.replace(sourcePath + "/", newBase + "/");
+    try {
+      await propagateRename(rootHandle, oldFilePath, newFilePath, lm);
+    } catch { /* skip: one file's index failure doesn't block the rest */ }
+  }
+}
+
+/**
+ * Rename the undo-history sidecar that lives alongside a diagram file.
+ * The sidecar is a hidden dotfile: `foo.json` → `.foo.history.json`.
+ * Best-effort: silently does nothing if the sidecar is absent or the rename fails.
+ */
+export async function renameSidecar(
+  parentHandle: FileSystemDirectoryHandle,
+  oldFileName: string,
+  newFileName: string,
+): Promise<void> {
+  const oldSidecar = `.${oldFileName.replace(/\.json$/, "")}.history.json`;
+  const newSidecar = `.${newFileName.replace(/\.json$/, "")}.history.json`;
+  try {
+    const oldHandle = await parentHandle.getFileHandle(oldSidecar);
+    const content = await (await oldHandle.getFile()).text();
+    const newHandle = await parentHandle.getFileHandle(newSidecar, { create: true });
+    const writable = await newHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    await parentHandle.removeEntry(oldSidecar);
+  } catch {
+    // No sidecar exists or rename failed — best-effort
+  }
 }

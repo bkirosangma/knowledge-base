@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-19 (Buckets 1-27 complete + shell header strip-down + Pane Header H1 derivation). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-20 (Buckets 1-27 complete + shell header strip-down + Pane Header H1 derivation + wiki-link propagation on rename/move + useActionHistory savedEntryPinned fix + useDirectoryHandle tests). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 43 | 10 | 3 | 0 | 9 | 65 |
-| 02-file-system.md | 47 | 9 | 1 | 0 | 8 | 65 |
-| 03-diagram.md | 93 | 37 | 0 | 0 | 107 | 237 |
-| 04-document.md | 121 | 34 | 1 | 0 | 55 | 211 |
-| 05-links-and-graph.md | 18 | 1 | 0 | 0 | 16 | 35 |
-| 06-shared-hooks.md | 25 | 9 | 0 | 0 | 5 | 39 |
-| 07-persistence.md | 34 | 9 | 0 | 0 | 8 | 51 |
-| **Total** | **381** | **109** | **5** | **0** | **208** | **703** |
+| 01-app-shell.md | 49 | 12 | 3 | 0 | 9 | 73 |
+| 02-file-system.md | 55 | 9 | 1 | 0 | 8 | 73 |
+| 03-diagram.md | 113 | 34 | 0 | 0 | 104 | 251 |
+| 04-document.md | 130 | 34 | 0 | 0 | 54 | 218 |
+| 05-links-and-graph.md | 19 | 0 | 0 | 0 | 16 | 35 |
+| 06-shared-hooks.md | 42 | 0 | 0 | 0 | 0 | 42 |
+| 07-persistence.md | 36 | 7 | 0 | 0 | 8 | 51 |
+| **Total** | **444** | **96** | **4** | **0** | **199** | **743** |
 
-Covered (✅ + 🟡 + 🧪) = **495 / 703 (70%)**; consciously waived (🚫) = **208 (30%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡 + 🧪) = **544 / 743 (73%)**; consciously waived (🚫) = **199 (27%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
 
 **2026-04-19 — shell header strip-down + Pane Header H1 derivation.** Title editing, dirty dot, Save, and Discard moved from the top-level `Header` into each pane's `PaneTitle` row:
 
@@ -136,10 +136,10 @@ Covered (✅ + 🟡 + 🧪) = **495 / 703 (70%)**; consciously waived (🚫) = *
 
 ### Test suites that back these numbers
 
-- **Unit / integration** (Vitest + JSDOM): 47 test files, 687 passing tests. Split across feature areas:
+- **Unit / integration** (Vitest + JSDOM): 67 test files, 934 passing tests. Split across feature areas:
   - App Shell: `Header.test.tsx`, `Footer.test.tsx`, `FooterContext.test.tsx`, `ToolbarContext.test.tsx`, `PaneManager.test.tsx`, `SplitPane.test.tsx`, `PaneTitle.test.tsx`, `PaneHeader.test.tsx`.
-  - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileActions.test.ts`, `ConfirmPopover.test.tsx`.
-  - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionModel.test.ts`, `levelModel.test.ts`, `layerProperties.test.tsx`, `autocompleteInput.test.tsx`, `documentsSection.test.tsx`, `contextMenu.test.tsx`, `flowBreakWarningModal.test.tsx`, `docInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `persistence.test.ts`, `directoryScope.test.ts`.
+  - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileActions.test.ts`, `useDirectoryHandle.test.ts`, `idbHandles.test.ts`, `ConfirmPopover.test.tsx`.
+  - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `collisionModel.test.ts`, `levelModel.test.ts`, `layerProperties.test.tsx`, `autocompleteInput.test.tsx`, `documentsSection.test.tsx`, `contextMenu.test.tsx`, `flowBreakWarningModal.test.tsx`, `docInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `persistence.test.ts`, `directoryScope.test.ts`.
   - Document: `wikiLinkParser.test.ts`, `markdownSerializer.test.ts`, `useDocuments.test.tsx`, `useLinkIndex.test.ts`, `useDocumentContent.test.tsx`, `tableNoNest.test.tsx`, `codeBlockCopy.test.tsx`, `LinkEditorPopover.test.tsx`, `TableFloatingToolbar.test.tsx`, `DocumentProperties.test.tsx`.
   - Links & Graph: `graphifyBridge.test.ts`.
   - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`, `useActionHistory.test.ts`.
