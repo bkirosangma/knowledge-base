@@ -25,6 +25,7 @@ interface MarkdownPaneProps {
   backlinks?: { sourcePath: string; section?: string }[];
   onNavigateBacklink?: (sourcePath: string) => void;
   rightSidebar?: React.ReactNode;
+  onBlockChange?: (content: string) => void;
 }
 
 export default function MarkdownPane({
@@ -42,6 +43,7 @@ export default function MarkdownPane({
   backlinks = [],
   onNavigateBacklink,
   rightSidebar,
+  onBlockChange,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
@@ -106,6 +108,7 @@ export default function MarkdownPane({
         <MarkdownEditor
           content={content}
           onChange={onChange}
+          onBlockChange={onBlockChange}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}

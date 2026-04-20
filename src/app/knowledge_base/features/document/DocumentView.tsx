@@ -8,6 +8,8 @@ import type { DocumentPaneBridge } from "./hooks/useDocumentContent";
 import type { useLinkIndex } from "./hooks/useLinkIndex";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
+import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
+import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
 
 const TITLE_DEBOUNCE_MS = 250;
 
@@ -34,6 +36,8 @@ export default function DocumentView({
   onCreateDocument,
 }: DocumentViewProps) {
   const { content, dirty, updateContent, bridge, save, discard } = useDocumentContent(filePath);
+  const history = useDocumentHistory();
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
 
   // Debounced H1 / first-line derivation. `content` changes on every
   // keystroke; re-rendering PaneTitle that often is wasteful, and the user
@@ -122,6 +126,55 @@ export default function DocumentView({
     return links;
   }, [filePath, linkManager.linkIndex]);
 
+  // History: re-initialize when the file changes
+  useEffect(() => {
+    if (!filePath) return;
+    (async () => {
+      const dh = dirHandleRef.current ?? null;
+      await history.initHistory(content, dh, filePath);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filePath]);
+
+  // Combined content change handler: updates content + records debounced history entry
+  const handleContentChange = useCallback((markdown: string) => {
+    updateContent(markdown);
+    history.onContentChange(markdown);
+  }, [updateContent, history]);
+
+  // Wrapped save that also marks a saved checkpoint in history
+  const handleSave = useCallback(async () => {
+    await save();
+    history.onFileSave(content);
+  }, [save, history, content]);
+
+  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z
+  useDocumentKeyboardShortcuts({
+    onUndo: useCallback(() => {
+      const s = history.undo();
+      if (s !== null) updateContent(s);
+    }, [history, updateContent]),
+    onRedo: useCallback(() => {
+      const s = history.redo();
+      if (s !== null) updateContent(s);
+    }, [history, updateContent]),
+    readOnly: false,
+  });
+
+  // Bridge for HistoryPanel in DocumentProperties
+  const historyBridge = {
+    entries: history.entries as import("../../shared/utils/historyPersistence").HistoryEntry<unknown>[],
+    currentIndex: history.currentIndex,
+    savedIndex: history.savedIndex,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    onUndo: () => { const s = history.undo(); if (s !== null) updateContent(s); },
+    onRedo: () => { const s = history.redo(); if (s !== null) updateContent(s); },
+    onGoToEntry: (i: number) => { const s = history.goToEntry(i); if (s !== null) updateContent(s); },
+    collapsed: historyCollapsed,
+    onToggleCollapse: () => setHistoryCollapsed((c) => !c),
+  };
+
   return (
     <div className="flex-1 flex min-h-0 h-full">
       <div className="flex-1 min-h-0">
@@ -130,9 +183,10 @@ export default function DocumentView({
           content={content}
           title={derivedTitle}
           isDirty={dirty}
-          onSave={save}
+          onSave={handleSave}
           onDiscard={discard}
-          onChange={updateContent}
+          onChange={handleContentChange}
+          onBlockChange={history.onBlockChange}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
@@ -148,6 +202,8 @@ export default function DocumentView({
               onNavigateLink={(path) => onNavigateLink?.(path)}
               collapsed={propertiesCollapsed}
               onToggleCollapse={toggleProperties}
+              history={historyBridge}
+              readOnly={false}
             />
           }
         />
