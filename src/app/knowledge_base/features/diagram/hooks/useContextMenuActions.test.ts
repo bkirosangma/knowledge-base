@@ -13,10 +13,10 @@ function makeContextMenu(canvasX = 100, canvasY = 100) {
 
 function makeSetters() {
   return {
-    setNodes: vi.fn<[React.SetStateAction<NodeData[]>], void>(),
-    setLayerDefs: vi.fn<[React.SetStateAction<LayerDef[]>], void>(),
-    setLayerManualSizes: vi.fn<[React.SetStateAction<ManualSizes>], void>(),
-    setSelection: vi.fn<[React.SetStateAction<Selection>], void>(),
+    setNodes: vi.fn<(v: React.SetStateAction<NodeData[]>) => void>(),
+    setLayerDefs: vi.fn<(v: React.SetStateAction<LayerDef[]>) => void>(),
+    setLayerManualSizes: vi.fn<(v: React.SetStateAction<ManualSizes>) => void>(),
+    setSelection: vi.fn<(v: React.SetStateAction<Selection>) => void>(),
     setContextMenu: vi.fn(),
     onActionComplete: vi.fn(),
   }
@@ -77,7 +77,7 @@ describe('DIAG-3.12-07: handleAddElement selects the new node', () => {
 describe('DIAG-3.12-04: handleAddElement avoids collisions on canvas', () => {
   it('shifts Y down when an existing node occupies the same spot', () => {
     const setters = makeSetters()
-    const existingNode: NodeData = { id: 'existing', label: 'X', x: 100, y: 100, w: 120, layer: '' }
+    const existingNode: NodeData = { id: 'existing', label: 'X', x: 100, y: 100, w: 120, layer: '', icon: () => null }
     const { result } = renderHook(() =>
       useContextMenuActions(
         makeContextMenu(100, 100), emptyRegions, [existingNode],
@@ -102,7 +102,7 @@ describe('DIAG-3.12-05: handleAddElement auto-assigns layer', () => {
   it('assigns targetLayer when the click falls inside a layer region', () => {
     const setters = makeSetters()
     const region: RegionBounds = {
-      id: 'ly-1', left: 50, top: 50, width: 200, height: 200, empty: false,
+      id: 'ly-1', title: '', bg: '', border: '', left: 50, top: 50, width: 200, height: 200, empty: false,
     }
     const { result } = renderHook(() =>
       useContextMenuActions(
@@ -122,7 +122,7 @@ describe('DIAG-3.12-05: handleAddElement auto-assigns layer', () => {
   it('does not assign a layer when click is outside all regions', () => {
     const setters = makeSetters()
     const region: RegionBounds = {
-      id: 'ly-1', left: 500, top: 500, width: 200, height: 200, empty: false,
+      id: 'ly-1', title: '', bg: '', border: '', left: 500, top: 500, width: 200, height: 200, empty: false,
     }
     const { result } = renderHook(() =>
       useContextMenuActions(
@@ -145,7 +145,7 @@ describe('DIAG-3.12-05: handleAddElement auto-assigns layer', () => {
 describe('DIAG-3.12-08: handleAddLayer places non-overlapping layer', () => {
   it('creates a layer with snapped position and no overlap with existing layers', () => {
     const setters = makeSetters()
-    const occupied: RegionBounds = { id: 'ly-existing', left: 0, top: 0, width: 400, height: 300, empty: false }
+    const occupied: RegionBounds = { id: 'ly-existing', title: '', bg: '', border: '', left: 0, top: 0, width: 400, height: 300, empty: false }
     const { result } = renderHook(() =>
       useContextMenuActions(
         makeContextMenu(100, 100), [occupied], emptyNodes,

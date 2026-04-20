@@ -217,7 +217,7 @@ describe('DIAG-3.13-13: NodeProperties — condition size selector', () => {
 describe('DIAG-3.13-14: NodeProperties — incoming connections list', () => {
   it('lists the incoming connection source node label', () => {
     const src: NodeData = { id: 's1', label: 'Gateway', icon: Database as unknown as NodeData['icon'], x: 0, y: 0, w: 120, layer: '' }
-    const inConn: Connection = { id: 'c1', from: 's1', to: 'n1', fromAnchor: 'right', toAnchor: 'left', color: '#000', label: '' }
+    const inConn: Connection = { id: 'c1', from: 's1', to: 'n1', fromAnchor: 'right-0', toAnchor: 'left-0', color: '#000', label: '' }
     render(<NodeProperties {...baseProps({ nodes: [node, src], connections: [inConn] })} />)
     // ExpandableListRow shows the count; expand to see names
     // The row header shows "In" and the count
@@ -228,7 +228,7 @@ describe('DIAG-3.13-14: NodeProperties — incoming connections list', () => {
 describe('DIAG-3.13-15: NodeProperties — outgoing connections list', () => {
   it('lists the outgoing connection destination node label', () => {
     const dst: NodeData = { id: 'd1', label: 'Database', icon: Database as unknown as NodeData['icon'], x: 300, y: 0, w: 120, layer: '' }
-    const outConn: Connection = { id: 'c2', from: 'n1', to: 'd1', fromAnchor: 'right', toAnchor: 'left', color: '#000', label: '' }
+    const outConn: Connection = { id: 'c2', from: 'n1', to: 'd1', fromAnchor: 'right-0', toAnchor: 'left-0', color: '#000', label: '' }
     render(<NodeProperties {...baseProps({ nodes: [node, dst], connections: [outConn] })} />)
     expect(screen.getByText(/^Out$/)).toBeTruthy()
   })
@@ -239,7 +239,7 @@ describe('DIAG-3.13-15: NodeProperties — outgoing connections list', () => {
 describe('DIAG-3.13-17: NodeProperties — member flows list', () => {
   it('shows the Flows section when the node is part of a flow', () => {
     const dst: NodeData = { id: 'd1', label: 'DB', icon: Database as unknown as NodeData['icon'], x: 300, y: 0, w: 120, layer: '' }
-    const conn2: Connection = { id: 'cx', from: 'n1', to: 'd1', fromAnchor: 'right', toAnchor: 'left', color: '#000', label: '' }
+    const conn2: Connection = { id: 'cx', from: 'n1', to: 'd1', fromAnchor: 'right-0', toAnchor: 'left-0', color: '#000', label: '' }
     const flow: FlowDef = { id: 'f1', name: 'Main Flow', connectionIds: ['cx'] }
     render(<NodeProperties {...baseProps({ nodes: [node, dst], connections: [conn2], flows: [flow] })} />)
     // "Flows" appears as both Section title and ExpandableListRow label

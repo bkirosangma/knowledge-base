@@ -23,7 +23,7 @@ const layerDef: LayerDef = { id: 'L1', title: 'Database', bg: '#fff', border: '#
 
 const connection: Connection = {
   id: 'c1', from: 'n1', to: 'n2',
-  fromAnchor: 'right', toAnchor: 'left',
+  fromAnchor: 'right-0', toAnchor: 'left-0',
   color: '#000', label: '',
 }
 
