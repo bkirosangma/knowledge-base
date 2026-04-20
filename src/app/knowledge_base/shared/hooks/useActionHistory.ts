@@ -111,6 +111,9 @@ export function useActionHistory() {
   const entriesRef = useRef<HistoryEntry[]>([]);
   const indexRef = useRef(-1);
   const savedIndexRef = useRef(0);
+  // True only when the saved entry was pinned at index 0 because pruning would
+  // have discarded it. While true, undo is blocked from reaching index 0.
+  const savedEntryPinnedRef = useRef(false);
   const nextIdRef = useRef(0);
   const checksumRef = useRef("");
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
@@ -125,7 +128,8 @@ export function useActionHistory() {
   const entries = entriesRef.current;
   const currentIndex = indexRef.current;
   const savedIndex = savedIndexRef.current;
-  const minUndoIndex = (savedIndexRef.current === 0 && entriesRef.current.length > 1) ? 1 : 0;
+  const savedEntryPinned = savedEntryPinnedRef.current;
+  const minUndoIndex = savedEntryPinnedRef.current ? 1 : 0;
   const canUndo = indexRef.current > minUndoIndex;
   const canRedo = indexRef.current < entriesRef.current.length - 1;
 
@@ -170,6 +174,7 @@ export function useActionHistory() {
         entriesRef.current = capped;
         indexRef.current = capped.length - 1;
         savedIndexRef.current = 0;
+        savedEntryPinnedRef.current = true;
       } else {
         const capped = next.slice(pruned);
         entriesRef.current = capped;
@@ -186,8 +191,7 @@ export function useActionHistory() {
 
   /** Undo — returns snapshot to restore, or null if can't undo */
   const undo = useCallback((): DiagramSnapshot | null => {
-    // If saved entry is pinned at index 0, undo stops at index 1
-    const minIndex = (savedIndexRef.current === 0 && entriesRef.current.length > 1) ? 1 : 0;
+    const minIndex = savedEntryPinnedRef.current ? 1 : 0;
     if (indexRef.current <= minIndex) return null;
     indexRef.current -= 1;
     const snapshot = entriesRef.current[indexRef.current]?.snapshot ?? null;
@@ -241,6 +245,7 @@ export function useActionHistory() {
       entriesRef.current = [entry];
       indexRef.current = 0;
       savedIndexRef.current = 0;
+      savedEntryPinnedRef.current = false;
       tick();
       return;
     }
@@ -253,6 +258,7 @@ export function useActionHistory() {
       entriesRef.current = histFile.entries;
       indexRef.current = Math.min(histFile.currentIndex, histFile.entries.length - 1);
       savedIndexRef.current = Math.min(histFile.savedIndex ?? 0, histFile.entries.length - 1);
+      savedEntryPinnedRef.current = false;
     } else {
       // Checksum mismatch or no history — fresh start
       const entry: HistoryEntry = {
@@ -264,6 +270,7 @@ export function useActionHistory() {
       entriesRef.current = [entry];
       indexRef.current = 0;
       savedIndexRef.current = 0;
+      savedEntryPinnedRef.current = false;
       scheduleSave();
     }
     tick();
@@ -273,6 +280,7 @@ export function useActionHistory() {
   const onSave = useCallback((diagramJson: string) => {
     checksumRef.current = fnv1a(diagramJson);
     savedIndexRef.current = indexRef.current;
+    savedEntryPinnedRef.current = false;
     tick();
     scheduleSave();
   }, [tick, scheduleSave]);
@@ -283,6 +291,7 @@ export function useActionHistory() {
     entriesRef.current = [];
     indexRef.current = -1;
     savedIndexRef.current = -1;
+    savedEntryPinnedRef.current = false;
     dirHandleRef.current = null;
     activeFileRef.current = null;
     checksumRef.current = "";
@@ -303,6 +312,7 @@ export function useActionHistory() {
     entries,
     currentIndex,
     savedIndex,
+    savedEntryPinned,
     canUndo,
     canRedo,
     recordAction,
