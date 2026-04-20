@@ -27,6 +27,7 @@ export interface TreeNodeRowProps {
   editValue: string;
   expandedFolders: Set<string>;
   dragOverPath: string | null;
+  rightClickedPath: string | null;
   dirtyFiles: Set<string>;
   leftPaneFile: string | null;
   rightPaneFile: string | null;
@@ -95,6 +96,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     editValue,
     expandedFolders,
     dragOverPath,
+    rightClickedPath,
     dirtyFiles,
     leftPaneFile,
     rightPaneFile,
@@ -124,14 +126,17 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
   const isEditing = editingPath === node.path;
   const indent = depth * 16;
   const isDragOver = dragOverPath === node.path;
+  const isRightClicked = rightClickedPath === node.path;
 
   if (node.type === "folder") {
     const isExpanded = expandedFolders.has(node.path);
     return (
       <div key={node.path}>
         <div
-          className={`group flex items-center gap-1 py-1 cursor-pointer hover:bg-slate-50 text-xs text-slate-700 select-none ${
-            isDragOver ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
+          data-tree-node
+          className={`group flex items-center gap-1 py-1 cursor-pointer text-xs text-slate-700 select-none ${
+            isDragOver ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" :
+            isRightClicked ? "bg-slate-100" : "hover:bg-slate-50"
           }`}
           style={{ paddingLeft: indent + 8 }}
           onClick={() => toggleFolder(node.path)}
@@ -220,6 +225,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
         </div>
       ) : (
         <div
+          data-tree-node
           className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
             leftPaneFile === node.path && rightPaneFile === node.path
               ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"

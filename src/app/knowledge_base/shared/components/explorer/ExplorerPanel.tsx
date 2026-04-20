@@ -279,6 +279,8 @@ export default function ExplorerPanel({
 
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors";
 
+  const rightClickedPath = contextMenu?.type === "folder" ? contextMenu.path : null;
+
   const renderNode = (node: TreeNode, depth: number) => (
     <TreeNodeRow
       key={node.path}
@@ -288,6 +290,7 @@ export default function ExplorerPanel({
       editValue={editValue}
       expandedFolders={expandedFolders}
       dragOverPath={dragOverPath}
+      rightClickedPath={rightClickedPath}
       dirtyFiles={dirtyFiles}
       leftPaneFile={leftPaneFile}
       rightPaneFile={rightPaneFile}
@@ -378,7 +381,15 @@ export default function ExplorerPanel({
               />
 
               {/* Tree */}
-              <div className="flex-1 overflow-y-auto py-1" onContextMenu={(e) => e.preventDefault()}>
+              <div
+                className="flex-1 overflow-y-auto py-1"
+                onContextMenu={(e) => {
+                  if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[data-tree-node]') === null) {
+                    e.preventDefault();
+                    setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: "", name: directoryName! });
+                  }
+                }}
+              >
                 {isLoading ? (
                   <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
                 ) : tree.length === 0 ? (
