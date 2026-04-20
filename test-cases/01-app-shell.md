@@ -34,8 +34,8 @@
 - **SHELL-1.2-17** 🟡 **"Don't ask again" persists** — the checkbox reports via `onDontAskChange`; the caller writes the flag (`useFileActions.handleDiscard` short-circuit is tested in useFileActions.test.ts).
 - **SHELL-1.2-18** ✅ **Split toggle enters split view** — click on the split button (when `onToggleSplit` is provided) fires the callback; button appears with `title="Split view"` when `isSplit=false`.
 - **SHELL-1.2-19** ✅ **Split toggle exits split view** — `isSplit=true` swaps the `title` to `"Exit split view"`; same callback toggles the flag externally.
-- **SHELL-1.2-20** ❌ **`Cmd/Ctrl+S` triggers save** — keyboard shortcut lives in `useKeyboardShortcuts`.
-- **SHELL-1.2-21** ❌ **`Cmd/Ctrl+S` noop when clean** — same.
+- **SHELL-1.2-20** 🧪 **`Cmd/Ctrl+S` triggers save** — keyboard shortcut lives in `useKeyboardShortcuts`; covered as part of DOC-4.11-03 in `e2e/documentGoldenPath.spec.ts`.
+- **SHELL-1.2-21** 🧪 **`Cmd/Ctrl+S` noop when clean** — pressing Cmd+S without editing leaves the file on disk unchanged. _(e2e: `e2e/documentGoldenPath.spec.ts`)_
 - **SHELL-1.2-22** ✅ **Switching files from dirty diagram autosaves previous file** — `handleLoadFile` in `shared/hooks/useFileActions.ts` now flushes the outgoing file's dirty state via `fileExplorer.saveFile` before selecting the new one (skipped when no active file, not dirty, or re-selecting the same file). — e2e/diagramGoldenPath.spec.ts
 - **SHELL-1.2-23** ✅ **Document pane `PaneTitle` is read-only** — when `onTitleChange` is omitted the `<h1>` does not switch to an input on click. Document panes pass no `onTitleChange`; editing happens in the editor body, and the displayed H1 updates automatically on the next debounce tick.
 - **SHELL-1.2-24** ✅ **Dirty dot suppressed without Save/Discard** — when neither `onSave` nor `onDiscard` is provided, the dirty dot does not render even if `isDirty` is true. Keeps stray dots off any static-title host that happens to receive `isDirty` transitively.
@@ -90,7 +90,7 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.6-04** ✅ **Right-side action slot renders** — `children` prop is rendered after the Read Mode toggle.
 - **SHELL-1.6-05** ✅ **PaneTitle edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit.
 - **SHELL-1.6-06** ✅ **PaneTitle edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
-- **SHELL-1.6-07** ❌ **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`.
+- **SHELL-1.6-07** 🧪 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`. _(e2e: `e2e/goldenPath.spec.ts`)_
 
 ## 1.7 Error Surface (Phase 5c)
 

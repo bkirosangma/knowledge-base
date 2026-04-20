@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TableRow from '@tiptap/extension-table-row'
@@ -18,6 +18,9 @@ let editorInstance: Editor | null = null
 
 function TableEditorHost() {
   const containerRef = useRef<HTMLDivElement>(null)
+  // Re-render on every transaction so child components (TableFloatingToolbar)
+  // pick up editor state changes (e.g. isEditable) made between transactions.
+  const [, forceUpdate] = useState(0)
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -28,6 +31,7 @@ function TableEditorHost() {
     ],
     content: '<p>seed</p>',
     immediatelyRender: false,
+    onTransaction: () => forceUpdate((n) => n + 1),
   })
   editorInstance = editor
   if (!editor) return null
@@ -164,6 +168,31 @@ describe('TableFloatingToolbar — header operations (DOC-4.6-10, 4.6-11)', () =
     await waitFor(() => {
       expect(editorInstance!.getHTML().includes('<th')).toBe(!hadHeaders)
     })
+  })
+})
+
+describe('TableFloatingToolbar — readOnly mode (DOC-4.12-02)', () => {
+  it('DOC-4.12-02: toolbar disappears when editor becomes non-editable', async () => {
+    render(<TableEditorHost />)
+    await waitFor(() => editorInstance !== null)
+    await insertTableAndFocus()
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Add row above' })).not.toBeNull(),
+    )
+
+    await act(async () => {
+      editorInstance!.setEditable(false)
+      // setEditable emits Tiptap's 'update' event, not 'transaction', so the
+      // component's transaction listener won't re-render it automatically. A
+      // no-op dispatch triggers 'transaction' so the render guard picks up the
+      // updated isEditable state.
+      editorInstance!.view.dispatch(editorInstance!.state.tr)
+    })
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Add row above' })).toBeNull(),
+    )
   })
 })
 

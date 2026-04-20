@@ -113,7 +113,6 @@ describe('LinkEditorPopover — link mark mode (DOC-4.7-01)', () => {
   })
 
   it('DOC-4.7-09: Escape key reverts URL draft to original value', async () => {
-    const user = userEvent.setup()
     render(
       <LinkEditorHost
         initialContent='<p><a href="https://example.com">link text</a></p>'
@@ -124,14 +123,16 @@ describe('LinkEditorPopover — link mark mode (DOC-4.7-01)', () => {
 
     const input = await screen.findByDisplayValue('https://example.com') as HTMLInputElement
 
-    // userEvent.click focuses the input, then clear+type simulates real editing.
-    await user.click(input)
-    await user.clear(input)
-    await user.type(input, 'https://modified.com')
-    await waitFor(() => expect(input.value).toBe('https://modified.com'))
+    // Change the draft without committing (stay in the input).
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'https://modified.com' } })
+    })
+    expect(input.value).toBe('https://modified.com')
 
     // Escape should revert the draft without committing to the editor.
-    await user.keyboard('{Escape}')
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Escape' })
+    })
 
     await waitFor(() => expect(input.value).toBe('https://example.com'))
   })
@@ -178,6 +179,29 @@ describe('LinkEditorPopover — link mark mode (DOC-4.7-01)', () => {
     await waitFor(() => {
       expect(editorRef!.getHTML()).not.toContain('<a ')
     })
+  })
+})
+
+describe('LinkEditorPopover — readOnly mode (DOC-4.12-03)', () => {
+  it('DOC-4.12-03: popover disappears when editor becomes non-editable', async () => {
+    render(
+      <LinkEditorHost initialContent='<p><a href="https://example.com">link text</a></p>' />,
+    )
+    await waitForEditor()
+    await focusInsideLink(3)
+
+    await waitFor(() => expect(screen.queryByText('URL')).not.toBeNull())
+
+    await act(async () => {
+      editorRef!.setEditable(false)
+      // setEditable emits Tiptap's 'update' event, not 'transaction', so the
+      // forceUpdate listener won't re-render the host automatically. A no-op
+      // dispatch triggers 'transaction' so the useMemo deps re-evaluate and
+      // return null (target = null → popover hides).
+      editorRef!.view.dispatch(editorRef!.state.tr)
+    })
+
+    await waitFor(() => expect(screen.queryByText('URL')).toBeNull())
   })
 })
 

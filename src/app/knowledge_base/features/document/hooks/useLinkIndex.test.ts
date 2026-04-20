@@ -208,6 +208,28 @@ describe('renameDocumentInIndex (DOC-4.10-09)', () => {
   })
 })
 
+describe('rename → save → reload round-trip (LINK-5.4-04)', () => {
+  it('LINK-5.4-04: index on disk reflects rename after renameDocumentInIndex', async () => {
+    // Instance A: populate then rename.
+    const { result: a } = renderHook(() => useLinkIndex())
+    await act(async () => {
+      await a.current.updateDocumentLinks(asRoot(root), 'ref.md', '[[target]]')
+    })
+    await act(async () => {
+      await a.current.renameDocumentInIndex(asRoot(root), 'target.md', 'target2.md')
+    })
+
+    // Instance B: fresh load from disk — simulates app reload.
+    const { result: b } = renderHook(() => useLinkIndex())
+    let loaded: LinkIndex | null = null
+    await act(async () => { loaded = await b.current.loadIndex(asRoot(root)) })
+
+    expect(loaded!.backlinks['target2.md']).toBeDefined()
+    expect(loaded!.backlinks['target.md']).toBeUndefined()
+    expect(loaded!.documents['ref.md'].outboundLinks[0].targetPath).toBe('target2.md')
+  })
+})
+
 describe('getBacklinksFor (DOC-4.10-10)', () => {
   it('returns the list of sources for the given target path', async () => {
     const { result } = renderHook(() => useLinkIndex())

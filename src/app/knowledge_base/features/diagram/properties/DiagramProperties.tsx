@@ -158,7 +158,7 @@ function FlowGroup({
   );
 }
 
-export function ArchitectureProperties({
+export function DiagramProperties({
   title, regions, nodes, connections, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
   flows, onHoverFlow, onSelectFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,

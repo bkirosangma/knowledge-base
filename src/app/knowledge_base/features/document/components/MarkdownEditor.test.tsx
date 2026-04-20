@@ -225,6 +225,42 @@ describe('MarkdownEditor — Horizontal rule (DOC-4.5-17)', () => {
   })
 })
 
+// ── Placeholder (DOC-4.2-17) ────────────────────────────────────────────────
+
+describe('MarkdownEditor — placeholder (DOC-4.2-17)', () => {
+  it('DOC-4.2-17: empty document has a data-placeholder attribute set to "Start writing..."', async () => {
+    const { container } = renderEditor({ content: '' })
+    await waitFor(() => expect(proseMirror(container)).not.toBeNull())
+    await waitFor(() => {
+      const el = container.querySelector('[data-placeholder]')
+      expect(el).not.toBeNull()
+      expect(el!.getAttribute('data-placeholder')).toBe('Start writing...')
+    })
+  })
+})
+
+// ── Blur flush (DOC-4.1-07) ─────────────────────────────────────────────────
+
+describe('MarkdownEditor — blur flush (DOC-4.1-07)', () => {
+  it('DOC-4.1-07: blur flushes a pending debounced onChange before the 200 ms timer fires', async () => {
+    const onChange = vi.fn()
+    const { container } = renderEditor({ content: 'plain paragraph', onChange })
+    await waitFor(() => expect(document.querySelector('.ProseMirror')).not.toBeNull())
+    // Let any init-transaction debounce expire so the mock starts clean.
+    await new Promise((r) => setTimeout(r, 300))
+    onChange.mockClear()
+
+    // Queue a debounced onChange via a toolbar button.
+    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Heading 2')) })
+    // Timer is running (200 ms); onChange should NOT have fired yet.
+    expect(onChange).not.toHaveBeenCalled()
+
+    // Blur the ProseMirror surface — the Tiptap blur listener flushes synchronously.
+    await act(async () => { fireEvent.blur(proseMirror(container)) })
+    expect(onChange).toHaveBeenCalled()
+  })
+})
+
 // ── Content sync (DOC-4.5-24..26) ──────────────────────────────────────────
 
 describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {

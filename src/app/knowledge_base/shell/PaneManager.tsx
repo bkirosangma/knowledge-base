@@ -70,6 +70,11 @@ export function usePaneManager() {
     setFocusedSide(right ? focused : "left");
   }, []);
 
+  const renamePanePath = useCallback((oldPath: string, newPath: string) => {
+    setLeftPane((prev) => prev?.filePath === oldPath ? { ...prev, filePath: newPath } : prev);
+    setRightPane((prev) => prev?.filePath === oldPath ? { ...prev, filePath: newPath } : prev);
+  }, []);
+
   const closeFocusedPane = useCallback(() => {
     if (!isSplit) {
       setLeftPane(null);
@@ -104,6 +109,7 @@ export function usePaneManager() {
     enterSplit,
     exitSplit,
     closeFocusedPane,
+    renamePanePath,
     restoreLayout,
     lastClosedPane,
     setLastClosedPane,
