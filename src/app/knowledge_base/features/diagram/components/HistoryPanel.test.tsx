@@ -5,13 +5,13 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 import HistoryPanel from './HistoryPanel'
-import type { HistoryEntry } from '../../../shared/hooks/useActionHistory'
+import type { HistoryEntry, DiagramSnapshot } from '../../../shared/hooks/useDiagramHistory'
 
 // Covers DIAG-3.16-10 (lists entries) and DIAG-3.16-11 (click reverts).
 
-const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] } as unknown as HistoryEntry['snapshot']
+const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] } as unknown as DiagramSnapshot
 
-function makeEntries(n: number): HistoryEntry[] {
+function makeEntries(n: number): HistoryEntry<DiagramSnapshot>[] {
   return Array.from({ length: n }, (_, i) => ({
     id: i,
     description: `Action ${i}`,

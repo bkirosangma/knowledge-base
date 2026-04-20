@@ -46,8 +46,8 @@ import { detectContextMenuTarget } from "./utils/geometry";
 import { useFooterContext } from "../../shell/FooterContext";
 import { getConditionDimensions } from "./utils/conditionGeometry";
 import { loadDiagramFromData } from "../../shared/utils/persistence";
-import { useActionHistory } from "../../shared/hooks/useActionHistory";
-import type { DiagramSnapshot } from "../../shared/hooks/useActionHistory";
+import { useDiagramHistory } from "../../shared/hooks/useDiagramHistory";
+import type { DiagramSnapshot } from "../../shared/hooks/useDiagramHistory";
 import { useSyncRef } from "../../shared/hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
@@ -210,7 +210,7 @@ export default function DiagramView({
   } | null>(null);
 
   // ─── History ───
-  const history = useActionHistory();
+  const history = useDiagramHistory();
   const pendingRecord = useRef<string | null>(null);
   const isRestoringRef = useRef(false);
 

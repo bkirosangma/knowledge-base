@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { NodeData, Connection, LayerDef, LineCurveAlgorithm, Selection, FlowDef } from "../types";
 import type { AnchorId } from "../utils/anchors";
 import type { LevelMap } from "../utils/levelModel";
-import type { HistoryEntry } from "../../../shared/hooks/useActionHistory";
+import type { HistoryEntry, DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
@@ -47,7 +47,7 @@ interface PropertiesPanelProps {
   onToggleCollapse?: () => void;
   readOnly?: boolean;
   history?: {
-    entries: HistoryEntry[];
+    entries: HistoryEntry<DiagramSnapshot>[];
     currentIndex: number;
     savedIndex: number;
     canUndo: boolean;

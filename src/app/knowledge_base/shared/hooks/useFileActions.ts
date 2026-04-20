@@ -1,7 +1,7 @@
 import { useCallback, useRef, type MutableRefObject } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef, DocumentMeta } from "../utils/types";
 import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/persistence";
-import type { DiagramSnapshot } from "./useActionHistory";
+import type { DiagramSnapshot } from "./useDiagramHistory";
 import type { useFileExplorer } from "./useFileExplorer";
 
 const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";

@@ -2,10 +2,10 @@
 
 import { useRef, useEffect } from "react";
 import { Undo2, Redo2, ChevronDown, ChevronRight } from "lucide-react";
-import type { HistoryEntry } from "../../../shared/hooks/useActionHistory";
+import type { HistoryEntry, DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 
 interface HistoryPanelProps {
-  entries: HistoryEntry[];
+  entries: HistoryEntry<DiagramSnapshot>[];
   currentIndex: number;
   savedIndex: number;
   canUndo: boolean;
