@@ -195,9 +195,10 @@ describe('ExplorerPanel — folder expand/collapse', () => {
     renderPanel({ tree })
     // Initially children hidden.
     expect(screen.queryByText('inside.md')).toBeNull()
-    fireEvent.click(screen.getByText('docs'))
+    // Use getAllByText: after click, the header breadcrumb also shows 'docs'.
+    fireEvent.click(screen.getAllByText('docs')[0])
     expect(screen.getByText('inside.md')).toBeTruthy()
-    fireEvent.click(screen.getByText('docs'))
+    fireEvent.click(screen.getAllByText('docs').at(-1)!)
     expect(screen.queryByText('inside.md')).toBeNull()
   })
 

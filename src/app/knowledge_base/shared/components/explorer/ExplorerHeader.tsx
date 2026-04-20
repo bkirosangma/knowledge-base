@@ -35,6 +35,7 @@ export interface ExplorerHeaderProps {
 
   // Callbacks
   setContextMenu: (m: ContextMenuState | null) => void;
+  selectedFolderPath: string | null;
   handleCreateFile: (parentPath?: string) => void;
   handleCreateDocument: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
@@ -67,6 +68,7 @@ export default function ExplorerHeader({
   setSortSubMenuOpen,
   dotMenuRef,
   setContextMenu,
+  selectedFolderPath,
   handleCreateFile,
   handleCreateDocument,
   handleCreateFolder,
@@ -95,26 +97,28 @@ export default function ExplorerHeader({
       >
         <Folder size={16} className="text-amber-500 flex-shrink-0" />
         <span className="text-xs font-semibold text-slate-700 truncate flex-1">
-          {directoryName}
+          {selectedFolderPath
+            ? <><span className="text-slate-400 font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
+            : directoryName}
         </span>
         <button
-          onClick={() => handleCreateFile("")}
+          onClick={() => handleCreateFile(selectedFolderPath ?? "")}
           className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Diagram"
+          title={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
         >
           <FilePlus size={14} className="text-slate-500" />
         </button>
         <button
-          onClick={() => handleCreateDocument("")}
+          onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
           className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Document"
+          title={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
         >
           <FileText size={14} className="text-slate-500" />
         </button>
         <button
-          onClick={() => handleCreateFolder("")}
+          onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
           className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Folder"
+          title={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
         >
           <FolderPlus size={14} className="text-slate-500" />
         </button>

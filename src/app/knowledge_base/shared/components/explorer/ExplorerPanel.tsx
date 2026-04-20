@@ -87,6 +87,7 @@ export default function ExplorerPanel({
   const [dotMenuOpen, setDotMenuOpen] = useState(false);
   const [sortSubMenuOpen, setSortSubMenuOpen] = useState(false);
   const [newSubMenuOpen, setNewSubMenuOpen] = useState(false);
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -279,8 +280,6 @@ export default function ExplorerPanel({
 
   const btnClass = "flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] transition-colors";
 
-  const rightClickedPath = contextMenu?.type === "folder" ? contextMenu.path : null;
-
   const renderNode = (node: TreeNode, depth: number) => (
     <TreeNodeRow
       key={node.path}
@@ -290,7 +289,7 @@ export default function ExplorerPanel({
       editValue={editValue}
       expandedFolders={expandedFolders}
       dragOverPath={dragOverPath}
-      rightClickedPath={rightClickedPath}
+      selectedFolderPath={selectedFolderPath}
       dirtyFiles={dirtyFiles}
       leftPaneFile={leftPaneFile}
       rightPaneFile={rightPaneFile}
@@ -301,6 +300,7 @@ export default function ExplorerPanel({
       setEditValue={setEditValue}
       setEditingPath={setEditingPath}
       setContextMenu={setContextMenu}
+      onSelectFolder={setSelectedFolderPath}
       toggleFolder={toggleFolder}
       commitRename={commitRename}
       startRename={startRename}
@@ -369,6 +369,7 @@ export default function ExplorerPanel({
                 setSortSubMenuOpen={setSortSubMenuOpen}
                 dotMenuRef={dotMenuRef}
                 setContextMenu={setContextMenu}
+                selectedFolderPath={selectedFolderPath}
                 handleCreateFile={handleCreateFile}
                 handleCreateDocument={handleCreateDocument}
                 handleCreateFolder={handleCreateFolder}
@@ -386,6 +387,7 @@ export default function ExplorerPanel({
                 onContextMenu={(e) => {
                   if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[data-tree-node]') === null) {
                     e.preventDefault();
+                    setSelectedFolderPath(null);
                     setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: "", name: directoryName! });
                   }
                 }}
