@@ -41,7 +41,7 @@
 - **PERSIST-7.3-01** 🟡 **Diagrams saved as `.json`.** — the picker/save flow enforces `.json` in `useFileActions` (integration-only); not yet pinned as a unit assertion.
 - **PERSIST-7.3-02** 🟡 **Documents saved as `.md`.** — same scope as 7.3-01; markdown (de)serialisation itself is covered by DOC-4.4-01..22.
 - **PERSIST-7.3-03** ✅ **History sidecars at `.<name>.history.json`** — hidden (dot-prefix). Covered by HOOK-6.1-09 in `useActionHistory.test.ts`.
-- **PERSIST-7.3-04** 🟡 **Vault config at `.archdesigner/config.json`.** — path constant lives in `vaultConfig.ts`; vaultConfig load/save tested in `vaultConfig.test.ts` (paths implicit in mock calls).
+- **PERSIST-7.3-04** ✅ **Vault config at `.archdesigner/config.json`.** — `initVault` writes to `.archdesigner/config.json` and `loadVaultConfig` reads from it; both paths directly asserted in FS-2.2-01 in `vaultConfig.test.ts`.
 - **PERSIST-7.3-05** ✅ **Link index at `.archdesigner/_links.json`.** — DOC-4.10-01 reads from that exact path.
 - **PERSIST-7.3-06** ✅ **Graphify cross-refs at `.archdesigner/cross-references.json`.** — LINK-5.3-01 in `graphifyBridge.test.ts`.
 - **PERSIST-7.3-07** ✅ **`.archdesigner/` folder created on first save that needs it.** — `graphifyBridge.test.ts` "creates the .archdesigner directory if it does not exist".
@@ -58,7 +58,7 @@
 ### 7.3.c Failure modes
 - **PERSIST-7.3-15** 🚫 **Revoked permission surfaces error.** — requires a real browser to simulate File System Access permission revocation; covered at the Playwright layer when a mock is in place (Bucket 25).
 - **PERSIST-7.3-16** 🚫 **Partial write retry.** — no retry logic in the codebase; this is an explicit non-feature. Open a product ticket if retry semantics are desired.
-- **PERSIST-7.3-17** 🟡 **External rename detection via FNV-1a** — `fnv1a` hash is module-private in `useActionHistory.ts`; HOOK-6.1-09 exercises the sidecar naming (which uses the hash) end-to-end.
+- **PERSIST-7.3-17** ✅ **External rename detection via FNV-1a** — checksum match restores history (HOOK-6.1-07) and mismatch discards stale sidecar and starts fresh (HOOK-6.1-08); both covered in `useActionHistory.test.ts` with a FS mock that returns prepared JSON.
 
 ## 7.4 Draft ↔ Disk Interaction
 

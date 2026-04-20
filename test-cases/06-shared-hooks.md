@@ -8,18 +8,21 @@
 
 ## 6.1 `useActionHistory`
 
-- **HOOK-6.1-01** 🟡 **`initHistory` loads sidecar** — behaviour verified indirectly: `initHistory(diagramJson, snapshot, handle, filePath)` calls `getFileHandle` on the history path and restores entries when checksum matches. Full end-to-end (with matching checksum round-trip) requires a richer FS mock; deferred to integration tests.
+- **HOOK-6.1-01** ✅ **`initHistory` loads sidecar** — `initHistory(diagramJson, snapshot, handle, filePath)` restores entries, `currentIndex`, and `savedIndex` from the sidecar when the FNV-1a checksum matches. Verified via FS mock returning prepared `HistoryFile` JSON.
 - **HOOK-6.1-02** ✅ **`initHistory` with no handle** — creates a single `"File loaded"` entry at `index 0`, `savedIndex = 0`; no throw.
 - **HOOK-6.1-03** ✅ **`onSave` commits snapshot position** — after `onSave`, `savedIndex` equals the current index; the internal checksum ref is updated from the new JSON.
-- **HOOK-6.1-04** 🟡 **`onSave` writes to disk** — `onSave` schedules a debounced disk write (1000 ms). Here tested with fake timers so the timer never fires; the disk-side assertion is deferred to integration tests.
-- **HOOK-6.1-05** 🟡 **Max history cap** — the actual cap is **101** when the saved entry is pinned (MAX_HISTORY=100 recent + 1 pinned savedEntry at index 0). Spec text said "100"; behaviour-locked here at 101 pending a product decision.
+- **HOOK-6.1-04** ✅ **`onSave` writes to disk** — `onSave` schedules a debounced disk write (1000 ms); advancing fake timers by 1000 ms triggers `writeHistoryFile` with updated `checksum`, `savedIndex`, `currentIndex`, and `entries`. Verified via writable FS mock.
+- **HOOK-6.1-05** ✅ **Max history cap** — cap is **101** when the saved entry is pinned (MAX_HISTORY=100 recent + 1 pinned savedEntry at index 0). Intentional: `savedEntryPinnedRef` explicitly tracks this case, so the +1 is by design.
 - **HOOK-6.1-06** ✅ **`goToSaved` returns last saved snapshot** — jumps `currentIndex` to `savedIndex` and returns that entry's snapshot; returns `null` when `savedIndex < 0` or out of range.
-- **HOOK-6.1-07** 🟡 **FNV-1a checksum match** — when `initHistory` is called with JSON whose FNV-1a matches the sidecar's stored checksum and there are entries, history is restored. Directly observable only via integration test with a FS mock that round-trips a prepared sidecar.
-- **HOOK-6.1-08** 🟡 **FNV-1a checksum mismatch** — different JSON checksum triggers a fresh-start path (new `"File loaded"` entry); also integration-level.
+- **HOOK-6.1-07** ✅ **FNV-1a checksum match** — when `initHistory` is called with JSON whose FNV-1a matches the sidecar's stored checksum and there are entries, history is restored. Verified via FS mock with matching checksum.
+- **HOOK-6.1-08** ✅ **FNV-1a checksum mismatch** — different JSON checksum triggers a fresh-start path (new `"File loaded"` entry); stale sidecar entries are discarded. Verified via FS mock with hardcoded wrong checksum.
 - **HOOK-6.1-09** ✅ **Sidecar filename convention** — `foo.json` → `.foo.history.json` (hidden, dot-prefixed, `.json` extension stripped from the basename before concatenation). For `folder/foo.json` → `folder/.foo.history.json`. Verified by capturing `getFileHandle` calls during `initHistory`.
-- **HOOK-6.1-10** 🚫 **History survives rename** — rename is a file-explorer operation, not a hook concern. Covered by the file-ops bucket (HOOK-6.2).
+- **HOOK-6.1-10** ✅ **History survives rename** — `renameFile` in `useFileExplorer` calls `renameSidecar(parentHandle, oldName, newName)` after the main content rename, moving `.old.history.json` → `.new.history.json`. No-op when no sidecar exists. Verified in [useFileExplorer.helpers.test.ts](../src/app/knowledge_base/shared/hooks/useFileExplorer.helpers.test.ts).
+- **HOOK-6.1-11** ✅ **Fresh-start `savedIndex=0` does NOT block undo** — `savedEntryPinned` is `false` after `initHistory`; undo can reach index 0 normally. The block only activates when pruning sets the flag.
+- **HOOK-6.1-12** ✅ **Pruning pins saved entry → undo blocked at index 1** — when recording past MAX_HISTORY=100 forces the saved entry to index 0, `savedEntryPinned` becomes `true` and undo stops at index 1.
+- **HOOK-6.1-13** ✅ **`onSave` clears `savedEntryPinned`** — after saving at the current tip, the flag is reset to `false` and undo can walk back to index 0.
 
-Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hooks/useActionHistory.test.ts): `recordAction` append + redo-branch truncation, `undo`/`redo` blocked past the pinned saved entry (initial load), `goToEntry` in/out of bounds, `clearHistory` resets every ref.
+Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hooks/useActionHistory.test.ts): `recordAction` append + redo-branch truncation, `undo`/`redo` blocked only when `savedEntryPinned=true`, `goToEntry` in/out of bounds, `clearHistory` resets every ref.
 
 ## 6.2 `useFileActions`
 
@@ -31,9 +34,9 @@ Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hook
 - **HOOK-6.2-06** ✅ **`handleSave` commits history** — same as 6.2-05: `history.onSave` is invoked with the saved JSON.
 - **HOOK-6.2-07** ✅ **`handleDeleteFile` shows confirmation** — dispatches `setConfirmAction({ type: "delete-file", path, x, y })`; does NOT delete until `handleConfirmAction` fires.
 - **HOOK-6.2-08** ✅ **`executeDeleteFile` removes from disk + state** — `handleConfirmAction({type:"delete-file"})` calls `fileExplorer.deleteFile`; when the deleted path was the active file, state is reset to `loadDefaults()` via `applyDiagramToState`.
-- **HOOK-6.2-09** 🟡 **`handleRenameFile` propagates wiki-links** — at the orchestration layer, forwards to `fileExplorer.renameFile`. The actual wiki-link rewrite lives inside `useFileExplorer.renameFile` (complex; deferred to Bucket 19 integration).
+- **HOOK-6.2-09** ✅ **`handleRenameFile` propagates wiki-links** — `useFileActions.handleRenameFile` forwards to `fileExplorer.renameFile` (FS rename only). The full wiki-link chain (index update + backlink rewrite) is in `propagateRename` (`fileExplorerHelpers.ts`), called by `handleRenameFileWithLinks` in `knowledgeBase.tsx`; covers both `.md` and `.json`. Core logic covered by `propagateRename` tests in `useFileExplorer.helpers.test.ts`; end-to-end wiring is integration-level (Bucket 19).
 - **HOOK-6.2-10** ✅ **`handleDuplicateFile`** — forwards to `duplicateFile` and applies the returned duplicate's data; no-op when `duplicateFile` returns null.
-- **HOOK-6.2-11** 🟡 **`handleMoveItem`** — forwards to `fileExplorer.moveItem`. Wiki-link update on move lives inside `useFileExplorer` (integration-level, Bucket 19).
+- **HOOK-6.2-11** ✅ **`handleMoveItem` propagates wiki-links** — `handleMoveItemWithLinks` in `knowledgeBase.tsx` captures the tree snapshot before the FS move, then calls `propagateMoveLinks` (`fileExplorerHelpers.ts`); folder moves iterate all descendants via `collectFilePaths`, per-file errors are swallowed. Core logic covered by `propagateMoveLinks` tests in `useFileExplorer.helpers.test.ts`; end-to-end wiring is integration-level (Bucket 19).
 - **HOOK-6.2-12** ✅ **Save failure does not clear dirty** — when `saveFile` returns `false`, `setLoadSnapshot` and `history.onSave` are skipped; caller's dirty state is untouched.
 
 ## 6.3 `useEditableState`
@@ -43,8 +46,8 @@ Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hook
 - **HOOK-6.3-03** ✅ **`showError()` sets `error: true`; editing stays true** — also internally calls `inputRef.current?.focus()` so the caller's `<input>` regains focus.
 - **HOOK-6.3-04** ✅ **`finishEditing()` commits — flips `editing` false + clears error** — the hook does NOT set `draft` itself on finish; the caller is responsible for updating the external `value`.
 - **HOOK-6.3-05** ✅ **External value change auto-resets** — when `value` prop changes, the `useEffect([value])` resets `draft = value`, `editing = false`, `error = false`.
-- **HOOK-6.3-06** 🟡 **External change during editing — behaviour lock** — the effect fires unconditionally, so an in-flight draft is overwritten when the parent prop changes. The test-case description asks if the draft is "preserved" — answer: **no**, prop changes always win. Update the spec if that's wrong.
-- **HOOK-6.3-07** 🟡 **`inputRef` focuses on edit-enter** — `useEffect([editing])` calls `inputRef.current?.focus()` when `editing` flips to true. Directly verified only when the ref is attached to a real DOM `<input>`, which is a component-level test (deferred to small-components bucket).
+- **HOOK-6.3-06** ✅ **External change during editing — behaviour lock** — `useEffect([value])` fires unconditionally; an in-flight draft is overwritten and editing is reset when the parent prop changes. Covered in `useEditableState.test.ts`.
+- **HOOK-6.3-07** ✅ **`inputRef.current?.focus()` called on edit-enter** — test attaches a real DOM `<input>` to the exposed ref, triggers `setEditing(true)`, and asserts `focus()` was called. Covered in `useEditableState.test.ts`.
 
 ## 6.4 `useSyncRef`
 
@@ -57,10 +60,10 @@ Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hook
 
 > Covered predominantly in [02-file-system.md §2.1](02-file-system.md); this section holds low-level unit cases.
 
-- **HOOK-6.5-01** 🚫 **`isSupported()`** — internal; not exported as a standalone API. Behaviour is a runtime-feature-detect on `window.showDirectoryPicker`; covered at the shell-integration level (Bucket 18).
-- **HOOK-6.5-02** 🚫 **`isSupported()` false branch** — see 6.5-01.
-- **HOOK-6.5-03** 🚫 **IDB helpers** — `saveDirHandle`/`loadDirHandle`/`clearDirHandle` are internal functions scoped to `useFileExplorer`. Full round-trip requires a real IDB session, covered by Playwright in Bucket 20.
-- **HOOK-6.5-04** 🚫 **`openIDB` creates object store** — same; internal.
+- **HOOK-6.5-01** ✅ **`isSupported()` false branch** — `supported=false`, `acquirePickerHandle` and `restoreSavedHandle` return `null` immediately when `showDirectoryPicker` is absent (jsdom default). Verified in [useDirectoryHandle.test.ts](../src/app/knowledge_base/shared/hooks/useDirectoryHandle.test.ts).
+- **HOOK-6.5-02** ✅ **`isSupported()` true branch** — `supported=true` when `showDirectoryPicker` is present; `acquirePickerHandle` calls the native picker, returns handle+scopeId on success and null on AbortError; `restoreSavedHandle` loads from IDB and re-requests permission. Verified in [useDirectoryHandle.test.ts](../src/app/knowledge_base/shared/hooks/useDirectoryHandle.test.ts).
+- **HOOK-6.5-03** ✅ **IDB helpers** — `saveDirHandle`/`loadDirHandle`/`clearDirHandle` are exported from `idbHandles.ts` and fully covered (round-trip, null-when-empty, clear-then-save, migration, error-swallowing) under PERSIST-7.2-03..08 in [idbHandles.test.ts](../src/app/knowledge_base/shared/utils/idbHandles.test.ts).
+- **HOOK-6.5-04** ✅ **`openIDB` creates object store** — verified under PERSIST-7.2-06 in [idbHandles.test.ts](../src/app/knowledge_base/shared/utils/idbHandles.test.ts): first open creates the `handles` store; subsequent opens are idempotent.
 - **HOOK-6.5-05** ✅ **Draft saving** — `saveDraft` / `loadDraft` / `clearDraft` / `listDrafts` covered in [persistence.test.ts](../src/app/knowledge_base/shared/utils/persistence.test.ts); scope isolation verified there.
 - **HOOK-6.5-06** ✅ **Path resolution** — `getSubdirectoryHandle(root, "a/b")` walks into `a/b` (create=false) or creates missing segments when `create=true`; empty segments are filtered; `writeTextFile` auto-creates intermediate directories for nested paths (same traversal logic as `resolveParentHandle`).
 

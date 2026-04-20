@@ -284,10 +284,10 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.16-03** 🟡 **Snapshot on connection edit.** Same.
 - **DIAG-3.16-04** ✅ **Undo restores prior state** — `useActionHistory.test.ts` (HOOK-6.1-05 undo walks back through history).
 - **DIAG-3.16-05** ✅ **Redo reapplies** — `useActionHistory.test.ts` (HOOK-6.1-06 redo re-applies undone entry).
-- **DIAG-3.16-06** 🟡 **Max 100 entries** — cap lives in `useActionHistory`; not yet pinned as a unit test.
+- **DIAG-3.16-06** ✅ **Max 100 entries** — cap is 101 (100 recent + 1 pinned saved entry when pruning occurs); covered by HOOK-6.1-05/12 in `useActionHistory.test.ts`.
 - **DIAG-3.16-07** ✅ **Sidecar file `.<name>.history.json`** — `useActionHistory.test.ts` HOOK-6.1-09.
-- **DIAG-3.16-08** 🟡 **FNV-1a checksum detects external change** — hash is module-private but is invoked in the sidecar-name + init paths exercised by `useActionHistory.test.ts`.
-- **DIAG-3.16-09** 🟡 **`goToSaved()` reverts to last save** — public API exists; the UI "revert" button wiring is canvas-level.
+- **DIAG-3.16-08** ✅ **FNV-1a checksum detects external change** — checksum match restores history (HOOK-6.1-07) and mismatch triggers fresh start (HOOK-6.1-08); both paths directly covered in `useActionHistory.test.ts`.
+- **DIAG-3.16-09** ✅ **`goToSaved()` reverts to last save** — public API covered by HOOK-6.1-06 in `useActionHistory.test.ts`; UI "revert" button wiring remains canvas-level.
 - **DIAG-3.16-10** 🚫 **HistoryPanel lists entries.** Panel component not yet test-covered.
 - **DIAG-3.16-11** 🚫 **HistoryPanel click reverts.** Same.
 - **DIAG-3.16-12** 🚫 **Undo/redo respects read-only.** Canvas integration.

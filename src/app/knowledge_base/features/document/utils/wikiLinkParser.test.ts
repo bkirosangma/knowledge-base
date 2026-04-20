@@ -180,4 +180,11 @@ describe('updateWikiLinkPaths', () => {
     const md = 'only [[other]] here, nothing matches'
     expect(updateWikiLinkPaths(md, 'foo.md', 'bar.md')).toBe(md)
   })
+
+  it('LINK-5.1-08: .json diagram rename — path-agnostic util rewrites [[diag]] links', () => {
+    expect(updateWikiLinkPaths('[[arch]]', 'arch.json', 'infra.json')).toBe('[[infra]]')
+    expect(updateWikiLinkPaths('[[arch#flow]]', 'arch.json', 'infra.json')).toBe('[[infra#flow]]')
+    expect(updateWikiLinkPaths('[[arch|Diagram]]', 'arch.json', 'infra.json')).toBe('[[infra | Diagram]]')
+    expect(updateWikiLinkPaths('[[other.json]]', 'arch.json', 'infra.json')).toBe('[[other.json]]')
+  })
 })

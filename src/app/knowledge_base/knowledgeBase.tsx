@@ -7,8 +7,8 @@ import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
-import { resolveWikiLinkPath, updateWikiLinkPaths } from "./features/document/utils/wikiLinkParser";
-import { readTextFile, writeTextFile } from "./shared/hooks/useFileExplorer";
+import { resolveWikiLinkPath } from "./features/document/utils/wikiLinkParser";
+import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
@@ -76,7 +76,7 @@ function KnowledgeBaseInner() {
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
     diagramBridgeRef.current?.handleRenameFile(oldPath, newName);
 
-    if (!oldPath.endsWith(".md")) return;
+    if (!oldPath.endsWith(".md") && !oldPath.endsWith(".json")) return;
 
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle) return;
@@ -85,26 +85,11 @@ function KnowledgeBaseInner() {
     const newPath = dir ? `${dir}/${newName}` : newName;
 
     try {
-      await linkManager.renameDocumentInIndex(rootHandle, oldPath, newPath);
+      await propagateRename(rootHandle, oldPath, newPath, linkManager);
     } catch (e) {
       reportError(e, `Updating link index after renaming ${oldPath}`);
     }
-
-    const backlinks = linkManager.getBacklinksFor(oldPath);
-    for (const bl of backlinks) {
-      try {
-        const parts = bl.sourcePath.split("/");
-        let dh: FileSystemDirectoryHandle = rootHandle;
-        for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
-        const fh = await dh.getFileHandle(parts[parts.length - 1]);
-        const content = await readTextFile(fh);
-        const updated = updateWikiLinkPaths(content, oldPath, newPath);
-        if (updated !== content) {
-          await writeTextFile(rootHandle, bl.sourcePath, updated);
-        }
-      } catch { /* skip files that can't be read */ }
-    }
-  }, [fileExplorer.dirHandleRef, linkManager]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError]);
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
     diagramBridgeRef.current?.handleDeleteFile(path, event);
@@ -116,6 +101,15 @@ function KnowledgeBaseInner() {
       }
     }
   }, [fileExplorer.dirHandleRef, linkManager]);
+
+  const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
+    // Capture tree snapshot before the FS move triggers a rescan
+    const tree = fileExplorer.tree;
+    await diagramBridgeRef.current?.handleMoveItem(sourcePath, targetFolderPath);
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    await propagateMoveLinks(rootHandle, sourcePath, targetFolderPath, tree, linkManager);
+  }, [fileExplorer.dirHandleRef, fileExplorer.tree, linkManager]);
 
   // ─── Document operations ───
   const handleOpenDocument = useCallback((path: string) => {
@@ -409,7 +403,7 @@ function KnowledgeBaseInner() {
             onRenameFile={handleRenameFileWithLinks}
             onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
             onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
-            onMoveItem={(source, target) => diagramBridgeRef.current?.handleMoveItem(source, target)}
+            onMoveItem={handleMoveItemWithLinks}
             isLoading={fileExplorer.isLoading}
             onRefresh={fileExplorer.refresh}
             sortField={sortPrefs.field}

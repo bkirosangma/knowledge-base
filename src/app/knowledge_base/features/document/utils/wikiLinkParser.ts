@@ -77,12 +77,12 @@ export function updateWikiLinkPaths(
   newPath: string,
 ): string {
   // Strip .md for comparison
-  const oldBase = oldPath.replace(/\.md$/, "");
-  const newBase = newPath.replace(/\.md$/, "");
+  const oldBase = oldPath.replace(/\.(md|json)$/, "");
+  const newBase = newPath.replace(/\.(md|json)$/, "");
   return markdown.replace(WIKI_LINK_REGEX, (fullMatch, inner: string) => {
     const [pathAndSection, displayText] = inner.split("|").map((s: string) => s.trim());
     const [linkPath, section] = pathAndSection.split("#").map((s: string) => s.trim());
-    const normalized = linkPath.replace(/\.md$/, "");
+    const normalized = linkPath.replace(/\.(md|json)$/, "");
     if (normalized === oldBase || normalized === `/${oldBase}`) {
       const prefix = linkPath.startsWith("/") ? "/" : "";
       let replacement = `${prefix}${newBase}`;
