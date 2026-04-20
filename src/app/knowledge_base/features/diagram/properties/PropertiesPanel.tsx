@@ -8,7 +8,7 @@ import type { RegionBounds } from "./shared";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
-import { ArchitectureProperties } from "./ArchitectureProperties";
+import { DiagramProperties } from "./DiagramProperties";
 import HistoryPanel from "../components/HistoryPanel";
 
 interface PropertiesPanelProps {
@@ -121,7 +121,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {(!selection || selection.type === "flow") && (
-          <ArchitectureProperties
+          <DiagramProperties
             title={title}
             regions={regions}
             nodes={nodes}

@@ -11,9 +11,9 @@
 - **DOC-4.1-03** 🟡 **MarkdownPane header shows breadcrumb** — `PaneHeader` breadcrumb rendering is covered by SHELL-1.6-01; mount wiring is integration.
 - **DOC-4.1-04** ❌ **Backlinks dropdown opens.** Integration.
 - **DOC-4.1-05** 🟡 **Read-only toggle in PaneHeader** — toggle is covered by SHELL-1.6-02; Tiptap `setEditable` propagation is integration.
-- **DOC-4.1-06** ❌ **200 ms debounce on serialize.** Integration (timer + editor update).
-- **DOC-4.1-07** ❌ **Flush on blur.** Integration.
-- **DOC-4.1-08** ❌ **Flush on unmount.** Integration.
+- **DOC-4.1-06** ✅ **200 ms debounce on serialize.** (Covered by DOC-4.5-24 in `MarkdownEditor.test.tsx`.)
+- **DOC-4.1-07** ✅ **Flush on blur.** (Covered by DOC-4.1-07 describe in `MarkdownEditor.test.tsx`.)
+- **DOC-4.1-08** ✅ **Flush on unmount.** (Covered by DOC-4.5-25 in `MarkdownEditor.test.tsx`.)
 
 ## 4.2 Tiptap Extensions (StarterKit + ecosystem)
 
@@ -33,7 +33,7 @@
 - **DOC-4.2-14** 🟡 **Table renders** — markdown round-trip covered.
 - **DOC-4.2-15** 🟡 **Image extension** — markdown round-trip covered.
 - **DOC-4.2-16** 🟡 **Link extension** — markdown round-trip covered.
-- **DOC-4.2-17** ❌ **Placeholder renders on empty.** Placeholder extension renders via a decoration; needs live mount.
+- **DOC-4.2-17** ✅ **Placeholder renders on empty.** (Covered by DOC-4.2-17 describe in `MarkdownEditor.test.tsx` — checks `data-placeholder` attribute.)
 - **DOC-4.2-18** ❌ **Code block with lowlight** — highlighting classes emitted only at render time. Integration.
 
 ## 4.3 Custom Extensions
@@ -246,8 +246,8 @@
 ## 4.12 Read-Only Mode (Document)
 
 - **DOC-4.12-01** 🧪 **`readOnly` prop hides toolbar** — lock button click hides Bold/Italic etc.; exit restores them. _(e2e: `documentReadOnly.spec.ts`)_
-- **DOC-4.12-02** ❌ **`readOnly` disables table floating toolbar.** Same.
-- **DOC-4.12-03** ❌ **`readOnly` disables link editor popover.** Same.
+- **DOC-4.12-02** ✅ **`readOnly` disables table floating toolbar.** (Covered by DOC-4.12-02 describe in `TableFloatingToolbar.test.tsx`.)
+- **DOC-4.12-03** ✅ **`readOnly` disables link editor popover.** (Covered by DOC-4.12-03 describe in `LinkEditorPopover.test.tsx`.)
 - **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
 - **DOC-4.12-05** ❌ **Wiki-link click navigates instead of selecting** — see 4.3-15; same NodeView click integration.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.

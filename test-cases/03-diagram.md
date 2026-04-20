@@ -134,11 +134,11 @@
 - **DIAG-3.10-09** ✅ **`findBrokenFlowsByReconnect` true** — reconnecting c2 from (B→C) to (X→Y) detaches the chain → containing flow listed.
 - **DIAG-3.10-10** ✅ **`findBrokenFlowsByReconnect` false** — reconnect that keeps the flow connected (e.g. c2 to B→D still sharing a node with both neighbours) → empty result. `undefined` newFrom/newTo keeps the existing endpoint.
 - **DIAG-3.10-11** ❌ **Flow dots animate.** Requires `requestAnimationFrame` loop + real SVG position; Playwright
-- **DIAG-3.10-12** ✅ **Flow properties: edit name.** — double-click Name row, type, Enter → `onUpdateFlow(id, {name})` called. _(ArchitectureProperties.test.tsx)_
-- **DIAG-3.10-13** ✅ **Flow properties: edit category.** — double-click Category row, type, blur → `onUpdateFlow(id, {category})` called. _(ArchitectureProperties.test.tsx)_
-- **DIAG-3.10-14** ✅ **Flow properties: delete flow.** — clicking "Delete Flow" calls `onDeleteFlow(id)`. _(ArchitectureProperties.test.tsx)_
-- **DIAG-3.10-15** ✅ **ArchitectureProperties — flat grouping.** — when no flow has a category, flows render as a plain list with no group headers. _(ArchitectureProperties.test.tsx)_
-- **DIAG-3.10-16** ✅ **ArchitectureProperties — grouped.** — when flows have categories, category names appear as section headers above their flows. _(ArchitectureProperties.test.tsx)_
+- **DIAG-3.10-12** ✅ **Flow properties: edit name.** — double-click Name row, type, Enter → `onUpdateFlow(id, {name})` called. _(DiagramProperties.test.tsx)_
+- **DIAG-3.10-13** ✅ **Flow properties: edit category.** — double-click Category row, type, blur → `onUpdateFlow(id, {category})` called. _(DiagramProperties.test.tsx)_
+- **DIAG-3.10-14** ✅ **Flow properties: delete flow.** — clicking "Delete Flow" calls `onDeleteFlow(id)`. _(DiagramProperties.test.tsx)_
+- **DIAG-3.10-15** ✅ **DiagramProperties — flat grouping.** — when no flow has a category, flows render as a plain list with no group headers. _(DiagramProperties.test.tsx)_
+- **DIAG-3.10-16** ✅ **DiagramProperties — grouped.** — when flows have categories, category names appear as section headers above their flows. _(DiagramProperties.test.tsx)_
 - **DIAG-3.10-17** ❌ **Hover flow dims others.** Hover + opacity inspection; Playwright.
 - **DIAG-3.10-18** ✅ **`flowOrderData` null when no active flow** — no flow selected or hovered → memo returns null → no glows rendered.
 - **DIAG-3.10-19** ✅ **Single-path flow: one start, one end** — linear A→B→C flow → A gets green glow (source: appears as `from`, never as `to`), C gets red glow (sink: appears as `to`, never as `from`), B has no glow.
@@ -160,7 +160,7 @@
 - **DIAG-3.11-07** ✅ **Rubber-band promotes mixed types** — multi-layer promotion + line-only cases covered.
 - **DIAG-3.11-08** ❌ **Drag threshold = 25 px.** Pointer events + timing; Playwright
 - **DIAG-3.11-09** 🟡 **Selection cleared on Escape.** Setting selection to null is a trivial setter; the keybind → setter wiring lives in the canvas keyboard handler (Playwright coverage).
-- **DIAG-3.11-10** ✅ **Canvas click deselects flow.** Selecting a flow from Architecture panel then clicking empty canvas clears selection and flow highlight. Fixed by clearing `expandedFlowId` in `ArchitectureProperties` when `activeFlowId` becomes undefined, and adding safety clause in `useSelectionRect` for stale-pendingSelection edge case.
+- **DIAG-3.11-10** ✅ **Canvas click deselects flow.** Selecting a flow from Architecture panel then clicking empty canvas clears selection and flow highlight. Fixed by clearing `expandedFlowId` in `DiagramProperties` when `activeFlowId` becomes undefined, and adding safety clause in `useSelectionRect` for stale-pendingSelection edge case.
 
 ## 3.12 Context Menu
 
@@ -219,13 +219,13 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-30** ✅ **Source / dest displayed.** From/To node labels shown; falls back to IDs when node missing. _(unit: `LineProperties.test.tsx`)_
 
 ### 3.13.e Architecture (root)
-- **DIAG-3.13-31** ✅ **Title editable.** Double-click opens input; Enter commits via `onUpdateTitle`. _(unit: `ArchitectureProperties.test.tsx`)_
-- **DIAG-3.13-32** ✅ **Default line algorithm dropdown.** Click opens Orthogonal/Bezier/Straight options; selection fires `onUpdateLineCurve`. _(unit: `ArchitectureProperties.test.tsx`)_
-- **DIAG-3.13-33** ✅ **Layers list.** ExpandableListRow renders with "Layers" label. _(unit: `ArchitectureProperties.test.tsx`)_
-- **DIAG-3.13-34** ✅ **Elements list.** ExpandableListRow renders with "Elements" label. _(unit: `ArchitectureProperties.test.tsx`)_
+- **DIAG-3.13-31** ✅ **Title editable.** Double-click opens input; Enter commits via `onUpdateTitle`. _(unit: `DiagramProperties.test.tsx`)_
+- **DIAG-3.13-32** ✅ **Default line algorithm dropdown.** Click opens Orthogonal/Bezier/Straight options; selection fires `onUpdateLineCurve`. _(unit: `DiagramProperties.test.tsx`)_
+- **DIAG-3.13-33** ✅ **Layers list.** ExpandableListRow renders with "Layers" label. _(unit: `DiagramProperties.test.tsx`)_
+- **DIAG-3.13-34** ✅ **Elements list.** ExpandableListRow renders with "Elements" label. _(unit: `DiagramProperties.test.tsx`)_
 - **DIAG-3.13-35** ✅ **Types tree — distinct node types grouped** — `typeUtils.test.ts` (`getDistinctTypes` returns sorted unique types).
 - **DIAG-3.13-36** ✅ **Select All per type** — `typeUtils.test.ts` (`getNodesByType` filters exactly); the click→multi-node dispatch is canvas-level.
-- **DIAG-3.13-37** ✅ **Flows panel.** `ArchitectureProperties` flow list, toggle, edit, delete, and category grouping all covered by DIAG-3.10-12..16 + DIAG-3.11-10 in `ArchitectureProperties.test.tsx`.
+- **DIAG-3.13-37** ✅ **Flows panel.** `DiagramProperties` flow list, toggle, edit, delete, and category grouping all covered by DIAG-3.10-12..16 + DIAG-3.11-10 in `DiagramProperties.test.tsx`.
 - **DIAG-3.13-38** ✅ **Document backlinks section** — `DocumentsSection` renders every backlink as `<basename>` (or `<basename> #section`), clicking fires `onOpenDocument(sourcePath)`. Title shows `References (N)`; empty state: `"No documents reference this diagram"` + wiki-link help text.
 
 ### 3.13.f DocumentsSection

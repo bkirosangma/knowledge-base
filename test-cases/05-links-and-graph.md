@@ -18,7 +18,7 @@
 - **LINK-5.1-08** ✅ **Rename of diagram (`.json`) propagates** — `updateWikiLinkPaths` now strips both `.md` and `.json` before matching, so `[[arch]]` and `[[arch.json]]` both rewrite on `arch.json → infra.json`. Covered by LINK-5.1-08 test in `wikiLinkParser.test.ts`. (Bug fixed: util previously only stripped `.md`.)
 - **LINK-5.1-09** 🧪 **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
 - **LINK-5.1-10** ❌ **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves.)
-- **LINK-5.1-11** ❌ **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (End-to-end across hook + content rewrite.)
+- **LINK-5.1-11** ✅ **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (Covered by LINK-5.1-11 test in `useFileExplorer.helpers.test.ts`.)
 - **LINK-5.1-12** ❌ **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion.)
 
 ## 5.2 Wiki-Link Delete Propagation
@@ -47,7 +47,7 @@
 - **LINK-5.4-01** 🧪 **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
 - **LINK-5.4-02** ❌ **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state.)
 - **LINK-5.4-03** ❌ **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution.)
-- **LINK-5.4-04** ❌ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered indirectly via `useLinkIndex.test.ts` save→load; the reload half is)
+- **LINK-5.4-04** ✅ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered by LINK-5.4-04 test in `useLinkIndex.test.ts`.)
 
 ## 5.5 Wiki-Link Navigation
 

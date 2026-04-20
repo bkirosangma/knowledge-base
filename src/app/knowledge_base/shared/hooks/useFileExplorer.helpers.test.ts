@@ -193,6 +193,21 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     await propagateRename(asRoot(dir), 'a.md', 'b.md', lm)
     expect(sub.files.get('ref.md')!.file.data).toBe('[[b]] link')
   })
+
+  it('LINK-5.1-11: cyclic reference — both files remain consistent after one is renamed', async () => {
+    // a.md → [[b]], b.md → [[a]].  Rename a.md → a2.md.
+    // Expected: b.md reference updated to [[a2]]; a.md content untouched.
+    const dir = new MockDir()
+    dir.files.set('a.md', new MockFileHandle('a.md', new MockFile('see [[b]] for context')))
+    dir.files.set('b.md', new MockFileHandle('b.md', new MockFile('also [[a]] is relevant')))
+    const lm = makeLinkManager({
+      getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'b.md' }]),
+    })
+    await propagateRename(asRoot(dir), 'a.md', 'a2.md', lm)
+    expect(dir.files.get('b.md')!.file.data).toBe('also [[a2]] is relevant')
+    expect(dir.files.get('a.md')!.file.data).toBe('see [[b]] for context')
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'a.md', 'a2.md')
+  })
 })
 
 // ── propagateMoveLinks (HOOK-6.2-11) ──────────────────────────────────────────
