@@ -104,3 +104,24 @@ describe('useDocumentHistory — onFileSave', () => {
     expect(result.current.savedIndex).toBe(1)
   })
 })
+
+describe('useDocumentHistory — goToSaved after discard', () => {
+  it('goToSaved returns the saved snapshot and moves currentIndex to savedIndex', async () => {
+    const { result } = renderHook(() => useDocumentHistory())
+    await act(async () => { await result.current.initHistory('v0', null, null) })
+    // Record and save
+    act(() => { result.current.onFileSave('v0') })
+    // Make edits after save
+    act(() => { result.current.onBlockChange('v1') })
+    act(() => { result.current.onBlockChange('v2') })
+    // onFileSave records a 'Saved' entry (index 1) and marks savedIndex=1
+    // onBlockChange x2 pushes to index 3
+    expect(result.current.currentIndex).toBe(3)
+    expect(result.current.savedIndex).toBe(1)
+    // goToSaved should return the saved snapshot and reset position
+    let snapshot: string | null = null
+    act(() => { snapshot = result.current.goToSaved() })
+    expect(snapshot).toBe('v0')  // 'Saved' entry snapshot
+    expect(result.current.currentIndex).toBe(result.current.savedIndex)
+  })
+})

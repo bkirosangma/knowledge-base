@@ -160,6 +160,14 @@ export default function DocumentView({
     history.onFileSave(content);
   }, [save, history, content]);
 
+
+  // Wrapped discard: resets content from disk AND rewinds history to savedIndex
+  const handleDiscard = useCallback(async () => {
+    await discard();
+    history.goToSaved();
+    bumpToken();
+  }, [discard, history]);
+
   // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z
   useDocumentKeyboardShortcuts({
     onUndo: useCallback(() => {
@@ -196,7 +204,7 @@ export default function DocumentView({
           title={derivedTitle}
           isDirty={dirty}
           onSave={handleSave}
-          onDiscard={discard}
+          onDiscard={handleDiscard}
           onChange={handleContentChange}
           onBlockChange={history.onBlockChange}
           historyToken={historyToken}
