@@ -137,6 +137,11 @@ export function useDocumentContent(filePath: string | null) {
     // Phase 5c: if the most recent load failed, edits are ignored so the
     // user can't type into a stale buffer and save-over the real file.
     if (loadErrorRef.current) return;
+    // Skip if content is identical — Tiptap can fire onUpdate for structural
+    // normalizations (trailing nodes, decoration changes) that don't change
+    // the serialized Markdown. Without this guard, clicking in the doc after
+    // a save would spuriously re-enable the Save/Discard buttons.
+    if (markdown === contentRef.current) return;
     setContent(markdown);
     setDirty(true);
   }, []);

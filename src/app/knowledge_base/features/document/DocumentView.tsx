@@ -39,6 +39,8 @@ export default function DocumentView({
 }: DocumentViewProps) {
   const { content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath } = useDocumentContent(filePath);
   const history = useDocumentHistory();
+  const saveStateRef = useRef({ content, history });
+  saveStateRef.current = { content, history };
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
   const bumpToken = () => setHistoryToken((t) => t + 1);
@@ -71,13 +73,9 @@ export default function DocumentView({
     });
   }, []);
 
-  // Expose bridge to parent
+  // Ref kept in place so the effect below (defined after handleSave) can close over it.
   const onDocBridgeRef = useRef(onDocBridge);
   onDocBridgeRef.current = onDocBridge;
-  useEffect(() => {
-    onDocBridgeRef.current?.(bridge);
-    return () => onDocBridgeRef.current?.(null);
-  }, [bridge]);
 
   // Populate link index when a document is first opened so backlinks are
   // available for rename/delete propagation even if the doc is never saved.
@@ -157,11 +155,32 @@ export default function DocumentView({
     history.onContentChange(markdown);
   }, [updateContent, history]);
 
-  // Wrapped save: flush pending draft + mark saved checkpoint (no new entry)
+  // Wrapped save: flush pending draft + mark saved checkpoint (no new entry).
+  // saveStateRef avoids listing content/history as deps so handleSave is stable
+  // across keystrokes — a stable handleSave means the bridge published to the
+  // parent doesn't change every time the user types, preventing bridge churn.
   const handleSave = useCallback(async () => {
     await save();
-    history.onFileSave(content);
-  }, [save, history, content]);
+    const { content: c, history: h } = saveStateRef.current;
+    h.onFileSave(c);
+  }, [save]); // stable: save is memoized on filePath only
+
+  // Expose bridge to parent. Replace bridge.save with handleSave so every save
+  // path (toolbar button, Cmd+S via parent) goes through the full save + history
+  // update. Getters must be spelled out — spread would evaluate them immediately,
+  // producing stale static values instead of live refs.
+  useEffect(() => {
+    if (!bridge) { onDocBridgeRef.current?.(null); return; }
+    const fullBridge: DocumentPaneBridge = {
+      save: handleSave,
+      discard: bridge.discard,
+      get dirty() { return bridge.dirty; },
+      get filePath() { return bridge.filePath; },
+      get content() { return bridge.content; },
+    };
+    onDocBridgeRef.current?.(fullBridge);
+    return () => onDocBridgeRef.current?.(null);
+  }, [bridge, handleSave]); // handleSave stable; bridge changes only on file switch
 
   // History-first discard: restore saved snapshot from history; fall back to
   // disk only if history has no saved state (e.g. freshly opened file).
