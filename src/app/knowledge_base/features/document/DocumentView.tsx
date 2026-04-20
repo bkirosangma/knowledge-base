@@ -35,9 +35,10 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge, save, discard } = useDocumentContent(filePath);
+  const { content, dirty, updateContent, bridge, save, discard, loadedPath } = useDocumentContent(filePath);
   const history = useDocumentHistory();
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
 
   // Debounced H1 / first-line derivation. `content` changes on every
   // keystroke; re-rendering PaneTitle that often is wasteful, and the user
@@ -126,15 +127,24 @@ export default function DocumentView({
     return links;
   }, [filePath, linkManager.linkIndex]);
 
-  // History: re-initialize when the file changes
+  // History: re-initialize once the content for the new file is truly loaded.
+  // We use a ref to fire only once per file switch — `content` is in deps so
+  // the effect re-runs on every keystroke, but the ref prevents re-init.
+  const historyInitedPathRef = useRef<string | null>(null);
+  useEffect(() => { historyInitedPathRef.current = null; }, [filePath]);
   useEffect(() => {
-    if (!filePath) return;
+    // loadedPath === filePath means useDocumentContent has finished loading
+    // the current file's content into `content`. Guard against re-init on
+    // every keystroke with the ref.
+    if (!filePath || loadedPath !== filePath) return;
+    if (historyInitedPathRef.current === filePath) return;
+    historyInitedPathRef.current = filePath;
     (async () => {
       const dh = dirHandleRef.current ?? null;
       await history.initHistory(content, dh, filePath);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath]);
+  }, [filePath, loadedPath, content]);
 
   // Combined content change handler: updates content + records debounced history entry
   const handleContentChange = useCallback((markdown: string) => {
@@ -158,7 +168,7 @@ export default function DocumentView({
       const s = history.redo();
       if (s !== null) updateContent(s);
     }, [history, updateContent]),
-    readOnly: false,
+    readOnly,
   });
 
   // Bridge for HistoryPanel in DocumentProperties
@@ -193,6 +203,8 @@ export default function DocumentView({
           allDocPaths={allDocPaths}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
+          readOnly={readOnly}
+          onToggleReadOnly={() => setReadOnly((v) => !v)}
           rightSidebar={
             <DocumentProperties
               filePath={filePath}
@@ -203,7 +215,7 @@ export default function DocumentView({
               collapsed={propertiesCollapsed}
               onToggleCollapse={toggleProperties}
               history={historyBridge}
-              readOnly={false}
+              readOnly={readOnly}
             />
           }
         />

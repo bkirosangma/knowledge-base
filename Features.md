@@ -253,8 +253,8 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 Root: `src/app/knowledge_base/features/document/`. Top-level is `DocumentView.tsx`.
 
 ### 4.1 Editor Orchestration
-- ✅ **DocumentView** — pane + properties sidebar + link manager; manages focus, navigation, doc creation.
-- ✅ **MarkdownPane** — pane wrapper with header, title, backlinks dropdown, read-only toggle.
+- ✅ **DocumentView** — pane + properties sidebar + link manager; manages focus, navigation, doc creation. Owns `readOnly` state (lifted from MarkdownPane) and passes it to `useDocumentKeyboardShortcuts`, `DocumentProperties`, and `MarkdownPane`. Initialises document history (`useDocumentHistory.initHistory`) only after `useDocumentContent` confirms the file's content is loaded (`loadedPath === filePath`), preventing stale-content history init on file switch.
+- ✅ **MarkdownPane** — pane wrapper with header, title, backlinks dropdown, read-only toggle. `readOnly`/`onToggleReadOnly` are controlled props (owner: `DocumentView`); the component no longer manages its own `readOnly` state.
 - ✅ **MarkdownEditor** — Tiptap editor with WYSIWYG/Raw toggle, formatting toolbar, **200 ms debounced** HTML → markdown serialisation on keystroke (flushed on blur/unmount). Composes four focused pieces: `MarkdownToolbar.tsx` (toolbar JSX + rawBlock active-state), `TablePicker.tsx` (8×8 table-size grid popover), `ToolbarButton.tsx` (shared TBtn/Sep primitives), and `../extensions/rawSyntaxEngine.ts` (editor-coupled raw-syntax helpers: toggleRawSyntax / getActiveRawFormats / toggleRawBlockType / forceExitRawBlock). The `markdownReveal` Tiptap Extension (Typora-style live-reveal rawBlock) is split across four sibling files: `markdownReveal.ts` (Extension + RawBlock node + keybindings + `addProseMirrorPlugins`), `markdownRevealConversion.ts` (rich ↔ raw block converters + rawBlockToRichNodes cache), `markdownRevealDecorations.ts` (SYNTAX_PATTERNS + buildSyntaxDecorations), and `markdownRevealTransactions.ts` (locators + transaction mutators that back the `appendTransaction` body: findRawBlock, findConvertibleBlockAtCursor, maybeSyncRawBlockType, maybeForceExitRawList, restoreRawToRich, convertRichToRaw). Phases 1.2 → 1.3b (2026-04-18) reduced MarkdownEditor.tsx from 1018 to 366 lines and markdownReveal.ts from 1005 to 410.
 
 ### 4.2 Tiptap Extensions
@@ -328,6 +328,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 `hooks/useDocumentContent.ts`, `hooks/useDocuments.ts`
 - ✅ **Per-pane content & dirty state.**
 - ✅ **Auto-save on file switch** — saves the previous doc before loading the new one.
+- ✅ **`loadedPath` signal** — set to `filePath` once a load succeeds (or immediately for null/no-repo cases); consumers compare `loadedPath === filePath` to confirm content is fresh for the current file before acting on it.
 - ✅ **Ref-backed `save()` / `dirty` / `filePath` / `content` bridge** — lets parent read latest without re-rendering per keystroke.
 - ✅ **`createDocument`, `attachDocument`, `detachDocument`, `getDocumentsForEntity`, `hasDocuments`.**
 - ⚙️ **`collectDocPaths`, `existingDocPaths`.**
