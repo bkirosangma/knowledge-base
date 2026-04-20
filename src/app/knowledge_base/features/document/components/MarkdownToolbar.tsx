@@ -78,11 +78,13 @@ export default function MarkdownToolbar({
       {!isRawMode && editor && (
         <>
           <Sep />
-          {/* Undo / Redo */}
-          <TBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
+          {/* Undo / Redo — commands may be absent when undoRedo: false in StarterKit */}
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <TBtn onClick={() => (editor.chain().focus() as any).undo?.()?.run()} disabled={!(editor.can() as any).undo?.()} title="Undo">
             <Undo2 size={sz} />
           </TBtn>
-          <TBtn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <TBtn onClick={() => (editor.chain().focus() as any).redo?.()?.run()} disabled={!(editor.can() as any).redo?.()} title="Redo">
             <Redo2 size={sz} />
           </TBtn>
 
