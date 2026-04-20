@@ -32,6 +32,8 @@ export function useDocumentHistory(): DocumentHistory {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
+      const { entries, currentIndex } = sync.getLatestState();
+      if (entries[currentIndex]?.snapshot === content) return;
       sync.recordAction("Draft", content);
     }, DEBOUNCE_MS);
   }, [sync]);
@@ -41,6 +43,8 @@ export function useDocumentHistory(): DocumentHistory {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
+    const { entries, currentIndex } = sync.getLatestState();
+    if (entries[currentIndex]?.snapshot === content) return;
     sync.recordAction("Block changed", content);
   }, [sync]);
 

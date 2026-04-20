@@ -65,6 +65,13 @@ describe('useDocumentHistory — onBlockChange', () => {
     expect(result.current.entries[1].snapshot).toBe('v1')
   })
 
+  it('does NOT record when content is identical to the current snapshot', async () => {
+    const { result } = renderHook(() => useDocumentHistory())
+    await act(async () => { await result.current.initHistory('v0', null, null) })
+    act(() => { result.current.onBlockChange('v0') })
+    expect(result.current.entries).toHaveLength(1)
+  })
+
   it('cancels any pending debounce timer', async () => {
     const { result } = renderHook(() => useDocumentHistory())
     await act(async () => { await result.current.initHistory('v0', null, null) })
@@ -73,6 +80,16 @@ describe('useDocumentHistory — onBlockChange', () => {
     act(() => { vi.advanceTimersByTime(6000) })
     expect(result.current.entries).toHaveLength(2)
     expect(result.current.entries[1].description).toBe('Block changed')
+  })
+})
+
+describe('useDocumentHistory — onContentChange debounce no-op', () => {
+  it('does NOT record a Draft when content is identical to the current snapshot', async () => {
+    const { result } = renderHook(() => useDocumentHistory())
+    await act(async () => { await result.current.initHistory('v0', null, null) })
+    act(() => { result.current.onContentChange('v0') })
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(result.current.entries).toHaveLength(1)
   })
 })
 
