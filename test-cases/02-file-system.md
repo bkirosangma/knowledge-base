@@ -63,7 +63,7 @@
 - **FS-2.3-20** 🚫 **Filter persists per scope** — persistence is the caller's job; covered in Bucket 18.
 
 ### 2.3.e Create / Rename / Delete / Duplicate / Move
-- **FS-2.3-21** 🟡 **Create file via context menu** — verified: the `New Architecture` button on the directory header calls `onCreateFile('')`. Context-menu entry routes to the same callback.
+- **FS-2.3-21** ✅ **Create diagram via header button** — the `New Diagram` button on the directory header calls `onCreateFile('')`. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-22** 🚫 **Create file default name** — name generation (`untitled.json`, `uniqueName` helper) lives inside `useFileExplorer`; not observable from the panel component.
 - **FS-2.3-23** 🚫 **Create file unique-name fallback** — `uniqueName` helper in `useFileExplorer`; deferred to Bucket 19/20.
 - **FS-2.3-24** ✅ **Create folder** — `New Folder` button on the directory header calls `onCreateFolder('')`.
@@ -80,6 +80,13 @@
 - **FS-2.3-40/41** 🟡 **Right-click menus** — implementation wires `onContextMenu` to `setContextMenu`; menu rendering is visible in the DOM but fine-grained action assertions (Rename, Delete, Duplicate, Move entries) are left for Playwright due to coordinate/viewport positioning concerns.
 - **FS-2.3-42** 🟡 **Escape closes menu** — same wiring as ConfirmPopover; deferred with 40/41.
 - **FS-2.3-43** 🟡 **Click outside closes menu** — same.
+- **FS-2.3-44** ✅ **New Document button calls `onCreateDocument`** — `New Document` header button calls `onCreateDocument('')`; when a folder is selected it calls with the folder path. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-45** 🚫 **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright (Bucket 25).
+- **FS-2.3-46** ✅ **Clicking a folder selects it** — folder row gets `bg-blue-50 text-blue-700` highlight after click; second click on same folder deselects it. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-47** ✅ **Header create buttons use selected folder as parent** — when `selectedFolderPath` is set, New Diagram / Document / Folder buttons pass that path instead of `''`. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-48** ✅ **Header breadcrumb when folder selected** — header shows `vault / folderName` text when a folder is selected; reverts to just vault name when deselected. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-49** 🚫 **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright (Bucket 25).
+- **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault()` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
 ## 2.4 Confirmation Popover
 
