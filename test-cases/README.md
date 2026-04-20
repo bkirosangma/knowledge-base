@@ -110,20 +110,29 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-20 (Buckets 1-27 complete + shell header strip-down + Pane Header H1 derivation + wiki-link propagation on rename/move + useActionHistory savedEntryPinned fix + useDirectoryHandle tests). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-20 (Buckets 1-27 complete + shell header strip-down + Pane Header H1 derivation + wiki-link propagation on rename/move + useActionHistory savedEntryPinned fix + useDirectoryHandle tests + Playwright reclassification: all "Playwright-testable" items promoted from 🚫 to ❌). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 49 | 12 | 3 | 0 | 9 | 73 |
-| 02-file-system.md | 55 | 9 | 1 | 0 | 8 | 73 |
-| 03-diagram.md | 113 | 34 | 0 | 0 | 104 | 251 |
-| 04-document.md | 130 | 34 | 0 | 0 | 54 | 218 |
-| 05-links-and-graph.md | 19 | 0 | 0 | 0 | 16 | 35 |
-| 06-shared-hooks.md | 42 | 0 | 0 | 0 | 0 | 42 |
-| 07-persistence.md | 36 | 7 | 0 | 0 | 8 | 51 |
-| **Total** | **444** | **96** | **4** | **0** | **199** | **743** |
+| 01-app-shell.md | 52 | 12 | 0 | 4 | 5 | 73 |
+| 02-file-system.md | 64 | 8 | 0 | 6 | 5 | 83 |
+| 03-diagram.md | 113 | 34 | 0 | 103 | 1 | 251 |
+| 04-document.md | 130 | 34 | 0 | 46 | 8 | 218 |
+| 05-links-and-graph.md | 19 | 0 | 0 | 16 | 0 | 35 |
+| 06-shared-hooks.md | 42 | 0 | 0 | 1 | 0 | 43 |
+| 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
+| **Total** | **456** | **95** | **0** | **177** | **26** | **754** |
 
-Covered (✅ + 🟡 + 🧪) = **544 / 743 (73%)**; consciously waived (🚫) = **199 (27%)** — overwhelmingly cases that require a real canvas / editor / browser permission (React Flow viewport geometry, live Tiptap DOM state, File System Access dialog). **Zero open gaps.** Every case is either covered or has a documented reason for staying waived.
+Covered (✅ + 🟡) = **551 / 754 (73%)**; open gaps (❌) = **177 (23%)**; consciously waived (🚫) = **26 (3%)**.
+
+The 26 remaining 🚫 items are genuinely untestable or non-features:
+- **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
+- **Removed/obsolete UI** (SHELL-1.2-01/07/08, SHELL-1.4-07) — components deleted in the 2026-04-19 header strip-down.
+- **Module-private helpers** (DOC-4.3-36/37, DOC-4.5-09/10/11) — LRU cache and rawBlock toggle helpers are unexported; would require extraction to unit-test.
+- **Intentional behavior locks** (DOC-4.13-14) — documented code-fence limitation preserved as a regression guard.
+- **Non-features by design** (PERSIST-7.3-16, PERSIST-7.5-04, SHELL-1.3-08) — no retry logic, reset-app IDB semantics unverified, confirmation dialog not implemented.
+- **Browser-level only** (PERSIST-7.1-15, FS-2.1-12, FS-2.3-50) — private-mode simulation, native permission revocation, and `preventDefault` on contextmenu can't be asserted even with Playwright.
+- **Not yet implemented** (DIAG-3.13-23) — manual-size override toggle not built yet.
 
 **2026-04-19 — shell header strip-down + Pane Header H1 derivation.** Title editing, dirty dot, Save, and Discard moved from the top-level `Header` into each pane's `PaneTitle` row:
 
@@ -136,7 +145,7 @@ Covered (✅ + 🟡 + 🧪) = **544 / 743 (73%)**; consciously waived (🚫) = *
 
 ### Test suites that back these numbers
 
-- **Unit / integration** (Vitest + JSDOM): 67 test files, 934 passing tests. Split across feature areas:
+- **Unit / integration** (Vitest + JSDOM): 67 test files, 942 passing tests. Split across feature areas:
   - App Shell: `Header.test.tsx`, `Footer.test.tsx`, `FooterContext.test.tsx`, `ToolbarContext.test.tsx`, `PaneManager.test.tsx`, `SplitPane.test.tsx`, `PaneTitle.test.tsx`, `PaneHeader.test.tsx`.
   - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileActions.test.ts`, `useDirectoryHandle.test.ts`, `idbHandles.test.ts`, `ConfirmPopover.test.tsx`.
   - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `collisionModel.test.ts`, `levelModel.test.ts`, `layerProperties.test.tsx`, `autocompleteInput.test.tsx`, `documentsSection.test.tsx`, `contextMenu.test.tsx`, `flowBreakWarningModal.test.tsx`, `docInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `persistence.test.ts`, `directoryScope.test.ts`.

@@ -2,7 +2,7 @@
 
 import React from "react";
 import {
-  Folder, FilePlus, FolderPlus, RefreshCw,
+  Folder, FilePlus, FileText, FolderPlus, RefreshCw,
   EllipsisVertical, ChevronRight,
   ArrowUp, ArrowDown, Check,
 } from "lucide-react";
@@ -35,7 +35,9 @@ export interface ExplorerHeaderProps {
 
   // Callbacks
   setContextMenu: (m: ContextMenuState | null) => void;
+  selectedFolderPath: string | null;
   handleCreateFile: (parentPath?: string) => void;
+  handleCreateDocument: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
   handleDragOver: (e: React.DragEvent, folderPath: string) => void;
   handleDragEnter: (e: React.DragEvent, folderPath: string) => void;
@@ -66,7 +68,9 @@ export default function ExplorerHeader({
   setSortSubMenuOpen,
   dotMenuRef,
   setContextMenu,
+  selectedFolderPath,
   handleCreateFile,
+  handleCreateDocument,
   handleCreateFolder,
   handleDragOver,
   handleDragEnter,
@@ -79,7 +83,7 @@ export default function ExplorerHeader({
     <>
       {/* Directory header — also a drop target for moving to root */}
       <div
-        className={`flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 relative ${
+        className={`flex flex-col px-3 pt-2 pb-1 border-b border-slate-100 relative ${
           dragOverPath === "" ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
         }`}
         onContextMenu={(e) => {
@@ -91,45 +95,60 @@ export default function ExplorerHeader({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "")}
       >
-        <Folder size={16} className="text-amber-500 flex-shrink-0" />
-        <span className="text-xs font-semibold text-slate-700 truncate flex-1">
-          {directoryName}
-        </span>
-        <button
-          onClick={() => handleCreateFile("")}
-          className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Architecture"
-        >
-          <FilePlus size={14} className="text-slate-500" />
-        </button>
-        <button
-          onClick={() => handleCreateFolder("")}
-          className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="New Folder"
-        >
-          <FolderPlus size={14} className="text-slate-500" />
-        </button>
-        <button
-          onClick={onRefresh}
-          className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="Refresh"
-        >
-          <RefreshCw size={14} className={`text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
-        </button>
-        <button
-          onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
-          className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-          title="More actions"
-        >
-          <EllipsisVertical size={14} className="text-slate-500" />
-        </button>
-
-        {/* 3-dot dropdown menu */}
-        {dotMenuOpen && (
-          <div
-            ref={dotMenuRef}
-            className="absolute right-1 top-full mt-1 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px]"
+        {/* Row 1 — folder name + 3-dot menu */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Folder size={16} className="text-amber-500 flex-shrink-0" />
+          <span className="text-xs font-semibold text-slate-700 truncate flex-1">
+            {selectedFolderPath
+              ? <><span className="text-slate-400 font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
+              : directoryName}
+          </span>
+          <button
+            onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
+            className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+            title="More actions"
           >
+            <EllipsisVertical size={14} className="text-slate-500" />
+          </button>
+        </div>
+
+        {/* Row 2 — create + refresh icons */}
+        <div className="flex items-center gap-0.5 mt-1">
+          <button
+            onClick={() => handleCreateFile(selectedFolderPath ?? "")}
+            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            title={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+          >
+            <FilePlus size={14} className="text-slate-500" />
+          </button>
+          <button
+            onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
+            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            title={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+          >
+            <FileText size={14} className="text-slate-500" />
+          </button>
+          <button
+            onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
+            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            title={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+          >
+            <FolderPlus size={14} className="text-slate-500" />
+          </button>
+          <button
+            onClick={onRefresh}
+            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={`text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
+
+          {/* 3-dot dropdown menu */}
+          {dotMenuOpen && (
+            <div
+              ref={dotMenuRef}
+              className="absolute right-1 top-full mt-1 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px]"
+            >
             <div
               className="relative"
               onMouseEnter={() => setSortSubMenuOpen(true)}
@@ -179,8 +198,9 @@ export default function ExplorerHeader({
                 </div>
               )}
             </div>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filter toggles */}

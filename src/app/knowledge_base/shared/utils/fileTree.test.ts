@@ -182,6 +182,47 @@ describe('scanTree — per-entry metadata (FS-2.1-11)', () => {
   })
 })
 
+describe('scanTree — system file/folder filtering (FS-2.1-12)', () => {
+  it('FS-2.1-12: excludes dot-prefixed folders (.archdesigner, .claude)', async () => {
+    const root = new MockDir()
+    seedFile(root, '.archdesigner/config.json')
+    seedFile(root, '.claude/settings.json')
+    seedFile(root, 'visible.md')
+
+    const tree = await scanTree(asRoot(root), '')
+    expect(tree.map((n) => n.name)).toEqual(['visible.md'])
+  })
+
+  it('excludes the "memory" folder', async () => {
+    const root = new MockDir()
+    seedFile(root, 'memory/MEMORY.md')
+    seedFile(root, 'notes.md')
+
+    const tree = await scanTree(asRoot(root), '')
+    expect(tree.map((n) => n.name)).toEqual(['notes.md'])
+  })
+
+  it('excludes CLAUDE.md, MEMORY.md, AGENTS.md by name', async () => {
+    const root = new MockDir()
+    seedFile(root, 'CLAUDE.md')
+    seedFile(root, 'MEMORY.md')
+    seedFile(root, 'AGENTS.md')
+    seedFile(root, 'README.md')
+
+    const tree = await scanTree(asRoot(root), '')
+    expect(tree.map((n) => n.name)).toEqual(['README.md'])
+  })
+
+  it('visible folders with similar names are not filtered', async () => {
+    const root = new MockDir()
+    seedFile(root, 'memories/notes.md')
+    seedFile(root, 'claude-notes/doc.md')
+
+    const tree = await scanTree(asRoot(root), '')
+    expect(tree.map((n) => n.name)).toEqual(['claude-notes', 'memories'])
+  })
+})
+
 // ── flattenTree ────────────────────────────────────────────────────────────
 
 describe('flattenTree', () => {

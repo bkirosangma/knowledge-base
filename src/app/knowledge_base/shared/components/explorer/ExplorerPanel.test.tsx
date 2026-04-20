@@ -21,6 +21,7 @@ function renderPanel(overrides: Partial<P> = {}) {
     onOpenFolder: vi.fn(),
     onSelectFile: vi.fn(),
     onCreateFile: vi.fn(async () => null),
+    onCreateDocument: vi.fn(async () => null),
     onCreateFolder: vi.fn(async () => null),
     onDeleteFile: vi.fn(),
     onDeleteFolder: vi.fn(),
@@ -84,7 +85,7 @@ describe('ExplorerPanel — directory header bar', () => {
   it('renders the directory name and action buttons', () => {
     renderPanel({ directoryName: 'sample-vault' })
     expect(screen.getByText('sample-vault')).toBeTruthy()
-    expect(screen.getByTitle('New Architecture')).toBeTruthy()
+    expect(screen.getByTitle('New Diagram')).toBeTruthy()
     expect(screen.getByTitle('New Folder')).toBeTruthy()
     expect(screen.getByTitle('Refresh')).toBeTruthy()
     expect(screen.getByTitle('More actions')).toBeTruthy()
@@ -107,10 +108,10 @@ describe('ExplorerPanel — directory header bar', () => {
     expect(svg).toBeDefined()
   })
 
-  it('clicking New Architecture calls onCreateFile with empty parent', () => {
+  it('clicking New Diagram calls onCreateFile with empty parent', () => {
     const onCreateFile = vi.fn(async () => null)
     renderPanel({ onCreateFile })
-    fireEvent.click(screen.getByTitle('New Architecture'))
+    fireEvent.click(screen.getByTitle('New Diagram'))
     expect(onCreateFile).toHaveBeenCalledWith('')
   })
 
@@ -119,6 +120,13 @@ describe('ExplorerPanel — directory header bar', () => {
     renderPanel({ onCreateFolder })
     fireEvent.click(screen.getByTitle('New Folder'))
     expect(onCreateFolder).toHaveBeenCalledWith('')
+  })
+
+  it('FS-2.3-44: clicking New Document calls onCreateDocument with empty parent', () => {
+    const onCreateDocument = vi.fn(async () => null)
+    renderPanel({ onCreateDocument })
+    fireEvent.click(screen.getByTitle('New Document'))
+    expect(onCreateDocument).toHaveBeenCalledWith('')
   })
 })
 
@@ -194,9 +202,10 @@ describe('ExplorerPanel — folder expand/collapse', () => {
     renderPanel({ tree })
     // Initially children hidden.
     expect(screen.queryByText('inside.md')).toBeNull()
-    fireEvent.click(screen.getByText('docs'))
+    // Use getAllByText: after click, the header breadcrumb also shows 'docs'.
+    fireEvent.click(screen.getAllByText('docs')[0])
     expect(screen.getByText('inside.md')).toBeTruthy()
-    fireEvent.click(screen.getByText('docs'))
+    fireEvent.click(screen.getAllByText('docs').at(-1)!)
     expect(screen.queryByText('inside.md')).toBeNull()
   })
 
@@ -381,5 +390,33 @@ describe('ExplorerPanel — sort variants (FS-2.3-09..15)', () => {
     const names = visibleNames(container)
     expect(names[0]).toBe('new.json')
     expect(names[1]).toBe('old.json')
+  })
+})
+
+describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
+  it('FS-2.3-46: clicking a folder selects it with blue highlight', () => {
+    const tree = [folder('alpha', 'alpha', [])]
+    const { container } = renderPanel({ tree })
+    fireEvent.click(screen.getAllByText('alpha')[0])
+    const selectedRow = container.querySelector('.bg-blue-50.text-blue-700')
+    expect(selectedRow).not.toBeNull()
+    expect(selectedRow!.textContent).toContain('alpha')
+  })
+
+  it('FS-2.3-47: header create buttons target the selected folder', () => {
+    const onCreateFile = vi.fn(async () => null)
+    const tree = [folder('alpha', 'alpha', [])]
+    renderPanel({ tree, onCreateFile })
+    fireEvent.click(screen.getAllByText('alpha')[0])
+    fireEvent.click(screen.getByTitle('New Diagram in alpha'))
+    expect(onCreateFile).toHaveBeenCalledWith('alpha')
+  })
+
+  it('FS-2.3-48: header shows breadcrumb "vault / folder" when a folder is selected', () => {
+    const tree = [folder('alpha', 'alpha', [])]
+    const { container } = renderPanel({ tree, directoryName: 'my-vault' })
+    fireEvent.click(screen.getAllByText('alpha')[0])
+    const breadcrumb = container.querySelector('.text-slate-400.font-normal')
+    expect(breadcrumb?.textContent).toContain('my-vault /')
   })
 })

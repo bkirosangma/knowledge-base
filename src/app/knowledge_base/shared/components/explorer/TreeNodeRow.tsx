@@ -27,6 +27,7 @@ export interface TreeNodeRowProps {
   editValue: string;
   expandedFolders: Set<string>;
   dragOverPath: string | null;
+  selectedFolderPath: string | null;
   dirtyFiles: Set<string>;
   leftPaneFile: string | null;
   rightPaneFile: string | null;
@@ -43,12 +44,14 @@ export interface TreeNodeRowProps {
   setEditValue: (v: string) => void;
   setEditingPath: (p: string | null) => void;
   setContextMenu: (m: ContextMenuState | null) => void;
+  onSelectFolder: (path: string) => void;
 
   // Actions
   toggleFolder: (path: string) => void;
   commitRename: () => void;
   startRename: (path: string, name: string, type: "file" | "folder") => void;
   handleCreateFile: (parentPath?: string) => void;
+  handleCreateDocument: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
   handleDragStart: (e: React.DragEvent, path: string, type: "file" | "folder") => void;
   handleDragOver: (e: React.DragEvent, folderPath: string) => void;
@@ -94,6 +97,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     editValue,
     expandedFolders,
     dragOverPath,
+    selectedFolderPath,
     dirtyFiles,
     leftPaneFile,
     rightPaneFile,
@@ -104,10 +108,12 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     setEditValue,
     setEditingPath,
     setContextMenu,
+    onSelectFolder,
     toggleFolder,
     commitRename,
     startRename,
     handleCreateFile,
+    handleCreateDocument,
     handleCreateFolder,
     handleDragStart,
     handleDragOver,
@@ -122,20 +128,24 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
   const isEditing = editingPath === node.path;
   const indent = depth * 16;
   const isDragOver = dragOverPath === node.path;
+  const isSelected = node.type === "folder" && selectedFolderPath === node.path;
 
   if (node.type === "folder") {
     const isExpanded = expandedFolders.has(node.path);
     return (
       <div key={node.path}>
         <div
-          className={`group flex items-center gap-1 py-1 cursor-pointer hover:bg-slate-50 text-xs text-slate-700 select-none ${
-            isDragOver ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
+          data-tree-node
+          className={`group flex items-center gap-1 py-1 cursor-pointer text-xs select-none ${
+            isDragOver ? "bg-blue-50 text-slate-700 outline outline-1 outline-blue-300 outline-dashed" :
+            isSelected ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
           }`}
           style={{ paddingLeft: indent + 8 }}
-          onClick={() => toggleFolder(node.path)}
+          onClick={() => { toggleFolder(node.path); onSelectFolder(node.path); }}
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            onSelectFolder(node.path);
             setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: node.path, name: node.name });
           }}
           draggable={!isEditing}
@@ -168,8 +178,11 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
             <>
               <span className="truncate flex-1">{node.name}</span>
               <div className="ml-auto flex items-center gap-0.5 pr-1">
-                <HoverBtn onClick={() => handleCreateFile(node.path)} title="New Architecture">
+                <HoverBtn onClick={() => handleCreateFile(node.path)} title="New Diagram">
                   <FilePlus size={13} className="text-slate-400 hover:text-slate-600" />
+                </HoverBtn>
+                <HoverBtn onClick={() => handleCreateDocument(node.path)} title="New Document">
+                  <FileText size={13} className="text-slate-400 hover:text-slate-600" />
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateFolder(node.path)} title="New Folder">
                   <FolderPlus size={13} className="text-slate-400 hover:text-slate-600" />
@@ -215,6 +228,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
         </div>
       ) : (
         <div
+          data-tree-node
           className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
             leftPaneFile === node.path && rightPaneFile === node.path
               ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"

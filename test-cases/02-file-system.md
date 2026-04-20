@@ -6,8 +6,8 @@
 
 ## 2.1 Folder Picker
 
-- **FS-2.1-01** 🧪 **`showDirectoryPicker` selection flow** — native dialog is bypassed in Playwright by an in-browser `page.addInitScript` that installs a mock `window.showDirectoryPicker` pointing at a seeded in-memory vault. `e2e/goldenPath.spec.ts` drives the full open-folder → explorer-populates sequence. _(Real production uses the native dialog; the mock proves the code path downstream of the picker works.)_
-- **FS-2.1-02** 🚫 **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory (Bucket 25).
+- **FS-2.1-01** ✅ **`showDirectoryPicker` selection flow** — native dialog is bypassed in Playwright by an in-browser `page.addInitScript` that installs a mock `window.showDirectoryPicker` pointing at a seeded in-memory vault. `e2e/goldenPath.spec.ts` drives the full open-folder → explorer-populates sequence. _(Real production uses the native dialog; the mock proves the code path downstream of the picker works.)_
+- **FS-2.1-02** ❌ **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory
 - **FS-2.1-03** ✅ **Directory handle persisted to IndexedDB** — covered by PERSIST-7.2-03 in `idbHandles.test.ts` (`saveDirHandle(handle, scopeId)` writes both to the `handles` store in the `knowledge-base` DB).
 - **FS-2.1-04** ✅ **Handle restored on reload** — covered by PERSIST-7.2-07 in `idbHandles.test.ts` (save → load round-trip returns the same handle + scope id).
 - **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
@@ -17,7 +17,10 @@
 - **FS-2.1-09** ✅ **History sidecars skipped** — `fileTree.test.ts` covers `.<name>.history.json` exclusion and confirms `history.md` / `my-history.json` ARE included (only the hidden `.<name>.history.json` pattern is filtered).
 - **FS-2.1-10** ✅ **Nested folders traversed** — `fileTree.test.ts` exercises multi-level paths (`notes/sub/deep.md`), asserts relative path construction, and covers folder `lastModified` = max of children.
 - **FS-2.1-11** ✅ **Tree entries carry metadata** — `fileTree.test.ts` asserts every file carries `name` + `path` + `type` + `fileType` + `handle` + `lastModified`; folders carry `dirHandle` + `children`.
-- **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright (Bucket 25).
+- **FS-2.1-12** 🚫 **Revoked handle re-prompts.** Requires real browser permission semantics — Playwright
+- **FS-2.1-13** ✅ **Dot-prefixed folders hidden** — `scanTree` skips folders whose name starts with `.` (`.archdesigner`, `.claude`); they do not appear in the tree. _(fileTree.test.ts)_
+- **FS-2.1-14** ✅ **`memory` folder hidden** — `scanTree` skips the `memory` folder by name; its contents never appear in the tree. _(fileTree.test.ts)_
+- **FS-2.1-15** ✅ **System files hidden** — `CLAUDE.md`, `MEMORY.md`, and `AGENTS.md` are excluded from the tree regardless of location; other `.md` files in the same directory are unaffected. _(fileTree.test.ts)_
 
 ## 2.2 Vault Configuration
 
@@ -32,9 +35,9 @@
 ## 2.3 File Explorer Panel
 
 ### 2.3.a Sidebar chrome
-- **FS-2.3-01** 🟡 **Collapsed width** — `collapsed=true` hides the content area; the narrow strip still holds the collapse toggle. Exact `36 px` width is a styling detail only observable in a real browser (Playwright → Bucket 20).
+- **FS-2.3-01** 🟡 **Collapsed width** — `collapsed=true` hides the content area; the narrow strip still holds the collapse toggle. Exact `36 px` width is a styling detail only observable in a real browser (Playwright-level).
 - **FS-2.3-02** 🟡 **Expanded width** — `collapsed=false` renders the full sidebar (directory header, filter pills, tree). Exact width is styling; Playwright-level.
-- **FS-2.3-03** 🚫 **Collapse state persisted** — persistence is the caller's job (via `KnowledgeBase` + localStorage). Covered in Bucket 18.
+- **FS-2.3-03** 🚫 **Collapse state persisted** — persistence is the caller's job (via `KnowledgeBase` + localStorage). Feature gap: not yet persisted to localStorage.
 
 ### 2.3.b Tree rendering
 - **FS-2.3-04** ✅ **Chevron rotates on expand** — clicking a folder flips it between `<ChevronRight>` (collapsed) and `<ChevronDown>` (expanded); children are rendered only while expanded.
@@ -51,23 +54,23 @@
 - **FS-2.3-13** ✅ **Grouping: folders-first** — folders cluster above files.
 - **FS-2.3-14** ✅ **Grouping: files-first** — files cluster above folders.
 - **FS-2.3-15** ✅ **Grouping: mixed** — files and folders interleaved by the sort field only.
-- **FS-2.3-16** 🚫 **Sort prefs persisted** — persistence is the caller's job (KnowledgeBase → localStorage). Covered in Bucket 18.
+- **FS-2.3-16** 🚫 **Sort prefs persisted** — persistence is the caller's job (KnowledgeBase → localStorage). Feature gap: not yet persisted to localStorage.
 
 ### 2.3.d Filtering
 - **FS-2.3-17** ✅ **Filter "all"** — both `.md` and `.json` visible.
 - **FS-2.3-18** ✅ **Filter "diagrams"** — only `.json` visible; folders that contain no `.json` descendants are omitted.
 - **FS-2.3-19** ✅ **Filter "documents"** — only `.md` visible; same folder-collapse rule.
-- **FS-2.3-20** 🚫 **Filter persists per scope** — persistence is the caller's job; covered in Bucket 18.
+- **FS-2.3-20** 🚫 **Filter persists per scope** — persistence is the caller's job
 
 ### 2.3.e Create / Rename / Delete / Duplicate / Move
-- **FS-2.3-21** 🟡 **Create file via context menu** — verified: the `New Architecture` button on the directory header calls `onCreateFile('')`. Context-menu entry routes to the same callback.
-- **FS-2.3-22** 🚫 **Create file default name** — name generation (`untitled.json`, `uniqueName` helper) lives inside `useFileExplorer`; not observable from the panel component.
-- **FS-2.3-23** 🚫 **Create file unique-name fallback** — `uniqueName` helper in `useFileExplorer`; deferred to Bucket 19/20.
+- **FS-2.3-21** ✅ **Create diagram via header button** — the `New Diagram` button on the directory header calls `onCreateFile('')`. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-22** ❌ **Create file default name** — name generation (`untitled.json`, `uniqueName` helper) lives inside `useFileExplorer`; not observable from the panel component.
+- **FS-2.3-23** ❌ **Create file unique-name fallback** — `uniqueName` helper in `useFileExplorer`;
 - **FS-2.3-24** ✅ **Create folder** — `New Folder` button on the directory header calls `onCreateFolder('')`.
-- **FS-2.3-25..29** 🚫 **Rename file + wiki-link + link-index side effects** — orchestrated by `useFileExplorer.renameFile`; deferred to Bucket 19.
-- **FS-2.3-30..34** 🚫 **Delete file confirmation + cascades** — popover + link-index cleanup handled outside this component; covered in Bucket 10 (`useFileActions.executeDeleteFile`) and Bucket 19.
-- **FS-2.3-35** 🚫 **Duplicate file** — `useFileExplorer.duplicateFile`; deferred to Bucket 19.
-- **FS-2.3-36/37** 🚫 **Move file / history sidecar** — `useFileExplorer.moveItem`; deferred to Bucket 19.
+- **FS-2.3-25..29** ❌ **Rename file + wiki-link + link-index side effects** — orchestrated by `useFileExplorer.renameFile`;
+- **FS-2.3-30..34** ❌ **Delete file confirmation + cascades** — popover + link-index cleanup handled outside this component (`useFileActions.executeDeleteFile`).
+- **FS-2.3-35** ❌ **Duplicate file** — `useFileExplorer.duplicateFile`;
+- **FS-2.3-36/37** ❌ **Move file / history sidecar** — `useFileExplorer.moveItem`;
 - **FS-2.3-38** ✅ **Refresh button** — click on the spinner icon calls `onRefresh`; `isLoading` triggers the `animate-spin` class.
 
 ### 2.3.f Drag-and-drop feedback
@@ -77,6 +80,13 @@
 - **FS-2.3-40/41** 🟡 **Right-click menus** — implementation wires `onContextMenu` to `setContextMenu`; menu rendering is visible in the DOM but fine-grained action assertions (Rename, Delete, Duplicate, Move entries) are left for Playwright due to coordinate/viewport positioning concerns.
 - **FS-2.3-42** 🟡 **Escape closes menu** — same wiring as ConfirmPopover; deferred with 40/41.
 - **FS-2.3-43** 🟡 **Click outside closes menu** — same.
+- **FS-2.3-44** ✅ **New Document button calls `onCreateDocument`** — `New Document` header button calls `onCreateDocument('')`; when a folder is selected it calls with the folder path. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-45** ❌ **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright
+- **FS-2.3-46** ✅ **Clicking a folder selects it** — folder row gets `bg-blue-50 text-blue-700` highlight after click; second click on same folder deselects it. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-47** ✅ **Header create buttons use selected folder as parent** — when `selectedFolderPath` is set, New Diagram / Document / Folder buttons pass that path instead of `''`. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-48** ✅ **Header breadcrumb when folder selected** — header shows `vault / folderName` text when a folder is selected; reverts to just vault name when deselected. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright
+- **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
 ## 2.4 Confirmation Popover
 
@@ -97,8 +107,8 @@
 - **FS-2.5-02** ✅ **Lists vault documents** — every path in `allDocPaths` that is not in `attachedPaths` is rendered as a clickable row.
 - **FS-2.5-03** ✅ **Already-attached docs excluded** — `attachedPaths` membership hides the entry from the list.
 - **FS-2.5-04** ✅ **Search filters list** — case-insensitive substring filter on the path (e.g. "app" matches both `apple.md` and `Application.md`); empty search restores the full list.
-- **FS-2.5-05** ✅ **Selecting a doc attaches** — clicking a row calls `onAttach(path)` then `onClose()` in that order.
-- **FS-2.5-06** ✅ **Create-new button prompts** — toggles to an input field with autofocus; Enter or clicking `Create` invokes `onCreate(path)` + `onClose()`.
+- **FS-2.5-05** ✅ **Selecting a doc attaches** — clicking a row calls `onAttach(path)` then `onClose` in that order.
+- **FS-2.5-06** ✅ **Create-new button prompts** — toggles to an input field with autofocus; Enter or clicking `Create` invokes `onCreate(path)` + `onClose`.
 - **FS-2.5-07** ✅ **Create-new normalises extension** — path without `.md` auto-appends `.md` before calling `onCreate`; path already ending in `.md` passes through unchanged.
 - **FS-2.5-08** ✅ **Cancel closes without attach** — backdrop click, X button, and the close button all call `onClose`. Escape in the create input reverts to the toggle (does NOT call `onClose` or `onCreate`). Empty/whitespace create names are rejected (no `onCreate`/`onClose`).
 

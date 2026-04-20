@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, FolderOpen,
-  FilePlus, FolderPlus, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
+  FilePlus, FolderPlus, FileText, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { ExplorerFilter } from "../../utils/types";
@@ -27,6 +27,7 @@ interface ExplorerPanelProps {
   onOpenFolder: () => void;
   onSelectFile: (path: string) => void;
   onCreateFile: (parentPath: string) => Promise<string | null>;
+  onCreateDocument: (parentPath: string) => Promise<string | null>;
   onCreateFolder: (parentPath: string) => Promise<string | null>;
   onDeleteFile: (path: string, event: React.MouseEvent) => void;
   onDeleteFolder: (path: string, event: React.MouseEvent) => void;
@@ -59,6 +60,7 @@ export default function ExplorerPanel({
   onOpenFolder,
   onSelectFile,
   onCreateFile,
+  onCreateDocument,
   onCreateFolder,
   onDeleteFile,
   onDeleteFolder,
@@ -84,6 +86,8 @@ export default function ExplorerPanel({
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
   const [dotMenuOpen, setDotMenuOpen] = useState(false);
   const [sortSubMenuOpen, setSortSubMenuOpen] = useState(false);
+  const [newSubMenuOpen, setNewSubMenuOpen] = useState(false);
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -173,6 +177,16 @@ export default function ExplorerPanel({
       setEditType("file");
     }
   }, [onCreateFile]);
+
+  const handleCreateDocument = useCallback(async (parentPath: string = "") => {
+    if (parentPath) setExpandedFolders((prev) => new Set(prev).add(parentPath));
+    const resultPath = await onCreateDocument(parentPath);
+    if (resultPath) {
+      setEditingPath(resultPath);
+      setEditValue(resultPath.split("/").pop() || "untitled.md");
+      setEditType("file");
+    }
+  }, [onCreateDocument]);
 
   const handleCreateFolder = useCallback(async (parentPath: string = "") => {
     if (parentPath) setExpandedFolders((prev) => new Set(prev).add(parentPath));
@@ -275,6 +289,7 @@ export default function ExplorerPanel({
       editValue={editValue}
       expandedFolders={expandedFolders}
       dragOverPath={dragOverPath}
+      selectedFolderPath={selectedFolderPath}
       dirtyFiles={dirtyFiles}
       leftPaneFile={leftPaneFile}
       rightPaneFile={rightPaneFile}
@@ -285,10 +300,12 @@ export default function ExplorerPanel({
       setEditValue={setEditValue}
       setEditingPath={setEditingPath}
       setContextMenu={setContextMenu}
+      onSelectFolder={setSelectedFolderPath}
       toggleFolder={toggleFolder}
       commitRename={commitRename}
       startRename={startRename}
       handleCreateFile={handleCreateFile}
+      handleCreateDocument={handleCreateDocument}
       handleCreateFolder={handleCreateFolder}
       handleDragStart={handleDragStart}
       handleDragOver={handleDragOver}
@@ -352,7 +369,9 @@ export default function ExplorerPanel({
                 setSortSubMenuOpen={setSortSubMenuOpen}
                 dotMenuRef={dotMenuRef}
                 setContextMenu={setContextMenu}
+                selectedFolderPath={selectedFolderPath}
                 handleCreateFile={handleCreateFile}
+                handleCreateDocument={handleCreateDocument}
                 handleCreateFolder={handleCreateFolder}
                 handleDragOver={handleDragOver}
                 handleDragEnter={handleDragEnter}
@@ -363,7 +382,16 @@ export default function ExplorerPanel({
               />
 
               {/* Tree */}
-              <div className="flex-1 overflow-y-auto py-1">
+              <div
+                className="flex-1 overflow-y-auto py-1"
+                onContextMenu={(e) => {
+                  if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[data-tree-node]') === null) {
+                    e.preventDefault();
+                    setSelectedFolderPath(null);
+                    setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", path: "", name: directoryName! });
+                  }
+                }}
+              >
                 {isLoading ? (
                   <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
                 ) : tree.length === 0 ? (
@@ -386,22 +414,50 @@ export default function ExplorerPanel({
         >
           {contextMenu.type === "folder" && (
             <>
-              <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => { handleCreateFile(contextMenu.path); setContextMenu(null); }}
+              <div
+                className="relative"
+                onMouseEnter={() => setNewSubMenuOpen(true)}
+                onMouseLeave={() => setNewSubMenuOpen(false)}
               >
-                <FilePlus size={15} className="text-slate-500" />
-                New Architecture
-              </button>
-              <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => { handleCreateFolder(contextMenu.path); setContextMenu(null); }}
-              >
-                <FolderPlus size={15} className="text-slate-500" />
-                New Folder
-              </button>
+                <button
+                  className={`${btnClass} justify-between text-slate-700 hover:bg-slate-100`}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <FilePlus size={15} className="text-slate-500" />
+                    New
+                  </span>
+                  <ChevronRight size={13} className="text-slate-400" />
+                </button>
+                {newSubMenuOpen && (
+                  <div
+                    className="absolute left-full top-0 ml-0.5 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[160px]"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      onClick={() => { handleCreateFile(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
+                    >
+                      <FilePlus size={15} className="text-slate-500" />
+                      Diagram
+                    </button>
+                    <button
+                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      onClick={() => { handleCreateDocument(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
+                    >
+                      <FileText size={15} className="text-slate-500" />
+                      Document
+                    </button>
+                    <button
+                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      onClick={() => { handleCreateFolder(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
+                    >
+                      <FolderPlus size={15} className="text-slate-500" />
+                      Folder
+                    </button>
+                  </div>
+                )}
+              </div>
               {contextMenu.path && (
                 <>
                   <div className="border-t border-slate-100 my-1" />

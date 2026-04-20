@@ -396,7 +396,12 @@ function KnowledgeBaseInner() {
             dirtyFiles={fileExplorer.dirtyFiles}
             onOpenFolder={fileExplorer.openFolder}
             onSelectFile={handleSelectFile}
-            onCreateFile={(parentPath) => diagramBridgeRef.current?.handleCreateFile(parentPath) ?? Promise.resolve(null)}
+            onCreateFile={async (parentPath) => {
+              const result = await fileExplorer.createFile(parentPath);
+              if (result) handleSelectFile(result.path);
+              return result?.path ?? null;
+            }}
+            onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
             onDeleteFolder={(path, event) => diagramBridgeRef.current?.handleDeleteFolder(path, event)}
