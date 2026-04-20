@@ -11,9 +11,9 @@ import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
+import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
 const TITLE_DEBOUNCE_MS = 250;
-const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";
 
 export type { DocumentPaneBridge };
 

@@ -25,8 +25,7 @@ import { readOrNull } from "./domain/repositoryHelpers";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
-
-const SKIP_DISCARD_CONFIRM_KEY = "knowledge-base-skip-discard-confirm";
+import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
