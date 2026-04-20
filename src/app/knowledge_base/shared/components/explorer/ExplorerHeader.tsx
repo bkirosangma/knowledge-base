@@ -95,17 +95,24 @@ export default function ExplorerHeader({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "")}
       >
-        {/* Row 1 — folder name */}
+        {/* Row 1 — folder name + 3-dot menu */}
         <div className="flex items-center gap-1.5 min-w-0">
           <Folder size={16} className="text-amber-500 flex-shrink-0" />
-          <span className="text-xs font-semibold text-slate-700 truncate">
+          <span className="text-xs font-semibold text-slate-700 truncate flex-1">
             {selectedFolderPath
               ? <><span className="text-slate-400 font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
               : directoryName}
           </span>
+          <button
+            onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
+            className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+            title="More actions"
+          >
+            <EllipsisVertical size={14} className="text-slate-500" />
+          </button>
         </div>
 
-        {/* Row 2 — action icons */}
+        {/* Row 2 — create + refresh icons */}
         <div className="flex items-center gap-0.5 mt-1">
           <button
             onClick={() => handleCreateFile(selectedFolderPath ?? "")}
@@ -134,13 +141,6 @@ export default function ExplorerHeader({
             title="Refresh"
           >
             <RefreshCw size={14} className={`text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
-            title="More actions"
-          >
-            <EllipsisVertical size={14} className="text-slate-500" />
           </button>
 
           {/* 3-dot dropdown menu */}
