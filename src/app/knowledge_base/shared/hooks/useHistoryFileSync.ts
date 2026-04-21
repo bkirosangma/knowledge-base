@@ -85,12 +85,12 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
       core.initEntries([entry], 0, 0);
       scheduleSave();
     }
-  }, [core, scheduleSave]);
+  }, [core.initEntries, scheduleSave]);
 
   const onFileSave = useCallback((fileContent: string) => {
     checksumRef.current = fnv1a(fileContent);
     core.markSaved();
-  }, [core]);
+  }, [core.markSaved]);
 
   const clearHistory = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -99,7 +99,7 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
     activeFileRef.current = null;
     checksumRef.current = "";
     core.clear();
-  }, [core]);
+  }, [core.clear]);
 
   return {
     ...core,

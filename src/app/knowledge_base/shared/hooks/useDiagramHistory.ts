@@ -25,7 +25,7 @@ export function useDiagramHistory(): DiagramHistory {
 
   const onSave = useCallback((diagramJson: string) => {
     sync.onFileSave(diagramJson);
-  }, [sync]);
+  }, [sync.onFileSave]);
 
   return { ...sync, onSave };
 }
