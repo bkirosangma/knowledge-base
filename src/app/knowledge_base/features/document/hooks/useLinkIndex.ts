@@ -58,21 +58,29 @@ function collectCrossReferences(index: LinkIndex): CrossReference[] {
 
 function rebuildBacklinks(index: LinkIndex): void {
   index.backlinks = {};
+  // seenPerTarget tracks (sourcePath#section) keys per target to deduplicate
+  // documents that link to the same target more than once (e.g. two [[link]]
+  // occurrences in the same file) — duplicate entries cause React key collisions.
+  const seenPerTarget = new Map<string, Set<string>>();
+
+  const push = (targetPath: string, sourcePath: string, section?: string) => {
+    let seen = seenPerTarget.get(targetPath);
+    if (!seen) { seen = new Set(); seenPerTarget.set(targetPath, seen); }
+    const key = `${sourcePath}#${section ?? ''}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    if (!index.backlinks[targetPath]) index.backlinks[targetPath] = { linkedFrom: [] };
+    index.backlinks[targetPath].linkedFrom.push(
+      section !== undefined ? { sourcePath, section } : { sourcePath },
+    );
+  };
+
   for (const [sourcePath, entry] of Object.entries(index.documents)) {
     for (const link of entry.outboundLinks) {
-      if (!index.backlinks[link.targetPath]) {
-        index.backlinks[link.targetPath] = { linkedFrom: [] };
-      }
-      index.backlinks[link.targetPath].linkedFrom.push({ sourcePath });
+      push(link.targetPath, sourcePath);
     }
     for (const sl of entry.sectionLinks) {
-      if (!index.backlinks[sl.targetPath]) {
-        index.backlinks[sl.targetPath] = { linkedFrom: [] };
-      }
-      index.backlinks[sl.targetPath].linkedFrom.push({
-        sourcePath,
-        section: sl.section,
-      });
+      push(sl.targetPath, sourcePath, sl.section);
     }
   }
 }

@@ -1,6 +1,7 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
 import { classifyError } from "../../domain/errors";
 import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
+import { getConditionDimensions } from "../../features/diagram/utils/conditionGeometry";
 import { scopedKey } from "./directoryScope";
 const STORAGE_KEY = "knowledge-base-data";
 
@@ -8,12 +9,15 @@ function deserializeNodes(serialized: SerializedNodeData[]): NodeData[] {
   return serialized.map((n): NodeData => {
     const icon = getIcon(n.icon) ?? getIcon("Database")!;
     if (n.shape === "condition") {
+      const conditionSize = (n.conditionSize ?? 1) as 1 | 2 | 3 | 4 | 5;
+      const conditionOutCount = n.conditionOutCount ?? 2;
       return {
         ...n,
         icon,
         shape: "condition",
-        conditionOutCount: n.conditionOutCount ?? 2,
-        conditionSize: (n.conditionSize ?? 1) as 1 | 2 | 3 | 4 | 5,
+        conditionOutCount,
+        conditionSize,
+        w: getConditionDimensions(conditionSize, conditionOutCount).w,
       };
     }
     // Strip any stray condition fields and any unknown shape from non-condition nodes.

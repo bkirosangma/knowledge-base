@@ -74,10 +74,7 @@ describe('DocumentsSection', () => {
     }).not.toThrow()
   })
 
-  it('de-dupes by path#section key so repeated backlinks don\'t crash React', () => {
-    // Two backlinks from the same source+section would collide on key.
-    // This test ensures our key format path#section gives each entry a
-    // unique slot; repeated entries just render both rows.
+  it('renders two entries with the same path but different sections as distinct rows', () => {
     const { container } = render(
       <DocumentsSection
         backlinks={[
@@ -88,6 +85,21 @@ describe('DocumentsSection', () => {
     )
     const rows = container.querySelectorAll('.bg-slate-50')
     expect(rows.length).toBe(2)
+  })
+
+  it('de-dupes identical backlinks (same path, no section) so React keys never collide', () => {
+    // Reproduces: a document with two [[link]] occurrences produces duplicate
+    // { sourcePath, section: undefined } entries — both get key "path#", crashing React.
+    const { container } = render(
+      <DocumentsSection
+        backlinks={[
+          { sourcePath: 'a.md' },
+          { sourcePath: 'a.md' },
+        ]}
+      />,
+    )
+    const rows = container.querySelectorAll('.bg-slate-50')
+    expect(rows.length).toBe(1)
   })
 
   it('renders the wiki-link help text under the list', () => {
