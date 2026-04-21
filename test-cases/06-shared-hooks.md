@@ -94,3 +94,51 @@
 - **HIST-9.4-03** ✅ **undo: returns null at the first entry** — no-op when already at the beginning of history.
 - **HIST-9.5-01** ✅ **goToEntry: navigates to a specific index and returns its snapshot** — `currentIndex` is updated and the snapshot at that index is returned.
 - **HIST-9.6-01** ✅ **onSave: is an alias for onFileSave — marks the saved position** — after `onSave`, `savedIndex` equals the index of the entry that was current at call time.
+
+## HOOK-6.2 `useFileActions`
+
+- **HOOK-6.2-01** ✅ **`handleLoadFile` loads from disk** — orchestrates `selectFile → applyDiagramToState → initHistory` in order. Early-returns when `selectFile` returns null.
+- **HOOK-6.2-02** ✅ **`handleLoadFile` with draft** — when `selectFile` reports `hasDraft: true`, the draft data is applied to the editor and the disk JSON is routed to `applyDiagramToState` as `snapshotSource` (so the saved-position reference matches disk, not draft).
+- **HOOK-6.2-03** ✅ **`handleLoadFile` initialises history** — calls `history.initHistory(diskJson, snapshot, dirHandle, fileName)`.
+- **HOOK-6.2-04** ✅ **`handleSave` writes to disk** — routes to `fileExplorer.saveFile` with the full diagram tuple. No-op when `!isDirty` or `!activeFile`.
+- **HOOK-6.2-05** ✅ **`handleSave` updates load-snapshot + history** — on success, `setLoadSnapshot` captures the new saved state and `history.onSave(JSON.stringify(...))` bumps `savedIndex`.
+- **HOOK-6.2-06** ✅ **`handleSave` commits history** — `history.onSave` is invoked with the saved JSON.
+- **HOOK-6.2-07** ✅ **`handleDeleteFile` shows confirmation** — dispatches `setConfirmAction({ type: "delete-file", path, x, y })`; does NOT delete until `handleConfirmAction` fires.
+- **HOOK-6.2-08** ✅ **`executeDeleteFile` removes from disk + state** — `handleConfirmAction({type:"delete-file"})` calls `fileExplorer.deleteFile`; when the deleted path was the active file, state is reset to `loadDefaults` via `applyDiagramToState`.
+- **HOOK-6.2-09** ✅ **`handleRenameFile` propagates wiki-links** — forwards to `fileExplorer.renameFile`; the full wiki-link chain is in `propagateRename` (`fileExplorerHelpers.ts`), called by `handleRenameFileWithLinks` in `knowledgeBase.tsx`; covered by `propagateRename` tests in `useFileExplorer.helpers.test.ts`.
+- **HOOK-6.2-10** ✅ **`handleDuplicateFile`** — forwards to `duplicateFile` and applies the returned duplicate's data; no-op when `duplicateFile` returns null.
+- **HOOK-6.2-11** ✅ **`handleMoveItem` propagates wiki-links** — `handleMoveItemWithLinks` captures the tree snapshot before the FS move, then calls `propagateMoveLinks`; folder moves iterate all descendants via `collectFilePaths`. Covered by `propagateMoveLinks` tests in `useFileExplorer.helpers.test.ts`.
+- **HOOK-6.2-12** ✅ **Save failure does not clear dirty** — when `saveFile` returns `false`, `setLoadSnapshot` and `history.onSave` are skipped; caller's dirty state is untouched.
+
+## HOOK-6.3 `useEditableState`
+
+- **HOOK-6.3-01** ✅ **`setEditing(true)` enters edit mode; draft carries the current value** — the hook exposes `setEditing`; draft is pre-seeded by a `useEffect([value])`.
+- **HOOK-6.3-02** ✅ **`cancel` clears editing + draft (to value) + error** — restores the original `value` into `draft`, flips `editing` false, clears `error`.
+- **HOOK-6.3-03** ✅ **`showError` sets `error: true`; editing stays true** — also calls `inputRef.current?.focus` so the caller's `<input>` regains focus.
+- **HOOK-6.3-04** ✅ **`finishEditing` commits — flips `editing` false + clears error** — the hook does NOT set `draft` itself on finish; the caller is responsible for updating the external `value`.
+- **HOOK-6.3-05** ✅ **External value change auto-resets** — when `value` prop changes, `useEffect([value])` resets `draft = value`, `editing = false`, `error = false`.
+- **HOOK-6.3-06** ✅ **External change during editing — behaviour lock** — `useEffect([value])` fires unconditionally; an in-flight draft is overwritten and editing is reset when the parent prop changes.
+- **HOOK-6.3-07** ✅ **`inputRef.current?.focus` called on edit-enter** — test attaches a real DOM `<input>` to the exposed ref, triggers `setEditing(true)`, and asserts `focus` was called.
+
+## HOOK-6.4 `useSyncRef`
+
+- **HOOK-6.4-01** ✅ **Ref mirrors value** — `useSyncRef(x)` → `ref.current === x` immediately on mount.
+- **HOOK-6.4-02** ✅ **Ref updates across renders** — every render assigns `ref.current = value` synchronously during render (not inside an effect), so the new value is observable on the same tick as the re-render.
+- **HOOK-6.4-03** ✅ **Same ref identity across renders** — `useRef(value)` returns the same ref object on every render.
+- **HOOK-6.4-04** ✅ **Works with non-primitive values** — arrays, objects, null, undefined all round-trip.
+
+## HOOK-6.5 `useFileExplorer` (utility hooks)
+
+> Covered predominantly in [02-file-system.md §2.1](02-file-system.md); this section holds low-level unit cases.
+
+- **HOOK-6.5-01** ✅ **`isSupported` false branch** — `supported=false`; `acquirePickerHandle` and `restoreSavedHandle` return `null` immediately when `showDirectoryPicker` is absent (jsdom default). _(useDirectoryHandle.test.ts)_
+- **HOOK-6.5-02** ✅ **`isSupported` true branch** — `supported=true` when `showDirectoryPicker` is present; `acquirePickerHandle` calls the native picker, returns handle+scopeId on success and null on AbortError; `restoreSavedHandle` loads from IDB and re-requests permission. _(useDirectoryHandle.test.ts)_
+- **HOOK-6.5-03** ✅ **IDB helpers** — `saveDirHandle`/`loadDirHandle`/`clearDirHandle` fully covered (round-trip, null-when-empty, clear-then-save, migration, error-swallowing) under PERSIST-7.2-03..08. _(idbHandles.test.ts)_
+- **HOOK-6.5-04** ✅ **`openIDB` creates object store** — first open creates the `handles` store; subsequent opens are idempotent. Covered under PERSIST-7.2-06 in `idbHandles.test.ts`.
+- **HOOK-6.5-05** ✅ **Draft saving** — `saveDraft`/`loadDraft`/`clearDraft`/`listDrafts` covered with scope isolation. _(persistence.test.ts)_
+- **HOOK-6.5-06** ✅ **Path resolution** — `getSubdirectoryHandle(root, "a/b")` walks into `a/b` (create=false) or creates missing segments when `create=true`; `writeTextFile` auto-creates intermediate directories for nested paths.
+- **HOOK-6.5-07** ✅ **`createDocument`** — generates a unique `.md` filename via `uniqueName`, writes an empty file, rescans the tree, and returns the new path; returns `null` when no directory handle is open. _(useFileExplorer.createDocument.test.tsx)_
+
+## HOOK-6.6 Document Hooks (`useDocuments`, `useLinkIndex`, `useDocumentContent`)
+
+> Covered in [04-document.md §4.10 and §4.11](04-document.md). No separate unit-only cases here unless a utility is added that does not tie to the editor.

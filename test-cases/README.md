@@ -119,11 +119,11 @@ _Snapshot at 2026-04-21 (Buckets 1-27 complete + shared action history feature: 
 | 03-diagram.md | 152 | 35 | 0 | 64 | 2 | 253 |
 | 04-document.md | 142 | 34 | 3 | 37 | 8 | 224 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
-| 06-shared-hooks.md | 74 | 0 | 0 | 0 | 0 | 74 |
+| 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **556** | **96** | **11** | **115** | **27** | **805** |
+| **Total** | **586** | **96** | **11** | **115** | **27** | **835** |
 
-Covered (✅ + 🟡 + 🧪) = **663 / 805 (82%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
+Covered (✅ + 🟡 + 🧪) = **693 / 835 (83%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
 
 The 27 remaining 🚫 items are genuinely untestable or non-features:
 - **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
