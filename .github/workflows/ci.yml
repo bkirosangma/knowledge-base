@@ -84,3 +84,18 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Sentinel job — keeps the "build-test" required status check satisfied
+  # while the two parallel jobs above run concurrently.
+  build-test:
+    name: build-test
+    needs: [checks, e2e-build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: All checks passed
+        run: |
+          if [[ "${{ needs.checks.result }}" != "success" || "${{ needs.e2e-build.result }}" != "success" ]]; then
+            echo "One or more jobs failed."
+            exit 1
+          fi
