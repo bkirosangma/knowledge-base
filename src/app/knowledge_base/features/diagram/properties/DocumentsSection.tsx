@@ -13,11 +13,17 @@ export default function DocumentsSection({
   backlinks,
   onOpenDocument,
 }: DocumentsSectionProps) {
+  const unique = backlinks.filter(
+    (bl, i, arr) =>
+      arr.findIndex(
+        (b) => b.sourcePath === bl.sourcePath && (b.section ?? "") === (bl.section ?? ""),
+      ) === i,
+  );
   return (
-    <Section title={`References${backlinks.length > 0 ? ` (${backlinks.length})` : ""}`}>
-      {backlinks.length > 0 ? (
+    <Section title={`References${unique.length > 0 ? ` (${unique.length})` : ""}`}>
+      {unique.length > 0 ? (
         <div className="flex flex-col gap-1">
-          {backlinks.map((bl) => (
+          {unique.map((bl) => (
             <div
               key={`${bl.sourcePath}#${bl.section ?? ""}`}
               className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs"
