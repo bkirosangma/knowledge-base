@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
+import type { HistoryEntry } from '../../../shared/utils/historyPersistence'
 import { render, screen, fireEvent } from '@testing-library/react'
 import DocumentProperties from './DocumentProperties'
 
@@ -307,7 +308,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         content="x"
         outbound={[]}
         backlinks={[]}
-        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0 })}
+        history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0 })}
       />,
     )
     expect(screen.getByText('File loaded')).toBeTruthy()
@@ -326,7 +327,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         content="x"
         outbound={[]}
         backlinks={[]}
-        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, canUndo: true, onUndo })}
+        history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0, canUndo: true, onUndo })}
       />,
     )
     fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
@@ -345,7 +346,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         content="x"
         outbound={[]}
         backlinks={[]}
-        history={makeHistoryBridge({ entries: entries as any, currentIndex: 0, savedIndex: 0, canRedo: true, onRedo })}
+        history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 0, savedIndex: 0, canRedo: true, onRedo })}
       />,
     )
     fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
@@ -364,7 +365,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         content="x"
         outbound={[]}
         backlinks={[]}
-        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, onGoToEntry })}
+        history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0, onGoToEntry })}
       />,
     )
     fireEvent.click(screen.getByText('Step A'))
@@ -384,7 +385,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         outbound={[]}
         backlinks={[]}
         readOnly
-        history={makeHistoryBridge({ entries: entries as any, currentIndex: 1, savedIndex: 0, onGoToEntry })}
+        history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0, onGoToEntry })}
       />,
     )
     const btn = screen.getByText('entry').closest('button')!
