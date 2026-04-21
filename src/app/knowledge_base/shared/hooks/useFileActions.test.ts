@@ -2,12 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useRef } from 'react'
 import { useFileActions } from './useFileActions'
+import { SKIP_DISCARD_CONFIRM_KEY } from '../constants'
 
 // Covers HOOK-6.2-01 through 6.2-08 + 6.2-10/11. Wiki-link propagation on
 // rename/move (6.2-09/6.2-11) sits inside useFileExplorer itself and is
 // covered at the integration level in Bucket 19.
-
-const SKIP_DISCARD_CONFIRM_KEY = 'knowledge-base-skip-discard-confirm'
 
 /** Build a minimal DiagramData for loadDiagramFromData to accept. */
 function diagramData(title = 'T') {

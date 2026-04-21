@@ -132,9 +132,9 @@ test.describe('File explorer — rename operations', () => {
     await expect(page.getByText('renamed.md').first()).toBeVisible({ timeout: 3000 })
     await expect(page.getByText('original.md')).toHaveCount(0)
 
-    // Content is preserved
-    await expect(page.getByText('Hello')).toBeVisible()
-    await expect(page.getByText('Content here.')).toBeVisible()
+    // Content is preserved (scope to editor to avoid matching the pane title H1)
+    await expect(page.locator('.ProseMirror').getByText('Hello')).toBeVisible()
+    await expect(page.locator('.ProseMirror').getByText('Content here.')).toBeVisible()
   })
 
   test('LINK-5.4-01: renaming a doc propagates [[wiki-link]] references in open docs', async ({ page }) => {

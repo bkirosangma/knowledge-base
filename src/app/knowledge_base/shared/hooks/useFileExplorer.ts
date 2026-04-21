@@ -314,8 +314,9 @@ export function useFileExplorer() {
       const oldHandle = await parentHandle.getFileHandle(oldName);
       const oldFile = await oldHandle.getFile();
       const content = await oldFile.text();
-      // Create new file
-      const finalName = newName.endsWith(".json") ? newName : `${newName}.json`;
+      // Create new file — preserve original extension if the caller didn't supply one
+      const originalExt = oldName.includes(".") ? oldName.slice(oldName.lastIndexOf(".")) : "";
+      const finalName = newName.includes(".") ? newName : `${newName}${originalExt}`;
       const newHandle = await parentHandle.getFileHandle(finalName, { create: true });
       const writable = await newHandle.createWritable();
       await writable.write(content);

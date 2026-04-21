@@ -39,6 +39,11 @@ export function useDocumentContent(filePath: string | null) {
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
   const [loadError, setLoadError] = useState<FileSystemError | null>(null);
+  /** The filePath whose content is currently held in `content`. Set after
+   *  every successful load (and on null/no-repo branches). Consumers can
+   *  compare `loadedPath === filePath` to know that content is fresh for
+   *  the current file — e.g. to safely call `initHistory`. */
+  const [loadedPath, setLoadedPath] = useState<string | null>(null);
   const prevPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
@@ -95,6 +100,7 @@ export function useDocumentContent(filePath: string | null) {
         setContent("");
         setDirty(false);
         setLoadError(null);
+        setLoadedPath(null);
         return;
       }
       if (!repo) {
@@ -102,6 +108,7 @@ export function useDocumentContent(filePath: string | null) {
         setContent("");
         setDirty(false);
         setLoadError(null);
+        setLoadedPath(filePath);
         return;
       }
 
@@ -110,6 +117,7 @@ export function useDocumentContent(filePath: string | null) {
         setContent(text);
         setDirty(false);
         setLoadError(null);
+        setLoadedPath(filePath);
       } catch (e) {
         const fsErr = e instanceof FileSystemError ? e : classifyError(e);
         setLoadError(fsErr);
@@ -118,6 +126,9 @@ export function useDocumentContent(filePath: string | null) {
         // blocked while loadError is set so the prior content is never
         // written over the failing path.
         reportError(fsErr, `Loading ${filePath}`);
+        // Do NOT set loadedPath here — the load failed, so content is
+        // still the previous document's content. Consumers waiting for
+        // loadedPath === filePath will correctly skip until a retry.
       }
     })();
   }, [filePath, reportError]);
@@ -126,8 +137,20 @@ export function useDocumentContent(filePath: string | null) {
     // Phase 5c: if the most recent load failed, edits are ignored so the
     // user can't type into a stale buffer and save-over the real file.
     if (loadErrorRef.current) return;
+    // Skip if content is identical — Tiptap can fire onUpdate for structural
+    // normalizations (trailing nodes, decoration changes) that don't change
+    // the serialized Markdown. Without this guard, clicking in the doc after
+    // a save would spuriously re-enable the Save/Discard buttons.
+    if (markdown === contentRef.current) return;
     setContent(markdown);
     setDirty(true);
+  }, []);
+
+  // Apply a snapshot string directly — no disk I/O. Used when history can
+  // restore the saved state without re-reading the file (history-first discard).
+  const resetToContent = useCallback((text: string) => {
+    setContent(text);
+    setDirty(false);
   }, []);
 
   // Discard helper: re-read the file from disk, throwing away unsaved edits.
@@ -156,5 +179,5 @@ export function useDocumentContent(filePath: string | null) {
     get content() { return contentRef.current; },
   }), [save, discard, filePath]);
 
-  return { content, dirty, loadError, save, discard, updateContent, bridge };
+  return { content, dirty, loadError, loadedPath, save, discard, resetToContent, updateContent, bridge };
 }

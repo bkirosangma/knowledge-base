@@ -5,13 +5,13 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 import HistoryPanel from './HistoryPanel'
-import type { HistoryEntry } from '../../../shared/hooks/useActionHistory'
+import type { HistoryEntry } from '../utils/historyPersistence'
 
 // Covers DIAG-3.16-10 (lists entries) and DIAG-3.16-11 (click reverts).
 
-const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] } as unknown as HistoryEntry['snapshot']
+const snapshot = { nodes: [], connections: [], layerDefs: [], flows: [] }
 
-function makeEntries(n: number): HistoryEntry[] {
+function makeEntries(n: number): HistoryEntry<unknown>[] {
   return Array.from({ length: n }, (_, i) => ({
     id: i,
     description: `Action ${i}`,
@@ -121,5 +121,76 @@ describe('DIAG-3.16-11: HistoryPanel click reverts to entry', () => {
     expect((btn as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(btn)
     expect(onGoToEntry).not.toHaveBeenCalled()
+  })
+})
+
+// ── DIAG-3.16-13: relativeTime buckets ───────────────────────────────────────
+
+describe('DIAG-3.16-13: HistoryPanel relativeTime bucketing', () => {
+  it('shows "just now" for timestamps less than 5 s ago', () => {
+    const entries: HistoryEntry<unknown>[] = [
+      { id: 0, description: 'Action', timestamp: Date.now() - 2_000, snapshot: {} },
+    ]
+    render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0 })} />)
+    expect(screen.getByText('just now')).toBeTruthy()
+  })
+
+  it('shows "Xs ago" for timestamps 5–59 s ago', () => {
+    const entries: HistoryEntry<unknown>[] = [
+      { id: 0, description: 'Action', timestamp: Date.now() - 30_000, snapshot: {} },
+    ]
+    render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0 })} />)
+    expect(screen.getByText('30s ago')).toBeTruthy()
+  })
+
+  it('shows "Xm ago" for timestamps 60 s–59 min ago', () => {
+    const entries: HistoryEntry<unknown>[] = [
+      { id: 0, description: 'Action', timestamp: Date.now() - 5 * 60_000, snapshot: {} },
+    ]
+    render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0 })} />)
+    expect(screen.getByText('5m ago')).toBeTruthy()
+  })
+
+  it('shows "Xh ago" for timestamps 1–23 h ago', () => {
+    const entries: HistoryEntry<unknown>[] = [
+      { id: 0, description: 'Action', timestamp: Date.now() - 3 * 3_600_000, snapshot: {} },
+    ]
+    render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0 })} />)
+    expect(screen.getByText('3h ago')).toBeTruthy()
+  })
+
+  it('shows "Xd ago" for timestamps 24+ h ago', () => {
+    const entries: HistoryEntry<unknown>[] = [
+      { id: 0, description: 'Action', timestamp: Date.now() - 2 * 86_400_000, snapshot: {} },
+    ]
+    render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0 })} />)
+    expect(screen.getByText('2d ago')).toBeTruthy()
+  })
+})
+
+// ── DIAG-3.16-14: collapse toggle ────────────────────────────────────────────
+
+describe('DIAG-3.16-14: HistoryPanel collapse toggle', () => {
+  it('clicking the header button calls onToggleCollapse', () => {
+    const onToggleCollapse = vi.fn()
+    render(<HistoryPanel {...baseProps({ onToggleCollapse })} />)
+    fireEvent.click(screen.getByText('History'))
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('HistoryPanel works with string snapshots', () => {
+  it('renders entries with string snapshots without error', () => {
+    const entries: HistoryEntry<string>[] = [
+      { id: 0, description: 'File loaded', timestamp: Date.now(), snapshot: 'content v0' },
+      { id: 1, description: 'Draft', timestamp: Date.now(), snapshot: 'content v1' },
+    ]
+    render(
+      <HistoryPanel
+        {...baseProps({ entries: entries as HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0 })}
+      />
+    )
+    expect(screen.getByText('File loaded')).toBeInTheDocument()
+    expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 })

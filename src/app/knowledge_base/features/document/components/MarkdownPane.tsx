@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { FileText } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
 import PaneHeader from "../../../shared/components/PaneHeader";
@@ -25,6 +25,12 @@ interface MarkdownPaneProps {
   backlinks?: { sourcePath: string; section?: string }[];
   onNavigateBacklink?: (sourcePath: string) => void;
   rightSidebar?: React.ReactNode;
+  onBlockChange?: (content: string) => void;
+  historyToken?: number;
+  /** Whether the editor is in read-only (locked) mode. Controlled by parent. */
+  readOnly?: boolean;
+  /** Called when the user clicks the read-only toggle in the pane header. */
+  onToggleReadOnly?: () => void;
 }
 
 export default function MarkdownPane({
@@ -42,9 +48,12 @@ export default function MarkdownPane({
   backlinks = [],
   onNavigateBacklink,
   rightSidebar,
+  onBlockChange,
+  historyToken,
+  readOnly = false,
+  onToggleReadOnly,
 }: MarkdownPaneProps) {
-  const [showBacklinks, setShowBacklinks] = useState(false);
-  const [readOnly, setReadOnly] = useState(false);
+  const [showBacklinks, setShowBacklinks] = React.useState(false);
 
   if (!filePath) {
     return (
@@ -64,7 +73,7 @@ export default function MarkdownPane({
       <PaneHeader
         filePath={filePath}
         readOnly={readOnly}
-        onToggleReadOnly={() => setReadOnly((v) => !v)}
+        onToggleReadOnly={onToggleReadOnly ?? (() => {})}
       >
         {backlinks.length > 0 && (
           <button
@@ -106,6 +115,8 @@ export default function MarkdownPane({
         <MarkdownEditor
           content={content}
           onChange={onChange}
+          onBlockChange={onBlockChange}
+          historyToken={historyToken}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}

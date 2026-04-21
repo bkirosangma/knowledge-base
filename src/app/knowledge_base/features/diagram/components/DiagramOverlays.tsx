@@ -12,7 +12,7 @@ import type { NodeData, LayerDef, Connection, FlowDef, LineCurveAlgorithm, Selec
 import type { DocumentMeta } from "../../document/types";
 import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
-import type { useActionHistory } from "../../../shared/hooks/useActionHistory";
+import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
 import { findBrokenFlowsByReconnect } from "../utils/flowUtils";
 
 export interface DiagramOverlaysProps {
@@ -76,8 +76,8 @@ export interface DiagramOverlaysProps {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
 
-  // useActionHistory result
-  history: ReturnType<typeof useActionHistory>;
+  // useDiagramHistory result
+  history: ReturnType<typeof useDiagramHistory>;
 
   // State setters needed by inline callbacks
   setSelection: React.Dispatch<React.SetStateAction<Selection>>;

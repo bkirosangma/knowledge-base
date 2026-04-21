@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-20 (Buckets 1-27 complete + Playwright file-explorer ops + Playwright document readOnly e2e + production bug fixes: stale closure / missing pane rename / link index on open / bridge fallback + new unit tests: readOnly table toolbar / link popover / blur flush / placeholder / cyclic rename / index reload round-trip + DiagramProperties rename). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-21 (Buckets 1-27 complete + shared action history feature + useDocumentKeyboardShortcuts §4.14 added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 52 | 12 | 3 | 1 | 5 | 73 |
 | 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
-| 03-diagram.md | 150 | 35 | 0 | 64 | 2 | 251 |
-| 04-document.md | 140 | 34 | 3 | 33 | 8 | 218 |
+| 03-diagram.md | 152 | 35 | 0 | 64 | 2 | 253 |
+| 04-document.md | 146 | 34 | 3 | 37 | 8 | 228 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
-| 06-shared-hooks.md | 43 | 0 | 0 | 0 | 0 | 43 |
+| 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **521** | **96** | **11** | **111** | **27** | **766** |
+| **Total** | **590** | **96** | **11** | **115** | **27** | **839** |
 
-Covered (✅ + 🟡 + 🧪) = **628 / 766 (82%)**; open gaps (❌) = **111 (14%)**; consciously waived (🚫) = **27 (4%)**.
+Covered (✅ + 🟡 + 🧪) = **697 / 839 (83%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
 
 The 27 remaining 🚫 items are genuinely untestable or non-features:
 - **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
@@ -145,13 +145,14 @@ The 27 remaining 🚫 items are genuinely untestable or non-features:
 
 ### Test suites that back these numbers
 
-- **Unit / integration** (Vitest + JSDOM): 75 test files, 1057 passing tests. Split across feature areas:
+- **Unit / integration** (Vitest + JSDOM): 80 test files, 1131 passing tests. Split across feature areas:
   - App Shell: `Header.test.tsx`, `Footer.test.tsx`, `FooterContext.test.tsx`, `ToolbarContext.test.tsx`, `PaneManager.test.tsx`, `SplitPane.test.tsx`, `PaneTitle.test.tsx`, `PaneHeader.test.tsx`, `ShellErrorContext.test.tsx`.
   - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileExplorer.createDocument.test.tsx`, `useFileExplorer.operations.test.tsx`, `useFileActions.test.ts`, `useDirectoryHandle.test.ts`, `idbHandles.test.ts`, `ConfirmPopover.test.tsx`, `fileTree.test.ts`.
   - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `levelModel.test.ts`, `LayerProperties.test.tsx`, `AutocompleteInput.test.tsx`, `DocumentsSection.test.tsx`, `ContextMenu.test.tsx`, `FlowBreakWarningModal.test.tsx`, `DocInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `DiagramProperties.test.tsx`, `NodeProperties.test.tsx`, `LineProperties.test.tsx`, `PropertiesPanel.test.tsx`, `ConditionElement.test.tsx`, `Element.test.tsx`, `HistoryPanel.test.tsx`, `DiagramView.test.tsx`, `useContextMenuActions.test.ts`, `useFlowManagement.test.ts`, `autoArrange.test.ts`, `connectionConstraints.test.ts`, `documentAttachments.test.ts`, `layerBounds.test.ts`, `selectionUtils.test.ts`, `typeUtils.test.ts`, `persistence.test.ts`, `directoryScope.test.ts`.
   - Document: `wikiLinkParser.test.ts`, `markdownSerializer.test.ts`, `useDocuments.test.tsx`, `useLinkIndex.test.ts`, `useDocumentContent.test.tsx`, `tableNoNest.test.tsx`, `codeBlockCopy.test.tsx`, `LinkEditorPopover.test.tsx`, `TableFloatingToolbar.test.tsx`, `TablePicker.test.tsx`, `DocumentProperties.test.tsx`, `MarkdownEditor.test.tsx`, `markdownReveal.test.ts`, `rawBlockHelpers.test.ts`, `getFirstHeading.test.ts`.
   - Links & Graph: `graphifyBridge.test.ts`.
-  - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`, `useActionHistory.test.ts`.
+  - Shared history: `historyPersistence.test.ts`, `useHistoryCore.test.ts`, `useHistoryFileSync.test.ts`, `useDocumentHistory.test.ts`, `useDiagramHistory.test.ts`.
+  - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`.
   - Domain: `errors.test.ts`.
 - **E2E** (Playwright + Chromium): 42 tests across 8 spec files — `app.spec.ts` (6), `goldenPath.spec.ts` (6), `diagramGoldenPath.spec.ts` (6), `documentGoldenPath.spec.ts` (5), `documentReadOnly.spec.ts` (5), `fileExplorerOps.spec.ts` (5), `flowHighlight.spec.ts` (6), `fsMockSanity.spec.ts` (3).
 

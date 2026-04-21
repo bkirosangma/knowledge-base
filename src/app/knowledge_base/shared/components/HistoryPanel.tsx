@@ -2,10 +2,10 @@
 
 import { useRef, useEffect } from "react";
 import { Undo2, Redo2, ChevronDown, ChevronRight } from "lucide-react";
-import type { HistoryEntry } from "../../../shared/hooks/useActionHistory";
+import type { HistoryEntry } from "../utils/historyPersistence";
 
 interface HistoryPanelProps {
-  entries: HistoryEntry[];
+  entries: HistoryEntry<unknown>[];
   currentIndex: number;
   savedIndex: number;
   canUndo: boolean;
@@ -42,7 +42,6 @@ export default function HistoryPanel({
 }: HistoryPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to current entry
   useEffect(() => {
     if (!listRef.current || collapsed) return;
     const item = listRef.current.querySelector(`[data-index="${currentIndex}"]`);
@@ -51,7 +50,6 @@ export default function HistoryPanel({
 
   return (
     <div className="flex flex-col flex-shrink-0 border-t border-slate-200 bg-white">
-      {/* Header */}
       <button
         onClick={onToggleCollapse}
         className="flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50 transition-colors flex-shrink-0"
@@ -73,7 +71,6 @@ export default function HistoryPanel({
 
       {!collapsed && (
         <>
-          {/* Undo/Redo buttons */}
           <div className="flex items-center gap-1 px-3 pb-1.5 flex-shrink-0">
             <button
               onClick={onUndo}
@@ -93,12 +90,10 @@ export default function HistoryPanel({
             </button>
           </div>
 
-          {/* Entry list */}
           <div ref={listRef} className="overflow-y-auto flex-shrink-0 max-h-[200px]">
             {entries.length === 0 ? (
               <div className="px-3 py-3 text-xs text-slate-400 text-center">No history yet</div>
             ) : (
-              // Render entries in reverse order (newest at top)
               [...entries].reverse().map((entry, revIdx) => {
                 const idx = entries.length - 1 - revIdx;
                 const isCurrent = idx === currentIndex;

@@ -8,6 +8,10 @@ import type { DocumentPaneBridge } from "./hooks/useDocumentContent";
 import type { useLinkIndex } from "./hooks/useLinkIndex";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
+import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
+import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
+import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
+import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
 const TITLE_DEBOUNCE_MS = 250;
 
@@ -33,7 +37,15 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge, save, discard } = useDocumentContent(filePath);
+  const { content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath } = useDocumentContent(filePath);
+  const history = useDocumentHistory();
+  const saveStateRef = useRef({ content, history });
+  saveStateRef.current = { content, history };
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [historyToken, setHistoryToken] = useState(0);
+  const bumpToken = () => setHistoryToken((t) => t + 1);
+  const [readOnly, setReadOnly] = useState(false);
+  const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
   // keystroke; re-rendering PaneTitle that often is wasteful, and the user
@@ -61,13 +73,9 @@ export default function DocumentView({
     });
   }, []);
 
-  // Expose bridge to parent
+  // Ref kept in place so the effect below (defined after handleSave) can close over it.
   const onDocBridgeRef = useRef(onDocBridge);
   onDocBridgeRef.current = onDocBridge;
-  useEffect(() => {
-    onDocBridgeRef.current?.(bridge);
-    return () => onDocBridgeRef.current?.(null);
-  }, [bridge]);
 
   // Populate link index when a document is first opened so backlinks are
   // available for rename/delete propagation even if the doc is never saved.
@@ -122,6 +130,108 @@ export default function DocumentView({
     return links;
   }, [filePath, linkManager.linkIndex]);
 
+  // History: re-initialize once the content for the new file is truly loaded.
+  // We use a ref to fire only once per file switch — `content` is in deps so
+  // the effect re-runs on every keystroke, but the ref prevents re-init.
+  const historyInitedPathRef = useRef<string | null>(null);
+  useEffect(() => { historyInitedPathRef.current = null; }, [filePath]);
+  useEffect(() => {
+    // loadedPath === filePath means useDocumentContent has finished loading
+    // the current file's content into `content`. Guard against re-init on
+    // every keystroke with the ref.
+    if (!filePath || loadedPath !== filePath) return;
+    if (historyInitedPathRef.current === filePath) return;
+    historyInitedPathRef.current = filePath;
+    (async () => {
+      const dh = dirHandleRef.current ?? null;
+      await history.initHistory(content, dh, filePath);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filePath, loadedPath, content]);
+
+  // Combined content change handler: updates content + records debounced history entry
+  const handleContentChange = useCallback((markdown: string) => {
+    updateContent(markdown);
+    history.onContentChange(markdown);
+  }, [updateContent, history]);
+
+  // Wrapped save: flush pending draft + mark saved checkpoint (no new entry).
+  // saveStateRef avoids listing content/history as deps so handleSave is stable
+  // across keystrokes — a stable handleSave means the bridge published to the
+  // parent doesn't change every time the user types, preventing bridge churn.
+  const handleSave = useCallback(async () => {
+    await save();
+    const { content: c, history: h } = saveStateRef.current;
+    h.onFileSave(c);
+  }, [save]); // stable: save is memoized on filePath only
+
+  // Expose bridge to parent. Replace bridge.save with handleSave so every save
+  // path (toolbar button, Cmd+S via parent) goes through the full save + history
+  // update. Getters must be spelled out — spread would evaluate them immediately,
+  // producing stale static values instead of live refs.
+  useEffect(() => {
+    if (!bridge) { onDocBridgeRef.current?.(null); return; }
+    const fullBridge: DocumentPaneBridge = {
+      save: handleSave,
+      discard: bridge.discard,
+      get dirty() { return bridge.dirty; },
+      get filePath() { return bridge.filePath; },
+      get content() { return bridge.content; },
+    };
+    onDocBridgeRef.current?.(fullBridge);
+    return () => onDocBridgeRef.current?.(null);
+  }, [bridge, handleSave]); // handleSave stable; bridge changes only on file switch
+
+  // History-first discard: restore saved snapshot from history; fall back to
+  // disk only if history has no saved state (e.g. freshly opened file).
+  const executeDiscard = useCallback(async () => {
+    const saved = history.goToSaved();
+    if (saved !== null) {
+      resetToContent(saved);
+      bumpToken();
+      return;
+    }
+    await discard();
+    bumpToken();
+  }, [history, resetToContent, discard]);
+
+  // Show confirmation popover (with "don't ask again" option) before discarding
+  const handleDiscard = useCallback((e: React.MouseEvent) => {
+    if (!dirty) return;
+    if (typeof window !== "undefined" && localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true") {
+      executeDiscard();
+      return;
+    }
+    setDiscardConfirmPos({ x: e.clientX, y: e.clientY });
+  }, [dirty, executeDiscard]);
+
+  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z
+  useDocumentKeyboardShortcuts({
+    onUndo: useCallback(() => {
+      const s = history.undo();
+      if (s !== null) { updateContent(s); bumpToken(); }
+    }, [history, updateContent]),
+    onRedo: useCallback(() => {
+      const s = history.redo();
+      if (s !== null) { updateContent(s); bumpToken(); }
+    }, [history, updateContent]),
+    readOnly,
+  });
+
+  // Bridge for HistoryPanel in DocumentProperties
+  const historyBridge = {
+    entries: history.entries as import("../../shared/utils/historyPersistence").HistoryEntry<unknown>[],
+    currentIndex: history.currentIndex,
+    savedIndex: history.savedIndex,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    onUndo: () => { const s = history.undo(); if (s !== null) { updateContent(s); bumpToken(); } },
+    onRedo: () => { const s = history.redo(); if (s !== null) { updateContent(s); bumpToken(); } },
+    onGoToEntry: (i: number) => { const s = history.goToEntry(i); if (s !== null) { updateContent(s); bumpToken(); } },
+    collapsed: historyCollapsed,
+    onToggleCollapse: () => setHistoryCollapsed((c) => !c),
+  };
+
   return (
     <div className="flex-1 flex min-h-0 h-full">
       <div className="flex-1 min-h-0">
@@ -130,15 +240,19 @@ export default function DocumentView({
           content={content}
           title={derivedTitle}
           isDirty={dirty}
-          onSave={save}
-          onDiscard={discard}
-          onChange={updateContent}
+          onSave={handleSave}
+          onDiscard={handleDiscard}
+          onChange={handleContentChange}
+          onBlockChange={history.onBlockChange}
+          historyToken={historyToken}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
           allDocPaths={allDocPaths}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
+          readOnly={readOnly}
+          onToggleReadOnly={() => setReadOnly((v) => !v)}
           rightSidebar={
             <DocumentProperties
               filePath={filePath}
@@ -148,10 +262,26 @@ export default function DocumentView({
               onNavigateLink={(path) => onNavigateLink?.(path)}
               collapsed={propertiesCollapsed}
               onToggleCollapse={toggleProperties}
+              history={historyBridge}
+              readOnly={readOnly}
             />
           }
         />
       </div>
+      {discardConfirmPos && (
+        <ConfirmPopover
+          message="Discard unsaved changes?"
+          confirmLabel="Discard"
+          confirmColor="red"
+          showDontAsk
+          position={discardConfirmPos}
+          onConfirm={() => { setDiscardConfirmPos(null); executeDiscard(); }}
+          onCancel={() => setDiscardConfirmPos(null)}
+          onDontAskChange={(checked) => {
+            if (checked) localStorage.setItem(SKIP_DISCARD_CONFIRM_KEY, "true");
+          }}
+        />
+      )}
     </div>
   );
 }

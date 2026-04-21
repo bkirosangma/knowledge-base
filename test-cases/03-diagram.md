@@ -291,6 +291,8 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.16-10** ✅ **HistoryPanel lists entries.** Entries render in reverse (newest first); counter badge; "saved" badge; Undo/Redo disabled state; collapsed hides list. _(unit: `HistoryPanel.test.tsx`)_
 - **DIAG-3.16-11** ✅ **HistoryPanel click reverts.** Click entry fires `onGoToEntry(index)`; Undo/Redo call handlers; readOnly disables entry buttons. _(unit: `HistoryPanel.test.tsx`)_
 - **DIAG-3.16-12** ❌ **Undo/redo respects read-only.** Canvas integration.
+- **DIAG-3.16-13** ✅ **HistoryPanel relativeTime buckets.** "just now" (<5 s), "Xs ago" (<60 s), "Xm ago" (<1 h), "Xh ago" (<24 h), "Xd ago" (≥24 h). _(unit: `HistoryPanel.test.tsx`)_
+- **DIAG-3.16-14** ✅ **HistoryPanel collapse toggle.** Clicking the header button calls `onToggleCollapse`. _(unit: `HistoryPanel.test.tsx`)_
 
 ## 3.17 Read-Only Mode
 

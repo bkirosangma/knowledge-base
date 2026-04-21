@@ -2,6 +2,21 @@
 
 import { useMemo } from "react";
 import { Hash, Clock, Link2, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import HistoryPanel from "../../../shared/components/HistoryPanel";
+import type { HistoryEntry } from "../../../shared/utils/historyPersistence";
+
+interface HistoryPanelBridge {
+  entries: HistoryEntry<unknown>[];
+  currentIndex: number;
+  savedIndex: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onGoToEntry: (index: number) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
 
 interface DocumentPropertiesProps {
   filePath: string | null;
@@ -11,6 +26,8 @@ interface DocumentPropertiesProps {
   onNavigateLink?: (path: string) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  history?: HistoryPanelBridge | null;
+  readOnly?: boolean;
 }
 
 export default function DocumentProperties({
@@ -21,6 +38,8 @@ export default function DocumentProperties({
   onNavigateLink,
   collapsed,
   onToggleCollapse,
+  history,
+  readOnly,
 }: DocumentPropertiesProps) {
   const stats = useMemo(() => {
     if (!content) return { words: 0, chars: 0, readingTime: "0 min" };
@@ -150,6 +169,21 @@ export default function DocumentProperties({
           )}
         </div>
       </div>
+      {history && (
+        <HistoryPanel
+          entries={history.entries}
+          currentIndex={history.currentIndex}
+          savedIndex={history.savedIndex}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={history.onUndo}
+          onRedo={history.onRedo}
+          onGoToEntry={history.onGoToEntry}
+          collapsed={history.collapsed}
+          onToggleCollapse={history.onToggleCollapse}
+          readOnly={readOnly}
+        />
+      )}
     </div>
   );
 }

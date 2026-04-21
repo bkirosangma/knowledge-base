@@ -36,6 +36,13 @@ interface MarkdownEditorProps {
   readOnly?: boolean;
   /** Optional sidebar rendered beside editor content (below the toolbar). */
   rightSidebar?: React.ReactNode;
+  /** Called when the user's cursor moves to a different block; receives the
+   *  current markdown content. Used by the shared action history to save a
+   *  checkpoint without debounce lag. */
+  onBlockChange?: (content: string) => void;
+  /** Increment to force-apply `content` to the editor even when focused.
+   *  Used by undo/redo to bypass the isFocused guard in the content-sync effect. */
+  historyToken?: number;
 }
 
 
@@ -63,6 +70,8 @@ export default function MarkdownEditor({
   currentDocDir = "",
   readOnly = false,
   rightSidebar,
+  onBlockChange,
+  historyToken,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -81,11 +90,17 @@ export default function MarkdownEditor({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  const onBlockChangeRef = useRef(onBlockChange);
+  useEffect(() => {
+    onBlockChangeRef.current = onBlockChange;
+  }, [onBlockChange]);
+  const prevBlockStartRef = useRef(-1);
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
+        undoRedo: false,
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false,
         // Disable StarterKit's bundled Link so our Link.configure({...}) below
@@ -146,13 +161,23 @@ export default function MarkdownEditor({
       }
     },
     // `onTransaction` fires for every transaction including selection-only
-    // ones, so we don't need a separate `onSelectionUpdate` — this halves the
-    // number of React re-renders per cursor move.
+    // ones. We use it here only for rawSwap bookkeeping and forceUpdate; the
+    // block-boundary detection is handled separately in onSelectionUpdate.
     onTransaction: ({ transaction }) => {
       if (transaction.getMeta("rawSwap")) {
         rawSwapRef.current = true;
       }
       forceUpdate((n) => n + 1);
+    },
+    onSelectionUpdate: ({ editor: ed }) => {
+      if (!onBlockChangeRef.current) return;
+      const { $anchor } = ed.state.selection;
+      const blockStart = $anchor.start($anchor.depth);
+      if (blockStart !== prevBlockStartRef.current) {
+        prevBlockStartRef.current = blockStart;
+        const md = htmlToMarkdown(ed.getHTML());
+        onBlockChangeRef.current(md);
+      }
     },
   });
 
@@ -200,6 +225,22 @@ export default function MarkdownEditor({
     });
   }, [content, editor]);
 
+
+  // When historyToken changes, force-apply content to the editor even if focused.
+  // The normal content-sync effect skips updates while the editor is focused to
+  // prevent echo loops during typing; undo/redo must bypass that guard.
+  useEffect(() => {
+    if (!editor || historyToken === undefined) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      const currentMd = htmlToMarkdown(editor.getHTML());
+      if (currentMd.trim() !== content.trim()) {
+        editor.commands.setContent(markdownToHtml(content), { emitUpdate: false });
+        setRawContent(content);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyToken]);
   // Sync editable state when readOnly prop changes (Tiptap's `editable` option
   // is only read at init — later changes require setEditable). When locking,
   // dispatch a no-op transaction so the markdownReveal plugin re-runs with the

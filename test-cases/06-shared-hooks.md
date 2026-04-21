@@ -2,74 +2,143 @@
 
 > Mirrors §6 of [Features.md](../Features.md). See [README.md](README.md) for ID scheme and coverage markers.
 >
-> These are internal hooks exported from `src/app/knowledge_base/shared/hooks/`. Tests here are unit-level (with `@testing-library/react` and `renderHook`).
+> Internal shared hooks and utilities in `src/app/knowledge_base/shared/`. Tests are unit-level using Vitest + `@testing-library/react`.
 
 ---
 
-## 6.1 `useActionHistory`
+## HIST-5 historyPersistence utilities
 
-- **HOOK-6.1-01** ✅ **`initHistory` loads sidecar** — `initHistory(diagramJson, snapshot, handle, filePath)` restores entries, `currentIndex`, and `savedIndex` from the sidecar when the FNV-1a checksum matches. Verified via FS mock returning prepared `HistoryFile` JSON.
-- **HOOK-6.1-02** ✅ **`initHistory` with no handle** — creates a single `"File loaded"` entry at `index 0`, `savedIndex = 0`; no throw.
-- **HOOK-6.1-03** ✅ **`onSave` commits snapshot position** — after `onSave`, `savedIndex` equals the current index; the internal checksum ref is updated from the new JSON.
-- **HOOK-6.1-04** ✅ **`onSave` writes to disk** — `onSave` schedules a debounced disk write (1000 ms); advancing fake timers by 1000 ms triggers `writeHistoryFile` with updated `checksum`, `savedIndex`, `currentIndex`, and `entries`. Verified via writable FS mock.
-- **HOOK-6.1-05** ✅ **Max history cap** — cap is **101** when the saved entry is pinned (MAX_HISTORY=100 recent + 1 pinned savedEntry at index 0). Intentional: `savedEntryPinnedRef` explicitly tracks this case, so the +1 is by design.
-- **HOOK-6.1-06** ✅ **`goToSaved` returns last saved snapshot** — jumps `currentIndex` to `savedIndex` and returns that entry's snapshot; returns `null` when `savedIndex < 0` or out of range.
-- **HOOK-6.1-07** ✅ **FNV-1a checksum match** — when `initHistory` is called with JSON whose FNV-1a matches the sidecar's stored checksum and there are entries, history is restored. Verified via FS mock with matching checksum.
-- **HOOK-6.1-08** ✅ **FNV-1a checksum mismatch** — different JSON checksum triggers a fresh-start path (new `"File loaded"` entry); stale sidecar entries are discarded. Verified via FS mock with hardcoded wrong checksum.
-- **HOOK-6.1-09** ✅ **Sidecar filename convention** — `foo.json` → `.foo.history.json` (hidden, dot-prefixed, `.json` extension stripped from the basename before concatenation). For `folder/foo.json` → `folder/.foo.history.json`. Verified by capturing `getFileHandle` calls during `initHistory`.
-- **HOOK-6.1-10** ✅ **History survives rename** — `renameFile` in `useFileExplorer` calls `renameSidecar(parentHandle, oldName, newName)` after the main content rename, moving `.old.history.json` → `.new.history.json`. No-op when no sidecar exists. Verified in [useFileExplorer.helpers.test.ts](../src/app/knowledge_base/shared/hooks/useFileExplorer.helpers.test.ts).
-- **HOOK-6.1-11** ✅ **Fresh-start `savedIndex=0` does NOT block undo** — `savedEntryPinned` is `false` after `initHistory`; undo can reach index 0 normally. The block only activates when pruning sets the flag.
-- **HOOK-6.1-12** ✅ **Pruning pins saved entry → undo blocked at index 1** — when recording past MAX_HISTORY=100 forces the saved entry to index 0, `savedEntryPinned` becomes `true` and undo stops at index 1.
-- **HOOK-6.1-13** ✅ **`onSave` clears `savedEntryPinned`** — after saving at the current tip, the flag is reset to `false` and undo can walk back to index 0.
+- **HIST-5.1-01** ✅ **fnv1a: returns an 8-char hex string** — output matches `/^[0-9a-f]{8}$/`.
+- **HIST-5.1-02** ✅ **fnv1a: deterministic for the same input** — calling twice with identical string returns the same hash.
+- **HIST-5.1-03** ✅ **fnv1a: different inputs produce different hashes** — `fnv1a('abc') !== fnv1a('xyz')`.
+- **HIST-5.2-01** ✅ **historyFileName: strips .json extension and prefixes dot** — `diagram.json` → `.diagram.history.json`.
+- **HIST-5.2-02** ✅ **historyFileName: strips .md extension and prefixes dot** — `notes.md` → `.notes.history.json`.
+- **HIST-5.2-03** ✅ **historyFileName: preserves directory prefix in output path** — `docs/notes.md` → `docs/.notes.history.json`.
+- **HIST-5.2-04** ✅ **historyFileName: handles nested directory paths** — `a/b/c.json` → `a/b/.c.history.json`.
+- **HIST-5.3-01** ✅ **resolveParentHandle: traverses directory tree and returns parent handle** — `sub/notes.md` → calls `getDirectoryHandle('sub')` and returns the resulting handle.
+- **HIST-5.3-02** ✅ **resolveParentHandle: returns root handle when filePath has no directory** — top-level path with no `/` returns the root handle unchanged.
+- **HIST-5.4-01** ✅ **readHistoryFile: returns null when history file does not exist** — `getFileHandle` throws `NotFoundError`; function swallows it and returns `null`.
+- **HIST-5.4-02** ✅ **readHistoryFile: parses and returns valid HistoryFile JSON** — file containing a valid `HistoryFile<T>` is round-tripped correctly.
+- **HIST-5.4-03** ✅ **readHistoryFile: returns null for malformed JSON** — `JSON.parse` throws; function returns `null`.
+- **HIST-5.5-01** ✅ **writeHistoryFile: creates and writes serialized HistoryFile JSON** — creates the file handle with `{ create: true }` and writes `JSON.stringify(data)`.
+- **HIST-5.5-02** ✅ **writeHistoryFile: silently ignores write errors** — missing intermediate directory throws; function swallows it and resolves without error.
 
-Also covered in [useActionHistory.test.ts](../src/app/knowledge_base/shared/hooks/useActionHistory.test.ts): `recordAction` append + redo-branch truncation, `undo`/`redo` blocked only when `savedEntryPinned=true`, `goToEntry` in/out of bounds, `clearHistory` resets every ref.
+## HIST-6 useHistoryCore
 
-## 6.2 `useFileActions`
+- **HIST-6.1-01** ✅ **Initial state: empty entries and index -1** — `entries` is `[]`, `currentIndex` is `-1`.
+- **HIST-6.1-02** ✅ **Initial state: canUndo and canRedo are both false** — nothing to undo or redo before any entry is loaded.
+- **HIST-6.2-01** ✅ **initEntries: sets entries array and currentIndex** — after `initEntries([e], 0, 0)`, `entries` has length 1 and `currentIndex` is 0.
+- **HIST-6.2-02** ✅ **initEntries: sets savedIndex** — third argument is reflected in `savedIndex`.
+- **HIST-6.2-03** ✅ **initEntries: canUndo/canRedo reflect position correctly** — at index 0 of a 1-entry list both are false.
+- **HIST-6.2-04** ✅ **initEntries: resets the savedEntryPinned flag** — re-initialising after a pin-triggering overflow clears `savedEntryPinned`.
+- **HIST-6.3-01** ✅ **recordAction: appends entry and advances currentIndex** — `entries` grows by 1 and `currentIndex` points to the new entry.
+- **HIST-6.3-02** ✅ **recordAction: canUndo becomes true after first record** — `canUndo` flips once there is at least one earlier entry.
+- **HIST-6.3-03** ✅ **recordAction: truncates redo branch when recording after undo** — future entries beyond `currentIndex` are discarded before appending.
+- **HIST-6.4-01** ✅ **undo: returns previous snapshot and decrements index** — returns the snapshot at `currentIndex - 1` and moves `currentIndex` back.
+- **HIST-6.4-02** ✅ **undo: returns null when already at beginning** — no-op when `currentIndex` is at the minimum allowed index.
+- **HIST-6.4-03** ✅ **redo: returns next snapshot and increments index** — returns the snapshot at `currentIndex + 1` and advances the index.
+- **HIST-6.4-04** ✅ **redo: returns null when already at end** — no-op when `currentIndex` equals `entries.length - 1`.
+- **HIST-6.5-01** ✅ **goToEntry: jumps to any valid index and returns its snapshot** — sets `currentIndex` to the given index and returns its snapshot.
+- **HIST-6.5-02** ✅ **goToEntry: returns null for out-of-range index** — index ≥ `entries.length` returns null without mutation.
+- **HIST-6.5-03** ✅ **goToEntry: returns null for negative index** — negative index returns null without mutation.
+- **HIST-6.6-01** ✅ **goToSaved: jumps to savedIndex and returns its snapshot** — sets `currentIndex` to `savedIndex` and returns the saved snapshot.
+- **HIST-6.6-02** ✅ **goToSaved: returns null when savedIndex is -1** — before any save, `savedIndex` is `-1` and the call is a no-op.
+- **HIST-6.7-01** ✅ **markSaved: updates savedIndex to currentIndex** — `savedIndex` equals `currentIndex` after the call.
+- **HIST-6.7-02** ✅ **markSaved: clears the savedEntryPinned flag** — if `savedEntryPinned` was true, it is reset to false by `markSaved`.
+- **HIST-6.8-01** ✅ **clear: resets entries to empty and index to -1** — `entries` is `[]` and `currentIndex` is `-1` after `clear()`.
+- **HIST-6.8-02** ✅ **clear: resets savedIndex to -1 and clears canUndo/canRedo** — full state reset including all derived flags.
+- **HIST-6.9-01** ✅ **onStateChange callback: fires after recordAction** — the optional callback is invoked each time an action is recorded.
+- **HIST-6.9-02** ✅ **onStateChange callback: fires after undo** — callback is invoked when `undo()` mutates state.
+- **HIST-6.10-01** ✅ **MAX_HISTORY pruning: caps entries at 100 and keeps most recent** — after 106 records, only the latest 100 are kept.
+- **HIST-6.10-02** ✅ **MAX_HISTORY pruning: pins saved entry at index 0 when it would be pruned** — `savedEntryPinned` becomes true and `savedIndex` is 0.
+- **HIST-6.10-03** ✅ **savedEntryPinned: canUndo is false when currentIndex is 1** — the pinned entry at index 0 acts as the undo floor; `canUndo` is false at the boundary.
+- **HIST-6.10-04** ✅ **savedEntryPinned: undo() returns null when currentIndex is 1** — undo cannot move past the pinned saved entry.
+- **HIST-6.11-01** ✅ **getLatestState: returns current ref values synchronously** — reads `entries`, `currentIndex`, and `savedIndex` from refs without waiting for a render.
+
+## HIST-7 useHistoryFileSync
+
+- **HIST-7.1-01** ✅ **initHistory with no handle: seeds a "File loaded" entry** — single entry with `description === 'File loaded'` and the file content as snapshot; `savedIndex` is 0.
+- **HIST-7.2-01** ✅ **initHistory with matching checksum: restores entries from disk** — `readHistoryFile` returns data whose checksum matches; `currentIndex` and `savedIndex` are preserved.
+- **HIST-7.3-01** ✅ **initHistory with mismatched checksum: discards stale history** — stale sidecar is ignored; a fresh "File loaded" entry is seeded.
+- **HIST-7.4-01** ✅ **onFileSave: marks the saved position and schedules a debounced write** — `savedIndex` advances to `currentIndex`; `writeHistoryFile` is called after 1000 ms.
+- **HIST-7.5-01** ✅ **clearHistory: resets state to empty and cancels pending writes** — `entries` is `[]`, `currentIndex` is `-1`, and no deferred write fires.
+- **HIST-7.6-01** ✅ **Debounce write: does not write immediately after recordAction** — `writeHistoryFile` is not called synchronously.
+- **HIST-7.6-02** ✅ **Debounce write: writes after 1000 ms following recordAction** — advancing fake timers by 1100 ms triggers exactly one write.
+- **HIST-7.6-03** ✅ **Debounce write: does not write when no dirHandle is provided** — without a directory handle, no write is ever scheduled.
+- **HIST-7.6-04** ✅ **Debounce write: multiple rapid recordActions coalesce into a single write** — only one call to `writeHistoryFile` after the debounce window settles.
+- **HIST-7.7-01** ✅ **File switch: re-init clears prior entries and loads fresh history** — calling `initHistory` a second time with a different path discards the previous session's entries.
+
+## HIST-8 useDocumentHistory
+
+- **HIST-8.1-01** ✅ **onFileSave: flushes pending debounce as "Draft" when content differs** — pending debounce fires immediately as a "Draft" entry; no additional "Saved" entry is added; `savedIndex` advances.
+- **HIST-8.1-02** ✅ **onFileSave: does not record a new entry when content matches current snapshot** — if the content hasn't changed since the last entry, `onFileSave` only marks the saved position.
+- **HIST-8.2-01** ✅ **onBlockChange: records "Block changed" entry when content differs** — a "Block changed" entry is appended immediately without waiting for the debounce.
+- **HIST-8.2-02** ✅ **onBlockChange: is a no-op when content matches current snapshot** — identical content does not append a new entry.
+- **HIST-8.2-03** ✅ **onBlockChange: cancels any pending debounce timer** — a block change flushes the debounce so no duplicate "Draft" follows.
+- **HIST-8.3-01** ✅ **goToSaved: returns saved snapshot and positions currentIndex at savedIndex** — after edits, `goToSaved` moves back to the last saved entry and returns its content.
+- **HIST-8.4-01** ✅ **onContentChange: does not record an entry immediately** — the debounce delay means `entries.length` is unchanged right after the call.
+- **HIST-8.4-02** ✅ **onContentChange: records a "Draft" entry after 5 s** — advancing fake timers by 5000 ms appends one "Draft" entry.
+- **HIST-8.4-03** ✅ **onContentChange: resets the debounce timer on subsequent calls** — a second call within the window delays the flush; only one "Draft" is recorded.
+- **HIST-8.4-04** ✅ **onContentChange: is a no-op when content is identical to current snapshot** — content equal to the current entry's snapshot never schedules a "Draft".
+
+## HIST-9 useDiagramHistory
+
+- **HIST-9.1-01** ✅ **initHistory with no handle: seeds "File loaded" entry with diagram snapshot** — single entry with the parsed diagram object as snapshot; `savedIndex` is 0.
+- **HIST-9.1-02** ✅ **initHistory with matching checksum: restores history from disk** — FNV-1a matches sidecar; `currentIndex` and `savedIndex` are restored from file.
+- **HIST-9.2-01** ✅ **recordAction: appends entry and advances currentIndex** — new entry is appended with the provided description and snapshot.
+- **HIST-9.3-01** ✅ **canUndo/canRedo: both false at single-entry initial state** — nothing before or after the first entry.
+- **HIST-9.3-02** ✅ **canUndo/canRedo: canUndo=true, canRedo=false after recording an action** — one entry in the past, none in the future.
+- **HIST-9.3-03** ✅ **canUndo/canRedo: canUndo=false, canRedo=true after undoing to the first entry** — at index 0, nothing to undo; the undone entry is available to redo.
+- **HIST-9.4-01** ✅ **undo: returns the previous snapshot** — moves `currentIndex` back by 1 and returns the prior entry's snapshot.
+- **HIST-9.4-02** ✅ **redo: returns the next snapshot** — moves `currentIndex` forward by 1 and returns the next entry's snapshot.
+- **HIST-9.4-03** ✅ **undo: returns null at the first entry** — no-op when already at the beginning of history.
+- **HIST-9.5-01** ✅ **goToEntry: navigates to a specific index and returns its snapshot** — `currentIndex` is updated and the snapshot at that index is returned.
+- **HIST-9.6-01** ✅ **onSave: is an alias for onFileSave — marks the saved position** — after `onSave`, `savedIndex` equals the index of the entry that was current at call time.
+
+## HOOK-6.2 `useFileActions`
 
 - **HOOK-6.2-01** ✅ **`handleLoadFile` loads from disk** — orchestrates `selectFile → applyDiagramToState → initHistory` in order. Early-returns when `selectFile` returns null.
 - **HOOK-6.2-02** ✅ **`handleLoadFile` with draft** — when `selectFile` reports `hasDraft: true`, the draft data is applied to the editor and the disk JSON is routed to `applyDiagramToState` as `snapshotSource` (so the saved-position reference matches disk, not draft).
 - **HOOK-6.2-03** ✅ **`handleLoadFile` initialises history** — calls `history.initHistory(diskJson, snapshot, dirHandle, fileName)`.
 - **HOOK-6.2-04** ✅ **`handleSave` writes to disk** — routes to `fileExplorer.saveFile` with the full diagram tuple. No-op when `!isDirty` or `!activeFile`.
-- **HOOK-6.2-05** ✅ **`handleSave` updates load-snapshot + history (draft clearing happens inside `saveFile`)** — on success, `setLoadSnapshot` captures the new saved state and `history.onSave(JSON.stringify(...))` bumps `savedIndex`.
-- **HOOK-6.2-06** ✅ **`handleSave` commits history** — same as 6.2-05: `history.onSave` is invoked with the saved JSON.
+- **HOOK-6.2-05** ✅ **`handleSave` updates load-snapshot + history** — on success, `setLoadSnapshot` captures the new saved state and `history.onSave(JSON.stringify(...))` bumps `savedIndex`.
+- **HOOK-6.2-06** ✅ **`handleSave` commits history** — `history.onSave` is invoked with the saved JSON.
 - **HOOK-6.2-07** ✅ **`handleDeleteFile` shows confirmation** — dispatches `setConfirmAction({ type: "delete-file", path, x, y })`; does NOT delete until `handleConfirmAction` fires.
 - **HOOK-6.2-08** ✅ **`executeDeleteFile` removes from disk + state** — `handleConfirmAction({type:"delete-file"})` calls `fileExplorer.deleteFile`; when the deleted path was the active file, state is reset to `loadDefaults` via `applyDiagramToState`.
-- **HOOK-6.2-09** ✅ **`handleRenameFile` propagates wiki-links** — `useFileActions.handleRenameFile` forwards to `fileExplorer.renameFile` (FS rename only). The full wiki-link chain (index update + backlink rewrite) is in `propagateRename` (`fileExplorerHelpers.ts`), called by `handleRenameFileWithLinks` in `knowledgeBase.tsx`; covers both `.md` and `.json`. Core logic covered by `propagateRename` tests in `useFileExplorer.helpers.test.ts`; end-to-end wiring is integration-level
+- **HOOK-6.2-09** ✅ **`handleRenameFile` propagates wiki-links** — forwards to `fileExplorer.renameFile`; the full wiki-link chain is in `propagateRename` (`fileExplorerHelpers.ts`), called by `handleRenameFileWithLinks` in `knowledgeBase.tsx`; covered by `propagateRename` tests in `useFileExplorer.helpers.test.ts`.
 - **HOOK-6.2-10** ✅ **`handleDuplicateFile`** — forwards to `duplicateFile` and applies the returned duplicate's data; no-op when `duplicateFile` returns null.
-- **HOOK-6.2-11** ✅ **`handleMoveItem` propagates wiki-links** — `handleMoveItemWithLinks` in `knowledgeBase.tsx` captures the tree snapshot before the FS move, then calls `propagateMoveLinks` (`fileExplorerHelpers.ts`); folder moves iterate all descendants via `collectFilePaths`, per-file errors are swallowed. Core logic covered by `propagateMoveLinks` tests in `useFileExplorer.helpers.test.ts`; end-to-end wiring is integration-level
+- **HOOK-6.2-11** ✅ **`handleMoveItem` propagates wiki-links** — `handleMoveItemWithLinks` captures the tree snapshot before the FS move, then calls `propagateMoveLinks`; folder moves iterate all descendants via `collectFilePaths`. Covered by `propagateMoveLinks` tests in `useFileExplorer.helpers.test.ts`.
 - **HOOK-6.2-12** ✅ **Save failure does not clear dirty** — when `saveFile` returns `false`, `setLoadSnapshot` and `history.onSave` are skipped; caller's dirty state is untouched.
 
-## 6.3 `useEditableState`
+## HOOK-6.3 `useEditableState`
 
-- **HOOK-6.3-01** ✅ **`setEditing(true)` enters edit mode; draft carries the current value** — the hook exposes `setEditing` (not `startEditing`); draft was already seeded by a `useEffect([value])`.
+- **HOOK-6.3-01** ✅ **`setEditing(true)` enters edit mode; draft carries the current value** — the hook exposes `setEditing`; draft is pre-seeded by a `useEffect([value])`.
 - **HOOK-6.3-02** ✅ **`cancel` clears editing + draft (to value) + error** — restores the original `value` into `draft`, flips `editing` false, clears `error`.
-- **HOOK-6.3-03** ✅ **`showError` sets `error: true`; editing stays true** — also internally calls `inputRef.current?.focus` so the caller's `<input>` regains focus.
+- **HOOK-6.3-03** ✅ **`showError` sets `error: true`; editing stays true** — also calls `inputRef.current?.focus` so the caller's `<input>` regains focus.
 - **HOOK-6.3-04** ✅ **`finishEditing` commits — flips `editing` false + clears error** — the hook does NOT set `draft` itself on finish; the caller is responsible for updating the external `value`.
-- **HOOK-6.3-05** ✅ **External value change auto-resets** — when `value` prop changes, the `useEffect([value])` resets `draft = value`, `editing = false`, `error = false`.
-- **HOOK-6.3-06** ✅ **External change during editing — behaviour lock** — `useEffect([value])` fires unconditionally; an in-flight draft is overwritten and editing is reset when the parent prop changes. Covered in `useEditableState.test.ts`.
-- **HOOK-6.3-07** ✅ **`inputRef.current?.focus` called on edit-enter** — test attaches a real DOM `<input>` to the exposed ref, triggers `setEditing(true)`, and asserts `focus` was called. Covered in `useEditableState.test.ts`.
+- **HOOK-6.3-05** ✅ **External value change auto-resets** — when `value` prop changes, `useEffect([value])` resets `draft = value`, `editing = false`, `error = false`.
+- **HOOK-6.3-06** ✅ **External change during editing — behaviour lock** — `useEffect([value])` fires unconditionally; an in-flight draft is overwritten and editing is reset when the parent prop changes.
+- **HOOK-6.3-07** ✅ **`inputRef.current?.focus` called on edit-enter** — test attaches a real DOM `<input>` to the exposed ref, triggers `setEditing(true)`, and asserts `focus` was called.
 
-## 6.4 `useSyncRef`
+## HOOK-6.4 `useSyncRef`
 
 - **HOOK-6.4-01** ✅ **Ref mirrors value** — `useSyncRef(x)` → `ref.current === x` immediately on mount.
 - **HOOK-6.4-02** ✅ **Ref updates across renders** — every render assigns `ref.current = value` synchronously during render (not inside an effect), so the new value is observable on the same tick as the re-render.
 - **HOOK-6.4-03** ✅ **Same ref identity across renders** — `useRef(value)` returns the same ref object on every render.
 - **HOOK-6.4-04** ✅ **Works with non-primitive values** — arrays, objects, null, undefined all round-trip.
 
-## 6.5 `useFileExplorer`
+## HOOK-6.5 `useFileExplorer` (utility hooks)
 
 > Covered predominantly in [02-file-system.md §2.1](02-file-system.md); this section holds low-level unit cases.
 
-- **HOOK-6.5-01** ✅ **`isSupported` false branch** — `supported=false`, `acquirePickerHandle` and `restoreSavedHandle` return `null` immediately when `showDirectoryPicker` is absent (jsdom default). Verified in [useDirectoryHandle.test.ts](../src/app/knowledge_base/shared/hooks/useDirectoryHandle.test.ts).
-- **HOOK-6.5-02** ✅ **`isSupported` true branch** — `supported=true` when `showDirectoryPicker` is present; `acquirePickerHandle` calls the native picker, returns handle+scopeId on success and null on AbortError; `restoreSavedHandle` loads from IDB and re-requests permission. Verified in [useDirectoryHandle.test.ts](../src/app/knowledge_base/shared/hooks/useDirectoryHandle.test.ts).
-- **HOOK-6.5-03** ✅ **IDB helpers** — `saveDirHandle`/`loadDirHandle`/`clearDirHandle` are exported from `idbHandles.ts` and fully covered (round-trip, null-when-empty, clear-then-save, migration, error-swallowing) under PERSIST-7.2-03..08 in [idbHandles.test.ts](../src/app/knowledge_base/shared/utils/idbHandles.test.ts).
-- **HOOK-6.5-04** ✅ **`openIDB` creates object store** — verified under PERSIST-7.2-06 in [idbHandles.test.ts](../src/app/knowledge_base/shared/utils/idbHandles.test.ts): first open creates the `handles` store; subsequent opens are idempotent.
-- **HOOK-6.5-05** ✅ **Draft saving** — `saveDraft` / `loadDraft` / `clearDraft` / `listDrafts` covered in [persistence.test.ts](../src/app/knowledge_base/shared/utils/persistence.test.ts); scope isolation verified there.
-- **HOOK-6.5-06** ✅ **Path resolution** — `getSubdirectoryHandle(root, "a/b")` walks into `a/b` (create=false) or creates missing segments when `create=true`; empty segments are filtered; `writeTextFile` auto-creates intermediate directories for nested paths (same traversal logic as `resolveParentHandle`).
+- **HOOK-6.5-01** ✅ **`isSupported` false branch** — `supported=false`; `acquirePickerHandle` and `restoreSavedHandle` return `null` immediately when `showDirectoryPicker` is absent (jsdom default). _(useDirectoryHandle.test.ts)_
+- **HOOK-6.5-02** ✅ **`isSupported` true branch** — `supported=true` when `showDirectoryPicker` is present; `acquirePickerHandle` calls the native picker, returns handle+scopeId on success and null on AbortError; `restoreSavedHandle` loads from IDB and re-requests permission. _(useDirectoryHandle.test.ts)_
+- **HOOK-6.5-03** ✅ **IDB helpers** — `saveDirHandle`/`loadDirHandle`/`clearDirHandle` fully covered (round-trip, null-when-empty, clear-then-save, migration, error-swallowing) under PERSIST-7.2-03..08. _(idbHandles.test.ts)_
+- **HOOK-6.5-04** ✅ **`openIDB` creates object store** — first open creates the `handles` store; subsequent opens are idempotent. Covered under PERSIST-7.2-06 in `idbHandles.test.ts`.
+- **HOOK-6.5-05** ✅ **Draft saving** — `saveDraft`/`loadDraft`/`clearDraft`/`listDrafts` covered with scope isolation. _(persistence.test.ts)_
+- **HOOK-6.5-06** ✅ **Path resolution** — `getSubdirectoryHandle(root, "a/b")` walks into `a/b` (create=false) or creates missing segments when `create=true`; `writeTextFile` auto-creates intermediate directories for nested paths.
+- **HOOK-6.5-07** ✅ **`createDocument`** — generates a unique `.md` filename via `uniqueName`, writes an empty file, rescans the tree, and returns the new path; returns `null` when no directory handle is open. _(useFileExplorer.createDocument.test.tsx)_
 
-Also covered in [useFileExplorer.helpers.test.ts](../src/app/knowledge_base/shared/hooks/useFileExplorer.helpers.test.ts): `readTextFile` round-trip (non-empty + empty files), `writeTextFile` at root / nested / overwrite.
-- **HOOK-6.5-07** ✅ **`createDocument`** — `createDocument(parentPath)` generates a unique `.md` filename via `uniqueName`, writes an empty file, rescans the tree, and returns the new path; returns `null` when no directory handle is open. _(useFileExplorer.createDocument.test.tsx)_
-
-## 6.6 Document Hooks (`useDocuments`, `useLinkIndex`, `useDocumentContent`)
+## HOOK-6.6 Document Hooks (`useDocuments`, `useLinkIndex`, `useDocumentContent`)
 
 > Covered in [04-document.md §4.10 and §4.11](04-document.md). No separate unit-only cases here unless a utility is added that does not tie to the editor.
