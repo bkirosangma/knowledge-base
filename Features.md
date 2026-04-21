@@ -340,6 +340,10 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 ### 4.11 Read-Only Mode (Doc)
 - ✅ **Editor locked** — toolbar hidden, table toolbar disabled, link popover disabled, wiki-link click navigates instead of selecting.
 
+### 4.12 Document Keyboard Shortcuts
+`features/document/hooks/useDocumentKeyboardShortcuts.ts`
+- ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; Cmd/Ctrl+Z → `onUndo`, Cmd/Ctrl+Shift+Z → `onRedo`; no-op when `readOnly=true`. Stale-closure-safe via refs.
+
 ---
 
 ## 5. Cross-Cutting Link & Graph Layer

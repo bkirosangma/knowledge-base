@@ -278,3 +278,11 @@
 - **DOC-4.13-14** 🚫 **Code-fenced H1s are not excluded** — documented limitation. `getFirstHeading("\`\`\`\n# not a real heading\n\`\`\`\n\n# Real One")` returns `"not a real heading"` because the parser doesn't track fences. Callers are expected to keep their H1 outside code blocks; covered here so future work doesn't change it by accident.
 - **DOC-4.13-15** 🟡 **Debounce settles title after ~250 ms** — `DocumentView` schedules `setDerivedTitle(getFirstHeading(content))` inside a `setTimeout(250 ms)` and clears the pending timer on every keystroke, so the pane header stops churning while the user is typing and catches up once they pause. Code reviewed; dedicated timer-based test integration.
 - **DOC-4.13-16** 🟡 **File-name fallback when body yields empty** — when `getFirstHeading` returns `""` (brand-new doc, whitespace-only body), `DocumentView` falls back to the `.md` basename so the pane title is never empty in the UI. Code reviewed; integration test
+
+## 4.14 Document Keyboard Shortcuts
+`features/document/hooks/useDocumentKeyboardShortcuts.ts`
+
+- **DOC-4.14-01** ✅ **Cmd+Z calls onUndo** — `metaKey+z` fires `onUndo` once, `onRedo` not called. _(useDocumentKeyboardShortcuts.test.ts)_
+- **DOC-4.14-02** ✅ **Cmd+Shift+Z calls onRedo** — `metaKey+shift+z` fires `onRedo` once, `onUndo` not called. _(useDocumentKeyboardShortcuts.test.ts)_
+- **DOC-4.14-03** ✅ **Ctrl+Z calls onUndo (non-Mac)** — `ctrlKey+z` fires `onUndo` once. _(useDocumentKeyboardShortcuts.test.ts)_
+- **DOC-4.14-04** ✅ **readOnly=true suppresses all shortcuts** — Cmd+Z and Cmd+Shift+Z both no-op when `readOnly` is true. _(useDocumentKeyboardShortcuts.test.ts)_

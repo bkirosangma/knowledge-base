@@ -19,27 +19,27 @@ describe('useDocumentKeyboardShortcuts', () => {
     onRedo = vi.fn()
   })
 
-  it('calls onUndo on Cmd+Z', () => {
+  it('DOC-4.14-01: calls onUndo on Cmd+Z', () => {
     renderHook(() => useDocumentKeyboardShortcuts({ onUndo, onRedo, readOnly: false }))
     fireKey('z')
     expect(onUndo).toHaveBeenCalledTimes(1)
     expect(onRedo).not.toHaveBeenCalled()
   })
 
-  it('calls onRedo on Cmd+Shift+Z', () => {
+  it('DOC-4.14-02: calls onRedo on Cmd+Shift+Z', () => {
     renderHook(() => useDocumentKeyboardShortcuts({ onUndo, onRedo, readOnly: false }))
     fireKey('z', true, true)
     expect(onRedo).toHaveBeenCalledTimes(1)
     expect(onUndo).not.toHaveBeenCalled()
   })
 
-  it('calls onUndo on Ctrl+Z (non-Mac)', () => {
+  it('DOC-4.14-03: calls onUndo on Ctrl+Z (non-Mac)', () => {
     renderHook(() => useDocumentKeyboardShortcuts({ onUndo, onRedo, readOnly: false }))
     fireKeyCtrl('z')
     expect(onUndo).toHaveBeenCalledTimes(1)
   })
 
-  it('does nothing when readOnly is true', () => {
+  it('DOC-4.14-04: does nothing when readOnly is true', () => {
     renderHook(() => useDocumentKeyboardShortcuts({ onUndo, onRedo, readOnly: true }))
     fireKey('z')
     fireKey('z', true, true)

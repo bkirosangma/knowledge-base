@@ -110,20 +110,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-21 (Buckets 1-27 complete + shared action history feature: useHistoryCore / useHistoryFileSync / useDocumentHistory / useDiagramHistory / historyPersistence FS layer + HistoryPanel relativeTime/toggle tests + spec sections HIST-5..HIST-9 added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-21 (Buckets 1-27 complete + shared action history feature + useDocumentKeyboardShortcuts §4.14 added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 52 | 12 | 3 | 1 | 5 | 73 |
 | 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
 | 03-diagram.md | 152 | 35 | 0 | 64 | 2 | 253 |
-| 04-document.md | 142 | 34 | 3 | 37 | 8 | 224 |
+| 04-document.md | 146 | 34 | 3 | 37 | 8 | 228 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
 | 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **586** | **96** | **11** | **115** | **27** | **835** |
+| **Total** | **590** | **96** | **11** | **115** | **27** | **839** |
 
-Covered (✅ + 🟡 + 🧪) = **693 / 835 (83%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
+Covered (✅ + 🟡 + 🧪) = **697 / 839 (83%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
 
 The 27 remaining 🚫 items are genuinely untestable or non-features:
 - **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
