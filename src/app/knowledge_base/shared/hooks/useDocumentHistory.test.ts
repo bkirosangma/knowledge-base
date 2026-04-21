@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useDocumentHistory } from './useDocumentHistory'
 
 vi.mock('../utils/historyPersistence', async (importOriginal) => {
-  const real = await importOriginal()
+  const real = await importOriginal<typeof import('../utils/historyPersistence')>()
   return { ...real, readHistoryFile: vi.fn().mockResolvedValue(null), writeHistoryFile: vi.fn() }
 })
 
