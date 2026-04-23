@@ -154,16 +154,18 @@ function KnowledgeBaseInner() {
     if (!rootHandle) return;
 
     // Strip wiki-links from all backlink sources (deduplicated)
+    const repo = createDocumentRepository(rootHandle);
     const seen = new Set<string>();
     for (const bl of linkManager.getBacklinksFor(docPath)) {
       if (seen.has(bl.sourcePath)) continue;
       seen.add(bl.sourcePath);
       try {
-        const repo = createDocumentRepository(rootHandle);
         const content = await repo.read(bl.sourcePath);
         const stripped = stripWikiLinksForPath(content, docPath);
         if (stripped !== content) await repo.write(bl.sourcePath, stripped);
-      } catch { /* skip unreadable files */ }
+      } catch (e) {
+        reportError(e as Error, `Stripping wiki-link from ${bl.sourcePath}`);
+      }
     }
 
     // Remove from link index
