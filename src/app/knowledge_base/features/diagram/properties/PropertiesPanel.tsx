@@ -166,13 +166,13 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           />
         )}
         {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
         )}
         {selection?.type === "layer" && (
-          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
+          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
         )}
         {selection?.type === "line" && (
-          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onOpenDocument={onOpenDocument} readOnly={readOnly} />
+          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
         )}
         {selection?.type === "multi-node" && (
           <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>

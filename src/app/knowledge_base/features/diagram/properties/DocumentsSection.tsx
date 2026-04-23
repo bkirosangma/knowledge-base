@@ -6,12 +6,12 @@ import { Section } from "./shared";
 
 interface DocumentsSectionProps {
   backlinks: { sourcePath: string; section?: string }[];
-  onOpenDocument?: (path: string) => void;
+  onPreviewDocument?: (path: string) => void;
 }
 
 export default function DocumentsSection({
   backlinks,
-  onOpenDocument,
+  onPreviewDocument,
 }: DocumentsSectionProps) {
   const unique = backlinks.filter(
     (bl, i, arr) =>
@@ -30,7 +30,7 @@ export default function DocumentsSection({
             >
               <FileText size={12} className="text-emerald-500 flex-shrink-0" />
               <button
-                onClick={() => onOpenDocument?.(bl.sourcePath)}
+                onClick={() => onPreviewDocument?.(bl.sourcePath)}
                 className="text-blue-600 hover:underline truncate flex-1 text-left"
               >
                 {bl.sourcePath.split("/").pop()}

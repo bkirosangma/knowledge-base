@@ -7,7 +7,7 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPicker
 import { AutocompleteInput } from "./AutocompleteInput";
 
 export function NodeProperties({
-  id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onOpenDocument, readOnly,
+  id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onPreviewDocument, readOnly,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
@@ -22,7 +22,7 @@ export function NodeProperties({
   onCreateLayer?: (title: string) => string;
   onDeleteAnchor?: (nodeId: string, anchorIndex: number) => void;
   backlinks?: { sourcePath: string; section?: string }[];
-  onOpenDocument?: (path: string) => void;
+  onPreviewDocument?: (path: string) => void;
   readOnly?: boolean;
 }) {
   const node = nodes.find((n) => n.id === id);
@@ -304,7 +304,7 @@ export function NodeProperties({
       {backlinks && (
         <DocumentsSection
           backlinks={backlinks}
-          onOpenDocument={onOpenDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       )}
     </>

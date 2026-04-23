@@ -3,14 +3,14 @@ import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, 
 import DocumentsSection from "./DocumentsSection";
 
 export function LayerProperties({
-  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onOpenDocument, readOnly,
+  id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onPreviewDocument, readOnly,
 }: {
   id: string; regions: RegionBounds[]; nodes: NodeData[]; layerDefs: LayerDef[];
   onSelectNode?: (nodeId: string) => void;
   onUpdate?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
   allLayerIds: string[];
   backlinks?: { sourcePath: string; section?: string }[];
-  onOpenDocument?: (path: string) => void;
+  onPreviewDocument?: (path: string) => void;
   readOnly?: boolean;
 }) {
   const region = regions.find((r) => r.id === id);
@@ -74,7 +74,7 @@ export function LayerProperties({
       {backlinks && (
         <DocumentsSection
           backlinks={backlinks}
-          onOpenDocument={onOpenDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       )}
     </>

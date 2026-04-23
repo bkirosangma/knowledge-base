@@ -360,7 +360,7 @@ export function DiagramProperties({
       {backlinks && (
         <DocumentsSection
           backlinks={backlinks}
-          onOpenDocument={onOpenDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       )}
     </>

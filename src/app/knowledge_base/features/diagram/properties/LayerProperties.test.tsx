@@ -156,13 +156,13 @@ describe('LayerProperties — backlinks section', () => {
   })
 
   it('lists backlinks when present', () => {
-    const onOpenDocument = vi.fn()
+    const onPreviewDocument = vi.fn()
     render(
       <LayerProperties
         id="L1" regions={[region]} nodes={nodes} layerDefs={[layerDef]}
         allLayerIds={['L1']}
         backlinks={[{ sourcePath: 'notes/design.md' }]}
-        onOpenDocument={onOpenDocument}
+        onPreviewDocument={onPreviewDocument}
       />,
     )
     expect(screen.getByText('References (1)')).toBeTruthy()

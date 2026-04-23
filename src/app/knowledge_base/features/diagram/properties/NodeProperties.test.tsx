@@ -261,8 +261,8 @@ describe('DIAG-3.13-18: NodeProperties — backlinks (Documents) section', () =>
   })
 
   it('renders References section with backlinks when provided', () => {
-    const onOpenDocument = vi.fn()
-    render(<NodeProperties {...baseProps({ backlinks: [{ sourcePath: 'docs/design.md' }], onOpenDocument })} />)
+    const onPreviewDocument = vi.fn()
+    render(<NodeProperties {...baseProps({ backlinks: [{ sourcePath: 'docs/design.md' }], onPreviewDocument })} />)
     expect(screen.getByText('References (1)')).toBeTruthy()
     expect(screen.getByText('design.md')).toBeTruthy()
   })
