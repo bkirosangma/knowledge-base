@@ -93,3 +93,21 @@ export function updateWikiLinkPaths(
     return fullMatch;
   });
 }
+
+/**
+ * Remove all wiki-links that reference a specific document path.
+ * Strips wiki-link syntax including aliases and section anchors.
+ * Returns the markdown with matching links replaced by empty string.
+ */
+export function stripWikiLinksForPath(markdown: string, deletedDocPath: string): string {
+  const deletedBase = deletedDocPath.replace(/\.(md|json)$/, "");
+  return markdown.replace(WIKI_LINK_REGEX, (fullMatch, inner: string) => {
+    const [pathAndSection] = inner.split("|").map((s: string) => s.trim());
+    const [linkPath] = pathAndSection.split("#").map((s: string) => s.trim());
+    const normalized = linkPath.replace(/\.(md|json)$/, "");
+    if (normalized === deletedBase || normalized === `/${deletedBase}`) {
+      return "";
+    }
+    return fullMatch;
+  });
+}
