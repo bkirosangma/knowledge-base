@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import ReactDOM from "react-dom";
+import { createPortal } from "react-dom";
 import { FileText, X, ExternalLink, Loader2 } from "lucide-react";
 import { markdownToHtml } from "../../document/extensions/markdownSerializer";
 
@@ -13,7 +13,26 @@ interface DocPreviewModalProps {
   readDocument: (path: string) => Promise<string | null>;
 }
 
-export function DocPreviewModal({
+function sanitizeHtml(html: string): string {
+  if (typeof document === "undefined") return html;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  doc.querySelectorAll("script, style").forEach(el => el.remove());
+  doc.querySelectorAll("*").forEach(el => {
+    Array.from(el.attributes).forEach(attr => {
+      if (
+        attr.name.startsWith("on") ||
+        (attr.name === "href" && attr.value.trim().toLowerCase().startsWith("javascript:")) ||
+        (attr.name === "src" && attr.value.trim().toLowerCase().startsWith("javascript:"))
+      ) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  return doc.body.innerHTML;
+}
+
+export default function DocPreviewModal({
   docPath,
   entityName,
   onClose,
@@ -31,7 +50,7 @@ export function DocPreviewModal({
       .then(raw => {
         if (cancelled) return;
         if (raw === null) { setError(true); return; }
-        setHtml(markdownToHtml(raw));
+        setHtml(sanitizeHtml(markdownToHtml(raw)));
       })
       .catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
@@ -55,12 +74,18 @@ export function DocPreviewModal({
         className="absolute inset-0 bg-slate-900/40"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-xl shadow-2xl w-[680px] max-h-[78vh] flex flex-col overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="doc-preview-title"
+        className="relative bg-white rounded-xl shadow-2xl w-[680px] max-h-[78vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-shrink-0">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-indigo-500" />
-            <span className="text-sm font-semibold text-slate-800">{filename}</span>
+            <span id="doc-preview-title" className="text-sm font-semibold text-slate-800">{filename}</span>
             <span className="text-[10px] font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
               Read only
             </span>
@@ -91,7 +116,7 @@ export function DocPreviewModal({
         <div className="flex-1 overflow-y-auto">
           {html === null && !error && (
             <div className="flex items-center justify-center py-16 text-slate-400">
-              <Loader2 role="status" size={20} className="animate-spin" />
+              <Loader2 role="status" aria-label="Loading document" size={20} className="animate-spin" />
             </div>
           )}
           {error && (
@@ -110,5 +135,5 @@ export function DocPreviewModal({
     </div>
   );
 
-  return ReactDOM.createPortal(modal, document.body);
+  return createPortal(modal, document.body);
 }

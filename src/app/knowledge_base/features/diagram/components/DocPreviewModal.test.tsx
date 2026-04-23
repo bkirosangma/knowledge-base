@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { DocPreviewModal } from "./DocPreviewModal";
+import DocPreviewModal from "./DocPreviewModal";
 
 const baseProps = {
   docPath: "docs/auth-flow.md",
