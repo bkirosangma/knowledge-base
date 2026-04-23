@@ -92,7 +92,7 @@ Top-level chrome that hosts every other feature.
 
 ### 2.5 Document Picker
 `shared/components/DocumentPicker.tsx`
-- ✅ **Attach-to-entity modal** — attaches Markdown docs to diagram entities (root, node, connection, flow, type).
+- ✅ **Attach-to-entity modal** — attaches Markdown docs to diagram entities (root, node, connection, flow, type). `'flow'` entity type now fully wired with UI.
 - ✅ **Search filter** — input filters the list.
 - ✅ **Hide already-attached** — excludes docs already on the entity.
 - ✅ **Create-new-document shortcut** — prompts for a `.md` path and creates it inline.
@@ -181,6 +181,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Edit name, category, membership; delete flow.**
 - ✅ **Categorised grouping** — flows with `category` grouped under that category in the panel; otherwise flat.
 - ✅ **Flow start/end highlighting** — when a flow is active (selected or hovered), source nodes (appear as `from` but never as `to`) glow green and sink nodes (appear as `to` but never as `from`) glow red; multiple sources and sinks are all highlighted; connection labels outside the flow are hidden. Implemented in `DiagramView.tsx` (`flowOrderData` memo), `components/DiagramNodeLayer.tsx`, `components/Element.tsx`, `components/ConditionElement.tsx`.
+- ✅ **Document attachment** — attach existing docs to a flow from FlowProperties; create & attach a new blank doc (with optional "Edit now" to open in pane); detach with optional cascade delete that strips wiki-links from referencing docs and shows a deduplicated reference list before confirming. `features/diagram/properties/FlowProperties.tsx`, `features/diagram/components/CreateAttachDocModal.tsx`, `features/diagram/components/DetachDocModal.tsx`
 
 ### 3.11 Selection
 `hooks/useSelectionRect.ts`, `hooks/useKeyboardShortcuts.ts`, `utils/selectionUtils.ts`
@@ -204,7 +205,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **NodeProperties** — label, sublabel, icon picker, type classifier, layer assignment, custom colours, rotation, (condition) exit count / size, incoming/outgoing connections, via-condition paths, member flows, backlinks, document attachment.
 - ✅ **LayerProperties** — title, colours, child count, manual-size override toggle.
 - ✅ **LineProperties** — label, colour, curve algorithm, bidirectional, connection type, flow duration, source/dest anchors.
-- ✅ **FlowProperties** — name, category, member connections, delete.
+- ✅ **FlowProperties** — name, category, member connections, delete, document attachment (attach existing, create & attach, detach with optional cascade delete).
 - ✅ **DiagramProperties** (root) — diagram title, default line algorithm, Layers list, Elements list, Types tree with "Select All" per type, Flows panel with category grouping, document backlinks.
 - ✅ **DocumentsSection** — clickable list of docs linked to the selection; opens in the other pane.
 
@@ -249,6 +250,10 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Drafts in localStorage** — autosaved on edit; applied on next load until the real file is saved.
 - ⚙️ **Colour migration** — legacy Tailwind class names migrated to hex on load.
 - ⚙️ **`loadDefaults`, `serializeNodes`, `deserializeNodes`, `saveDraft`, `listDrafts`, `clearDraft`, `loadDiagramFromData`.**
+
+### 3.20 Doc Preview Modal
+`diagram/components/DocPreviewModal.tsx`
+- ✅ **DocPreviewModal** — universal read-only document preview triggered by clicking any attached doc or wiki-link backlink in any entity panel. Blurs the diagram canvas (`blur-sm pointer-events-none`) and disables interactions while open. Header shows filename, "Read only" chip, optional entity name badge, "Open in pane" button, and close ✕. Body renders document content via `markdownToHtml()` in `.markdown-editor .ProseMirror` — pixel-identical to the doc pane. Rendered via `ReactDOM.createPortal` at `document.body`, unaffected by ancestor `filter`/`transform`. Closes on Escape or backdrop click. HTML output sanitized with a DOM-based sanitizer before render.
 
 ---
 
