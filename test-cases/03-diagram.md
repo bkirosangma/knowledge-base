@@ -165,11 +165,11 @@
 | DIAG-3.10-35 | ❌ | Detach + delete — wiki-links removed from referencing docs |
 | DIAG-3.10-36 | ❌ | Danger warning shown when "Also delete" checked, hidden when unchecked |
 | DIAG-3.10-37 | ❌ | Documents section hidden in readOnly mode — no attach/detach buttons |
-| DIAG-3.10-38 | ❌ | Attach document — appears as a named entry in the history panel |
-| DIAG-3.10-39 | ❌ | Detach document — appears as a named entry in the history panel |
-| DIAG-3.10-40 | ❌ | Undo attach — document disappears from the flow's Documents section |
-| DIAG-3.10-41 | ❌ | Redo attach — document reappears in the flow's Documents section |
-| DIAG-3.10-42 | ❌ | Create-and-attach — appears as a named entry in the history panel |
+| DIAG-3.10-38 | ✅ | Attach document — appears as a named entry in the history panel |
+| DIAG-3.10-39 | ✅ | Detach document — appears as a named entry in the history panel |
+| DIAG-3.10-40 | ✅ | Undo attach — document disappears from the flow's Documents section |
+| DIAG-3.10-41 | ✅ | Redo attach — document reappears in the flow's Documents section |
+| DIAG-3.10-42 | ✅ | Create-and-attach — appears as a named entry in the history panel |
 
 ## 3.11 Selection
 

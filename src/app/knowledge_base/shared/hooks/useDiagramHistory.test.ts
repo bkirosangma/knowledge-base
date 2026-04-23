@@ -156,3 +156,54 @@ describe('useDiagramHistory — onSave is an alias for onFileSave', () => {
     expect(result.current.savedIndex).toBe(1)
   })
 })
+
+describe('useDiagramHistory — document attachments in snapshots', () => {
+  const doc = { id: 'doc-1', filename: 'auth-flow.md', title: 'Auth Flow', attachedTo: [{ type: 'flow' as const, id: 'flow-auth' }] }
+
+  it('DIAG-3.10-38: "Attach document to flow" entry stores documents in snapshot', async () => {
+    const { result } = renderHook(() => useDiagramHistory())
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    const snapWithDoc: DiagramSnapshot = { ...snap, documents: [doc] }
+    act(() => { result.current.recordAction('Attach document to flow', snapWithDoc) })
+    expect(result.current.entries[1].description).toBe('Attach document to flow')
+    expect(result.current.entries[1].snapshot.documents).toEqual([doc])
+  })
+
+  it('DIAG-3.10-39: "Detach document from flow" entry stores empty documents in snapshot', async () => {
+    const { result } = renderHook(() => useDiagramHistory())
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), { ...snap, documents: [doc] }, null, null) })
+    act(() => { result.current.recordAction('Detach document from flow', snap) })
+    expect(result.current.entries[1].description).toBe('Detach document from flow')
+    expect(result.current.entries[1].snapshot.documents).toBeUndefined()
+  })
+
+  it('DIAG-3.10-40: undo after attach returns snapshot without document', async () => {
+    const { result } = renderHook(() => useDiagramHistory())
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    act(() => { result.current.recordAction('Attach document to flow', { ...snap, documents: [doc] }) })
+    let restored: DiagramSnapshot | null = null
+    act(() => { restored = result.current.undo() })
+    expect(restored?.documents).toBeUndefined()
+    expect(result.current.currentIndex).toBe(0)
+  })
+
+  it('DIAG-3.10-41: redo after undo-attach returns snapshot with document restored', async () => {
+    const { result } = renderHook(() => useDiagramHistory())
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    act(() => { result.current.recordAction('Attach document to flow', { ...snap, documents: [doc] }) })
+    act(() => { result.current.undo() })
+    let redone: DiagramSnapshot | null = null
+    act(() => { redone = result.current.redo() })
+    expect(redone?.documents).toEqual([doc])
+    expect(result.current.currentIndex).toBe(1)
+  })
+
+  it('DIAG-3.10-42: "Create and attach document to flow" entry stores documents in snapshot', async () => {
+    const { result } = renderHook(() => useDiagramHistory())
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    const snapWithDoc: DiagramSnapshot = { ...snap, documents: [doc] }
+    act(() => { result.current.recordAction('Create and attach document to flow', snapWithDoc) })
+    expect(result.current.entries[1].description).toBe('Create and attach document to flow')
+    expect(result.current.entries[1].snapshot.documents).toEqual([doc])
+  })
+})
