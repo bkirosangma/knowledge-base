@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FileText, X, ExternalLink, Loader2 } from "lucide-react";
+import DOMPurify from "dompurify";
 import { markdownToHtml } from "../../document/extensions/markdownSerializer";
 
 interface DocPreviewModalProps {
@@ -13,24 +14,20 @@ interface DocPreviewModalProps {
   readDocument: (path: string) => Promise<string | null>;
 }
 
-function sanitizeHtml(html: string): string {
-  if (typeof document === "undefined") return html;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  doc.querySelectorAll("script, style").forEach(el => el.remove());
-  doc.querySelectorAll("*").forEach(el => {
-    Array.from(el.attributes).forEach(attr => {
-      if (
-        attr.name.startsWith("on") ||
-        (attr.name === "href" && attr.value.trim().toLowerCase().startsWith("javascript:")) ||
-        (attr.name === "src" && attr.value.trim().toLowerCase().startsWith("javascript:"))
-      ) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-  return doc.body.innerHTML;
-}
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    "p", "br", "hr",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li",
+    "blockquote", "pre", "code",
+    "em", "strong", "del", "s", "b", "i",
+    "a", "img",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "div", "span",
+  ],
+  ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "align"],
+  ALLOW_DATA_ATTR: false,
+};
 
 export default function DocPreviewModal({
   docPath,
@@ -50,7 +47,7 @@ export default function DocPreviewModal({
       .then(raw => {
         if (cancelled) return;
         if (raw === null) { setError(true); return; }
-        setHtml(sanitizeHtml(markdownToHtml(raw)));
+        setHtml(DOMPurify.sanitize(markdownToHtml(raw), SANITIZE_CONFIG) as string);
       })
       .catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
@@ -104,6 +101,7 @@ export default function DocPreviewModal({
               Open in pane
             </button>
             <button
+              aria-label="Close preview"
               onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
             >

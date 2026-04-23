@@ -76,8 +76,8 @@ export function FlowProperties({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
-  const detachRefs = detachTarget && getDocumentReferences
-    ? getDocumentReferences(detachTarget, { entityType: "flow", entityId: id })
+  const detachRefs = detachTarget
+    ? (getDocumentReferences?.(detachTarget, { entityType: "flow", entityId: id }) ?? { attachments: [], wikiBacklinks: [] })
     : null;
 
   if (!flow) return <p className="text-xs text-slate-400">Flow not found.</p>;

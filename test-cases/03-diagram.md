@@ -359,12 +359,12 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 |----|--------|----------|
 | DIAG-3.20-01 | ❌ | Click attached flow doc — DocPreviewModal opens |
 | DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — DocPreviewModal opens |
-| DIAG-3.20-03 | ❌ | Preview modal renders markdown matching doc pane styles |
-| DIAG-3.20-04 | ❌ | Escape key closes preview modal |
-| DIAG-3.20-05 | ❌ | Backdrop click closes preview modal |
-| DIAG-3.20-06 | ❌ | "Open in pane" opens doc pane and closes modal |
+| DIAG-3.20-03 | ✅ | Preview modal renders markdown matching doc pane styles |
+| DIAG-3.20-04 | ✅ | Escape key closes preview modal |
+| DIAG-3.20-05 | ✅ | Backdrop click closes preview modal |
+| DIAG-3.20-06 | ✅ | "Open in pane" opens doc pane and closes modal |
 | DIAG-3.20-07 | ❌ | Diagram canvas is blurred and non-interactive while modal is open |
-| DIAG-3.20-08 | ❌ | Error state shown when document cannot be read |
-| DIAG-3.20-09 | ❌ | Entity name badge shown in header when context is known (flow name) |
+| DIAG-3.20-08 | ✅ | Error state shown when document cannot be read |
+| DIAG-3.20-09 | ✅ | Entity name badge shown in header when context is known (flow name) |
 
 Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), filename in header.

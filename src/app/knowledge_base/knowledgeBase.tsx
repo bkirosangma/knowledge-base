@@ -122,11 +122,12 @@ function KnowledgeBaseInner() {
     if (!rootHandle) return null;
     try {
       const repo = createDocumentRepository(rootHandle);
-      return await repo.read(docPath);
-    } catch {
+      return await readOrNull(() => repo.read(docPath));
+    } catch (e) {
+      reportError(e as Error, `Reading ${docPath}`);
       return null;
     }
-  }, [fileExplorer.dirHandleRef]);
+  }, [fileExplorer.dirHandleRef, reportError]);
 
   const getDocumentReferences = useCallback((
     docPath: string,
@@ -186,6 +187,7 @@ function KnowledgeBaseInner() {
   const handleCreateAndAttach = useCallback(async (diagramPath: string, flowId: string, filename: string, editNow: boolean) => {
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle) return;
+    if (filename.includes("..") || filename.startsWith("/") || filename.includes("\0")) return;
     const diagramDir = diagramPath.split("/").slice(0, -1).join("/");
     const docPath = diagramDir ? `${diagramDir}/${filename}` : filename;
     try {
