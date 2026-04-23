@@ -159,7 +159,7 @@ export function FlowProperties({
               className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-md transition-colors"
             >
               <Plus size={11} />
-              Create &amp; attach new…
+              Create & attach new…
             </button>
           </div>
         )}
