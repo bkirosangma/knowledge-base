@@ -183,7 +183,7 @@ describe('useDiagramHistory — document attachments in snapshots', () => {
     act(() => { result.current.recordAction('Attach document to flow', { ...snap, documents: [doc] }) })
     let restored: DiagramSnapshot | null = null
     act(() => { restored = result.current.undo() })
-    expect(restored?.documents).toBeUndefined()
+    expect((restored as DiagramSnapshot | null)?.documents).toBeUndefined()
     expect(result.current.currentIndex).toBe(0)
   })
 
@@ -194,7 +194,7 @@ describe('useDiagramHistory — document attachments in snapshots', () => {
     act(() => { result.current.undo() })
     let redone: DiagramSnapshot | null = null
     act(() => { redone = result.current.redo() })
-    expect(redone?.documents).toEqual([doc])
+    expect((redone as DiagramSnapshot | null)?.documents).toEqual([doc])
     expect(result.current.currentIndex).toBe(1)
   })
 

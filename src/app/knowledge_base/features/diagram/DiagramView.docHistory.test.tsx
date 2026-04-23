@@ -12,8 +12,8 @@ import type { DiagramSnapshot } from '../../shared/hooks/useDiagramHistory'
 // known "previous" snapshot containing documents and verify applySnapshot
 // calls onLoadDocuments correctly.
 
-const mockUndo = vi.fn<[], DiagramSnapshot | null>()
-const mockRedo = vi.fn<[], DiagramSnapshot | null>()
+const mockUndo = vi.fn<() => DiagramSnapshot | null>()
+const mockRedo = vi.fn<() => DiagramSnapshot | null>()
 const mockRecordAction = vi.fn()
 const mockInitHistory = vi.fn().mockResolvedValue(undefined)
 
