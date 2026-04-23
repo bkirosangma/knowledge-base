@@ -130,6 +130,7 @@ export interface DiagramViewProps {
     wikiBacklinks: string[];
   };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
 }
 
 export default function DiagramView({
@@ -139,6 +140,7 @@ export default function DiagramView({
   onOpenDocument,
   documents,
   onAttachDocument,
+  onDetachDocument,
   onCreateDocument,
   onLoadDocuments,
   backlinks,
@@ -146,6 +148,7 @@ export default function DiagramView({
   readDocument,
   getDocumentReferences,
   deleteDocumentWithCleanup,
+  onCreateAndAttach,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const {
@@ -1259,7 +1262,9 @@ export default function DiagramView({
         fileExplorer={fileExplorer}
         onOpenDocument={onOpenDocument}
         onAttachDocument={onAttachDocument}
+        onDetachDocument={onDetachDocument}
         onCreateDocument={onCreateDocument}
+        onCreateAndAttach={onCreateAndAttach}
         history={history}
         setSelection={setSelection}
         setNodes={setNodes}

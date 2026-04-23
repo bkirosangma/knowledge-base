@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
+import { FlowProperties } from "./FlowProperties";
 
 function FlowDetail({
   flow, connections, nodes, allFlowIds,
@@ -163,6 +165,8 @@ export function DiagramProperties({
   flows, onHoverFlow, onSelectFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,
   backlinks, onOpenDocument, readOnly,
+  documents, onPreviewDocument, onOpenDocPicker, onDetachDocument,
+  getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -184,6 +188,16 @@ export function DiagramProperties({
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
   readOnly?: boolean;
+  documents?: DocumentMeta[];
+  onPreviewDocument?: (path: string, entityName?: string) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
+  getDocumentReferences?: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup?: (path: string) => Promise<void>;
+  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -320,8 +334,9 @@ export function DiagramProperties({
             </>
           )}
           {expandedFlow && (
-            <FlowDetail
-              flow={expandedFlow}
+            <FlowProperties
+              id={expandedFlow.id}
+              flows={allFlows}
               connections={connections}
               nodes={nodes}
               allFlowIds={allFlowIds}
@@ -329,6 +344,13 @@ export function DiagramProperties({
               onDelete={(id) => { setExpandedFlowId(null); onDeleteFlow?.(id); }}
               onSelectLine={onSelectLine}
               onSelectNode={onSelectNode}
+              attachedDocs={documents?.filter(d => d.attachedTo?.some(a => a.type === "flow" && a.id === expandedFlow.id)) ?? []}
+              onAttach={() => onOpenDocPicker?.("flow", expandedFlow.id)}
+              onDetach={(docPath) => onDetachDocument?.(docPath, "flow", expandedFlow.id)}
+              onPreview={(docPath) => onPreviewDocument?.(docPath, expandedFlow.name)}
+              getDocumentReferences={getDocumentReferences}
+              deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+              onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(expandedFlow.id, filename, editNow) ?? Promise.resolve()}
               readOnly={readOnly}
             />
           )}

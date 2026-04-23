@@ -72,6 +72,7 @@ function baseProps(
     readDocument: vi.fn(async () => null),
     getDocumentReferences: vi.fn(() => ({ attachments: [], wikiBacklinks: [] })),
     deleteDocumentWithCleanup: vi.fn(async () => {}),
+    onCreateAndAttach: vi.fn(async () => {}),
     ...overrides,
   }
 }

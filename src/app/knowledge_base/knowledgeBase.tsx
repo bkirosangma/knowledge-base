@@ -183,6 +183,20 @@ function KnowledgeBaseInner() {
     panes.openFile(path, "document");
   }, [panes]);
 
+  const handleCreateAndAttach = useCallback(async (flowId: string, filename: string, editNow: boolean) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    const activeDiagramPath = panes.activeEntry?.filePath;
+    if (!activeDiagramPath) return;
+
+    const diagramDir = activeDiagramPath.split("/").slice(0, -1).join("/");
+    const docPath = diagramDir ? `${diagramDir}/${filename}` : filename;
+
+    await docManager.createDocument(rootHandle, docPath);
+    docManager.attachDocument(docPath, "flow" as const, flowId);
+    if (editNow) handleOpenDocument(docPath);
+  }, [fileExplorer.dirHandleRef, panes.activeEntry, docManager, handleOpenDocument]);
+
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads its file via useEffect on activeFile change,
   // so we only need to open the pane here.
@@ -366,6 +380,7 @@ function KnowledgeBaseInner() {
           onDetachDocument={(docPath, entityType, entityId) => {
             docManager.detachDocument(docPath, entityType, entityId);
           }}
+          onCreateAndAttach={handleCreateAndAttach}
           onCreateDocument={async (rootHandle, path) => {
             try {
               await docManager.createDocument(rootHandle, path);
@@ -407,7 +422,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (

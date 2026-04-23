@@ -5,6 +5,7 @@ import type { AnchorId } from "../utils/anchors";
 import type { LevelMap } from "../utils/levelModel";
 import type { HistoryEntry, DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { RegionBounds } from "./shared";
+import type { DocumentMeta } from "../../document/types";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
@@ -42,6 +43,16 @@ interface PropertiesPanelProps {
   onExpandType?: (type: string | null) => void;
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
+  documents?: DocumentMeta[];
+  onPreviewDocument?: (path: string, entityName?: string) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
+  getDocumentReferences?: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup?: (path: string) => Promise<void>;
+  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
   hidden?: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -60,7 +71,7 @@ interface PropertiesPanelProps {
   };
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, hidden, collapsed, onToggleCollapse, readOnly, history }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, documents, onPreviewDocument, onOpenDocPicker, onDetachDocument, getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach, hidden, collapsed, onToggleCollapse, readOnly, history }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -145,6 +156,13 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             backlinks={backlinks}
             onOpenDocument={onOpenDocument}
             readOnly={readOnly}
+            documents={documents}
+            onPreviewDocument={onPreviewDocument}
+            onOpenDocPicker={onOpenDocPicker}
+            onDetachDocument={onDetachDocument}
+            getDocumentReferences={getDocumentReferences}
+            deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+            onCreateAndAttach={onCreateAndAttach}
           />
         )}
         {selection?.type === "node" && (

@@ -75,7 +75,9 @@ export interface DiagramOverlaysProps {
   fileExplorer: ReturnType<typeof useFileExplorer>;
   onOpenDocument: (path: string) => void;
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
+  onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
 
   // useDiagramHistory result
   history: ReturnType<typeof useDiagramHistory>;
@@ -183,10 +185,13 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     zoomRef,
     world,
     backlinks,
+    documents,
     fileExplorer,
     onOpenDocument,
     onAttachDocument,
+    onDetachDocument,
     onCreateDocument,
+    onCreateAndAttach,
     history,
     setSelection,
     setNodes,
@@ -236,13 +241,11 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     setPreviewDocPath,
     setPreviewEntityName,
     readDocument,
-    getDocumentReferences: _getDocumentReferences,
-    deleteDocumentWithCleanup: _deleteDocumentWithCleanup,
+    getDocumentReferences,
+    deleteDocumentWithCleanup,
   } = props;
-  // Unused in the JSX but needed for future-proofing against Phase 1.2; silence.
+  // Unused in the JSX but needed for layout sizing; silence.
   void _measuredSizes;
-  void _getDocumentReferences;
-  void _deleteDocumentWithCleanup;
 
   return (
     <>
@@ -373,6 +376,16 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         onExpandType={(type) => { setExpandedTypeInPanel(type); setHoveredType(type); }}
         backlinks={backlinks}
         onOpenDocument={onOpenDocument}
+        documents={documents}
+        onPreviewDocument={(path, entityName) => {
+          setPreviewDocPath(path);
+          setPreviewEntityName(entityName);
+        }}
+        onOpenDocPicker={(type, id) => setPickerTarget({ type, id })}
+        onDetachDocument={onDetachDocument}
+        getDocumentReferences={getDocumentReferences}
+        deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+        onCreateAndAttach={onCreateAndAttach}
         history={activeFile ? {
           entries: history.entries,
           currentIndex: history.currentIndex,
