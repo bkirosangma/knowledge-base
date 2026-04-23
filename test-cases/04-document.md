@@ -254,6 +254,7 @@
 - **DOC-4.11-23** ❌ **`DocumentView` discard shows confirmation popover when dirty** — `handleDiscard` sets `discardConfirmPos` when `dirty` is true and `SKIP_DISCARD_CONFIRM_KEY` is not set in localStorage; actual discard deferred until `ConfirmPopover.onConfirm`.
 - **DOC-4.11-24** ❌ **`DocumentView` discard skips popover when skip flag is set** — when `localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true"`, `executeDiscard` runs directly without showing the confirmation popover.
 - **DOC-4.11-25** ❌ **`DocumentView` bridge `save` goes through full save path** — the `DocumentPaneBridge` published to the parent exposes `handleSave` (not the bare `save`), so Cmd+S via the parent calls `history.onFileSave` in addition to disk write; `savedIndex` is correctly advanced.
+- **DOC-4.11-26** ✅ **`removeDocument` removes entry entirely** — deletes the document from state by filtering out the entry with matching `filename`; used during document delete cleanup.
 
 ## 4.12 Read-Only Mode (Document)
 

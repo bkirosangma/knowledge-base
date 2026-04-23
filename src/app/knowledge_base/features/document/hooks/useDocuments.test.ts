@@ -160,3 +160,20 @@ describe('title derivation in attachDocument', () => {
     expect(result.current.documents[0].title).toBe('x')
   })
 })
+
+describe('removeDocument', () => {
+  it('removeDocument removes the entry from state entirely', () => {
+    const { result } = renderHook(() => useDocuments())
+
+    // seed a document
+    act(() => {
+      result.current.attachDocument('docs/my-doc.md', 'node', 'node-1')
+    })
+    expect(result.current.documents).toHaveLength(1)
+
+    act(() => {
+      result.current.removeDocument('docs/my-doc.md')
+    })
+    expect(result.current.documents).toHaveLength(0)
+  })
+})

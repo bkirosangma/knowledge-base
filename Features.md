@@ -335,7 +335,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **Auto-save on file switch** — saves the previous doc before loading the new one.
 - ✅ **`loadedPath` signal** — set to `filePath` once a load succeeds (or immediately for null/no-repo cases); consumers compare `loadedPath === filePath` to confirm content is fresh for the current file before acting on it.
 - ✅ **Ref-backed `save()` / `dirty` / `filePath` / `content` bridge** — lets parent read latest without re-rendering per keystroke.
-- ✅ **`createDocument`, `attachDocument`, `detachDocument`, `getDocumentsForEntity`, `hasDocuments`.**
+- ✅ **`createDocument`, `attachDocument`, `detachDocument`, `removeDocument`, `getDocumentsForEntity`, `hasDocuments`.**
 - ⚙️ **`collectDocPaths`, `existingDocPaths`.**
 
 ### 4.11 Read-Only Mode (Doc)
