@@ -312,6 +312,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ⚙️ **`parseWikiLinks(markdown)`** — regex extraction of all `[[…]]`.
 - ⚙️ **`resolveWikiLinkPath(linkPath, currentDir)`** — Obsidian-style: `/` prefix → vault root; relative paths normalise `..` / `.`; appends `.md` if no extension. Phase 5a (2026-04-19) clamps `..` beyond the vault root (dropped rather than emitted as a literal `..` segment) so the resolver can never produce a path that escapes the vault.
 - ⚙️ **`updateWikiLinkPaths(markdown, oldPath, newPath)`** — bulk rename propagation; preserves section anchors and custom display text.
+- ⚙️ **`stripWikiLinksForPath(markdown, deletedDocPath)`** — removes all `[[…]]` wiki-links pointing to a deleted document path; strips plain, aliased (`[[path|alias]]`), and section-anchored (`[[path#section]]`) forms. `features/document/utils/wikiLinkParser.ts`
 
 ### 4.8 Document Properties
 `properties/DocumentProperties.tsx`

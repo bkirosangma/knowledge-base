@@ -192,6 +192,12 @@
 - **DOC-4.8-11** ✅ **`updateWikiLinkPaths` strips `.md` for matching** — handles either form in source and in `oldPath`/`newPath` arguments.
 - **DOC-4.8-12** ✅ **Does not change unrelated links** — `[[fooey]]` and other non-matching paths are untouched; leading `/` is preserved across vault-absolute renames.
 - **DOC-4.8-13** ✅ **Clamps `..` beyond root to the vault root** — `('../../foo', 'a')` → `foo.md` (extra `..` segments past the vault root are discarded, not emitted as literal `..` path segments; Phase 5a, 2026-04-19).
+- **DOC-4.8-14** ✅ **`stripWikiLinksForPath` removes plain wiki-link** — `('See [[notes/auth]] for details.', 'notes/auth.md')` → `'See  for details.'`.
+- **DOC-4.8-15** ✅ **`stripWikiLinksForPath` removes aliased wiki-link** — `('See [[notes/auth | Auth Flow]] here.', 'notes/auth.md')` → `'See  here.'`.
+- **DOC-4.8-16** ✅ **`stripWikiLinksForPath` leaves unrelated wiki-links intact** — `('See [[other/doc]] and [[notes/auth]].', 'notes/auth.md')` → `'See [[other/doc]] and .'`.
+- **DOC-4.8-17** ✅ **`stripWikiLinksForPath` handles doc path without extension** — `('[[notes/auth]]', 'notes/auth')` → `''`.
+- **DOC-4.8-18** ✅ **`stripWikiLinksForPath` removes section-anchored link** — `('See [[notes/auth#intro]].', 'notes/auth.md')` → `'See .'`.
+- **DOC-4.8-19** ✅ **`stripWikiLinksForPath` returns unchanged when doc not referenced** — `('No links here.', 'notes/auth.md')` → `'No links here.'`.
 
 ## 4.9 Document Properties Sidebar
 
