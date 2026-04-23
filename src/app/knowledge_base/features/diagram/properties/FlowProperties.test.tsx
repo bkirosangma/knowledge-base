@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from "@testing-library/react";
 import { FlowProperties } from "./FlowProperties";
 import type { FlowDef, Connection, NodeData } from "../types";

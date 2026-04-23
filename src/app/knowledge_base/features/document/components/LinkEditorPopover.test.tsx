@@ -1,6 +1,5 @@
 import { beforeEach, describe, it, expect } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { useState, useEffect } from 'react'
 import StarterKit from '@tiptap/starter-kit'

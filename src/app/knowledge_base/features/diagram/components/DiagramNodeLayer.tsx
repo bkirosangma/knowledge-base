@@ -11,7 +11,6 @@ import type { NodeData, Connection, Selection } from "../types";
 interface DragDelta { dx: number; dy: number }
 interface DragPos { x: number; y: number }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DimSets = { nodeIds: Set<string>; connIds: Set<string>; layerIds: Set<string> } | null;
 
 export interface DiagramNodeLayerProps {
