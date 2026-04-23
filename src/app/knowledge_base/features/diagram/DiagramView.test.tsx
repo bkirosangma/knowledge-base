@@ -69,6 +69,9 @@ function baseProps(
     onLoadDocuments: vi.fn(),
     backlinks: [],
     onDiagramBridge: vi.fn(),
+    readDocument: vi.fn(async () => null),
+    getDocumentReferences: vi.fn(() => ({ attachments: [], wikiBacklinks: [] })),
+    deleteDocumentWithCleanup: vi.fn(async () => {}),
     ...overrides,
   }
 }

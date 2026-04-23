@@ -241,6 +241,8 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
   } = props;
   // Unused in the JSX but needed for future-proofing against Phase 1.2; silence.
   void _measuredSizes;
+  void _getDocumentReferences;
+  void _deleteDocumentWithCleanup;
 
   return (
     <>
