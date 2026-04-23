@@ -7,7 +7,8 @@ import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
-import { resolveWikiLinkPath } from "./features/document/utils/wikiLinkParser";
+import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
+import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -114,6 +115,66 @@ function KnowledgeBaseInner() {
     if (!rootHandle) return;
     await propagateMoveLinks(rootHandle, sourcePath, targetFolderPath, tree, linkManager);
   }, [fileExplorer.dirHandleRef, fileExplorer.tree, linkManager]);
+
+  // ─── Document read / reference / delete helpers (used by DiagramView) ───
+  const readDocument = useCallback(async (docPath: string): Promise<string | null> => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return null;
+    try {
+      const repo = createDocumentRepository(rootHandle);
+      return await repo.read(docPath);
+    } catch {
+      return null;
+    }
+  }, [fileExplorer.dirHandleRef]);
+
+  const getDocumentReferences = useCallback((
+    docPath: string,
+    exclude?: { entityType: string; entityId: string },
+  ) => {
+    const doc = docManager.documents.find(d => d.filename === docPath);
+    const attachments = (doc?.attachedTo ?? [])
+      .filter(a => !exclude || !(a.type === exclude.entityType && a.id === exclude.entityId))
+      .map(a => ({ entityType: a.type, entityId: a.id }));
+
+    const seen = new Set<string>();
+    const wikiBacklinks: string[] = [];
+    for (const bl of linkManager.getBacklinksFor(docPath)) {
+      if (!seen.has(bl.sourcePath)) {
+        seen.add(bl.sourcePath);
+        wikiBacklinks.push(bl.sourcePath);
+      }
+    }
+
+    return { attachments, wikiBacklinks };
+  }, [docManager.documents, linkManager]);
+
+  const deleteDocumentWithCleanup = useCallback(async (docPath: string) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+
+    // Strip wiki-links from all backlink sources (deduplicated)
+    const seen = new Set<string>();
+    for (const bl of linkManager.getBacklinksFor(docPath)) {
+      if (seen.has(bl.sourcePath)) continue;
+      seen.add(bl.sourcePath);
+      try {
+        const repo = createDocumentRepository(rootHandle);
+        const content = await repo.read(bl.sourcePath);
+        const stripped = stripWikiLinksForPath(content, docPath);
+        if (stripped !== content) await repo.write(bl.sourcePath, stripped);
+      } catch { /* skip unreadable files */ }
+    }
+
+    // Remove from link index
+    await linkManager.removeDocumentFromIndex(rootHandle, docPath);
+
+    // Delete the file via fileExplorer (handles drafts + localStorage)
+    await fileExplorer.deleteFile(docPath);
+
+    // Remove from documents state
+    docManager.removeDocument(docPath);
+  }, [fileExplorer, linkManager, docManager]);
 
   // ─── Document operations ───
   const handleOpenDocument = useCallback((path: string) => {
@@ -298,7 +359,7 @@ function KnowledgeBaseInner() {
           onOpenDocument={handleOpenDocument}
           documents={docManager.documents}
           onAttachDocument={(docPath, entityType, entityId) => {
-            docManager.attachDocument(docPath, entityType as "node" | "connection", entityId);
+            docManager.attachDocument(docPath, entityType as "node" | "connection" | "flow", entityId);
           }}
           onDetachDocument={(docPath, entityType, entityId) => {
             docManager.detachDocument(docPath, entityType, entityId);
@@ -313,6 +374,15 @@ function KnowledgeBaseInner() {
           onLoadDocuments={docManager.setDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore -- props typed in Task 5
+          readDocument={readDocument}
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore -- props typed in Task 5
+          getDocumentReferences={getDocumentReferences}
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore -- props typed in Task 5
+          deleteDocumentWithCleanup={deleteDocumentWithCleanup}
         />
       );
     }
