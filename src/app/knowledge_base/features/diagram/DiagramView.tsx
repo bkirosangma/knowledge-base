@@ -233,6 +233,21 @@ export default function DiagramView({
     pendingRecord.current = description;
   }, []);
 
+  const handleAttachDocument = useCallback((docPath: string, entityType: string, entityId: string) => {
+    onAttachDocument(docPath, entityType, entityId);
+    scheduleRecord(`Attach document to ${entityType}`);
+  }, [onAttachDocument, scheduleRecord]);
+
+  const handleDetachDocument = useCallback((docPath: string, entityType: string, entityId: string) => {
+    onDetachDocument(docPath, entityType, entityId);
+    scheduleRecord(`Detach document from ${entityType}`);
+  }, [onDetachDocument, scheduleRecord]);
+
+  const handleCreateAndAttach = useCallback(async (flowId: string, filename: string, editNow: boolean) => {
+    await onCreateAndAttach(flowId, filename, editNow);
+    scheduleRecord("Create and attach document to flow");
+  }, [onCreateAndAttach, scheduleRecord]);
+
   // ─── Refs ───
   const canvasRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
@@ -267,6 +282,7 @@ export default function DiagramView({
         layerManualSizes,
         lineCurve,
         flows,
+        documents,
       });
     }
   });
@@ -419,6 +435,7 @@ export default function DiagramView({
       flows: snapshot.flows,
     });
     applyDiagramToState(diagram);
+    if (snapshot.documents !== undefined) onLoadDocuments(snapshot.documents);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [applyDiagramToState]);
 
@@ -1261,10 +1278,10 @@ export default function DiagramView({
         documents={documents}
         fileExplorer={fileExplorer}
         onOpenDocument={onOpenDocument}
-        onAttachDocument={onAttachDocument}
-        onDetachDocument={onDetachDocument}
+        onAttachDocument={handleAttachDocument}
+        onDetachDocument={handleDetachDocument}
         onCreateDocument={onCreateDocument}
-        onCreateAndAttach={onCreateAndAttach}
+        onCreateAndAttach={handleCreateAndAttach}
         history={history}
         setSelection={setSelection}
         setNodes={setNodes}

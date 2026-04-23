@@ -205,7 +205,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **NodeProperties** — label, sublabel, icon picker, type classifier, layer assignment, custom colours, rotation, (condition) exit count / size, incoming/outgoing connections, via-condition paths, member flows, backlinks, document attachment.
 - ✅ **LayerProperties** — title, colours, child count, manual-size override toggle.
 - ✅ **LineProperties** — label, colour, curve algorithm, bidirectional, connection type, flow duration, source/dest anchors.
-- ✅ **FlowProperties** — name, category, member connections, delete, document attachment (attach existing, create & attach, detach with optional cascade delete).
+- ✅ **FlowProperties** — name, category, member connections, delete, document attachment (attach existing, create & attach, detach with optional cascade delete); all attach/detach operations are recorded in the action history and are undoable/redoable.
 - ✅ **DiagramProperties** (root) — diagram title, default line algorithm, Layers list, Elements list, Types tree with "Select All" per type, Flows panel with category grouping, document backlinks.
 - ✅ **DocumentsSection** — clickable list of docs linked to the selection; opens in the other pane.
 
