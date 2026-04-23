@@ -153,18 +153,18 @@
 
 | ID | Status | Scenario |
 |----|--------|----------|
-| DIAG-3.10-26 | ❌ | Attach existing doc to flow — appears in Documents section of FlowProperties |
-| DIAG-3.10-27 | ❌ | Attach same doc twice — second attach is a no-op (no duplicate in list) |
-| DIAG-3.10-28 | ❌ | Create & attach new — file created, attached, "Edit now" checked opens pane |
-| DIAG-3.10-29 | ❌ | Create & attach new — "Edit now" unchecked, pane not opened |
-| DIAG-3.10-30 | ❌ | Detach doc — disappears from Documents section |
-| DIAG-3.10-31 | ❌ | Detach doc with no other refs — "Also referenced by" section absent |
-| DIAG-3.10-32 | ❌ | Detach doc with other attachments — lists them deduplicated |
-| DIAG-3.10-33 | ❌ | Detach doc with wiki-link backlinks — lists them deduplicated |
-| DIAG-3.10-34 | ❌ | Detach + delete — file removed from vault |
-| DIAG-3.10-35 | ❌ | Detach + delete — wiki-links removed from referencing docs |
-| DIAG-3.10-36 | ❌ | Danger warning shown when "Also delete" checked, hidden when unchecked |
-| DIAG-3.10-37 | ❌ | Documents section hidden in readOnly mode — no attach/detach buttons |
+| DIAG-3.10-26 | ✅ | Attach existing doc to flow — appears in Documents section of FlowProperties — `FlowProperties.test.tsx` (onAttach called + doc filename rendered) |
+| DIAG-3.10-27 | ✅ | Attach same doc twice — second attach is a no-op (no duplicate in list) — `useDocuments.test.ts` (attachDocument idempotent) |
+| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachDocModal.test.tsx` covers modal; file-write + pane navigation is e2e |
+| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachDocModal.test.tsx` (onConfirm with editNow=false) |
+| DIAG-3.10-30 | 🟡 | Detach doc — disappears from Documents section — modal interaction covered by `FlowProperties.test.tsx` + `DetachDocModal.test.tsx`; DOM removal is e2e |
+| DIAG-3.10-31 | ✅ | Detach doc with no other refs — "Also referenced by" section absent — `DetachDocModal.test.tsx` |
+| DIAG-3.10-32 | ✅ | Detach doc with other attachments — lists them deduplicated — `DetachDocModal.test.tsx` |
+| DIAG-3.10-33 | ✅ | Detach doc with wiki-link backlinks — lists them deduplicated — `DetachDocModal.test.tsx` |
+| DIAG-3.10-34 | 🟡 | Detach + delete — file removed from vault — `DetachDocModal.test.tsx` (alsoDelete=true); actual deletion is e2e |
+| DIAG-3.10-35 | 🟡 | Detach + delete — wiki-links removed from referencing docs — `wikiLinkParser.test.ts` covers stripWikiLinksForPath; full delete workflow (FS + link index) is e2e |
+| DIAG-3.10-36 | ✅ | Danger warning shown when "Also delete" checked, hidden when unchecked — `DetachDocModal.test.tsx` |
+| DIAG-3.10-37 | ✅ | Documents section hidden in readOnly mode — no attach/detach buttons — `FlowProperties.test.tsx` (readOnly prop) |
 | DIAG-3.10-38 | ✅ | Attach document — appears as a named entry in the history panel |
 | DIAG-3.10-39 | ✅ | Detach document — appears as a named entry in the history panel |
 | DIAG-3.10-40 | ✅ | Undo attach — document disappears from the flow's Documents section |
@@ -362,7 +362,7 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 
 | ID | Status | Scenario |
 |----|--------|----------|
-| DIAG-3.20-01 | ❌ | Click attached flow doc — DocPreviewModal opens |
+| DIAG-3.20-01 | 🟡 | Click attached flow doc — DocPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `DocPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
 | DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — DocPreviewModal opens |
 | DIAG-3.20-03 | ✅ | Preview modal renders markdown matching doc pane styles |
 | DIAG-3.20-04 | ✅ | Escape key closes preview modal |

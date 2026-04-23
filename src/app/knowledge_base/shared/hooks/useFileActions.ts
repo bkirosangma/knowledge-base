@@ -22,7 +22,7 @@ interface History {
 
 type ApplyDiagramToState = (
   data: ReturnType<typeof loadDiagramFromData>,
-  opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
+  opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData>; documents?: DocumentMeta[] },
 ) => void;
 
 export function useFileActions(
@@ -31,7 +31,7 @@ export function useFileActions(
   applyDiagramToState: ApplyDiagramToState,
   isRestoringRef: MutableRefObject<boolean>,
   isDirty: boolean,
-  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[]) => void,
+  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[], docs: DocumentMeta[]) => void,
   confirmAction: ConfirmAction | null,
   setConfirmAction: React.Dispatch<React.SetStateAction<ConfirmAction | null>>,
   canvasRef: MutableRefObject<HTMLDivElement | null>,
@@ -45,6 +45,8 @@ export function useFileActions(
   flows: FlowDef[],
   documents?: DocumentMeta[],
   onLoadDocuments?: (docs: DocumentMeta[]) => void,
+  onAfterSave?: () => Promise<void>,
+  onAfterDiscard?: () => void,
 ) {
   // Keep the "current diagram state" accessible to handleLoadFile /
   // handleSave without listing every state value in their useCallback
@@ -63,6 +65,9 @@ export function useFileActions(
     isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
   };
 
+  const callbacksRef = useRef({ onAfterSave, onAfterDiscard });
+  callbacksRef.current = { onAfterSave, onAfterDiscard };
+
   const handleLoadFile = useCallback(async (fileName: string) => {
     // SHELL-1.2-22: flush the outgoing file's dirty state to disk before
     // swapping in the new one so the user doesn't lose unsaved edits on
@@ -80,13 +85,15 @@ export function useFileActions(
     const result = await fileExplorer.selectFile(fileName);
     if (!result) return;
     const { data, diskJson, hasDraft } = result;
+    const diskData = JSON.parse(diskJson);
     const diagram = loadDiagramFromData(data);
-    const snapshotSource = hasDraft ? loadDiagramFromData(JSON.parse(diskJson)) : undefined;
-    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
-    // Restore document attachments from the loaded diagram
+    const snapshotSource = hasDraft ? loadDiagramFromData(diskData) : undefined;
+    // Baseline = disk version (saved state). Draft docs stay in data.documents.
+    const baselineDocs: DocumentMeta[] = (hasDraft ? diskData.documents : data.documents) ?? [];
+    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource, documents: baselineDocs });
+    // Restore document attachments from the loaded (possibly draft) diagram
     currentStateRef.current.onLoadDocuments?.(data.documents ?? []);
     isRestoringRef.current = true;
-    const diskData = JSON.parse(diskJson);
     await history.initHistory(diskJson, {
       title: diskData.title ?? "Untitled",
       layerDefs: diskData.layers,
@@ -106,9 +113,10 @@ export function useFileActions(
       fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
     );
     if (success) {
-      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows);
+      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows, s.documents ?? []);
       const savedData = { title: s.title, layers: s.layerDefs, nodes: serializeNodes(s.nodes), connections: s.connections, layerManualSizes: s.layerManualSizes, lineCurve: s.lineCurve, flows: s.flows };
       history.onSave(JSON.stringify(savedData));
+      await callbacksRef.current.onAfterSave?.();
     }
   }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);
 
@@ -116,7 +124,8 @@ export function useFileActions(
     const result = await fileExplorer.createFile(parentPath);
     if (!result) return null;
     const diagram = loadDiagramFromData(result.data);
-    applyDiagramToState(diagram, { setSnapshot: true });
+    applyDiagramToState(diagram, { setSnapshot: true, documents: [] });
+    currentStateRef.current.onLoadDocuments?.([]);
     requestAnimationFrame(() => {
       if (canvasRef.current) {
         const el = canvasRef.current;
@@ -162,7 +171,9 @@ export function useFileActions(
   const handleDuplicateFile = useCallback(async (path: string) => {
     const result = await fileExplorer.duplicateFile(path);
     if (!result) return;
-    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true });
+    const docs = result.data.documents ?? [];
+    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true, documents: docs });
+    currentStateRef.current.onLoadDocuments?.(docs);
   }, [fileExplorer.duplicateFile, applyDiagramToState]);
 
   const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
@@ -183,14 +194,20 @@ export function useFileActions(
         lineCurve: savedSnapshot.lineCurve,
         flows: savedSnapshot.flows,
       });
-      applyDiagramToState(diagram, { setSnapshot: true });
+      const savedDocs = savedSnapshot.documents ?? [];
+      applyDiagramToState(diagram, { setSnapshot: true, documents: savedDocs });
+      currentStateRef.current.onLoadDocuments?.(savedDocs);
       fileExplorer.discardFile(fileExplorer.activeFile);
+      callbacksRef.current.onAfterDiscard?.();
       requestAnimationFrame(() => { isRestoringRef.current = false; });
       return;
     }
     const data = await fileExplorer.discardFile(fileExplorer.activeFile);
     if (!data) return;
-    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true });
+    const diskDocs = data.documents ?? [];
+    currentStateRef.current.onLoadDocuments?.(diskDocs);
+    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true, documents: diskDocs });
+    callbacksRef.current.onAfterDiscard?.();
   }, [fileExplorer.activeFile, fileExplorer.discardFile, applyDiagramToState, history.goToSaved]);
 
   const handleDiscard = useCallback((event: React.MouseEvent) => {

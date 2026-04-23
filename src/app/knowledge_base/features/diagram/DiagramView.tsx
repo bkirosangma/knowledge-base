@@ -397,6 +397,7 @@ export default function DiagramView({
   const { isDirty, setLoadSnapshot } = useDiagramPersistence(
     setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve, setFlows,
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
+    documents,
     activeFile,
     fileExplorer.markDirty,
   );
@@ -404,7 +405,7 @@ export default function DiagramView({
   /** Apply a loaded/restored diagram to all state in one call. */
   const applyDiagramToState = useCallback((
     data: ReturnType<typeof loadDiagramFromData>,
-    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
+    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData>; documents?: DocumentMeta[] },
   ) => {
     setTitle(data.title);
     setLayerDefs(data.layers);
@@ -418,7 +419,7 @@ export default function DiagramView({
     setPatches(DEFAULT_PATCHES);
     if (opts?.setSnapshot) {
       const src = opts.snapshotSource ?? data;
-      setLoadSnapshot(src.title, src.layers, src.nodes, src.connections, src.layerManualSizes, src.lineCurve, src.flows);
+      setLoadSnapshot(src.title, src.layers, src.nodes, src.connections, src.layerManualSizes, src.lineCurve, src.flows, opts.documents ?? []);
     }
   }, [setLayerManualSizes, setLoadSnapshot]);
 
@@ -451,6 +452,32 @@ export default function DiagramView({
     applySnapshot(history.goToEntry(index));
   }, [history.goToEntry, applySnapshot]);
 
+  // ─── Deferred document deletion (delete-on-detach queued until save) ───
+  const pendingDeletesRef = useRef<string[]>([]);
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+
+  const handleDeleteDocumentWithCleanup = useCallback(async (path: string) => {
+    if (!pendingDeletesRef.current.includes(path)) {
+      pendingDeletesRef.current = [...pendingDeletesRef.current, path];
+    }
+  }, []);
+
+  const flushPendingDeletes = useCallback(async () => {
+    const paths = pendingDeletesRef.current.slice();
+    pendingDeletesRef.current = [];
+    for (const path of paths) {
+      // Skip if the document was re-attached (e.g. via undo) before save
+      const doc = documentsRef.current.find(d => d.filename === path);
+      if (doc && (doc.attachedTo?.length ?? 0) > 0) continue;
+      await deleteDocumentWithCleanup(path);
+    }
+  }, [deleteDocumentWithCleanup]);
+
+  const clearPendingDeletes = useCallback(() => {
+    pendingDeletesRef.current = [];
+  }, []);
+
   // ─── File Actions (save, load, create, delete, etc.) ───
   const {
     handleLoadFile, handleSave, handleCreateFile, handleCreateFolder,
@@ -462,6 +489,8 @@ export default function DiagramView({
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
     documents,
     onLoadDocuments,
+    flushPendingDeletes,
+    clearPendingDeletes,
   );
 
   // ─── Auto-load diagram when activeFile changes (mount, restore-on-refresh, pane switch) ───
@@ -515,9 +544,21 @@ export default function DiagramView({
 
   // Flow-related callbacks
   const flowCounter = useRef(0);
-  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleSelectLine } = useFlowManagement(
+  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
     connectionsRef, flowsRef, flowCounter, setFlows, setSelection, scheduleRecord,
   );
+
+  // Detach all documents attached to the flow before deleting it so orphaned
+  // attachedTo references don't get persisted. Both the flows update and the
+  // documents update are in-memory — they're both finalised on the next save.
+  const handleDeleteFlow = useCallback((flowId: string) => {
+    for (const doc of documents) {
+      if (doc.attachedTo?.some(a => a.type === 'flow' && a.id === flowId)) {
+        onDetachDocument(doc.filename, 'flow', flowId);
+      }
+    }
+    rawHandleDeleteFlow(flowId);
+  }, [documents, onDetachDocument, rawHandleDeleteFlow]);
 
   const handleCreateLayer = useCallback((layerTitle: string): string => {
     const newId = createLayerId();
@@ -1332,7 +1373,7 @@ export default function DiagramView({
         setPreviewEntityName={setPreviewEntityName}
         readDocument={readDocument}
         getDocumentReferences={getDocumentReferences}
-        deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+        deleteDocumentWithCleanup={handleDeleteDocumentWithCleanup}
       />
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import { saveDraft } from "../../../shared/utils/persistence";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
 
@@ -23,6 +24,7 @@ export function useDiagramPersistence(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[],
+  documents: DocumentMeta[],
   activeFile: string | null,
   onDirtyChange?: (fileName: string, dirty: boolean) => void,
 ) {
@@ -36,19 +38,21 @@ export function useDiagramPersistence(
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
     fl: FlowDef[],
+    docs: DocumentMeta[],
   ) => {
     // Lightweight fingerprint: JSON of the serializable parts
-    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl });
+    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl, documents: docs });
   }, []);
 
-  // Set snapshot when a file is loaded
+  // Set snapshot when a file is loaded or saved (docs must match actual documents state)
   const setLoadSnapshot = useCallback((
     t: string, l: LayerDef[], n: NodeData[], c: Connection[],
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
     fl: FlowDef[],
+    docs: DocumentMeta[],
   ) => {
-    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl);
+    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl, docs);
     setIsDirty(false);
   }, [takeSnapshot]);
 
@@ -61,7 +65,7 @@ export function useDiagramPersistence(
   useEffect(() => {
     if (!hydratedRef.current) return;
 
-    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
+    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents);
     const dirty = snapshotRef.current !== null && currentSnap !== snapshotRef.current;
     setIsDirty(dirty);
 
@@ -82,7 +86,7 @@ export function useDiagramPersistence(
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, activeFile, takeSnapshot, onDirtyChange, reportError]);
+  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, activeFile, takeSnapshot, onDirtyChange, reportError]);
 
   return { isDirty, setLoadSnapshot };
 }

@@ -165,16 +165,18 @@ export function FlowProperties({
         )}
       </Section>
 
-      <Section title="Danger">
-        <div className="px-1 py-2">
-          <button
-            className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
-            onClick={() => onDelete?.(id)}
-          >
-            Delete Flow
-          </button>
-        </div>
-      </Section>
+      {!readOnly && (
+        <Section title="Danger">
+          <div className="px-1 py-2">
+            <button
+              className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
+              onClick={() => onDelete?.(id)}
+            >
+              Delete Flow
+            </button>
+          </div>
+        </Section>
+      )}
 
       {showCreateModal && (
         <CreateAttachDocModal
