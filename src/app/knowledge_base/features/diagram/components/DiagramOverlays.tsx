@@ -14,6 +14,7 @@ import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
 import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
 import { findBrokenFlowsByReconnect } from "../utils/flowUtils";
+import DocPreviewModal from "./DocPreviewModal";
 
 export interface DiagramOverlaysProps {
   // Core state
@@ -138,6 +139,18 @@ export interface DiagramOverlaysProps {
     conditionOutCount?: number;
   }) => { w: number; h: number };
   getDocumentsForEntity: (type: string, id: string) => DocumentMeta[];
+
+  // Doc preview state
+  previewDocPath: string | null;
+  previewEntityName: string | undefined;
+  setPreviewDocPath: React.Dispatch<React.SetStateAction<string | null>>;
+  setPreviewEntityName: React.Dispatch<React.SetStateAction<string | undefined>>;
+  readDocument: (path: string) => Promise<string | null>;
+  getDocumentReferences: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup: (path: string) => Promise<void>;
 }
 
 export default function DiagramOverlays(props: DiagramOverlaysProps) {
@@ -218,6 +231,13 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     scrollToRect,
     getNodeDimensions,
     getDocumentsForEntity,
+    previewDocPath,
+    previewEntityName,
+    setPreviewDocPath,
+    setPreviewEntityName,
+    readDocument,
+    getDocumentReferences: _getDocumentReferences,
+    deleteDocumentWithCleanup: _deleteDocumentWithCleanup,
   } = props;
   // Unused in the JSX but needed for future-proofing against Phase 1.2; silence.
   void _measuredSizes;
@@ -442,6 +462,17 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
             }
           }}
           onClose={() => setPickerTarget(null)}
+        />
+      )}
+
+      {/* Doc Preview Modal */}
+      {previewDocPath && (
+        <DocPreviewModal
+          docPath={previewDocPath}
+          entityName={previewEntityName}
+          onClose={() => { setPreviewDocPath(null); setPreviewEntityName(undefined); }}
+          onOpenInPane={(path) => { onOpenDocument(path); setPreviewDocPath(null); setPreviewEntityName(undefined); }}
+          readDocument={readDocument}
         />
       )}
     </>

@@ -376,14 +376,8 @@ function KnowledgeBaseInner() {
           onLoadDocuments={docManager.setDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore -- props typed in Task 5
           readDocument={readDocument}
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore -- props typed in Task 5
           getDocumentReferences={getDocumentReferences}
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore -- props typed in Task 5
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
         />
       );

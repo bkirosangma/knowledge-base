@@ -124,6 +124,12 @@ export interface DiagramViewProps {
   backlinks?: { sourcePath: string; section?: string }[];
   /** Bridge: notify the shell when isDirty or save/discard callbacks change */
   onDiagramBridge: (bridge: DiagramBridge) => void;
+  readDocument: (path: string) => Promise<string | null>;
+  getDocumentReferences: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup: (path: string) => Promise<void>;
 }
 
 export default function DiagramView({
@@ -137,6 +143,9 @@ export default function DiagramView({
   onLoadDocuments,
   backlinks,
   onDiagramBridge,
+  readDocument,
+  getDocumentReferences,
+  deleteDocumentWithCleanup,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const {
@@ -192,6 +201,8 @@ export default function DiagramView({
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const [pickerTarget, setPickerTarget] = useState<{ type: string; id: string } | null>(null);
+  const [previewDocPath, setPreviewDocPath] = useState<string | null>(null);
+  const [previewEntityName, setPreviewEntityName] = useState<string | undefined>(undefined);
 
   // ─── Pending deletion / reconnect state ───
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
@@ -904,7 +915,7 @@ export default function DiagramView({
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
+        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { if (e.button === 0 && selection?.type === 'flow') setSelection(null); handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
@@ -1293,6 +1304,13 @@ export default function DiagramView({
         scrollToRect={scrollToRect}
         getNodeDimensions={getNodeDimensions}
         getDocumentsForEntity={getDocumentsForEntity}
+        previewDocPath={previewDocPath}
+        previewEntityName={previewEntityName}
+        setPreviewDocPath={setPreviewDocPath}
+        setPreviewEntityName={setPreviewEntityName}
+        readDocument={readDocument}
+        getDocumentReferences={getDocumentReferences}
+        deleteDocumentWithCleanup={deleteDocumentWithCleanup}
       />
       </div>
     </div>
