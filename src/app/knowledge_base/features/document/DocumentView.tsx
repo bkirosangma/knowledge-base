@@ -249,6 +249,7 @@ export default function DocumentView({
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
           allDocPaths={allDocPaths}
+          tree={tree}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
           readOnly={readOnly}
