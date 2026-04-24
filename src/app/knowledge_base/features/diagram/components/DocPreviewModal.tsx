@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { FileText, X, ExternalLink, Loader2 } from "lucide-react";
 import DOMPurify from "dompurify";
@@ -29,6 +29,8 @@ const SANITIZE_CONFIG = {
   ALLOW_DATA_ATTR: false,
 };
 
+const MIN_WIDTH = 480;
+
 export default function DocPreviewModal({
   docPath,
   entityName,
@@ -38,6 +40,14 @@ export default function DocPreviewModal({
 }: DocPreviewModalProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [modalWidth, setModalWidth] = useState(680);
+  const modalWidthRef = useRef(680);
+  const filenameRef = useRef<HTMLSpanElement>(null);
+  const entityRef = useRef<HTMLSpanElement>(null);
+  const [filenameTruncated, setFilenameTruncated] = useState(false);
+  const [entityTruncated, setEntityTruncated] = useState(false);
+
+  useEffect(() => { modalWidthRef.current = modalWidth; }, [modalWidth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,10 +72,51 @@ export default function DocPreviewModal({
     return () => document.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
+  useEffect(() => {
+    const el = filenameRef.current;
+    if (el) {
+      const t = el.scrollWidth > el.offsetWidth;
+      setFilenameTruncated(prev => prev === t ? prev : t);
+    }
+  });
+
+  useEffect(() => {
+    const el = entityRef.current;
+    if (el) {
+      const t = el.scrollWidth > el.offsetWidth;
+      setEntityTruncated(prev => prev === t ? prev : t);
+    }
+  });
+
+  const handleEdgeDrag = useCallback((e: React.MouseEvent, edge: 'left' | 'right') => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = modalWidthRef.current;
+
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      const next = edge === 'right' ? startWidth + delta * 2 : startWidth - delta * 2;
+      setModalWidth(Math.max(MIN_WIDTH, Math.min(Math.floor(window.innerWidth * 0.9), next)));
+    };
+
+    const onMouseUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   const filename = docPath.split("/").pop() ?? docPath;
 
   const modal = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999]">
       <div
         data-testid="doc-preview-backdrop"
         className="absolute inset-0 bg-slate-900/40"
@@ -75,27 +126,47 @@ export default function DocPreviewModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="doc-preview-title"
-        className="relative bg-white rounded-xl shadow-2xl w-[680px] max-h-[78vh] flex flex-col overflow-hidden"
+        style={{ width: modalWidth, left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
+        className="absolute bg-white rounded-xl shadow-2xl max-h-[78vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
+        {/* Left resize handle */}
+        <div
+          className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize z-10 hover:bg-blue-400/20 rounded-l-xl select-none"
+          onMouseDown={e => handleEdgeDrag(e, 'left')}
+        />
+        {/* Right resize handle */}
+        <div
+          className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize z-10 hover:bg-blue-400/20 rounded-r-xl select-none"
+          onMouseDown={e => handleEdgeDrag(e, 'right')}
+        />
+
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <FileText size={16} className="text-indigo-500" />
-            <span id="doc-preview-title" className="text-sm font-semibold text-slate-800">{filename}</span>
-            <span className="text-[10px] font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
-              Read only
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={16} className="text-indigo-500 flex-shrink-0" />
+            <span
+              ref={filenameRef}
+              id="doc-preview-title"
+              className="text-sm font-semibold text-slate-800 truncate"
+              title={filenameTruncated ? filename : undefined}
+            >
+              {filename}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
             {entityName && (
-              <span className="text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5">
+              <span
+                ref={entityRef}
+                title={entityTruncated ? entityName : undefined}
+                className="text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 max-w-[180px] truncate"
+              >
                 {entityName}
               </span>
             )}
             <button
               onClick={() => { onOpenInPane(docPath); onClose(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors whitespace-nowrap flex-shrink-0"
             >
               <ExternalLink size={12} />
               Open in pane
