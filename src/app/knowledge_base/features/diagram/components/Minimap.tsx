@@ -178,6 +178,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
   return (
     <div
       ref={minimapRef}
+      data-testid="minimap"
       className={`relative bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden origin-bottom-left ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out', transform: isHovered ? 'scale(2)' : 'scale(1)' }}
       onMouseDown={handleMinimapMouseDown}
@@ -227,6 +228,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
         if (clampedW <= 0 || clampedH <= 0) return null;
         return (
           <div
+            data-testid="minimap-viewport"
             className={`absolute border-2 border-blue-500 rounded-sm bg-blue-500/10 ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
             style={{ left: clampedLeft, top: clampedTop, width: clampedW, height: clampedH, transition: resizeTransition, pointerEvents: 'none' }}
           />
