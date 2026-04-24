@@ -658,6 +658,31 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
+  // ─── Full link-index rebuild on first tree load ───
+  // loadIndex only restores the persisted index from disk. Files that were
+  // never opened won't appear in backlinks until they're opened individually.
+  // This background rebuild scans every .md file once per vault open so that
+  // all backlinks are correct immediately, without blocking the UI.
+  const indexRebuildVaultRef = useRef<string | null>(null);
+  useEffect(() => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle || fileExplorer.tree.length === 0) return;
+    if (indexRebuildVaultRef.current === fileExplorer.directoryName) return;
+    indexRebuildVaultRef.current = fileExplorer.directoryName;
+
+    const mdPaths: string[] = [];
+    const walk = (items: typeof fileExplorer.tree) => {
+      for (const it of items) {
+        if (it.type === "file" && it.path.endsWith(".md")) mdPaths.push(it.path);
+        if (it.children) walk(it.children);
+      }
+    };
+    walk(fileExplorer.tree);
+
+    linkManager.fullRebuild(rootHandle, mdPaths).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.tree, fileExplorer.directoryName]);
+
   // ─── Graph pane: open-graph + open-from-graph helpers ───
   // Opening the graph from the palette: replace the focused pane with the
   // virtual graph entry. (Same as `panes.openFile` for any other type —
