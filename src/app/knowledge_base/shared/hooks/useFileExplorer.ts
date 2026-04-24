@@ -153,7 +153,6 @@ export function useFileExplorer() {
     if (!diskData) return null;
     setActiveFile(filePath);
     return { data: diskData, diskJson, hasDraft: false };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirHandleRef, reportError]);
 
   const saveFile = useCallback(async (
@@ -514,7 +513,6 @@ export function useFileExplorer() {
       reportError(e, `Discarding draft of ${filePath}`);
       return null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirHandleRef, drafts, reportError]);
 
   const refresh = useCallback(async () => {

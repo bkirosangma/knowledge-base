@@ -1,107 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
+import type { DocumentMeta } from "../../document/types";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
-import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
+import { Section, Row, EditableRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
-
-function FlowDetail({
-  flow, connections, nodes, allFlowIds,
-  onUpdate, onDelete, onSelectLine, onSelectNode, readOnly,
-}: {
-  flow: FlowDef;
-  connections: Connection[];
-  nodes: NodeData[];
-  allFlowIds: string[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
-  onDelete?: (id: string) => void;
-  onSelectLine?: (lineId: string) => void;
-  onSelectNode?: (nodeId: string) => void;
-  readOnly?: boolean;
-}) {
-  const connectionItems = useMemo(() => {
-    return flow.connectionIds
-      .map((cid) => {
-        const conn = connections.find((c) => c.id === cid);
-        if (!conn) return null;
-        const fromNode = nodes.find((n) => n.id === conn.from);
-        const toNode = nodes.find((n) => n.id === conn.to);
-        return {
-          id: conn.id,
-          name: conn.label || conn.id,
-          sub: `${fromNode?.label ?? conn.from} → ${toNode?.label ?? conn.to}`,
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item != null);
-  }, [flow.connectionIds, connections, nodes]);
-
-  const nodeItems = useMemo(() => {
-    const nodeIds = new Set<string>();
-    for (const cid of flow.connectionIds) {
-      const conn = connections.find((c) => c.id === cid);
-      if (conn) {
-        nodeIds.add(conn.from);
-        nodeIds.add(conn.to);
-      }
-    }
-    return [...nodeIds]
-      .map((nid) => {
-        const node = nodes.find((n) => n.id === nid);
-        return node ? { id: node.id, name: node.label } : null;
-      })
-      .filter((item): item is NonNullable<typeof item> => item != null);
-  }, [flow.connectionIds, connections, nodes]);
-
-  return (
-    <div className="border-t border-slate-200 mt-1 pt-1">
-      {readOnly ? (
-        <Row label="ID" value={flow.id} />
-      ) : (
-        <EditableIdRow
-          label="ID"
-          value={flow.id}
-          prefix="flow-"
-          onCommit={(newId) => {
-            if (newId === flow.id) return true;
-            if (allFlowIds.includes(newId)) return false;
-            onUpdate?.(flow.id, { id: newId });
-            return true;
-          }}
-        />
-      )}
-      {readOnly ? (
-        <Row label="Name" value={flow.name} />
-      ) : (
-        <EditableRow
-          label="Name"
-          value={flow.name}
-          onCommit={(v) => { onUpdate?.(flow.id, { name: v }); return true; }}
-        />
-      )}
-      {readOnly ? (
-        <Row label="Category" value={flow.category ?? ""} />
-      ) : (
-        <EditableRow
-          label="Category"
-          value={flow.category ?? ""}
-          onCommit={(v) => { onUpdate?.(flow.id, { category: v }); return true; }}
-          onClear={() => onUpdate?.(flow.id, { category: "" })}
-        />
-      )}
-      <ExpandableListRow label="Connections" items={connectionItems} onSelect={onSelectLine} />
-      <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
-      {!readOnly && (
-        <div className="px-1 py-2">
-          <button
-            className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
-            onClick={() => onDelete?.(flow.id)}
-          >
-            Delete Flow
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+import { FlowProperties } from "./FlowProperties";
 
 function FlowListItem({
   flow, isExpanded, onToggle, onHover,
@@ -162,7 +65,9 @@ export function DiagramProperties({
   title, regions, nodes, connections, onUpdateTitle, onSelectLayer, onSelectNode, lineCurve, onUpdateLineCurve,
   flows, onHoverFlow, onSelectFlow, onUpdateFlow, onDeleteFlow, onSelectLine, activeFlowId,
   onSelectType, onHoverType, expandedType, onExpandType,
-  backlinks, onOpenDocument, readOnly,
+  backlinks, onOpenDocument: _onOpenDocument, readOnly,
+  documents, onPreviewDocument, onOpenDocPicker, onDetachDocument,
+  getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -184,6 +89,16 @@ export function DiagramProperties({
   backlinks?: { sourcePath: string; section?: string }[];
   onOpenDocument?: (path: string) => void;
   readOnly?: boolean;
+  documents?: DocumentMeta[];
+  onPreviewDocument?: (path: string, entityName?: string) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
+  getDocumentReferences?: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup?: (path: string) => Promise<void>;
+  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -320,8 +235,9 @@ export function DiagramProperties({
             </>
           )}
           {expandedFlow && (
-            <FlowDetail
-              flow={expandedFlow}
+            <FlowProperties
+              id={expandedFlow.id}
+              flows={allFlows}
               connections={connections}
               nodes={nodes}
               allFlowIds={allFlowIds}
@@ -329,6 +245,13 @@ export function DiagramProperties({
               onDelete={(id) => { setExpandedFlowId(null); onDeleteFlow?.(id); }}
               onSelectLine={onSelectLine}
               onSelectNode={onSelectNode}
+              attachedDocs={documents?.filter(d => d.attachedTo?.some(a => a.type === "flow" && a.id === expandedFlow.id)) ?? []}
+              onAttach={() => onOpenDocPicker?.("flow", expandedFlow.id)}
+              onDetach={(docPath) => onDetachDocument?.(docPath, "flow", expandedFlow.id)}
+              onPreview={(docPath) => onPreviewDocument?.(docPath, expandedFlow.name)}
+              getDocumentReferences={getDocumentReferences}
+              deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+              onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(expandedFlow.id, filename, editNow) ?? Promise.resolve()}
               readOnly={readOnly}
             />
           )}
@@ -338,7 +261,7 @@ export function DiagramProperties({
       {backlinks && (
         <DocumentsSection
           backlinks={backlinks}
-          onOpenDocument={onOpenDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       )}
     </>

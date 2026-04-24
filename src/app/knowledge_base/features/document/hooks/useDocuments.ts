@@ -89,6 +89,11 @@ export function useDocuments() {
     );
   }, []);
 
+  /** Remove a document entry entirely */
+  const removeDocument = useCallback((docPath: string) => {
+    setDocuments(prev => prev.filter(d => d.filename !== docPath));
+  }, []);
+
   /** Get documents attached to an entity */
   const getDocumentsForEntity = useCallback((
     entityType: string,
@@ -115,6 +120,7 @@ export function useDocuments() {
     createDocument,
     attachDocument,
     detachDocument,
+    removeDocument,
     getDocumentsForEntity,
     hasDocuments,
     collectDocPaths,

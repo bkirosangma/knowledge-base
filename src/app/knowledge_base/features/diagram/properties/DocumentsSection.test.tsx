@@ -51,19 +51,19 @@ describe('DocumentsSection', () => {
     expect(screen.getByText('a.md #intro')).toBeTruthy()
   })
 
-  it('clicking a backlink fires onOpenDocument with the full sourcePath', () => {
-    const onOpenDocument = vi.fn()
+  it('clicking a backlink fires onPreviewDocument with the full sourcePath', () => {
+    const onPreviewDocument = vi.fn()
     render(
       <DocumentsSection
         backlinks={[{ sourcePath: 'deep/nested/doc.md' }]}
-        onOpenDocument={onOpenDocument}
+        onPreviewDocument={onPreviewDocument}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'doc.md' }))
-    expect(onOpenDocument).toHaveBeenCalledWith('deep/nested/doc.md')
+    expect(onPreviewDocument).toHaveBeenCalledWith('deep/nested/doc.md')
   })
 
-  it('click does not throw when onOpenDocument is not provided', () => {
+  it('click does not throw when onPreviewDocument is not provided', () => {
     render(
       <DocumentsSection
         backlinks={[{ sourcePath: 'x.md' }]}

@@ -149,6 +149,28 @@
 - **DIAG-3.10-24** ✅ **Glows disappear when flow deselected** — clearing selection removes all role glows.
 - **DIAG-3.10-25** ✅ **Labels hidden for non-flow connections** — when a flow is active, connection labels not in the flow are omitted from the overlay SVG. Covered by `e2e/flowHighlight.spec.ts`.
 
+### Flow Document Attachment
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.10-26 | ✅ | Attach existing doc to flow — appears in Documents section of FlowProperties — `FlowProperties.test.tsx` (onAttach called + doc filename rendered) |
+| DIAG-3.10-27 | ✅ | Attach same doc twice — second attach is a no-op (no duplicate in list) — `useDocuments.test.ts` (attachDocument idempotent) |
+| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachDocModal.test.tsx` covers modal; file-write + pane navigation is e2e |
+| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachDocModal.test.tsx` (onConfirm with editNow=false) |
+| DIAG-3.10-30 | 🟡 | Detach doc — disappears from Documents section — modal interaction covered by `FlowProperties.test.tsx` + `DetachDocModal.test.tsx`; DOM removal is e2e |
+| DIAG-3.10-31 | ✅ | Detach doc with no other refs — "Also referenced by" section absent — `DetachDocModal.test.tsx` |
+| DIAG-3.10-32 | ✅ | Detach doc with other attachments — lists them deduplicated — `DetachDocModal.test.tsx` |
+| DIAG-3.10-33 | ✅ | Detach doc with wiki-link backlinks — lists them deduplicated — `DetachDocModal.test.tsx` |
+| DIAG-3.10-34 | 🟡 | Detach + delete — file removed from vault — `DetachDocModal.test.tsx` (alsoDelete=true); actual deletion is e2e |
+| DIAG-3.10-35 | 🟡 | Detach + delete — wiki-links removed from referencing docs — `wikiLinkParser.test.ts` covers stripWikiLinksForPath; full delete workflow (FS + link index) is e2e |
+| DIAG-3.10-36 | ✅ | Danger warning shown when "Also delete" checked, hidden when unchecked — `DetachDocModal.test.tsx` |
+| DIAG-3.10-37 | ✅ | Documents section hidden in readOnly mode — no attach/detach buttons — `FlowProperties.test.tsx` (readOnly prop) |
+| DIAG-3.10-38 | ✅ | Attach document — appears as a named entry in the history panel |
+| DIAG-3.10-39 | ✅ | Detach document — appears as a named entry in the history panel |
+| DIAG-3.10-40 | ✅ | Undo attach — document disappears from the flow's Documents section |
+| DIAG-3.10-41 | ✅ | Redo attach — document reappears in the flow's Documents section |
+| DIAG-3.10-42 | ✅ | Create-and-attach — appears as a named entry in the history panel |
+
 ## 3.11 Selection
 
 - **DIAG-3.11-01** ✅ **Click selects single node** — `selectionUtils.test.ts` (`toggleItemInSelection` empty→single); also e2e/diagramGoldenPath.spec.ts (ring-2 class visible).
@@ -335,3 +357,19 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.19-15** ✅ **`isDiagramData` shape guard strengthened (Phase 5b, 2026-04-19)** — requires `title: string`, `Array.isArray` on each of `layers`/`nodes`/`connections`, and — if present — rejects unknown `lineCurve` values, non-array `flows`/`documents`, and non-object `layerManualSizes`. Closes the gap where a corrupt vault used to deserialise and surface runtime errors in router/flow code.
 
 Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_base/shared/utils/persistence.test.ts): `createEmptyDiagram`, `loadDefaults`, `savePaneLayout`/`loadPaneLayout` (incl. `lastClosedPane` + corrupt-JSON tolerance), `migrateViewport`, `clearViewport`, `cleanupOrphanedData`, and graceful `QuotaExceededError` handling in both `saveDiagram` and `saveDraft`.
+
+## 3.20 Doc Preview Modal
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.20-01 | 🟡 | Click attached flow doc — DocPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `DocPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
+| DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — DocPreviewModal opens |
+| DIAG-3.20-03 | ✅ | Preview modal renders markdown matching doc pane styles |
+| DIAG-3.20-04 | ✅ | Escape key closes preview modal |
+| DIAG-3.20-05 | ✅ | Backdrop click closes preview modal |
+| DIAG-3.20-06 | ✅ | "Open in pane" opens doc pane and closes modal |
+| DIAG-3.20-07 | ❌ | Diagram canvas is blurred and non-interactive while modal is open |
+| DIAG-3.20-08 | ✅ | Error state shown when document cannot be read |
+| DIAG-3.20-09 | ✅ | Entity name badge shown in header when context is known (flow name) |
+
+Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), filename in header.

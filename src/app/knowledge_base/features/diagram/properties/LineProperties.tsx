@@ -53,7 +53,7 @@ function DurationRow({ value, defaultValue, onChange, readOnly }: { value: numbe
 }
 
 export function LineProperties({
-  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onOpenDocument, readOnly,
+  id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onPreviewDocument, readOnly,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
@@ -62,7 +62,7 @@ export function LineProperties({
   onSelectFlow?: (flowId: string) => void;
   onHoverFlow?: (flowId: string | null) => void;
   backlinks?: { sourcePath: string; section?: string }[];
-  onOpenDocument?: (path: string) => void;
+  onPreviewDocument?: (path: string) => void;
   readOnly?: boolean;
 }) {
   const conn = connections.find((c) => c.id === id);
@@ -175,7 +175,7 @@ export function LineProperties({
       {backlinks && (
         <DocumentsSection
           backlinks={backlinks}
-          onOpenDocument={onOpenDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       )}
     </>

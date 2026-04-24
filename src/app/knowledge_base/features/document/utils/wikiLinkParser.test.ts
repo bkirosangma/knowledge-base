@@ -3,6 +3,7 @@ import {
   parseWikiLinks,
   resolveWikiLinkPath,
   updateWikiLinkPaths,
+  stripWikiLinksForPath,
 } from './wikiLinkParser'
 
 // Covers DOC-4.8-01 through DOC-4.8-12. See test-cases/04-document.md §4.8.
@@ -186,5 +187,37 @@ describe('updateWikiLinkPaths', () => {
     expect(updateWikiLinkPaths('[[arch#flow]]', 'arch.json', 'infra.json')).toBe('[[infra#flow]]')
     expect(updateWikiLinkPaths('[[arch|Diagram]]', 'arch.json', 'infra.json')).toBe('[[infra | Diagram]]')
     expect(updateWikiLinkPaths('[[other.json]]', 'arch.json', 'infra.json')).toBe('[[other.json]]')
+  })
+})
+
+describe('stripWikiLinksForPath', () => {
+  it('DOC-4.8-14: removes a plain wiki-link to the deleted doc', () => {
+    expect(stripWikiLinksForPath('See [[notes/auth]] for details.', 'notes/auth.md'))
+      .toBe('See  for details.')
+  })
+
+  it('DOC-4.8-15: removes an aliased wiki-link, keeping no residue', () => {
+    expect(stripWikiLinksForPath('See [[notes/auth | Auth Flow]] here.', 'notes/auth.md'))
+      .toBe('See  here.')
+  })
+
+  it('DOC-4.8-16: leaves unrelated wiki-links intact', () => {
+    expect(stripWikiLinksForPath('See [[other/doc]] and [[notes/auth]].', 'notes/auth.md'))
+      .toBe('See [[other/doc]] and .')
+  })
+
+  it('DOC-4.8-17: handles doc path without extension', () => {
+    expect(stripWikiLinksForPath('[[notes/auth]]', 'notes/auth'))
+      .toBe('')
+  })
+
+  it('DOC-4.8-18: handles section-anchored link to the deleted doc', () => {
+    expect(stripWikiLinksForPath('See [[notes/auth#intro]].', 'notes/auth.md'))
+      .toBe('See .')
+  })
+
+  it('DOC-4.8-19: returns unchanged string when doc is not referenced', () => {
+    const md = 'No links here.'
+    expect(stripWikiLinksForPath(md, 'notes/auth.md')).toBe(md)
   })
 })

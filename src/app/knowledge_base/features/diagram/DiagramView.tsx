@@ -124,6 +124,13 @@ export interface DiagramViewProps {
   backlinks?: { sourcePath: string; section?: string }[];
   /** Bridge: notify the shell when isDirty or save/discard callbacks change */
   onDiagramBridge: (bridge: DiagramBridge) => void;
+  readDocument: (path: string) => Promise<string | null>;
+  getDocumentReferences: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
+    attachments: Array<{ entityType: string; entityId: string }>;
+    wikiBacklinks: string[];
+  };
+  deleteDocumentWithCleanup: (path: string) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
 }
 
 export default function DiagramView({
@@ -133,10 +140,15 @@ export default function DiagramView({
   onOpenDocument,
   documents,
   onAttachDocument,
+  onDetachDocument,
   onCreateDocument,
   onLoadDocuments,
   backlinks,
   onDiagramBridge,
+  readDocument,
+  getDocumentReferences,
+  deleteDocumentWithCleanup,
+  onCreateAndAttach,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const {
@@ -192,6 +204,8 @@ export default function DiagramView({
   const [titleInputValue, setTitleInputValue] = useState(title);
   const [titleWidth, setTitleWidth] = useState<number | string>("auto");
   const [pickerTarget, setPickerTarget] = useState<{ type: string; id: string } | null>(null);
+  const [previewDocPath, setPreviewDocPath] = useState<string | null>(null);
+  const [previewEntityName, setPreviewEntityName] = useState<string | undefined>(undefined);
 
   // ─── Pending deletion / reconnect state ───
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
@@ -218,6 +232,21 @@ export default function DiagramView({
     if (isRestoringRef.current) return;
     pendingRecord.current = description;
   }, []);
+
+  const handleAttachDocument = useCallback((docPath: string, entityType: string, entityId: string) => {
+    onAttachDocument(docPath, entityType, entityId);
+    scheduleRecord(`Attach document to ${entityType}`);
+  }, [onAttachDocument, scheduleRecord]);
+
+  const handleDetachDocument = useCallback((docPath: string, entityType: string, entityId: string) => {
+    onDetachDocument(docPath, entityType, entityId);
+    scheduleRecord(`Detach document from ${entityType}`);
+  }, [onDetachDocument, scheduleRecord]);
+
+  const handleCreateAndAttach = useCallback(async (flowId: string, filename: string, editNow: boolean) => {
+    await onCreateAndAttach(flowId, filename, editNow);
+    scheduleRecord("Create and attach document to flow");
+  }, [onCreateAndAttach, scheduleRecord]);
 
   // ─── Refs ───
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -253,6 +282,7 @@ export default function DiagramView({
         layerManualSizes,
         lineCurve,
         flows,
+        documents,
       });
     }
   });
@@ -367,6 +397,7 @@ export default function DiagramView({
   const { isDirty, setLoadSnapshot } = useDiagramPersistence(
     setTitle, setLayerDefs, setNodes, setConnections, setLayerManualSizes, setLineCurve, setFlows,
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
+    documents,
     activeFile,
     fileExplorer.markDirty,
   );
@@ -374,7 +405,7 @@ export default function DiagramView({
   /** Apply a loaded/restored diagram to all state in one call. */
   const applyDiagramToState = useCallback((
     data: ReturnType<typeof loadDiagramFromData>,
-    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
+    opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData>; documents?: DocumentMeta[] },
   ) => {
     setTitle(data.title);
     setLayerDefs(data.layers);
@@ -388,7 +419,7 @@ export default function DiagramView({
     setPatches(DEFAULT_PATCHES);
     if (opts?.setSnapshot) {
       const src = opts.snapshotSource ?? data;
-      setLoadSnapshot(src.title, src.layers, src.nodes, src.connections, src.layerManualSizes, src.lineCurve, src.flows);
+      setLoadSnapshot(src.title, src.layers, src.nodes, src.connections, src.layerManualSizes, src.lineCurve, src.flows, opts.documents ?? []);
     }
   }, [setLayerManualSizes, setLoadSnapshot]);
 
@@ -405,6 +436,7 @@ export default function DiagramView({
       flows: snapshot.flows,
     });
     applyDiagramToState(diagram);
+    if (snapshot.documents !== undefined) onLoadDocuments(snapshot.documents);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [applyDiagramToState]);
 
@@ -420,6 +452,32 @@ export default function DiagramView({
     applySnapshot(history.goToEntry(index));
   }, [history.goToEntry, applySnapshot]);
 
+  // ─── Deferred document deletion (delete-on-detach queued until save) ───
+  const pendingDeletesRef = useRef<string[]>([]);
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+
+  const handleDeleteDocumentWithCleanup = useCallback(async (path: string) => {
+    if (!pendingDeletesRef.current.includes(path)) {
+      pendingDeletesRef.current = [...pendingDeletesRef.current, path];
+    }
+  }, []);
+
+  const flushPendingDeletes = useCallback(async () => {
+    const paths = pendingDeletesRef.current.slice();
+    pendingDeletesRef.current = [];
+    for (const path of paths) {
+      // Skip if the document was re-attached (e.g. via undo) before save
+      const doc = documentsRef.current.find(d => d.filename === path);
+      if (doc && (doc.attachedTo?.length ?? 0) > 0) continue;
+      await deleteDocumentWithCleanup(path);
+    }
+  }, [deleteDocumentWithCleanup]);
+
+  const clearPendingDeletes = useCallback(() => {
+    pendingDeletesRef.current = [];
+  }, []);
+
   // ─── File Actions (save, load, create, delete, etc.) ───
   const {
     handleLoadFile, handleSave, handleCreateFile, handleCreateFolder,
@@ -431,6 +489,8 @@ export default function DiagramView({
     title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows,
     documents,
     onLoadDocuments,
+    flushPendingDeletes,
+    clearPendingDeletes,
   );
 
   // ─── Auto-load diagram when activeFile changes (mount, restore-on-refresh, pane switch) ───
@@ -484,9 +544,21 @@ export default function DiagramView({
 
   // Flow-related callbacks
   const flowCounter = useRef(0);
-  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleSelectLine } = useFlowManagement(
+  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
     connectionsRef, flowsRef, flowCounter, setFlows, setSelection, scheduleRecord,
   );
+
+  // Detach all documents attached to the flow before deleting it so orphaned
+  // attachedTo references don't get persisted. Both the flows update and the
+  // documents update are in-memory — they're both finalised on the next save.
+  const handleDeleteFlow = useCallback((flowId: string) => {
+    for (const doc of documents) {
+      if (doc.attachedTo?.some(a => a.type === 'flow' && a.id === flowId)) {
+        onDetachDocument(doc.filename, 'flow', flowId);
+      }
+    }
+    rawHandleDeleteFlow(flowId);
+  }, [documents, onDetachDocument, rawHandleDeleteFlow]);
 
   const handleCreateLayer = useCallback((layerTitle: string): string => {
     const newId = createLayerId();
@@ -904,7 +976,7 @@ export default function DiagramView({
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}`}
+        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { if (e.button === 0 && selection?.type === 'flow') setSelection(null); handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
@@ -1247,8 +1319,10 @@ export default function DiagramView({
         documents={documents}
         fileExplorer={fileExplorer}
         onOpenDocument={onOpenDocument}
-        onAttachDocument={onAttachDocument}
+        onAttachDocument={handleAttachDocument}
+        onDetachDocument={handleDetachDocument}
         onCreateDocument={onCreateDocument}
+        onCreateAndAttach={handleCreateAndAttach}
         history={history}
         setSelection={setSelection}
         setNodes={setNodes}
@@ -1293,6 +1367,13 @@ export default function DiagramView({
         scrollToRect={scrollToRect}
         getNodeDimensions={getNodeDimensions}
         getDocumentsForEntity={getDocumentsForEntity}
+        previewDocPath={previewDocPath}
+        previewEntityName={previewEntityName}
+        setPreviewDocPath={setPreviewDocPath}
+        setPreviewEntityName={setPreviewEntityName}
+        readDocument={readDocument}
+        getDocumentReferences={getDocumentReferences}
+        deleteDocumentWithCleanup={handleDeleteDocumentWithCleanup}
       />
       </div>
     </div>

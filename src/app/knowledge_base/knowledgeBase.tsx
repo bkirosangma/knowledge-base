@@ -7,7 +7,8 @@ import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
-import { resolveWikiLinkPath } from "./features/document/utils/wikiLinkParser";
+import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
+import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -115,10 +116,88 @@ function KnowledgeBaseInner() {
     await propagateMoveLinks(rootHandle, sourcePath, targetFolderPath, tree, linkManager);
   }, [fileExplorer.dirHandleRef, fileExplorer.tree, linkManager]);
 
+  // ─── Document read / reference / delete helpers (used by DiagramView) ───
+  const readDocument = useCallback(async (docPath: string): Promise<string | null> => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return null;
+    try {
+      const repo = createDocumentRepository(rootHandle);
+      return await readOrNull(() => repo.read(docPath));
+    } catch (e) {
+      reportError(e as Error, `Reading ${docPath}`);
+      return null;
+    }
+  }, [fileExplorer.dirHandleRef, reportError]);
+
+  const getDocumentReferences = useCallback((
+    docPath: string,
+    exclude?: { entityType: string; entityId: string },
+  ) => {
+    const doc = docManager.documents.find(d => d.filename === docPath);
+    const attachments = (doc?.attachedTo ?? [])
+      .filter(a => !exclude || !(a.type === exclude.entityType && a.id === exclude.entityId))
+      .map(a => ({ entityType: a.type, entityId: a.id }));
+
+    const seen = new Set<string>();
+    const wikiBacklinks: string[] = [];
+    for (const bl of linkManager.getBacklinksFor(docPath)) {
+      if (!seen.has(bl.sourcePath)) {
+        seen.add(bl.sourcePath);
+        wikiBacklinks.push(bl.sourcePath);
+      }
+    }
+
+    return { attachments, wikiBacklinks };
+  }, [docManager.documents, linkManager]);
+
+  const deleteDocumentWithCleanup = useCallback(async (docPath: string) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+
+    // Strip wiki-links from all backlink sources (deduplicated)
+    const repo = createDocumentRepository(rootHandle);
+    const seen = new Set<string>();
+    for (const bl of linkManager.getBacklinksFor(docPath)) {
+      if (seen.has(bl.sourcePath)) continue;
+      seen.add(bl.sourcePath);
+      try {
+        const content = await repo.read(bl.sourcePath);
+        const stripped = stripWikiLinksForPath(content, docPath);
+        if (stripped !== content) await repo.write(bl.sourcePath, stripped);
+      } catch (e) {
+        reportError(e as Error, `Stripping wiki-link from ${bl.sourcePath}`);
+      }
+    }
+
+    // Remove from link index
+    await linkManager.removeDocumentFromIndex(rootHandle, docPath);
+
+    // Delete the file via fileExplorer (handles drafts + localStorage)
+    await fileExplorer.deleteFile(docPath);
+
+    // Remove from documents state
+    docManager.removeDocument(docPath);
+  }, [fileExplorer, linkManager, docManager]);
+
   // ─── Document operations ───
   const handleOpenDocument = useCallback((path: string) => {
     panes.openFile(path, "document");
   }, [panes]);
+
+  const handleCreateAndAttach = useCallback(async (diagramPath: string, flowId: string, filename: string, editNow: boolean) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    if (filename.includes("..") || filename.startsWith("/") || filename.includes("\0")) return;
+    const diagramDir = diagramPath.split("/").slice(0, -1).join("/");
+    const docPath = diagramDir ? `${diagramDir}/${filename}` : filename;
+    try {
+      await docManager.createDocument(rootHandle, docPath);
+      docManager.attachDocument(docPath, "flow" as const, flowId);
+      if (editNow) handleOpenDocument(docPath);
+    } catch (e) {
+      reportError(e, `Creating ${docPath}`);
+    }
+  }, [fileExplorer.dirHandleRef, docManager, handleOpenDocument, reportError]);
 
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads its file via useEffect on activeFile change,
@@ -298,11 +377,12 @@ function KnowledgeBaseInner() {
           onOpenDocument={handleOpenDocument}
           documents={docManager.documents}
           onAttachDocument={(docPath, entityType, entityId) => {
-            docManager.attachDocument(docPath, entityType as "node" | "connection", entityId);
+            docManager.attachDocument(docPath, entityType as "node" | "connection" | "flow", entityId);
           }}
           onDetachDocument={(docPath, entityType, entityId) => {
             docManager.detachDocument(docPath, entityType, entityId);
           }}
+          onCreateAndAttach={(flowId, filename, editNow) => handleCreateAndAttach(entry.filePath ?? '', flowId, filename, editNow)}
           onCreateDocument={async (rootHandle, path) => {
             try {
               await docManager.createDocument(rootHandle, path);
@@ -313,6 +393,9 @@ function KnowledgeBaseInner() {
           onLoadDocuments={docManager.setDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}
+          readDocument={readDocument}
+          getDocumentReferences={getDocumentReferences}
+          deleteDocumentWithCleanup={deleteDocumentWithCleanup}
         />
       );
     }
@@ -341,7 +424,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (

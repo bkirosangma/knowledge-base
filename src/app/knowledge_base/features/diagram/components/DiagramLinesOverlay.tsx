@@ -7,7 +7,6 @@ import type { Connection, LineCurveAlgorithm, Selection } from "../types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Line = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DimSets = { nodeIds: Set<string>; connIds: Set<string>; layerIds: Set<string> } | null;
 
 export interface DiagramLinesOverlayProps {

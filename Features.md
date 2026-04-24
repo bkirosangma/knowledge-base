@@ -92,7 +92,7 @@ Top-level chrome that hosts every other feature.
 
 ### 2.5 Document Picker
 `shared/components/DocumentPicker.tsx`
-- ✅ **Attach-to-entity modal** — attaches Markdown docs to diagram entities (root, node, connection, flow, type).
+- ✅ **Attach-to-entity modal** — attaches Markdown docs to diagram entities (root, node, connection, flow, type). `'flow'` entity type now fully wired with UI.
 - ✅ **Search filter** — input filters the list.
 - ✅ **Hide already-attached** — excludes docs already on the entity.
 - ✅ **Create-new-document shortcut** — prompts for a `.md` path and creates it inline.
@@ -181,6 +181,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Edit name, category, membership; delete flow.**
 - ✅ **Categorised grouping** — flows with `category` grouped under that category in the panel; otherwise flat.
 - ✅ **Flow start/end highlighting** — when a flow is active (selected or hovered), source nodes (appear as `from` but never as `to`) glow green and sink nodes (appear as `to` but never as `from`) glow red; multiple sources and sinks are all highlighted; connection labels outside the flow are hidden. Implemented in `DiagramView.tsx` (`flowOrderData` memo), `components/DiagramNodeLayer.tsx`, `components/Element.tsx`, `components/ConditionElement.tsx`.
+- ✅ **Document attachment** — attach existing docs to a flow from FlowProperties; create & attach a new blank doc (with optional "Edit now" to open in pane); detach with optional cascade delete that strips wiki-links from referencing docs and shows a deduplicated reference list before confirming. `features/diagram/properties/FlowProperties.tsx`, `features/diagram/components/CreateAttachDocModal.tsx`, `features/diagram/components/DetachDocModal.tsx`
 
 ### 3.11 Selection
 `hooks/useSelectionRect.ts`, `hooks/useKeyboardShortcuts.ts`, `utils/selectionUtils.ts`
@@ -204,7 +205,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **NodeProperties** — label, sublabel, icon picker, type classifier, layer assignment, custom colours, rotation, (condition) exit count / size, incoming/outgoing connections, via-condition paths, member flows, backlinks, document attachment.
 - ✅ **LayerProperties** — title, colours, child count, manual-size override toggle.
 - ✅ **LineProperties** — label, colour, curve algorithm, bidirectional, connection type, flow duration, source/dest anchors.
-- ✅ **FlowProperties** — name, category, member connections, delete.
+- ✅ **FlowProperties** — name, category, member connections, delete, document attachment (attach existing, create & attach, detach with optional cascade delete); all attach/detach operations are recorded in the action history and are undoable/redoable.
 - ✅ **DiagramProperties** (root) — diagram title, default line algorithm, Layers list, Elements list, Types tree with "Select All" per type, Flows panel with category grouping, document backlinks.
 - ✅ **DocumentsSection** — clickable list of docs linked to the selection; opens in the other pane.
 
@@ -249,6 +250,10 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Drafts in localStorage** — autosaved on edit; applied on next load until the real file is saved.
 - ⚙️ **Colour migration** — legacy Tailwind class names migrated to hex on load.
 - ⚙️ **`loadDefaults`, `serializeNodes`, `deserializeNodes`, `saveDraft`, `listDrafts`, `clearDraft`, `loadDiagramFromData`.**
+
+### 3.20 Doc Preview Modal
+`diagram/components/DocPreviewModal.tsx`
+- ✅ **DocPreviewModal** — universal read-only document preview triggered by clicking any attached doc or wiki-link backlink in any entity panel. Blurs the diagram canvas (`blur-sm pointer-events-none`) and disables interactions while open. Header shows filename, "Read only" chip, optional entity name badge, "Open in pane" button, and close ✕. Body renders document content via `markdownToHtml()` in `.markdown-editor .ProseMirror` — pixel-identical to the doc pane. Rendered via `ReactDOM.createPortal` at `document.body`, unaffected by ancestor `filter`/`transform`. Closes on Escape or backdrop click. HTML output sanitized with a DOM-based sanitizer before render.
 
 ---
 
@@ -312,6 +317,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ⚙️ **`parseWikiLinks(markdown)`** — regex extraction of all `[[…]]`.
 - ⚙️ **`resolveWikiLinkPath(linkPath, currentDir)`** — Obsidian-style: `/` prefix → vault root; relative paths normalise `..` / `.`; appends `.md` if no extension. Phase 5a (2026-04-19) clamps `..` beyond the vault root (dropped rather than emitted as a literal `..` segment) so the resolver can never produce a path that escapes the vault.
 - ⚙️ **`updateWikiLinkPaths(markdown, oldPath, newPath)`** — bulk rename propagation; preserves section anchors and custom display text.
+- ⚙️ **`stripWikiLinksForPath(markdown, deletedDocPath)`** — removes all `[[…]]` wiki-links pointing to a deleted document path; strips plain, aliased (`[[path|alias]]`), and section-anchored (`[[path#section]]`) forms. `features/document/utils/wikiLinkParser.ts`
 
 ### 4.8 Document Properties
 `properties/DocumentProperties.tsx`
@@ -334,7 +340,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **Auto-save on file switch** — saves the previous doc before loading the new one.
 - ✅ **`loadedPath` signal** — set to `filePath` once a load succeeds (or immediately for null/no-repo cases); consumers compare `loadedPath === filePath` to confirm content is fresh for the current file before acting on it.
 - ✅ **Ref-backed `save()` / `dirty` / `filePath` / `content` bridge** — lets parent read latest without re-rendering per keystroke.
-- ✅ **`createDocument`, `attachDocument`, `detachDocument`, `getDocumentsForEntity`, `hasDocuments`.**
+- ✅ **`createDocument`, `attachDocument`, `detachDocument`, `removeDocument`, `getDocumentsForEntity`, `hasDocuments`.**
 - ⚙️ **`collectDocPaths`, `existingDocPaths`.**
 
 ### 4.11 Read-Only Mode (Doc)

@@ -160,3 +160,25 @@ describe('title derivation in attachDocument', () => {
     expect(result.current.documents[0].title).toBe('x')
   })
 })
+
+describe('removeDocument', () => {
+  it('DOC-4.11-26: removeDocument removes the entry from state entirely', () => {
+    const { result } = renderHook(() => useDocuments())
+
+    act(() => {
+      result.current.attachDocument('docs/my-doc.md', 'node', 'node-1')
+    })
+    expect(result.current.documents).toHaveLength(1)
+
+    act(() => {
+      result.current.removeDocument('docs/my-doc.md')
+    })
+    expect(result.current.documents).toHaveLength(0)
+  })
+
+  it('DOC-4.11-27: removeDocument is a no-op for an unknown path', () => {
+    const { result } = renderHook(() => useDocuments())
+    act(() => { result.current.removeDocument('nonexistent.md') })
+    expect(result.current.documents).toEqual([])
+  })
+})
