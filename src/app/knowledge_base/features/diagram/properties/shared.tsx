@@ -382,8 +382,8 @@ export function ColorRow({
           />
         ) : (
           <span
-            className="text-[13px] text-slate-600 font-mono cursor-text"
-            onDoubleClick={() => setEditing(true)}
+            className={`text-[13px] text-slate-600 font-mono${onChange ? " cursor-text" : ""}`}
+            onDoubleClick={onChange ? () => setEditing(true) : undefined}
           >{value}</span>
         )}
       </div>

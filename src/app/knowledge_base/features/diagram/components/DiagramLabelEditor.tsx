@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import type { NodeData, Connection, RegionBounds } from "../types";
 
 export interface DiagramLabelEditorProps {
@@ -37,6 +37,8 @@ export default function DiagramLabelEditor({
   lines,
   connections,
 }: DiagramLabelEditorProps) {
+  const isEscapingRef = useRef(false);
+
   if (readOnly || !editingLabel) return null;
 
   let editX = 0, editY = 0;
@@ -74,7 +76,14 @@ export default function DiagramLabelEditor({
     }
   }
 
-  const doCommit = () => commitLabel(editingLabel, editingLabelValue);
+  const doCommit = () => {
+    if (isEscapingRef.current) {
+      isEscapingRef.current = false;
+      commitLabel(editingLabel, editingLabelBeforeRef.current);
+      return;
+    }
+    commitLabel(editingLabel, editingLabelValue);
+  };
   return (
     <div
       className="absolute"
@@ -88,7 +97,7 @@ export default function DiagramLabelEditor({
         onBlur={doCommit}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "Escape") { setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }
+          else if (e.key === "Escape") { isEscapingRef.current = true; setEditingLabelValue(editingLabelBeforeRef.current); e.currentTarget.blur(); }
         }}
         maxLength={80}
         className="text-sm font-semibold bg-white/90 backdrop-blur-sm border-none outline-none px-1.5 py-0.5 rounded shadow-sm ring-1 ring-blue-300 focus:ring-2 focus:ring-blue-400 transition-shadow min-w-[60px]"

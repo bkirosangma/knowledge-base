@@ -111,6 +111,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
   return (
     <div
       className={`flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+      data-testid="properties-panel"
       style={{ width: hidden ? 0 : 280 }}
     >
       {onToggleCollapse ? (

@@ -110,29 +110,29 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-21 (Buckets 1-27 complete + shared action history feature + useDocumentKeyboardShortcuts §4.14 added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-24 (26 new Playwright diagram tests + flow document attachment feature + useDocumentKeyboardShortcuts §4.14). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 52 | 12 | 3 | 1 | 5 | 73 |
 | 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
-| 03-diagram.md | 152 | 35 | 0 | 64 | 2 | 253 |
-| 04-document.md | 146 | 34 | 3 | 37 | 8 | 228 |
+| 03-diagram.md | 178 | 35 | 0 | 37 | 3 | 253 |
+| 04-document.md | 154 | 34 | 3 | 37 | 8 | 236 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
 | 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **590** | **96** | **11** | **115** | **27** | **839** |
+| **Total** | **624** | **96** | **11** | **88** | **28** | **847** |
 
-Covered (✅ + 🟡 + 🧪) = **697 / 839 (83%)**; open gaps (❌) = **115 (14%)**; consciously waived (🚫) = **27 (3%)**.
+Covered (✅ + 🟡 + 🧪) = **731 / 847 (86%)**; open gaps (❌) = **88 (10%)**; consciously waived (🚫) = **28 (4%)**.
 
-The 27 remaining 🚫 items are genuinely untestable or non-features:
+The 28 remaining 🚫 items are genuinely untestable or non-features:
 - **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
 - **Removed/obsolete UI** (SHELL-1.2-01/07/08, SHELL-1.4-07) — components deleted in the 2026-04-19 header strip-down.
 - **Module-private helpers** (DOC-4.3-36/37, DOC-4.5-09/10/11) — LRU cache and rawBlock toggle helpers are unexported; would require extraction to unit-test.
 - **Intentional behavior locks** (DOC-4.13-14) — documented code-fence limitation preserved as a regression guard.
 - **Non-features by design** (PERSIST-7.3-16, PERSIST-7.5-04, SHELL-1.3-08) — no retry logic, reset-app IDB semantics unverified, confirmation dialog not implemented.
 - **Browser-level only** (PERSIST-7.1-15, FS-2.1-12, FS-2.3-50) — private-mode simulation, native permission revocation, and `preventDefault` on contextmenu can't be asserted even with Playwright.
-- **Not yet implemented** (DIAG-3.13-23, DIAG-3.13-26) — manual-size override toggle and per-connection curve algorithm dropdown not yet built.
+- **Not yet implemented** (DIAG-3.8-09, DIAG-3.13-23, DIAG-3.13-26) — bidirectional arrowheads, manual-size override toggle, and per-connection curve algorithm dropdown not yet built.
 
 **2026-04-19 — shell header strip-down + Pane Header H1 derivation.** Title editing, dirty dot, Save, and Discard moved from the top-level `Header` into each pane's `PaneTitle` row:
 
@@ -145,7 +145,7 @@ The 27 remaining 🚫 items are genuinely untestable or non-features:
 
 ### Test suites that back these numbers
 
-- **Unit / integration** (Vitest + JSDOM): 80 test files, 1131 passing tests. Split across feature areas:
+- **Unit / integration** (Vitest + JSDOM): 85 test files, 1179 passing tests. Split across feature areas:
   - App Shell: `Header.test.tsx`, `Footer.test.tsx`, `FooterContext.test.tsx`, `ToolbarContext.test.tsx`, `PaneManager.test.tsx`, `SplitPane.test.tsx`, `PaneTitle.test.tsx`, `PaneHeader.test.tsx`, `ShellErrorContext.test.tsx`.
   - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileExplorer.createDocument.test.tsx`, `useFileExplorer.operations.test.tsx`, `useFileActions.test.ts`, `useDirectoryHandle.test.ts`, `idbHandles.test.ts`, `ConfirmPopover.test.tsx`, `fileTree.test.ts`.
   - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `levelModel.test.ts`, `LayerProperties.test.tsx`, `AutocompleteInput.test.tsx`, `DocumentsSection.test.tsx`, `ContextMenu.test.tsx`, `FlowBreakWarningModal.test.tsx`, `DocInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `DiagramProperties.test.tsx`, `NodeProperties.test.tsx`, `LineProperties.test.tsx`, `PropertiesPanel.test.tsx`, `ConditionElement.test.tsx`, `Element.test.tsx`, `HistoryPanel.test.tsx`, `DiagramView.test.tsx`, `useContextMenuActions.test.ts`, `useFlowManagement.test.ts`, `autoArrange.test.ts`, `connectionConstraints.test.ts`, `documentAttachments.test.ts`, `layerBounds.test.ts`, `selectionUtils.test.ts`, `typeUtils.test.ts`, `persistence.test.ts`, `directoryScope.test.ts`.
@@ -154,18 +154,18 @@ The 27 remaining 🚫 items are genuinely untestable or non-features:
   - Shared history: `historyPersistence.test.ts`, `useHistoryCore.test.ts`, `useHistoryFileSync.test.ts`, `useDocumentHistory.test.ts`, `useDiagramHistory.test.ts`.
   - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`.
   - Domain: `errors.test.ts`.
-- **E2E** (Playwright + Chromium): 42 tests across 8 spec files — `app.spec.ts` (6), `goldenPath.spec.ts` (6), `diagramGoldenPath.spec.ts` (6), `documentGoldenPath.spec.ts` (5), `documentReadOnly.spec.ts` (5), `fileExplorerOps.spec.ts` (5), `flowHighlight.spec.ts` (6), `fsMockSanity.spec.ts` (3).
+- **E2E** (Playwright + Chromium): 68 tests across 12 spec files — `app.spec.ts` (6), `goldenPath.spec.ts` (6), `diagramGoldenPath.spec.ts` (6), `documentGoldenPath.spec.ts` (5), `documentReadOnly.spec.ts` (5), `fileExplorerOps.spec.ts` (5), `flowHighlight.spec.ts` (6), `fsMockSanity.spec.ts` (3), `diagramKeyboard.spec.ts` (13), `diagramReadOnly.spec.ts` (7), `diagramConnectionRendering.spec.ts` (3), `diagramMinimap.spec.ts` (3).
 
-### Why 111 ❌ gaps remain
+### Why 88 ❌ gaps remain
 
-- **Real canvas geometry (DIAG-3.2 Canvas, 3.3 Minimap, 3.5 Node drag, 3.7 Layer drag, 3.9 Connection interaction, 3.14 keyboard shortcuts, 3.17 read-only interactions)** — React Flow and the custom canvas read live `scrollLeft`, `clientWidth`, `getBoundingClientRect`; JSDOM returns zeros. These require a React Flow test harness that stubs viewport geometry (see "Path to driving ❌ down further" below).
+- **Remaining canvas geometry (DIAG-3.2 Canvas, 3.5 Node drag, 3.7 Layer drag, 3.9 Connection interaction)** — deeper drag, drop, and scroll geometry still require live browser viewport. DIAG-3.3/3.14/3.17 are now covered by Playwright (see spec files above); the rest need more complex pointer-event sequences or real scroll/zoom harnesses.
 - **Live Tiptap DOM (DOC-4.1 orchestration, 4.2 StarterKit rendering, 4.3 wikiLink NodeView, 4.5 toolbar, 4.12 read-only)** — Tiptap's contenteditable behavior, NodeView rendering, and `editor.isActive()` all need a real browser. Markdown parse/serialize round-trips (DOC-4.4 / 4.8) cover the conversion layer; the live DOM layer is integration-level.
 - **File System Access folder picker (FS-2.1-02, 2.1-12, PERSIST-7.3-15)** — Chromium gates `window.showDirectoryPicker` behind a native dialog that Playwright can't drive without an in-browser mock injected via `page.addInitScript`.
 - **Impl gaps, not test gaps (PERSIST-7.1-04/05/06/09)** — Explorer sort/filter/collapse and "Don't ask again" flags are not yet persisted to localStorage. These are product backlog, not test backlog.
 
 ### Path to driving ❌ down further
 
-1. **React Flow test harness** — a `DiagramTestHarness` that mounts `DiagramView` with fake `IntersectionObserver` and stubbed `getBoundingClientRect` would unlock most of DIAG-3.2/3.5/3.7 — potentially 40-60 cases.
+1. ✅ **Playwright diagram specs** (2026-04-24 — done) — `diagramKeyboard.spec.ts`, `diagramReadOnly.spec.ts`, `diagramConnectionRendering.spec.ts`, `diagramMinimap.spec.ts` cover DIAG-3.2-10, 3.3-01/02/06, 3.5-01/10/11/12, 3.7-01, 3.8-10/14, 3.10-17, 3.14-01/02/04/05/08/09/10, 3.16-12, 3.17-02/03/06/07/08/09. Seed helpers in `e2e/helpers/diagramSeeds.ts`. Deeper drag/scroll geometry (3.2 panning, 3.5 drag, 3.7 layer drag) remains ❌ — would need a **React Flow test harness** with fake `IntersectionObserver` and stubbed `getBoundingClientRect`, potentially unlocking 30-40 more cases.
 2. ✅ **Tiptap integration harness** (Bucket 27 — done) — `MarkdownEditor.test.tsx` mounts the real `MarkdownEditor` with full extension stack and drives the toolbar via `fireEvent.mouseDown` (`TBtn` uses onMouseDown+preventDefault to avoid focus loss). Unlocked 9 new ✅ cases in DOC-4.5 (toolbar visibility, raw/WYSIWYG toggle, heading+block toggles, horizontal rule, active-state) plus DOC-4.12-04.
 3. ✅ **Playwright File System Access mock** (Bucket 25 — done) — `e2e/fixtures/fsMock.ts` + `page.addInitScript` replaces `window.showDirectoryPicker` with an in-memory FS; `e2e/goldenPath.spec.ts` drives the open-folder → click-file → pane-renders flows.
 4. ✅ **Extract module-private helpers** (Bucket 26 — done) — `fileTree.ts` (scanTree + flattenTree out of `useFileExplorer.ts`), `documentAttachments.ts` (hasDocuments + getDocumentsForEntity out of `DiagramView.tsx`), and `rawBlockHelpers.ts` (parseHeadingPrefix + hasBlockquotePrefix + computeActiveRawFormatsAt out of `MarkdownEditor.tsx`) — added 40 direct unit tests and flipped 9 🟡/🚫 markers to ✅.
