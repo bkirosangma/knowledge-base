@@ -278,8 +278,9 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.3 Custom Extensions
 `features/document/extensions/`
-- ✅ **WikiLink** (`wikiLink.ts`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type.
-- ✅ **WikiLink autocomplete** — typing `[[` opens a suggestion dropdown filtered against `allDocPaths`; arrow-key navigation, Enter selects.
+- ✅ **WikiLink** (`wikiLink.tsx`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type.
+- ✅ **WikiLink autocomplete** — typing `[[` opens a **folder-at-a-time picker** (`FolderPicker.tsx`) starting at the current document's directory; click a subfolder to drill in, back arrow to go up, click a file to insert. Typing any character after `[[` switches to the existing flat substring-filtered list (arrow-key navigation, Enter selects).
+- ✅ **FolderPicker** (`components/FolderPicker.tsx`) — reusable folder-browser component; shows one directory level at a time with up-navigation. Used by both the `[[` suggestion popup and the Link Editor Popover browse button.
 - ✅ **WikiLink inline edit** — selecting the node lets single keys append to the display text; Backspace/Delete trim; Escape reverts.
 - ✅ **Click behaviour** — in edit mode selects, in read mode navigates (creates the target if unresolved).
 - ✅ **Multi-candidate path resolution** — current-dir `.md` → current-dir `.json` → as-written → root-level `.md` / `.json`.
@@ -307,7 +308,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 `components/LinkEditorPopover.tsx`
 - ✅ **Two modes** — plain link mark (edit href + text) and wiki-link node (edit path + section + display).
 - ✅ **Smart positioning** — below target by default, above if no room, clamped horizontally.
-- ✅ **Path autocomplete** — native `<datalist>` backed by `allDocPaths` (wiki-link mode).
+- ✅ **Path autocomplete** — native `<datalist>` backed by `allDocPaths` (wiki-link mode); additionally a **Browse button** (folder icon) opens an inline `FolderPicker` panel for point-and-click path selection.
 - ✅ **Commit on Enter / blur**, **Escape reverts**.
 - ✅ **Display-text smartness** — renaming keeps custom display unless it matched the old default.
 - ✅ **Unlink** — removes the mark/node or deletes empty link text.

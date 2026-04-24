@@ -45,8 +45,8 @@
 - **DOC-4.3-04** ❌ **Diagram icon on `.json` target.** Same.
 - **DOC-4.3-05** 🟡 **`[[foo#section]]` stores section attr** — `parseWikiLinks` correctly extracts `section` (DOC-4.8-02); NodeView render is integration.
 - **DOC-4.3-06** 🟡 **`[[foo\|Bar]]` stores display attr** — parsing covered by DOC-4.8-02; render is integration.
-- **DOC-4.3-07** ❌ **Suggestion menu opens on `[[`.** Tiptap Suggestion plugin — needs live editor.
-- **DOC-4.3-08** ❌ **Suggestion filters by typed query.** Same.
+- **DOC-4.3-07** ❌ **Folder picker opens on `[[`; starts at current document's directory.** Tiptap Suggestion + FolderPicker — needs live editor.
+- **DOC-4.3-08** ❌ **Typing after `[[` switches picker to flat filtered list.** Same.
 - **DOC-4.3-09** ❌ **Arrow keys navigate suggestion.** Same.
 - **DOC-4.3-10** ❌ **Enter commits suggestion.** Same.
 - **DOC-4.3-11** ❌ **Escape closes suggestion without insert.** Same.
@@ -85,6 +85,14 @@
 - **DOC-4.3-38** ❌ **Enter in rawBlock splits with smart list-item handling.** Keyboard handler on live editor.
 - **DOC-4.3-39** ❌ **Backspace at rawBlock start merges with previous block's rightmost textblock.** Same.
 - **DOC-4.3-40** ❌ **rawSwap meta flag suppresses serialize.** Transaction-level meta inside live dispatcher — integration.
+
+### 4.3.e FolderPicker (`FolderPicker.tsx`)
+- **DOC-4.3-41** ❌ **Folder picker shows subfolders and files of the current directory.** Needs live browser with real tree.
+- **DOC-4.3-42** ❌ **Clicking a subfolder drills into it (header updates, contents change).** Same.
+- **DOC-4.3-43** ❌ **Back arrow navigates up one level.** Same.
+- **DOC-4.3-44** ❌ **Back arrow hidden at vault root.** Same.
+- **DOC-4.3-45** ❌ **Clicking a file commits it as the wiki-link target and closes the picker.** Same.
+- **DOC-4.3-46** ❌ **Empty folder shows "Empty folder" message.** Same.
 
 ## 4.4 Markdown I/O
 
@@ -167,7 +175,7 @@
 - **DOC-4.7-03** ❌ **Default positioning below target.** — real viewport geometry, JSDOM returns zeros.
 - **DOC-4.7-04** ❌ **Flips above when no room below.** — real viewport geometry, JSDOM.
 - **DOC-4.7-05** ❌ **Clamps horizontally inside viewport.** — real viewport geometry, JSDOM.
-- **DOC-4.7-06** ✅ **Datalist autocomplete (wiki mode)** — path input suggestions from `allDocPaths`.
+- **DOC-4.7-06** ✅ **Datalist autocomplete (wiki mode)** — path input `<datalist>` backed by `allDocPaths`; browse button (FolderOpen icon) also present when `tree` is provided.
 - **DOC-4.7-07** ✅ **Enter commits** — updates mark/node.
 - **DOC-4.7-08** 🟡 **Blur commits.** — implicit in Enter/Escape tests; dedicated blur-commit test not written.
 - **DOC-4.7-09** ✅ **Escape reverts** — no change to doc.
@@ -176,6 +184,10 @@
 - **DOC-4.7-12** ✅ **Unlink removes mark/node** — for mark: selection becomes plain text; for node: removes atom.
 - **DOC-4.7-13** 🟡 **Unlink on empty link deletes link text.** — not yet covered.
 - **DOC-4.7-14** 🟡 **External edits resync** — if target mark changes elsewhere, draft updates (only when input not focused). — not yet covered.
+- **DOC-4.7-15** ❌ **Browse button absent for plain link marks (URL mode).** — needs live browser.
+- **DOC-4.7-16** ❌ **Clicking browse button opens FolderPicker inline; starts at `currentDocDir`.** — needs live browser.
+- **DOC-4.7-17** ❌ **Selecting a file from the inline picker commits the path and closes the picker.** — needs live browser.
+- **DOC-4.7-18** ❌ **Picker repositions the popover (height changes when picker opens).** — real layout geometry, JSDOM.
 
 ## 4.8 Wiki-Link Utilities
 
