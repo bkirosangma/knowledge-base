@@ -17,6 +17,48 @@ Since the app is browser-only (File System Access API, no Node.js), all watching
 
 ---
 
+## Default Read Mode
+
+All files — documents and diagrams — open in **read mode by default**. The user can toggle to edit mode via the existing "Read Mode" button in `PaneHeader`. Their choice is persisted per-file in localStorage so it survives navigation and browser restarts.
+
+### Current state
+
+| | Diagrams | Documents |
+|--|----------|-----------|
+| Default on open | `false` (writable) | `false` (writable) |
+| localStorage persistence | `diagram-read-only:<filePath>` | None |
+| Hook | `useReadOnlyState(activeFile)` | plain `useState(false)` |
+
+### Target state
+
+| | Diagrams | Documents |
+|--|----------|-----------|
+| Default on open | `true` (read-only) | `true` (read-only) |
+| localStorage persistence | `diagram-read-only:<filePath>` | `document-read-only:<filePath>` |
+| Hook | `useReadOnlyState(activeFile, "diagram-read-only")` | `useReadOnlyState(activeFile, "document-read-only")` |
+
+### Changes required
+
+**`useReadOnlyState`** gains a `prefix` parameter (default `"diagram-read-only"` for backwards compatibility):
+
+```typescript
+function useReadOnlyState(activeFile: string | null, prefix = "diagram-read-only")
+```
+
+Default state changes from `false` → `true`. The localStorage check becomes:
+
+```typescript
+const stored = localStorage.getItem(storageKey);
+setReadOnly(stored === null ? true : stored === "true");
+// No entry → read-only (default). Explicit "false" entry → user opted into editable.
+```
+
+**`DocumentView`** replaces its `useState(false)` with `useReadOnlyState(activeFile, "document-read-only")`.
+
+No UI changes needed — `PaneHeader`'s existing toggle button and styling are correct for both modes.
+
+---
+
 ## Architecture
 
 A `FileWatcherProvider` React context sits just inside the vault-open gate in `knowledgeBase.tsx`. It owns a single 5-second polling interval and exposes a subscriber registry. Three named subscribers register at startup:
@@ -177,6 +219,8 @@ Checksum comparison uses `fnv1a()` from `historyPersistence.ts` — consistent w
 | `knowledgeBase.tsx` | Wrap with `FileWatcherProvider`, wire manual refresh to `context.refresh()` |
 | `src/app/knowledge_base/shared/components/ConflictBanner.tsx` | New — conflict UI component |
 | `src/app/knowledge_base/shared/hooks/useToast.ts` | New (if `ShellErrorContext` is error-only) |
+| `src/app/knowledge_base/features/diagram/hooks/useReadOnlyState.ts` | Add `prefix` param, change default to `true` (read-only) |
+| `src/app/knowledge_base/features/document/DocumentView.tsx` | Replace `useState(false)` with `useReadOnlyState(activeFile, "document-read-only")` |
 
 ---
 
@@ -186,3 +230,4 @@ Checksum comparison uses `fnv1a()` from `historyPersistence.ts` — consistent w
 - No conflict prompt for background files — draft is auto-preserved in history; user decides on next open
 - No configurable polling interval (fixed at 5s; can be added later as a vault setting)
 - No `File System Observer API` usage (not yet available in browsers)
+- No per-vault global "always open editable" setting — preference is per-file only
