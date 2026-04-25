@@ -82,7 +82,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Delete** — confirmation popover; wiki-link-aware removal from the link index.
 - ✅ **Duplicate** — clones with a new unique name.
 - ✅ **Move** — context-menu / drag into a target folder.
-- ✅ **Refresh** — rescans the directory tree.
+- ✅ **Refresh** — button calls `FileWatcherContext.refresh()`, which fires all named subscribers (including the "tree" subscriber that rescans the directory tree) in addition to any future document/diagram watchers.
 - ✅ **Drag-over feedback** — `dragOverPath` state highlights the target folder.
 - ✅ **Dirty file indicator** — visual mark on files with unsaved changes.
 

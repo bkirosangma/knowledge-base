@@ -37,6 +37,13 @@ function KnowledgeBaseInner() {
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
   const panes = usePaneManager();
+  const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
+
+  // ─── Tree subscriber: file-watcher events trigger explorer refresh ───
+  useEffect(() => {
+    subscribe("tree", fileExplorer.refresh);
+    return () => unsubscribe("tree");
+  }, [subscribe, unsubscribe, fileExplorer.refresh]);
 
   // ─── Diagram bridge: DiagramView pushes its state here ───
   const diagramBridgeRef = useRef<DiagramBridge | null>(null);
@@ -499,7 +506,7 @@ function KnowledgeBaseInner() {
             onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
             onMoveItem={handleMoveItemWithLinks}
             isLoading={fileExplorer.isLoading}
-            onRefresh={fileExplorer.refresh}
+            onRefresh={watcherRefresh}
             sortField={sortPrefs.field}
             sortDirection={sortPrefs.direction}
             sortGrouping={sortPrefs.grouping}
