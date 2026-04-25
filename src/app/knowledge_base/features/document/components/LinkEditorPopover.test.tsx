@@ -333,8 +333,6 @@ describe('LinkEditorPopover — wiki-link mode (DOC-4.7-02, 4.7-06, 4.7-10, 4.7-
       { timeout: 3000 },
     )
 
-    const textInput = screen.getByPlaceholderText('path/to/note#section')
-      .closest('form, [role="dialog"]') || document
     // The Text input is the second input in the popover
     const inputs = document.querySelectorAll<HTMLInputElement>('.bg-white input')
     const displayInput = Array.from(inputs).find(
