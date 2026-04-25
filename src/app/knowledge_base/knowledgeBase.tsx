@@ -554,7 +554,11 @@ function KnowledgeBaseInner() {
               if (result) handleSelectFile(result.path);
               return result?.path ?? null;
             }}
-            onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
+            onCreateDocument={async (parentPath) => {
+              const resultPath = await fileExplorer.createDocument(parentPath);
+              if (resultPath) handleSelectFile(resultPath);
+              return resultPath;
+            }}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
             onDeleteFolder={(path, event) => {
