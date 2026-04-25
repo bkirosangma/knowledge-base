@@ -4,6 +4,8 @@ import { render, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import DiagramView from './DiagramView'
 import { FooterProvider } from '../../shell/FooterContext'
 import { ShellErrorProvider } from '../../shell/ShellErrorContext'
+import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
+import { ToastProvider } from '../../shell/ToastContext'
 import type { DiagramSnapshot } from '../../shared/hooks/useDiagramHistory'
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -38,6 +40,7 @@ vi.mock('../../shared/hooks/useDiagramHistory', () => ({
     onFileSave: vi.fn(),
     markSaved: vi.fn(),
     clear: vi.fn(),
+    diskChecksumRef: { current: '' },
     getLatestState: vi.fn().mockReturnValue({
       entries: [],
       currentIndex: 1,
@@ -136,9 +139,13 @@ function makeProps(
 function renderDV(props: React.ComponentProps<typeof DiagramView>) {
   return render(
     <ShellErrorProvider>
-      <FooterProvider>
-        <DiagramView {...props} />
-      </FooterProvider>
+      <ToastProvider>
+        <FileWatcherProvider>
+          <FooterProvider>
+            <DiagramView {...props} />
+          </FooterProvider>
+        </FileWatcherProvider>
+      </ToastProvider>
     </ShellErrorProvider>,
   )
 }

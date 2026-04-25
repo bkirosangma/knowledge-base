@@ -24,6 +24,10 @@ import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
 import { useCanvasCoords, VIEWPORT_PADDING } from "./hooks/useCanvasCoords";
 import { useDiagramPersistence } from "./hooks/useDiagramPersistence";
+import { useDiagramFileWatcher } from "./hooks/useDiagramFileWatcher";
+import ConflictBanner from "../../shared/components/ConflictBanner";
+import { createDiagramRepository } from "../../infrastructure/diagramRepo";
+import { fnv1a } from "../../shared/utils/historyPersistence";
 import { useViewportPersistence } from "./hooks/useViewportPersistence";
 import { useNodeDrag } from "./hooks/useNodeDrag";
 import { useLayerDrag } from "./hooks/useLayerDrag";
@@ -439,6 +443,75 @@ export default function DiagramView({
     if (snapshot.documents !== undefined) onLoadDocuments(snapshot.documents);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [applyDiagramToState]);
+
+  // ─── Disk-change watcher callbacks ───
+
+  const getJsonFromDisk = useCallback(async (): Promise<{
+    json: string;
+    checksum: string;
+    snapshot: DiagramSnapshot;
+  } | null> => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle || !activeFile) return null;
+    try {
+      const repo = createDiagramRepository(rootHandle);
+      const raw = await repo.read(activeFile);
+      // Build the same object shape that history.onSave checksums (no documents).
+      const savedData = {
+        title: raw.title,
+        layers: raw.layers,
+        nodes: raw.nodes,
+        connections: raw.connections,
+        layerManualSizes: raw.layerManualSizes,
+        lineCurve: raw.lineCurve,
+        flows: raw.flows,
+      };
+      const json = JSON.stringify(savedData);
+      const data = loadDiagramFromData(raw);
+      const snapshot: DiagramSnapshot = {
+        title: data.title,
+        layerDefs: data.layers,
+        nodes: raw.nodes,
+        connections: data.connections,
+        layerManualSizes: data.layerManualSizes,
+        lineCurve: data.lineCurve,
+        flows: data.flows,
+      };
+      return { json, checksum: fnv1a(json), snapshot };
+    } catch {
+      return null;
+    }
+  }, [activeFile, fileExplorer.dirHandleRef]);
+
+  const updateDiskChecksum = useCallback((checksum: string) => {
+    history.diskChecksumRef.current = checksum;
+  }, [history.diskChecksumRef]);
+
+  const applySnapshotFromDisk = useCallback((snapshot: DiagramSnapshot) => {
+    isRestoringRef.current = true;
+    const diagram = loadDiagramFromData({
+      title: snapshot.title,
+      layers: snapshot.layerDefs,
+      nodes: snapshot.nodes,
+      connections: snapshot.connections,
+      layerManualSizes: snapshot.layerManualSizes,
+      lineCurve: snapshot.lineCurve,
+      flows: snapshot.flows,
+    });
+    applyDiagramToState(diagram, { setSnapshot: true });
+    if (snapshot.documents !== undefined) onLoadDocuments(snapshot.documents);
+    requestAnimationFrame(() => { isRestoringRef.current = false; });
+  }, [applyDiagramToState, onLoadDocuments]);
+
+  const { conflictSnapshot, handleReloadFromDisk, handleKeepEdits } = useDiagramFileWatcher({
+    activeFile,
+    dirty: isDirty,
+    diskChecksumRef: history.diskChecksumRef,
+    getJsonFromDisk,
+    applySnapshot: applySnapshotFromDisk,
+    history,
+    updateDiskChecksum,
+  });
 
   const handleUndo = useCallback(() => {
     applySnapshot(history.undo());
@@ -970,6 +1043,13 @@ export default function DiagramView({
             )}
           </div>
         </>
+      )}
+
+      {conflictSnapshot && (
+        <ConflictBanner
+          onReload={handleReloadFromDisk}
+          onKeep={handleKeepEdits}
+        />
       )}
 
       <div className="flex-1 flex min-h-0 relative">
