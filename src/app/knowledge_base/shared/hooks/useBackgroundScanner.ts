@@ -123,7 +123,7 @@ export function useBackgroundScanner({
       const diskSnapshot: unknown = filePath.endsWith(".json") ? JSON.parse(text) : text;
 
       // Keep entries up to and including the current pointer
-      let newEntries = [...sidecar.entries.slice(0, sidecar.currentIndex + 1)];
+      const newEntries = [...sidecar.entries.slice(0, sidecar.currentIndex + 1)];
       let nextId = maxId + 1;
 
       if (isDirty) {
