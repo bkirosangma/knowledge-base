@@ -61,7 +61,7 @@ describe('scanTree — flat root (FS-2.1-08)', () => {
     expect(tree.every((n) => n.type === 'file')).toBe(true)
   })
 
-  it('folders come before files, each group alphabetical', async () => {
+  it('files come before folders, each group alphabetical', async () => {
     const root = new MockDir()
     seedFile(root, 'zeta/nested.md')
     seedFile(root, 'alpha/inside.md')
@@ -70,10 +70,10 @@ describe('scanTree — flat root (FS-2.1-08)', () => {
 
     const tree = await scanTree(asRoot(root), '')
     expect(tree.map((n) => ({ name: n.name, type: n.type }))).toEqual([
-      { name: 'alpha', type: 'folder' },
-      { name: 'zeta', type: 'folder' },
       { name: 'aa-first.md', type: 'file' },
       { name: 'zz-last.md', type: 'file' },
+      { name: 'alpha', type: 'folder' },
+      { name: 'zeta', type: 'folder' },
     ])
   })
 })

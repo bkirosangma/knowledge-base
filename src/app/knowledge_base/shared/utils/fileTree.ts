@@ -86,7 +86,7 @@ export async function scanTree(
 
   folders.sort((a, b) => a.name.localeCompare(b.name));
   files.sort((a, b) => a.name.localeCompare(b.name));
-  return [...folders, ...files];
+  return [...files, ...folders];
 }
 
 export function flattenTree(
