@@ -13,7 +13,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 const emptySnapshot: DiagramSnapshot = {
   title: "test", layerDefs: [], nodes: [], connections: [],
-  layerManualSizes: {}, lineCurve: "orthogonal", flows: [],
+  layerManualSizes: {}, lineCurve: "bezier", flows: [],
 };
 
 function makeHistory() {
