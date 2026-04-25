@@ -60,8 +60,8 @@ export function useDiagramFileWatcher({
   }, [activeFile, getJsonFromDisk, diskChecksumRef, history, applySnapshot, updateDiskChecksum, showToast]);
 
   useEffect(() => {
-    subscribe("diagram-file-watcher", checkForChanges);
-    return () => unsubscribe("diagram-file-watcher");
+    subscribe("content", checkForChanges);
+    return () => unsubscribe("content");
   }, [subscribe, unsubscribe, checkForChanges]);
 
   const handleReloadFromDisk = useCallback(() => {
