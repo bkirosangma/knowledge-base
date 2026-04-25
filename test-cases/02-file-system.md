@@ -132,3 +132,33 @@ Typed error layer at the repository boundary introduced in Phase 5c (2026-04-19)
 - **FS-2.6-05** ✅ **`classifyError` falls through to `unknown`** — non-DOMException errors and non-Error throws wrap with kind `unknown`.
 - **FS-2.6-06** ✅ **`readOrNull` returns null on `not-found`** — only; value on success, re-throw otherwise.
 - **FS-2.6-07** ✅ **`readOrNull` classifies + re-throws other kinds** — raw DOMException-like throws classified first so callers always receive a `FileSystemError`, never a raw DOMException.
+
+## 2.7 Explorer Search (UX Phase 1)
+
+Search input at the top of the ExplorerPanel for live file filtering. `data-testid="explorer-search"` on the input. ⌘F global shortcut focuses it.
+
+- **EXPL-2.7-01** 🧪 **Typing in search filters the file list** — entering a query shows only files whose path (case-insensitive) includes the query; non-matching files disappear. Nested paths (e.g. `notes/deep.md`) are discoverable by partial name. _(e2e: `e2e/explorerSearch.spec.ts`)_
+- **EXPL-2.7-02** 🧪 **Clearing the search restores the full tree** — clicking the ✕ clear button empties the query and the normal folder tree reappears. _(e2e: `e2e/explorerSearch.spec.ts`)_
+- **EXPL-2.7-03** ❌ **⌘F focuses the explorer search input** — when focus is not already in an input/textarea/contenteditable, ⌘F prevents default browser find and focuses `[data-testid="explorer-search"]`. _(Playwright)_
+- **EXPL-2.7-04** ❌ **⌘F does not steal from active inputs** — when focus is inside an editor or input, ⌘F is a no-op (browser find bar may open normally). _(Playwright)_
+- **EXPL-2.7-05** ❌ **"Go to file…" command in palette** — the command palette (⌘K) lists a "Go to file…" entry in the Navigation group with shortcut ⌘F; running it focuses the explorer search. _(Playwright)_
+
+## 2.8 Explorer Recents (UX Phase 1)
+
+Collapsible "Recents" group above the file tree showing the last 10 opened files. Persisted to localStorage under `kb-recents`.
+
+- **EXPL-2.8-01** 🧪 **Opening a file adds it to Recents** — clicking a file in the explorer causes it to appear in the Recents group. _(e2e: `e2e/explorerSearch.spec.ts`)_
+- **EXPL-2.8-02** 🧪 **Recents shows most recent first** — after opening alpha then beta, beta appears above alpha in the Recents list. _(e2e: `e2e/explorerSearch.spec.ts`)_
+- **EXPL-2.8-03** ❌ **Recents deduplicates by path** — opening the same file twice results in only one entry in Recents. _(Playwright)_
+- **EXPL-2.8-04** ❌ **Recents capped at 10 entries** — after opening 11 distinct files, the 11th-oldest is dropped from the list. _(Playwright)_
+- **EXPL-2.8-05** ❌ **Recents persists across page reload** — localStorage `kb-recents` is read on mount; entries survive a hard refresh. _(Playwright)_
+- **EXPL-2.8-06** ❌ **Recents group hidden when empty** — on first load with no localStorage entry, the Recents header does not render. _(Playwright)_
+- **EXPL-2.8-07** ❌ **Recents collapse toggle hides entries** — clicking the Recents header arrow collapses the list; clicking again expands it. _(Playwright)_
+
+## 2.9 Explorer Unsaved Group (UX Phase 1)
+
+"Unsaved changes" group showing files with in-memory drafts (dirty state). Always visible when non-empty; no collapse.
+
+- **EXPL-2.9-01** 🧪 **Unsaved group shows dirty files** — after making an edit in a diagram, the file appears in the "Unsaved changes" group. _(e2e: `e2e/explorerSearch.spec.ts`)_
+- **EXPL-2.9-02** ❌ **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(Playwright)_
+- **EXPL-2.9-03** ❌ **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(Playwright)_

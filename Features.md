@@ -93,6 +93,10 @@ Top-level chrome that hosts every other feature.
 - ✅ **Refresh** — button calls `FileWatcherContext.refresh()`, which fires all named subscribers (including the "tree" subscriber that rescans the directory tree) in addition to any future document/diagram watchers.
 - ✅ **Drag-over feedback** — `dragOverPath` state highlights the target folder.
 - ✅ **Dirty file indicator** — visual mark on files with unsaved changes.
+- ✅ **Explorer search** — text input at the top of the panel (`data-testid="explorer-search"`, placeholder "Search files… ⌘F") filters the file tree live; non-matching files are hidden; when the query matches, a flat list of matching paths replaces the nested tree. Clear button (✕) empties the query. `shared/components/explorer/ExplorerPanel.tsx`.
+- ✅ **⌘F shortcut** — global `keydown` handler in `knowledgeBase.tsx`; when focus is not in an input/textarea/contenteditable, prevents default and focuses the explorer search input (expands the sidebar first if collapsed). Also registered as a "Go to file…" command in the Command Palette (⌘K) under the Navigation group. `shared/hooks/useRecentFiles.ts`.
+- ✅ **Recents group** — collapsible "Recents" section above the file tree showing the last 10 opened files (most recent first), deduplicated by path, persisted to `localStorage` under `kb-recents`. Collapse state resets to open on reload. Hidden when empty. `shared/hooks/useRecentFiles.ts`, `knowledgeBase.tsx`.
+- ✅ **Unsaved changes group** — "Unsaved changes" section (no collapse) showing all currently-dirty files; hidden when clean. Clicking an entry opens the file. `shared/components/explorer/ExplorerPanel.tsx`.
 
 ### 2.4 Confirmation Popover
 `shared/components/explorer/ConfirmPopover.tsx`

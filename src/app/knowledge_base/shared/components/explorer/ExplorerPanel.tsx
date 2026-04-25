@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, FolderOpen,
   FilePlus, FolderPlus, FileText, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
+  X, ChevronDown,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { ExplorerFilter } from "../../utils/types";
@@ -44,6 +45,8 @@ interface ExplorerPanelProps {
   explorerFilter?: ExplorerFilter;
   onFilterChange?: (filter: ExplorerFilter) => void;
   onSelectDocument?: (path: string) => void;
+  recentFiles?: string[];
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 /* ── Sorting utility ── */
@@ -77,6 +80,8 @@ export default function ExplorerPanel({
   explorerFilter,
   onFilterChange,
   onSelectDocument,
+  recentFiles = [],
+  searchInputRef,
 }: ExplorerPanelProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -94,6 +99,14 @@ export default function ExplorerPanel({
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+
+  // ─── Search ───
+  const [searchQuery, setSearchQuery] = useState("");
+  const internalSearchRef = useRef<HTMLInputElement>(null);
+  const resolvedSearchRef = searchInputRef ?? internalSearchRef;
+
+  // ─── Recents collapse (not persisted — resets to open on reload) ───
+  const [recentsCollapsed, setRecentsCollapsed] = useState(false);
 
   // Auto-expand folders to reveal highlighted pane files
   useEffect(() => {
@@ -115,6 +128,28 @@ export default function ExplorerPanel({
 
   const sortedTree = useMemo(() => sortTreeNodes(tree, sortField, sortDirection, sortGrouping), [tree, sortField, sortDirection, sortGrouping]);
   const filteredTree = useMemo(() => filterTreeNodes(sortedTree, explorerFilter), [sortedTree, explorerFilter]);
+
+  // ─── Search: flat list of all file paths ───
+  const allFilePaths = useMemo(() => {
+    const paths: string[] = [];
+    function walk(nodes: TreeNode[]) {
+      for (const n of nodes) {
+        if (n.type === "file") paths.push(n.path);
+        if (n.children) walk(n.children);
+      }
+    }
+    walk(tree);
+    return paths;
+  }, [tree]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const q = searchQuery.trim().toLowerCase();
+    return allFilePaths.filter((p) => p.toLowerCase().includes(q));
+  }, [searchQuery, allFilePaths]);
+
+  // ─── Dirty files as array ───
+  const dirtyFilesArray = useMemo(() => Array.from(dirtyFiles), [dirtyFiles]);
 
   // Close context menu on outside click / Escape
   useEffect(() => {
@@ -384,9 +419,33 @@ export default function ExplorerPanel({
                 handleGroupingClick={handleGroupingClick}
               />
 
-              {/* Tree */}
+              {/* Search input */}
+              <div className="px-2 py-1.5 border-b border-slate-100">
+                <div className="relative flex items-center">
+                  <input
+                    ref={resolvedSearchRef}
+                    data-testid="explorer-search"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search files… ⌘F"
+                    className="w-full pl-2 pr-7 py-1 text-xs bg-slate-100 rounded border border-transparent focus:border-blue-400 focus:bg-white outline-none text-slate-700 placeholder-slate-400 transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable content: Recents + Unsaved + Tree */}
               <div
-                className="flex-1 overflow-y-auto py-1"
+                className="flex-1 overflow-y-auto"
                 onContextMenu={(e) => {
                   if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[data-tree-node]') === null) {
                     e.preventDefault();
@@ -395,12 +454,97 @@ export default function ExplorerPanel({
                   }
                 }}
               >
-                {isLoading ? (
-                  <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
-                ) : tree.length === 0 ? (
-                  <div className="px-3 py-4 text-xs text-slate-400 text-center">Empty folder</div>
+                {/* Recents group — hidden when empty, shown above tree */}
+                {!searchResults && recentFiles.length > 0 && (
+                  <div className="border-b border-slate-100">
+                    <button
+                      className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                      onClick={() => setRecentsCollapsed((c) => !c)}
+                    >
+                      <ChevronDown
+                        size={12}
+                        className={`transition-transform ${recentsCollapsed ? "-rotate-90" : ""}`}
+                      />
+                      Recents
+                    </button>
+                    {!recentsCollapsed && (
+                      <div className="pb-1">
+                        {recentFiles.map((path) => {
+                          const name = path.split("/").pop() ?? path;
+                          const isActive = leftPaneFile === path || rightPaneFile === path;
+                          return (
+                            <button
+                              key={path}
+                              className={`flex items-center w-full px-3 py-0.5 text-xs text-left truncate hover:bg-slate-50 transition-colors ${isActive ? "text-blue-600 font-medium" : "text-slate-600"}`}
+                              title={path}
+                              onClick={() => onSelectFile(path)}
+                            >
+                              {name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Unsaved group — always visible when non-empty */}
+                {!searchResults && dirtyFilesArray.length > 0 && (
+                  <div className="border-b border-slate-100">
+                    <div className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-amber-600 uppercase tracking-wider">
+                      Unsaved changes
+                    </div>
+                    <div className="pb-1">
+                      {dirtyFilesArray.map((path) => {
+                        const name = path.split("/").pop() ?? path;
+                        const isActive = leftPaneFile === path || rightPaneFile === path;
+                        return (
+                          <button
+                            key={path}
+                            className={`flex items-center w-full px-3 py-0.5 text-xs text-left truncate hover:bg-amber-50 transition-colors ${isActive ? "text-amber-700 font-semibold" : "text-amber-600"}`}
+                            title={path}
+                            onClick={() => onSelectFile(path)}
+                          >
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search results (flat) or normal tree */}
+                {searchResults !== null ? (
+                  <div className="py-1" data-testid="explorer-search-results">
+                    {searchResults.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-slate-400 text-center">No files match</div>
+                    ) : (
+                      searchResults.map((path) => {
+                        const name = path.split("/").pop() ?? path;
+                        const isActive = leftPaneFile === path || rightPaneFile === path;
+                        return (
+                          <button
+                            key={path}
+                            className={`flex flex-col w-full px-3 py-1 text-left hover:bg-slate-50 transition-colors ${isActive ? "bg-blue-50" : ""}`}
+                            onClick={() => onSelectFile(path)}
+                          >
+                            <span className={`text-xs font-medium truncate ${isActive ? "text-blue-600" : "text-slate-700"}`}>{name}</span>
+                            <span className="text-[10px] text-slate-400 truncate">{path}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 ) : (
-                  filteredTree.map((node) => renderNode(node, 0))
+                  <div className="py-1">
+                    {isLoading ? (
+                      <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
+                    ) : tree.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-slate-400 text-center">Empty folder</div>
+                    ) : (
+                      filteredTree.map((node) => renderNode(node, 0))
+                    )}
+                  </div>
                 )}
               </div>
             </>
