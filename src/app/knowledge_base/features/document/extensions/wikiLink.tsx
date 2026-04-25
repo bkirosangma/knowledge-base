@@ -254,7 +254,9 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             if (exists) {
               options.onNavigate?.(path, section ?? undefined);
             } else {
-              options.onCreateDocument?.(path);
+              // Create with the fully-resolved path so the file lands with the
+              // correct extension (e.g. "missing-doc.md" not "missing-doc").
+              options.onCreateDocument?.(candidates[0]);
             }
             return true;
           },
