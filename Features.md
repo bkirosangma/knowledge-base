@@ -259,6 +259,10 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 `diagram/components/DocPreviewModal.tsx`
 - ✅ **DocPreviewModal** — universal read-only document preview triggered by clicking any attached doc or wiki-link backlink in any entity panel. Blurs the diagram canvas (`blur-sm pointer-events-none`) and disables interactions while open. Header shows filename, "Read only" chip, optional entity name badge, "Open in pane" button, and close ✕. Body renders document content via `markdownToHtml()` in `.markdown-editor .ProseMirror` — pixel-identical to the doc pane. Rendered via `ReactDOM.createPortal` at `document.body`, unaffected by ancestor `filter`/`transform`. Closes on Escape or backdrop click. HTML output sanitized with a DOM-based sanitizer before render.
 
+### 3.21 Diagram File Watcher
+`features/diagram/hooks/useDiagramFileWatcher.ts`
+- ⚙️ **`useDiagramFileWatcher`** — subscribes to the `"content:diagram"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the diagram is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the diagram is dirty, sets `conflictSnapshot` so `DiagramView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`. Exposes `conflictSnapshot`, `handleReloadFromDisk`, and `handleKeepEdits`. Wired into `DiagramView` via `ConflictBanner`.
+
 ---
 
 ## 4. Document Editor

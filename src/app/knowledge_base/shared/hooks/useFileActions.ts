@@ -114,8 +114,17 @@ export function useFileActions(
     );
     if (success) {
       setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows, s.documents ?? []);
-      const savedData = { title: s.title, layers: s.layerDefs, nodes: serializeNodes(s.nodes), connections: s.connections, layerManualSizes: s.layerManualSizes, lineCurve: s.lineCurve, flows: s.flows };
-      history.onSave(JSON.stringify(savedData));
+      const onDiskData = {
+        title: s.title,
+        layers: s.layerDefs,
+        nodes: serializeNodes(s.nodes),
+        connections: s.connections,
+        layerManualSizes: s.layerManualSizes,
+        lineCurve: s.lineCurve,
+        flows: s.flows,
+        ...(s.documents && s.documents.length > 0 ? { documents: s.documents } : {}),
+      };
+      history.onSave(JSON.stringify(onDiskData, null, 2));
       await callbacksRef.current.onAfterSave?.();
     }
   }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);

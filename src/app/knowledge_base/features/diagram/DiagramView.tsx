@@ -456,17 +456,7 @@ export default function DiagramView({
     try {
       const repo = createDiagramRepository(rootHandle);
       const raw = await repo.read(activeFile);
-      // Build the same object shape that history.onSave checksums (no documents).
-      const savedData = {
-        title: raw.title,
-        layers: raw.layers,
-        nodes: raw.nodes,
-        connections: raw.connections,
-        layerManualSizes: raw.layerManualSizes,
-        lineCurve: raw.lineCurve,
-        flows: raw.flows,
-      };
-      const json = JSON.stringify(savedData);
+      const json = JSON.stringify(raw, null, 2);
       const data = loadDiagramFromData(raw);
       const snapshot: DiagramSnapshot = {
         title: data.title,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fnv1a } from "../../../shared/utils/historyPersistence";
 import { useFileWatcher } from "../../../shared/context/FileWatcherContext";
 import { useToast } from "../../../shell/ToastContext";
 import type { HistoryCore } from "../../../shared/hooks/useHistoryCore";
@@ -35,7 +34,8 @@ export function useDiagramFileWatcher({
 }: UseDiagramFileWatcherOptions): UseDiagramFileWatcherResult {
   const { subscribe, unsubscribe } = useFileWatcher();
   const { showToast } = useToast();
-  const [conflictSnapshot, setConflictSnapshot] = useState<DiagramSnapshot | null>(null);
+  const [conflictState, setConflictState] = useState<{ snapshot: DiagramSnapshot; checksum: string } | null>(null);
+  const conflictSnapshot = conflictState?.snapshot ?? null;
   const dismissedChecksumRef = useRef<string | null>(null);
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
@@ -55,7 +55,7 @@ export function useDiagramFileWatcher({
       updateDiskChecksum(checksum);
       showToast("File reloaded from disk");
     } else {
-      setConflictSnapshot(snapshot);
+      setConflictState({ snapshot, checksum });
     }
   }, [activeFile, getJsonFromDisk, diskChecksumRef, history, applySnapshot, updateDiskChecksum, showToast]);
 
@@ -69,22 +69,22 @@ export function useDiagramFileWatcher({
   }, [activeFile]);
 
   const handleReloadFromDisk = useCallback(() => {
-    if (!conflictSnapshot) return;
-    const checksum = fnv1a(JSON.stringify(conflictSnapshot));
-    history.recordAction("Reloaded from disk", conflictSnapshot);
+    if (!conflictState) return;
+    const { snapshot, checksum } = conflictState;
+    history.recordAction("Reloaded from disk", snapshot);
     history.markSaved();
-    applySnapshot(conflictSnapshot);
+    applySnapshot(snapshot);
     updateDiskChecksum(checksum);
     dismissedChecksumRef.current = null;
-    setConflictSnapshot(null);
+    setConflictState(null);
     showToast("File reloaded from disk");
-  }, [conflictSnapshot, history, applySnapshot, updateDiskChecksum, showToast]);
+  }, [conflictState, history, applySnapshot, updateDiskChecksum, showToast]);
 
   const handleKeepEdits = useCallback(() => {
-    if (!conflictSnapshot) return;
-    dismissedChecksumRef.current = fnv1a(JSON.stringify(conflictSnapshot));
-    setConflictSnapshot(null);
-  }, [conflictSnapshot]);
+    if (!conflictState) return;
+    dismissedChecksumRef.current = conflictState.checksum;
+    setConflictState(null);
+  }, [conflictState]);
 
   return { conflictSnapshot, handleReloadFromDisk, handleKeepEdits, __test__: { checkForChanges } };
 }
