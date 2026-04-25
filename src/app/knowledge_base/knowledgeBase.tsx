@@ -40,11 +40,13 @@ function KnowledgeBaseInner() {
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
-  // ─── Tree subscriber: file-watcher events trigger explorer refresh ───
+  // ─── Tree subscriber: file-watcher events trigger quiet rescan ───
+  // Uses watcherRescan (not refresh) to avoid loading-state flash and
+  // permission re-check on every polling tick.
   useEffect(() => {
-    subscribe("tree", fileExplorer.refresh);
+    subscribe("tree", fileExplorer.watcherRescan);
     return () => unsubscribe("tree");
-  }, [subscribe, unsubscribe, fileExplorer.refresh]);
+  }, [subscribe, unsubscribe, fileExplorer.watcherRescan]);
 
   // ─── Background scanner: update .history.json sidecars for closed files ───
   const { showToast } = useToast();
