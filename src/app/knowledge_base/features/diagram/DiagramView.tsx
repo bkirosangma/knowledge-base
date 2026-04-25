@@ -161,7 +161,7 @@ export default function DiagramView({
   } = useDiagramLayoutState();
 
   // Per-file Read Mode state. Persisted to localStorage keyed by activeFile.
-  const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile);
+  const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile, "diagram-read-only");
 
   // Clear stale overlays when entering Read Mode so nothing lingers.
   useEffect(() => {

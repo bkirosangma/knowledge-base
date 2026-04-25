@@ -11,6 +11,7 @@ import {
 } from "../utils/historyPersistence";
 import type { HistoryFile } from "../utils/historyPersistence";
 import { readTextFile } from "./fileExplorerHelpers";
+import { clearDraft } from "../utils/persistence";
 
 export interface UseBackgroundScannerOptions {
   tree: TreeNode[];
@@ -141,6 +142,9 @@ export function useBackgroundScanner({
         await writeHistoryFile(rootHandle, filePath, updated);
       }
 
+      // Clear any localStorage draft so the next file open loads disk content,
+      // not the stale draft. clearDraft is a no-op if no draft exists.
+      clearDraft(filePath);
       updatedCount++;
     }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFileWatcher } from "../../../shared/context/FileWatcherContext";
 import { useToast } from "../../../shell/ToastContext";
+import { clearDraft } from "../../../shared/utils/persistence";
 import type { HistoryCore } from "../../../shared/hooks/useHistoryCore";
 import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 
@@ -53,6 +54,7 @@ export function useDiagramFileWatcher({
       history.markSaved();
       applySnapshot(snapshot);
       updateDiskChecksum(checksum);
+      clearDraft(activeFile);
       showToast("File reloaded from disk");
     } else {
       setConflictState({ snapshot, checksum });
@@ -75,6 +77,7 @@ export function useDiagramFileWatcher({
     history.markSaved();
     applySnapshot(snapshot);
     updateDiskChecksum(checksum);
+    clearDraft(activeFile ?? "");
     dismissedChecksumRef.current = null;
     setConflictState(null);
     showToast("File reloaded from disk");
