@@ -30,6 +30,8 @@ import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
+import { CommandRegistryProvider, useCommandRegistry } from "./shared/context/CommandRegistry";
+import CommandPalette from "./shared/components/CommandPalette";
 
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
@@ -337,6 +339,25 @@ function KnowledgeBaseInner() {
     return () => window.removeEventListener("keydown", handler);
   }, [panes.activeEntry, panes.focusedSide, fileExplorer.dirHandleRef, linkManager]);
 
+  // ─── ⌘K global handler — opens command palette ───
+  const { setOpen: setPaletteOpen } = useCommandRegistry();
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        // Guard: don't fire when focus is inside an input, textarea, or contenteditable.
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setPaletteOpen]);
+
   // ─── Restore pane layout (or fall back to single pending file) on directory load ───
   useEffect(() => {
     if (layoutRestoredRef.current || fileExplorer.tree.length === 0) return;
@@ -574,6 +595,9 @@ function KnowledgeBaseInner() {
       {/* Global footer — reads info from the focused pane */}
       <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
 
+      {/* ⌘K Command Palette — overlays the entire viewport */}
+      <CommandPalette />
+
       {/* Confirmation popover — bridge-owned (diagram open) or shell-owned (no diagram) */}
       {confirmAction && (
         <ConfirmPopover
@@ -637,7 +661,9 @@ export default function KnowledgeBase() {
           <FooterProvider>
             <FileWatcherProvider>
               <ToastProvider>
-                <KnowledgeBaseInner />
+                <CommandRegistryProvider>
+                  <KnowledgeBaseInner />
+                </CommandRegistryProvider>
               </ToastProvider>
             </FileWatcherProvider>
           </FooterProvider>

@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import type { Selection, NodeData } from "../types";
 import { toggleItemInSelection } from "../utils/selectionUtils";
 import type { PendingDeletion } from "./useDeletion";
+import { useRegisterCommands } from "../../../shared/context/CommandRegistry";
 
 interface KeyboardShortcutsConfig {
   cancelSelectionRect: () => void;
@@ -108,4 +109,35 @@ export function useKeyboardShortcuts({
       window.removeEventListener("mouseup", onMouseUp);
     };
   }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly]);
+
+  // ─── Register commands into the global palette ───
+  // Use refs so the memoized command array stays stable across selection changes.
+  const diagramCmds = useMemo(() => [
+    {
+      id: "diagram.toggle-read-only",
+      title: "Toggle Read / Edit Mode",
+      group: "Diagram",
+      shortcut: "⌘⇧R",
+      run: () => onToggleReadOnly(),
+    },
+    {
+      id: "diagram.delete-selected",
+      title: "Delete Selected",
+      group: "Diagram",
+      shortcut: "⌫",
+      when: () => selectionRef.current != null,
+      run: () => {
+        if (readOnly) return;
+        const sel = selectionRef.current;
+        if (!sel) return;
+        const pending = deleteSelection(sel);
+        if (pending) setPendingDeletion(pending);
+      },
+    },
+  // Commands reference stable refs and callbacks — re-memoize only when
+  // onToggleReadOnly or the deletion callbacks change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [onToggleReadOnly, deleteSelection, setPendingDeletion]);
+
+  useRegisterCommands(diagramCmds);
 }

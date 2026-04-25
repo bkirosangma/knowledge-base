@@ -232,6 +232,7 @@ export default function DocumentView({
       if (s !== null) { updateContent(s); bumpToken(); }
     }, [history, updateContent]),
     readOnly,
+    onToggleReadOnly: toggleReadOnly,
   });
 
   // Bridge for HistoryPanel in DocumentProperties
