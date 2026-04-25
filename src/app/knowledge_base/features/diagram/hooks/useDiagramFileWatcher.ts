@@ -60,9 +60,13 @@ export function useDiagramFileWatcher({
   }, [activeFile, getJsonFromDisk, diskChecksumRef, history, applySnapshot, updateDiskChecksum, showToast]);
 
   useEffect(() => {
-    subscribe("content", checkForChanges);
-    return () => unsubscribe("content");
+    subscribe("content:diagram", checkForChanges);
+    return () => unsubscribe("content:diagram");
   }, [subscribe, unsubscribe, checkForChanges]);
+
+  useEffect(() => {
+    dismissedChecksumRef.current = null;
+  }, [activeFile]);
 
   const handleReloadFromDisk = useCallback(() => {
     if (!conflictSnapshot) return;

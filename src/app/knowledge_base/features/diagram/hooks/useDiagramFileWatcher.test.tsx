@@ -21,7 +21,7 @@ function makeHistory() {
 }
 
 describe("useDiagramFileWatcher", () => {
-  it("no-ops when checksum matches disk", async () => {
+  it("DIAG-3.21-01: no-ops when checksum matches disk", async () => {
     const json = JSON.stringify(emptySnapshot);
     const getJsonFromDisk = vi.fn().mockResolvedValue({ json, checksum: fnv1a(json), snapshot: emptySnapshot });
     const diskChecksumRef = { current: fnv1a(json) };
@@ -37,7 +37,7 @@ describe("useDiagramFileWatcher", () => {
     expect(applySnapshot).not.toHaveBeenCalled();
   });
 
-  it("silently reloads when clean and disk differs", async () => {
+  it("DIAG-3.21-02: silently reloads when clean and disk differs", async () => {
     const newSnapshot = { ...emptySnapshot, title: "updated" };
     const json = JSON.stringify(newSnapshot);
     const getJsonFromDisk = vi.fn().mockResolvedValue({ json, checksum: fnv1a(json), snapshot: newSnapshot });
@@ -57,7 +57,7 @@ describe("useDiagramFileWatcher", () => {
     expect(applySnapshot).toHaveBeenCalledWith(newSnapshot);
   });
 
-  it("sets conflictSnapshot when dirty and disk differs", async () => {
+  it("DIAG-3.21-03: sets conflictSnapshot when dirty and disk differs", async () => {
     const newSnapshot = { ...emptySnapshot, title: "disk" };
     const json = JSON.stringify(newSnapshot);
     const getJsonFromDisk = vi.fn().mockResolvedValue({ json, checksum: fnv1a(json), snapshot: newSnapshot });
@@ -73,7 +73,7 @@ describe("useDiagramFileWatcher", () => {
     expect(result.current.conflictSnapshot).toEqual(newSnapshot);
   });
 
-  it("handleReloadFromDisk clears conflict and applies disk snapshot", async () => {
+  it("DIAG-3.21-04: handleReloadFromDisk clears conflict and applies disk snapshot", async () => {
     const newSnapshot = { ...emptySnapshot, title: "disk" };
     const json = JSON.stringify(newSnapshot);
     const getJsonFromDisk = vi.fn().mockResolvedValue({ json, checksum: fnv1a(json), snapshot: newSnapshot });
@@ -97,7 +97,7 @@ describe("useDiagramFileWatcher", () => {
     expect(history.markSaved).toHaveBeenCalled();
   });
 
-  it("handleKeepEdits dismisses banner and suppresses same checksum", async () => {
+  it("DIAG-3.21-05: handleKeepEdits dismisses banner and suppresses same checksum", async () => {
     const newSnapshot = { ...emptySnapshot, title: "disk" };
     const json = JSON.stringify(newSnapshot);
     const getJsonFromDisk = vi.fn().mockResolvedValue({ json, checksum: fnv1a(json), snapshot: newSnapshot });
