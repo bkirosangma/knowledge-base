@@ -10,6 +10,7 @@ import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
+import { useReadOnlyState } from "../../features/diagram/hooks/useReadOnlyState";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
@@ -44,7 +45,7 @@ export default function DocumentView({
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
   const bumpToken = () => setHistoryToken((t) => t + 1);
-  const [readOnly, setReadOnly] = useState(false);
+  const { readOnly, toggleReadOnly } = useReadOnlyState(filePath, "document-read-only");
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
@@ -254,7 +255,7 @@ export default function DocumentView({
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
           readOnly={readOnly}
-          onToggleReadOnly={() => setReadOnly((v) => !v)}
+          onToggleReadOnly={toggleReadOnly}
           rightSidebar={
             <DocumentProperties
               filePath={filePath}
