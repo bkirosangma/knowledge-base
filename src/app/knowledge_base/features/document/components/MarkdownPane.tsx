@@ -3,6 +3,7 @@
 import React from "react";
 import { FileText } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
+import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../../shared/components/PaneHeader";
 import PaneTitle from "../../../shared/components/PaneTitle";
 
@@ -22,6 +23,7 @@ interface MarkdownPaneProps {
   onDiscard?: (e: React.MouseEvent) => void;
   existingDocPaths?: Set<string>;
   allDocPaths?: string[];
+  tree?: TreeNode[];
   backlinks?: { sourcePath: string; section?: string }[];
   onNavigateBacklink?: (sourcePath: string) => void;
   rightSidebar?: React.ReactNode;
@@ -45,6 +47,7 @@ export default function MarkdownPane({
   onDiscard,
   existingDocPaths,
   allDocPaths,
+  tree,
   backlinks = [],
   onNavigateBacklink,
   rightSidebar,
@@ -121,6 +124,7 @@ export default function MarkdownPane({
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}
           allDocPaths={allDocPaths}
+          tree={tree}
           currentDocDir={filePath.split("/").slice(0, -1).join("/")}
           readOnly={readOnly}
           rightSidebar={rightSidebar}

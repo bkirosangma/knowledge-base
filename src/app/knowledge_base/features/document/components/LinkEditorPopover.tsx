@@ -12,12 +12,18 @@ import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/react";
 import { getMarkRange } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
-import { Link2Off } from "lucide-react";
+import { Link2Off, FolderOpen } from "lucide-react";
+import { FolderPicker } from "./FolderPicker";
+import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 interface LinkEditorPopoverProps {
   editor: Editor;
   /** Known wiki-link targets (documents + diagrams) for path autocomplete. */
   allDocPaths?: string[];
+  /** Full file tree for the folder-picker browse button (wiki links only). */
+  tree?: TreeNode[];
+  /** Directory of the current document — used as the picker's initial folder. */
+  currentDocDir?: string;
 }
 
 type Target =
@@ -55,6 +61,8 @@ type Target =
 export function LinkEditorPopover({
   editor,
   allDocPaths,
+  tree,
+  currentDocDir = "",
 }: LinkEditorPopoverProps) {
   const linkMarkType = editor.schema.marks.link;
   const wikiLinkType = editor.schema.nodes.wikiLink;
@@ -100,6 +108,8 @@ export function LinkEditorPopover({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor.state.selection, editor.state.doc, editor.isEditable]);
 
+  const [showPicker, setShowPicker] = useState(false);
+
   // Drafts. For both kinds: draftUrl holds the "target" (href or path#section),
   // draftText holds the displayed text.
   const [draftUrl, setDraftUrl] = useState("");
@@ -129,6 +139,7 @@ export function LinkEditorPopover({
     if (changedTarget) {
       setDraftUrl(liveUrl);
       setDraftText(liveText);
+      setShowPicker(false);
     } else {
       if (document.activeElement !== urlRef.current) setDraftUrl(liveUrl);
       if (document.activeElement !== textRef.current) setDraftText(liveText);
@@ -170,7 +181,7 @@ export function LinkEditorPopover({
     if (left < margin) left = margin;
 
     setPos({ top, left });
-  }, [target, editor]);
+  }, [target, editor, showPicker]);
 
   if (!target) return null;
 
@@ -350,11 +361,35 @@ export function LinkEditorPopover({
           onKeyDown={onUrlKey}
           placeholder={urlPlaceholder}
           list={isWiki && allDocPaths && allDocPaths.length > 0 ? datalistId : undefined}
-          className="flex-1 min-w-0 w-64 px-2 py-1 border border-slate-300 rounded text-xs outline-none focus:border-blue-400"
+          className="flex-1 min-w-0 w-56 px-2 py-1 border border-slate-300 rounded text-xs outline-none focus:border-blue-400"
           spellCheck={false}
           autoComplete="off"
         />
+        {isWiki && tree && tree.length > 0 && (
+          <button
+            type="button"
+            title="Browse files"
+            onMouseDown={(e) => { e.preventDefault(); setShowPicker((v) => !v); }}
+            className={`shrink-0 p-1 rounded hover:bg-slate-100 ${showPicker ? "text-blue-500" : "text-slate-400 hover:text-slate-600"}`}
+          >
+            <FolderOpen size={13} />
+          </button>
+        )}
       </div>
+      {isWiki && showPicker && tree && tree.length > 0 && (
+        <div className="mt-1.5">
+          <FolderPicker
+            tree={tree}
+            startPath={currentDocDir}
+            onSelect={(path) => {
+              setShowPicker(false);
+              setDraftUrl(path);
+              commitWikiPath(path);
+              editor.commands.focus();
+            }}
+          />
+        </div>
+      )}
       <div className="flex items-center gap-2 mt-1.5">
         <label className="text-xs text-slate-500 w-10 shrink-0">Text</label>
         <input

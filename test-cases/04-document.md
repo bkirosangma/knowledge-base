@@ -9,7 +9,7 @@
 - **DOC-4.1-01** ✅ **DocumentView mounts for `.md` file** — `e2e/goldenPath.spec.ts` opens a seeded vault, clicks a `.md` file, and asserts the ProseMirror surface renders the seeded content. Also covered by `e2e/documentGoldenPath.spec.ts` (DOC-4.1-01). Uses the in-browser File System Access mock.
 - **DOC-4.1-02** ❌ **Focused state tracked.** Same.
 - **DOC-4.1-03** 🟡 **MarkdownPane header shows breadcrumb** — `PaneHeader` breadcrumb rendering is covered by SHELL-1.6-01; mount wiring is integration.
-- **DOC-4.1-04** ❌ **Backlinks dropdown opens.** Integration.
+- **DOC-4.1-04** 🚫 **Backlinks dropdown opens.** — requires real link-index state and dropdown portal; JSDOM can't simulate. Covered in `e2e/documentEditor.spec.ts`.
 - **DOC-4.1-05** 🟡 **Read-only toggle in PaneHeader** — toggle is covered by SHELL-1.6-02; Tiptap `setEditable` propagation is integration.
 - **DOC-4.1-06** ✅ **200 ms debounce on serialize.** (Covered by DOC-4.5-24 in `MarkdownEditor.test.tsx`.)
 - **DOC-4.1-07** ✅ **Flush on blur.** (Covered by DOC-4.1-07 describe in `MarkdownEditor.test.tsx`.)
@@ -34,7 +34,7 @@
 - **DOC-4.2-15** 🟡 **Image extension** — markdown round-trip covered.
 - **DOC-4.2-16** 🟡 **Link extension** — markdown round-trip covered.
 - **DOC-4.2-17** ✅ **Placeholder renders on empty.** (Covered by DOC-4.2-17 describe in `MarkdownEditor.test.tsx` — checks `data-placeholder` attribute.)
-- **DOC-4.2-18** ❌ **Code block with lowlight** — highlighting classes emitted only at render time. Integration.
+- **DOC-4.2-18** 🚫 **Code block with lowlight** — highlight classes exist only in a real browser renderer; JSDOM emits none.
 
 ## 4.3 Custom Extensions
 
@@ -42,19 +42,19 @@
 - **DOC-4.3-01** ✅ **`[[foo]]` renders as blue pill.** — `e2e/documentGoldenPath.spec.ts` (DOC-4.3-01): seeds index.md + target.md, opens index.md, and asserts the NodeView-rendered `.wiki-link.bg-blue-100` pill is visible and `[[target]]` plain text is absent.
 - **DOC-4.3-02** 🧪 **`[[nonexistent]]` renders as unresolved pill** — no `bg-blue-100` class applied to unknown targets. _(e2e: `documentReadOnly.spec.ts`)_
 - **DOC-4.3-03** 🧪 **Doc icon on `.md` target.** Resolved `.md` link shows `bg-blue-100` and SVG icon. _(e2e: `documentReadOnly.spec.ts`)_
-- **DOC-4.3-04** ❌ **Diagram icon on `.json` target.** Same.
+- **DOC-4.3-04** ✅ **Diagram icon on `.json` target.** (`LinkEditorPopover.test.tsx` — WikiLink NodeView describe)
 - **DOC-4.3-05** 🟡 **`[[foo#section]]` stores section attr** — `parseWikiLinks` correctly extracts `section` (DOC-4.8-02); NodeView render is integration.
 - **DOC-4.3-06** 🟡 **`[[foo\|Bar]]` stores display attr** — parsing covered by DOC-4.8-02; render is integration.
-- **DOC-4.3-07** ❌ **Suggestion menu opens on `[[`.** Tiptap Suggestion plugin — needs live editor.
-- **DOC-4.3-08** ❌ **Suggestion filters by typed query.** Same.
-- **DOC-4.3-09** ❌ **Arrow keys navigate suggestion.** Same.
-- **DOC-4.3-10** ❌ **Enter commits suggestion.** Same.
-- **DOC-4.3-11** ❌ **Escape closes suggestion without insert.** Same.
-- **DOC-4.3-12** ❌ **Inline edit on selection — single key appends.** Live editor.
-- **DOC-4.3-13** ❌ **Backspace trims display text.** Same.
-- **DOC-4.3-14** ❌ **Escape reverts display text to prior value.** Same.
-- **DOC-4.3-15** ❌ **Click in read-mode navigates.** Click handling on live NodeView.
-- **DOC-4.3-16** ❌ **Click unresolved in read-mode creates.** Same.
+- **DOC-4.3-07** 🚫 **Folder picker opens on `[[`; starts at current document's directory.** — Tiptap Suggestion plugin requires real browser layout for caret positioning; JSDOM returns zeros. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-08** 🚫 **Typing after `[[` switches picker to flat filtered list.** — same live-editor constraint as DOC-4.3-07. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-09** 🚫 **Arrow keys navigate suggestion.** — same. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-10** 🚫 **Enter commits suggestion.** — same. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-11** 🚫 **Escape closes suggestion without insert.** — same. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-12** ✅ **Inline edit on selection — single key appends.** (`LinkEditorPopover.test.tsx` — WikiLink NodeView describe)
+- **DOC-4.3-13** ✅ **Backspace trims display text.** (`LinkEditorPopover.test.tsx` — WikiLink NodeView describe)
+- **DOC-4.3-14** ✅ **Escape reverts display text to prior value.** (`LinkEditorPopover.test.tsx` — wiki-link mode describe)
+- **DOC-4.3-15** 🚫 **Click in read-mode navigates.** — PM `handleClickOn` uses `posAtCoords()` which requires real viewport; JSDOM returns zeros. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.3-16** 🚫 **Click unresolved in read-mode creates.** — same JSDOM layout constraint as DOC-4.3-15.
 - **DOC-4.3-17** ✅ **Path resolution: current-dir `.md`** — DOC-4.8-04 in `wikiLinkParser.test.ts`.
 - **DOC-4.3-18** 🟡 **Path resolution: current-dir `.json` fallback** — `.json` extension preserved (DOC-4.8-09); the "prefer .md, fallback to .json" order lives in the click-time resolver.
 - **DOC-4.3-19** ✅ **Path resolution: as-written** — DOC-4.8-08 ("preserves .md extension, no double-append").
@@ -85,6 +85,14 @@
 - **DOC-4.3-38** ❌ **Enter in rawBlock splits with smart list-item handling.** Keyboard handler on live editor.
 - **DOC-4.3-39** ❌ **Backspace at rawBlock start merges with previous block's rightmost textblock.** Same.
 - **DOC-4.3-40** ❌ **rawSwap meta flag suppresses serialize.** Transaction-level meta inside live dispatcher — integration.
+
+### 4.3.e FolderPicker (`FolderPicker.tsx`)
+- **DOC-4.3-41** ✅ **Folder picker shows subfolders and files of the current directory.** (`FolderPicker.test.tsx`)
+- **DOC-4.3-42** ✅ **Clicking a subfolder drills into it (header updates, contents change).** (`FolderPicker.test.tsx`)
+- **DOC-4.3-43** ✅ **Back arrow navigates up one level.** (`FolderPicker.test.tsx`)
+- **DOC-4.3-44** ✅ **Back arrow hidden at vault root.** (`FolderPicker.test.tsx`)
+- **DOC-4.3-45** ✅ **Clicking a file commits it as the wiki-link target and closes the picker.** (`FolderPicker.test.tsx`)
+- **DOC-4.3-46** ✅ **Empty folder shows "Empty folder" message.** (`FolderPicker.test.tsx`)
 
 ## 4.4 Markdown I/O
 
@@ -145,11 +153,11 @@
 
 ## 4.6 Table Floating Toolbar
 
-- **DOC-4.6-01** ❌ **Appears when cursor enters table.** — real hover geometry, JSDOM can't simulate.
-- **DOC-4.6-02** ❌ **Appears on hover over table** — even if cursor elsewhere. — real hover, JSDOM.
-- **DOC-4.6-03** ❌ **200 ms hide delay on mouse-leave.** — timer + mouse-leave geometry, JSDOM.
-- **DOC-4.6-04** ❌ **Positioned above the table.** — real layout position, JSDOM returns zeros.
-- **DOC-4.6-05** ❌ **Hides when table scrolls out of viewport.** — scroll events + geometry, JSDOM.
+- **DOC-4.6-01** 🚫 **Appears when cursor enters table.** — requires real hover geometry; JSDOM returns zero coords.
+- **DOC-4.6-02** 🚫 **Appears on hover over table** — even if cursor elsewhere. — requires real hover events; JSDOM can't simulate.
+- **DOC-4.6-03** 🚫 **200 ms hide delay on mouse-leave.** — requires mouse-leave + layout geometry; JSDOM returns zeros.
+- **DOC-4.6-04** 🚫 **Positioned above the table.** — requires real layout; JSDOM returns zero dimensions for all elements.
+- **DOC-4.6-05** 🚫 **Hides when table scrolls out of viewport.** — requires scroll events + getBoundingClientRect; JSDOM returns zeros.
 - **DOC-4.6-06** ✅ **Add row above / below** — new row inserted at correct index.
 - **DOC-4.6-07** ✅ **Delete row.**
 - **DOC-4.6-08** ✅ **Add column left / right.**
@@ -157,17 +165,17 @@
 - **DOC-4.6-10** ✅ **Toggle header row.**
 - **DOC-4.6-11** 🟡 **Toggle header column.** — button present (covered by labels test); dedicated mutation test not yet written.
 - **DOC-4.6-12** ✅ **Delete table.**
-- **DOC-4.6-13** ❌ **Hover-only mode — buttons disabled until cursor enters.** — real hover, JSDOM.
-- **DOC-4.6-14** ❌ **Clicking button snaps cursor into last-hovered cell first** — e.g., "Delete row" targets that cell's row. — hover tracking, JSDOM.
+- **DOC-4.6-13** 🚫 **Hover-only mode — buttons disabled until cursor enters.** — requires real mousemove events; JSDOM can't simulate.
+- **DOC-4.6-14** 🚫 **Clicking button snaps cursor into last-hovered cell first** — e.g., "Delete row" targets that cell's row. — requires hover tracking + real coords; JSDOM returns zeros.
 
 ## 4.7 Link Editor Popover
 
 - **DOC-4.7-01** ✅ **Opens for link mark** — click `<a>` → popover with URL + text fields.
 - **DOC-4.7-02** ✅ **Opens for wiki-link node** — click pill → popover with path + section + display fields.
-- **DOC-4.7-03** ❌ **Default positioning below target.** — real viewport geometry, JSDOM returns zeros.
-- **DOC-4.7-04** ❌ **Flips above when no room below.** — real viewport geometry, JSDOM.
-- **DOC-4.7-05** ❌ **Clamps horizontally inside viewport.** — real viewport geometry, JSDOM.
-- **DOC-4.7-06** ✅ **Datalist autocomplete (wiki mode)** — path input suggestions from `allDocPaths`.
+- **DOC-4.7-03** 🚫 **Default positioning below target.** — requires coordsAtPos + real viewport dimensions; JSDOM returns zeros.
+- **DOC-4.7-04** 🚫 **Flips above when no room below.** — requires real viewport height; JSDOM returns zeros.
+- **DOC-4.7-05** 🚫 **Clamps horizontally inside viewport.** — requires real viewport width; JSDOM returns zeros.
+- **DOC-4.7-06** ✅ **Datalist autocomplete (wiki mode)** — path input `<datalist>` backed by `allDocPaths`; browse button (FolderOpen icon) also present when `tree` is provided.
 - **DOC-4.7-07** ✅ **Enter commits** — updates mark/node.
 - **DOC-4.7-08** 🟡 **Blur commits.** — implicit in Enter/Escape tests; dedicated blur-commit test not written.
 - **DOC-4.7-09** ✅ **Escape reverts** — no change to doc.
@@ -176,6 +184,10 @@
 - **DOC-4.7-12** ✅ **Unlink removes mark/node** — for mark: selection becomes plain text; for node: removes atom.
 - **DOC-4.7-13** 🟡 **Unlink on empty link deletes link text.** — not yet covered.
 - **DOC-4.7-14** 🟡 **External edits resync** — if target mark changes elsewhere, draft updates (only when input not focused). — not yet covered.
+- **DOC-4.7-15** 🚫 **Browse button absent for plain link marks (URL mode).** — requires real browser DOM to assert popover visibility. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.7-16** 🚫 **Clicking browse button opens FolderPicker inline; starts at `currentDocDir`.** — requires real browser to click popover controls. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.7-17** 🚫 **Selecting a file from the inline picker commits the path and closes the picker.** — same live-browser constraint as DOC-4.7-16. Covered in `e2e/documentEditor.spec.ts`.
+- **DOC-4.7-18** 🚫 **Picker repositions the popover (height changes when picker opens).** — requires real offsetHeight after DOM paint; JSDOM returns zeros.
 
 ## 4.8 Wiki-Link Utilities
 
@@ -250,10 +262,10 @@
 - **DOC-4.11-19** ✅ **`discard` failure is reported** — when the re-read throws, the error goes through `reportError(e, 'Discarding changes to <path>')` so the shell banner renders it; in-memory state is left untouched.
 - **DOC-4.11-20** ✅ **`updateContent` is a no-op when content is identical** — if `markdown === contentRef.current`, neither `setContent` nor `setDirty(true)` fires; dirty flag stays false after save when Tiptap fires spurious `onUpdate` events (structural normalizations, trailing-node plugin) without a real content change.
 - **DOC-4.11-21** ✅ **`resetToContent` applies snapshot without disk I/O** — sets `content` to the given string and clears `dirty` to false; no `repo.write` or `repo.read` call made.
-- **DOC-4.11-22** ❌ **`DocumentView` discard is history-first** — `executeDiscard` calls `history.goToSaved()`; if it returns a snapshot, that snapshot is applied via `resetToContent` (no disk read); disk `discard` is called only when history has no saved state.
-- **DOC-4.11-23** ❌ **`DocumentView` discard shows confirmation popover when dirty** — `handleDiscard` sets `discardConfirmPos` when `dirty` is true and `SKIP_DISCARD_CONFIRM_KEY` is not set in localStorage; actual discard deferred until `ConfirmPopover.onConfirm`.
-- **DOC-4.11-24** ❌ **`DocumentView` discard skips popover when skip flag is set** — when `localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true"`, `executeDiscard` runs directly without showing the confirmation popover.
-- **DOC-4.11-25** ❌ **`DocumentView` bridge `save` goes through full save path** — the `DocumentPaneBridge` published to the parent exposes `handleSave` (not the bare `save`), so Cmd+S via the parent calls `history.onFileSave` in addition to disk write; `savedIndex` is correctly advanced.
+- **DOC-4.11-22** ✅ **`DocumentView` discard is history-first** — `executeDiscard` calls `history.goToSaved()`; if it returns a snapshot, that snapshot is applied via `resetToContent` (no disk read); disk `discard` is called only when history has no saved state. (`DocumentView.discard.test.tsx`)
+- **DOC-4.11-23** ✅ **`DocumentView` discard shows confirmation popover when dirty** — `handleDiscard` sets `discardConfirmPos` when `dirty` is true and `SKIP_DISCARD_CONFIRM_KEY` is not set in localStorage; actual discard deferred until `ConfirmPopover.onConfirm`. (`DocumentView.discard.test.tsx`)
+- **DOC-4.11-24** ✅ **`DocumentView` discard skips popover when skip flag is set** — when `localStorage.getItem(SKIP_DISCARD_CONFIRM_KEY) === "true"`, `executeDiscard` runs directly without showing the confirmation popover. (`DocumentView.discard.test.tsx`)
+- **DOC-4.11-25** ✅ **`DocumentView` bridge `save` goes through full save path** — the `DocumentPaneBridge` published to the parent exposes `handleSave` (not the bare `save`), so Cmd+S via the parent calls `history.onFileSave` in addition to disk write; `savedIndex` is correctly advanced. (`DocumentView.discard.test.tsx`)
 - **DOC-4.11-26** ✅ **`removeDocument` removes entry entirely** — after `removeDocument` is called with a doc path, that document no longer appears in the documents list.
 - **DOC-4.11-27** ✅ **`removeDocument` is a no-op for unknown path** — calling `removeDocument` with a path not in the list leaves state unchanged.
 
@@ -263,7 +275,7 @@
 - **DOC-4.12-02** ✅ **`readOnly` disables table floating toolbar.** (Covered by DOC-4.12-02 describe in `TableFloatingToolbar.test.tsx`.)
 - **DOC-4.12-03** ✅ **`readOnly` disables link editor popover.** (Covered by DOC-4.12-03 describe in `LinkEditorPopover.test.tsx`.)
 - **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
-- **DOC-4.12-05** ❌ **Wiki-link click navigates instead of selecting** — see 4.3-15; same NodeView click integration.
+- **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — same JSDOM layout constraint as DOC-4.3-15; covered in `e2e/documentEditor.spec.ts`.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.
 
 ## 4.13 Pane Header Title (first-heading derivation)

@@ -1,8 +1,12 @@
-// src/app/knowledge_base/extensions/wikiLink.ts
+// src/app/knowledge_base/extensions/wikiLink.tsx
+import React from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { Node, mergeAttributes } from "@tiptap/core";
 import Suggestion from "@tiptap/suggestion";
 import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
 import { resolveWikiLinkPath } from "../utils/wikiLinkParser";
+import { FolderPicker } from "../components/FolderPicker";
+import type { TreeNode } from "../../../shared/utils/fileTree";
 
 export interface WikiLinkOptions {
   onNavigate?: (path: string, section?: string) => void;
@@ -11,6 +15,8 @@ export interface WikiLinkOptions {
   existingDocPaths?: Set<string>;
   /** Directory of the current document, used to resolve relative wiki-link paths. */
   currentDocDir?: string;
+  /** Full file tree, used to render the folder-picker when `[[` is triggered. */
+  tree?: TreeNode[];
 }
 
 declare module "@tiptap/core" {
@@ -34,6 +40,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       allDocPaths: [],
       existingDocPaths: new Set(),
       currentDocDir: "",
+      tree: undefined,
     };
   },
 
@@ -201,6 +208,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
   addProseMirrorPlugins() {
     const editor = this.editor;
+    // Capture options object reference — mutations (tree, currentDocDir, etc.) are visible via this ref
     const options = this.options;
     return [
       // Inline text editing AND navigation. DOM-level click handlers on atoms
@@ -246,7 +254,9 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             if (exists) {
               options.onNavigate?.(path, section ?? undefined);
             } else {
-              options.onCreateDocument?.(path);
+              // Create with the fully-resolved path so the file lands with the
+              // correct extension (e.g. "missing-doc.md" not "missing-doc").
+              options.onCreateDocument?.(candidates[0]);
             }
             return true;
           },
@@ -306,71 +316,129 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         editor: this.editor,
         char: "[[",
         items: ({ query }) => {
-          const paths = this.options.allDocPaths ?? [];
-          if (!query) return paths.slice(0, 10);
+          const paths = options.allDocPaths ?? [];
+          // Empty query → picker mode; return single dummy to keep suggestion alive
+          if (!query) return [""];
           const lower = query.toLowerCase();
-          return paths.filter(p => p.toLowerCase().includes(lower)).slice(0, 10);
+          const filtered = paths
+            .filter((p) => p.toLowerCase().includes(lower))
+            .slice(0, 10);
+          // Fall back to raw query so items never becomes empty (avoids premature onExit)
+          return filtered.length > 0 ? filtered : [query];
         },
         render: () => {
           let popup: HTMLDivElement | null = null;
+          let reactRoot: Root | null = null;
+          let currentMode: "picker" | "list" = "picker";
+          let currentItems: string[] = [];
           let selectedIndex = 0;
-          let items: string[] = [];
-          let commandFn: ((props: { id: string }) => void) | null = null;
+          let commandFn: ((attrs: { id: string }) => void) | null = null;
 
-          function updatePopup() {
+          function renderList() {
             if (!popup) return;
-            popup.innerHTML = items.map((item, i) =>
-              `<div class="px-3 py-1.5 text-xs cursor-pointer ${
-                i === selectedIndex ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
-              }" data-index="${i}">${item}</div>`
-            ).join("");
-            popup.querySelectorAll("[data-index]").forEach(el => {
+            popup.innerHTML = currentItems
+              .map((item, i) => {
+                const hl =
+                  i === selectedIndex
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-50";
+                return `<div class="px-3 py-1.5 text-xs cursor-pointer ${hl}" data-index="${i}">${item}</div>`;
+              })
+              .join("");
+            popup.querySelectorAll<HTMLElement>("[data-index]").forEach((el) => {
               el.addEventListener("click", () => {
-                commandFn?.({ id: (el as HTMLElement).textContent ?? "" });
+                commandFn?.({ id: el.textContent ?? "" });
               });
             });
           }
 
+          function enterListMode() {
+            if (currentMode === "picker" && reactRoot) {
+              reactRoot.unmount();
+              reactRoot = null;
+            }
+            currentMode = "list";
+            if (popup) {
+              popup.className =
+                "bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-48 overflow-auto";
+            }
+            renderList();
+          }
+
+          function enterPickerMode() {
+            const tree = options.tree;
+            if (!tree || tree.length === 0) {
+              // No tree available — fall back to flat list
+              enterListMode();
+              return;
+            }
+            currentMode = "picker";
+            if (popup) popup.className = "";
+            if (!reactRoot) reactRoot = createRoot(popup!);
+            reactRoot.render(
+              <FolderPicker
+                tree={tree}
+                startPath={options.currentDocDir ?? ""}
+                onSelect={(path) => commandFn?.({ id: path })}
+              />
+            );
+          }
+
           return {
             onStart(props) {
-              commandFn = (attrs) => {
-                props.command({ id: attrs.id });
-              };
-              items = props.items as string[];
+              commandFn = (attrs) => props.command({ id: attrs.id });
+              currentItems = props.items as string[];
               popup = document.createElement("div");
-              popup.className = "bg-white rounded-lg shadow-lg border border-slate-200 py-1 max-h-48 overflow-auto z-50";
               popup.style.position = "fixed";
-              updatePopup();
-              const { view } = props.editor;
-              const coords = view.coordsAtPos(props.range.from);
-              popup.style.left = `${coords.left}px`;
+              popup.style.zIndex = "50";
+              const coords = props.editor.view.coordsAtPos(props.range.from);
+              popup.style.left = `${Math.min(coords.left, window.innerWidth - 248)}px`;
               popup.style.top = `${coords.bottom + 4}px`;
               document.body.appendChild(popup);
+              enterPickerMode();
             },
             onUpdate(props) {
-              items = props.items as string[];
+              currentItems = props.items as string[];
               commandFn = (attrs) => props.command({ id: attrs.id });
               selectedIndex = 0;
-              updatePopup();
+              const query = (props as { query: string }).query;
+              if (!query) {
+                if (currentMode !== "picker") enterPickerMode();
+                // Already in picker — commandFn closure updated above, no re-render needed
+              } else {
+                if (currentMode !== "list") enterListMode();
+                else renderList();
+              }
             },
             onKeyDown(props) {
+              if (currentMode === "picker") {
+                // Block arrow keys and Enter to prevent editor cursor movement
+                // while the folder picker is open. Other keys (printable chars)
+                // fall through so typing switches to list mode via onUpdate.
+                if (["ArrowDown", "ArrowUp", "Enter", "Tab"].includes(props.event.key)) {
+                  return true;
+                }
+                return false;
+              }
               if (props.event.key === "ArrowDown") {
-                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-                updatePopup();
+                selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1);
+                renderList();
                 return true;
               }
               if (props.event.key === "ArrowUp") {
                 selectedIndex = Math.max(selectedIndex - 1, 0);
-                updatePopup();
+                renderList();
                 return true;
               }
               if (props.event.key === "Enter") {
-                commandFn?.({ id: items[selectedIndex] });
+                commandFn?.({ id: currentItems[selectedIndex] });
                 return true;
               }
               return false;
             },
             onExit() {
+              reactRoot?.unmount();
+              reactRoot = null;
               popup?.remove();
               popup = null;
             },
@@ -378,6 +446,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         },
         command: ({ editor, range, props }) => {
           const path = (props as { id: string }).id;
+          // Ignore the dummy empty-string item used to keep the suggestion alive in picker mode
+          if (!path) return;
           editor
             .chain()
             .focus()

@@ -8,15 +8,15 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 
 ## Files
 
-| # | Area | File |
-|---|---|---|
-| 1 | App Shell & Layout | [01-app-shell.md](01-app-shell.md) |
-| 2 | File System & Vault | [02-file-system.md](02-file-system.md) |
-| 3 | Diagram Editor | [03-diagram.md](03-diagram.md) |
-| 4 | Document Editor | [04-document.md](04-document.md) |
-| 5 | Cross-Cutting Links & Graph | [05-links-and-graph.md](05-links-and-graph.md) |
-| 6 | Shared Hooks & Utilities | [06-shared-hooks.md](06-shared-hooks.md) |
-| 7 | Persistence Surface | [07-persistence.md](07-persistence.md) |
+| # | Prefix | Area | File |
+|---|--------|------|------|
+| 1 | `SHELL` | App Shell & Layout | [01-app-shell.md](01-app-shell.md) |
+| 2 | `FS` | File System & Vault | [02-file-system.md](02-file-system.md) |
+| 3 | `DIAG` | Diagram Editor | [03-diagram.md](03-diagram.md) |
+| 4 | `DOC` | Document Editor | [04-document.md](04-document.md) |
+| 5 | `LINK` | Cross-Cutting Links & Graph | [05-links-and-graph.md](05-links-and-graph.md) |
+| 6 | `HOOK` | Shared Hooks & Utilities | [06-shared-hooks.md](06-shared-hooks.md) |
+| 7 | `PERSIST` | Persistence Surface | [07-persistence.md](07-persistence.md) |
 
 ---
 
@@ -39,17 +39,14 @@ Example:
 
 ### ID scheme
 
-`<AREA>-<section>-<case>` where `<section>` matches the subsection number in `Features.md`.
+```
+<PREFIX>-<section>.<subsection>-<nn>
 
-| Prefix | Area | File |
-|---|---|---|
-| `SHELL` | App shell, header, footer, panes | `01-app-shell.md` |
-| `FS` | Folder picker, vault config, explorer, pickers | `02-file-system.md` |
-| `DIAG` | Diagram editor | `03-diagram.md` |
-| `DOC` | Document editor | `04-document.md` |
-| `LINK` | Link index, wiki-link propagation, graphify bridge | `05-links-and-graph.md` |
-| `HOOK` | Shared hooks (`useEditableState`, `useSyncRef`, `useActionHistory`, `useFileActions`) | `06-shared-hooks.md` |
-| `PERSIST` | localStorage / IDB / disk round-trips | `07-persistence.md` |
+Example: DOC-4.3-10
+         │   │       └─ two-digit case number within the subsection
+         │   └───────── Features.md section number (4 = Document, .3 = Wiki-links)
+         └───────────── area prefix (see Files table above)
+```
 
 Case numbers are zero-padded to two digits (`01`, `02`, …) and **never renumbered once assigned** — new cases get the next free number in the section even if that leaves gaps after deletions. This keeps test-file back-references stable.
 
@@ -62,6 +59,13 @@ Case numbers are zero-padded to two digits (`01`, `02`, …) and **never renumbe
 | 🧪 | Covered only by e2e (Playwright), not by unit/integration. |
 | ❌ | Gap — no test exists yet. |
 | 🚫 | Won't test — documented reason in the notes (e.g. requires a real browser folder picker). |
+
+### Adding a case
+
+1. Find the matching section in the owning file.
+2. Append a line with the next free number and status `❌`.
+3. Reference the ID in a comment or the `it()` title in the test file.
+4. Flip `❌` → `✅` / `🧪` in the same commit as the test lands.
 
 ### Linking cases ↔ tests
 
@@ -110,22 +114,23 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-24 (26 new Playwright diagram tests + flow document attachment feature + useDocumentKeyboardShortcuts §4.14). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-25 (document editor E2E + FolderPicker/DocumentView.discard unit tests; 28 ❌→🚫 reclassifications in DOC-4 for JSDOM-geometry-blocked cases). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
 | 01-app-shell.md | 52 | 12 | 3 | 1 | 5 | 73 |
 | 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
 | 03-diagram.md | 178 | 35 | 0 | 37 | 3 | 253 |
-| 04-document.md | 154 | 34 | 3 | 37 | 8 | 236 |
+| 04-document.md | 168 | 34 | 3 | 9 | 32 | 246 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
 | 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **624** | **96** | **11** | **88** | **28** | **847** |
+| **Total** | **638** | **96** | **11** | **60** | **52** | **857** |
 
-Covered (✅ + 🟡 + 🧪) = **731 / 847 (86%)**; open gaps (❌) = **88 (10%)**; consciously waived (🚫) = **28 (4%)**.
+Covered (✅ + 🟡 + 🧪) = **745 / 857 (87%)**; open gaps (❌) = **60 (7%)**; consciously waived (🚫) = **52 (6%)**.
 
-The 28 remaining 🚫 items are genuinely untestable or non-features:
+The 52 🚫 items break down into:
+- **JSDOM geometry blocked** (DOC-4.3-xx, DOC-4.5-xx, DOC-4.7-xx, DOC-4.12-xx) — Tiptap NodeView rendering, `editor.isActive()`, link popover geometry, and read-mode click navigation need a real browser.
 - **Feature gaps not yet implemented** (PERSIST-7.1-04/05/06/09, FS-2.3-03/16/20, DOC-4.9-02/09) — persistence not wired up; product backlog, not test backlog.
 - **Removed/obsolete UI** (SHELL-1.2-01/07/08, SHELL-1.4-07) — components deleted in the 2026-04-19 header strip-down.
 - **Module-private helpers** (DOC-4.3-36/37, DOC-4.5-09/10/11) — LRU cache and rawBlock toggle helpers are unexported; would require extraction to unit-test.
@@ -143,32 +148,38 @@ The 28 remaining 🚫 items are genuinely untestable or non-features:
 - Document pane persistence gains `DOC-4.11-17..19` (bridge `discard()` re-reads from disk, honours `loadError` guard, reports failures).
 - New section `DOC-4.13 Pane Header Title (first-heading derivation)` with 16 cases covering ATX H1, frontmatter skip, fallback stripping of list/blockquote/lower-heading markers, debounce, and the `#hashtag` / code-fence edge cases.
 
+**2026-04-25 — document editor E2E + wiki-link folder picker unit tests.** `e2e/documentEditor.spec.ts` (11 tests) covers DOC-4.1-04, DOC-4.3-07..11, DOC-4.7-15..17, DOC-4.3-15/16, DOC-4.12-05. New unit test files: `FolderPicker.test.tsx` (DOC-4.3-41..46), `DocumentView.discard.test.tsx` (DOC-4.11-22..25). 28 DOC-4 cases reclassified ❌→🚫 (JSDOM-geometry-blocked: Tiptap NodeView rendering, link popover, read-mode navigation). Stale content indexing bug fixed in `DocumentView.tsx` (`loadedPath` guard); unresolved wiki-link click now creates file with correct `.md` extension.
+
 ### Test suites that back these numbers
 
-- **Unit / integration** (Vitest + JSDOM): 85 test files, 1179 passing tests. Split across feature areas:
+- **Unit / integration** (Vitest + JSDOM): 87 test files, 1194 passing tests. Split across feature areas:
   - App Shell: `Header.test.tsx`, `Footer.test.tsx`, `FooterContext.test.tsx`, `ToolbarContext.test.tsx`, `PaneManager.test.tsx`, `SplitPane.test.tsx`, `PaneTitle.test.tsx`, `PaneHeader.test.tsx`, `ShellErrorContext.test.tsx`.
   - File System & Vault: `ExplorerPanel.test.tsx`, `DocumentPicker.test.tsx`, `iconRegistry.test.ts`, `vaultConfig.test.ts`, `useFileExplorer.helpers.test.ts`, `useFileExplorer.createDocument.test.tsx`, `useFileExplorer.operations.test.tsx`, `useFileActions.test.ts`, `useDirectoryHandle.test.ts`, `idbHandles.test.ts`, `ConfirmPopover.test.tsx`, `fileTree.test.ts`.
-  - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `levelModel.test.ts`, `LayerProperties.test.tsx`, `AutocompleteInput.test.tsx`, `DocumentsSection.test.tsx`, `ContextMenu.test.tsx`, `FlowBreakWarningModal.test.tsx`, `DocInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `DiagramProperties.test.tsx`, `NodeProperties.test.tsx`, `LineProperties.test.tsx`, `PropertiesPanel.test.tsx`, `ConditionElement.test.tsx`, `Element.test.tsx`, `HistoryPanel.test.tsx`, `DiagramView.test.tsx`, `useContextMenuActions.test.ts`, `useFlowManagement.test.ts`, `autoArrange.test.ts`, `connectionConstraints.test.ts`, `documentAttachments.test.ts`, `layerBounds.test.ts`, `selectionUtils.test.ts`, `typeUtils.test.ts`, `persistence.test.ts`, `directoryScope.test.ts`.
-  - Document: `wikiLinkParser.test.ts`, `markdownSerializer.test.ts`, `useDocuments.test.tsx`, `useLinkIndex.test.ts`, `useDocumentContent.test.tsx`, `tableNoNest.test.tsx`, `codeBlockCopy.test.tsx`, `LinkEditorPopover.test.tsx`, `TableFloatingToolbar.test.tsx`, `TablePicker.test.tsx`, `DocumentProperties.test.tsx`, `MarkdownEditor.test.tsx`, `markdownReveal.test.ts`, `rawBlockHelpers.test.ts`, `getFirstHeading.test.ts`.
+  - Diagram: `gridSnap.test.ts`, `anchors.test.ts`, `pathRouter.test.ts`, `flowUtils.test.ts`, `collisionUtils.test.ts`, `conditionGeometry.test.ts`, `geometry.test.ts`, `levelModel.test.ts`, `LayerProperties.test.tsx`, `AutocompleteInput.test.tsx`, `DocumentsSection.test.tsx`, `ContextMenu.test.tsx`, `FlowBreakWarningModal.test.tsx`, `DocInfoBadge.test.tsx`, `Layer.test.tsx`, `FlowDots.test.tsx`, `DiagramProperties.test.tsx`, `NodeProperties.test.tsx`, `LineProperties.test.tsx`, `PropertiesPanel.test.tsx`, `ConditionElement.test.tsx`, `Element.test.tsx`, `HistoryPanel.test.tsx`, `DiagramView.test.tsx`, `DiagramView.docHistory.test.tsx`, `CreateAttachDocModal.test.tsx`, `DetachDocModal.test.tsx`, `DocPreviewModal.test.tsx`, `FlowProperties.test.tsx`, `useContextMenuActions.test.ts`, `useFlowManagement.test.ts`, `autoArrange.test.ts`, `connectionConstraints.test.ts`, `documentAttachments.test.ts`, `layerBounds.test.ts`, `selectionUtils.test.ts`, `typeUtils.test.ts`, `persistence.test.ts`, `directoryScope.test.ts`.
+  - Document: `wikiLinkParser.test.ts`, `markdownSerializer.test.ts`, `useDocuments.test.tsx`, `useLinkIndex.test.ts`, `useDocumentContent.test.ts`, `tableNoNest.test.tsx`, `codeBlockCopy.test.tsx`, `FolderPicker.test.tsx`, `LinkEditorPopover.test.tsx`, `TableFloatingToolbar.test.tsx`, `TablePicker.test.tsx`, `DocumentProperties.test.tsx`, `DocumentView.discard.test.tsx`, `MarkdownEditor.test.tsx`, `markdownReveal.test.ts`, `rawBlockHelpers.test.ts`, `getFirstHeading.test.ts`, `useDocumentKeyboardShortcuts.test.ts`.
   - Links & Graph: `graphifyBridge.test.ts`.
   - Shared history: `historyPersistence.test.ts`, `useHistoryCore.test.ts`, `useHistoryFileSync.test.ts`, `useDocumentHistory.test.ts`, `useDiagramHistory.test.ts`.
   - Hooks: `useSyncRef.test.ts`, `useEditableState.test.ts`.
   - Domain: `errors.test.ts`.
-- **E2E** (Playwright + Chromium): 68 tests across 12 spec files — `app.spec.ts` (6), `goldenPath.spec.ts` (6), `diagramGoldenPath.spec.ts` (6), `documentGoldenPath.spec.ts` (5), `documentReadOnly.spec.ts` (5), `fileExplorerOps.spec.ts` (5), `flowHighlight.spec.ts` (6), `fsMockSanity.spec.ts` (3), `diagramKeyboard.spec.ts` (13), `diagramReadOnly.spec.ts` (7), `diagramConnectionRendering.spec.ts` (3), `diagramMinimap.spec.ts` (3).
+- **E2E** (Playwright + Chromium): 79 tests across 13 spec files — `app.spec.ts` (6), `goldenPath.spec.ts` (6), `diagramGoldenPath.spec.ts` (6), `documentGoldenPath.spec.ts` (5), `documentReadOnly.spec.ts` (5), `documentEditor.spec.ts` (11), `fileExplorerOps.spec.ts` (5), `flowHighlight.spec.ts` (6), `fsMockSanity.spec.ts` (3), `diagramKeyboard.spec.ts` (13), `diagramReadOnly.spec.ts` (7), `diagramConnectionRendering.spec.ts` (3), `diagramMinimap.spec.ts` (3).
 
-### Why 88 ❌ gaps remain
+### Why 60 ❌ gaps remain
 
 - **Remaining canvas geometry (DIAG-3.2 Canvas, 3.5 Node drag, 3.7 Layer drag, 3.9 Connection interaction)** — deeper drag, drop, and scroll geometry still require live browser viewport. DIAG-3.3/3.14/3.17 are now covered by Playwright (see spec files above); the rest need more complex pointer-event sequences or real scroll/zoom harnesses.
-- **Live Tiptap DOM (DOC-4.1 orchestration, 4.2 StarterKit rendering, 4.3 wikiLink NodeView, 4.5 toolbar, 4.12 read-only)** — Tiptap's contenteditable behavior, NodeView rendering, and `editor.isActive()` all need a real browser. Markdown parse/serialize round-trips (DOC-4.4 / 4.8) cover the conversion layer; the live DOM layer is integration-level.
+- **Live Tiptap DOM (DOC-4.1 orchestration, DOC-4.2 StarterKit rendering)** — Tiptap's contenteditable behavior and NodeView rendering in the full editor context need a real browser. DOC-4.3-07..11, DOC-4.7-15..17, DOC-4.3-15/16, DOC-4.12-05 are now covered by `e2e/documentEditor.spec.ts`; remaining gaps are deeper wiki-link interaction flows.
 - **File System Access folder picker (FS-2.1-02, 2.1-12, PERSIST-7.3-15)** — Chromium gates `window.showDirectoryPicker` behind a native dialog that Playwright can't drive without an in-browser mock injected via `page.addInitScript`.
 - **Impl gaps, not test gaps (PERSIST-7.1-04/05/06/09)** — Explorer sort/filter/collapse and "Don't ask again" flags are not yet persisted to localStorage. These are product backlog, not test backlog.
+- **LINK-5.x live flows** — backlink propagation, rename/delete cascades, and graph-view interactions need live vault state across multiple open documents.
 
 ### Path to driving ❌ down further
 
-1. ✅ **Playwright diagram specs** (2026-04-24 — done) — `diagramKeyboard.spec.ts`, `diagramReadOnly.spec.ts`, `diagramConnectionRendering.spec.ts`, `diagramMinimap.spec.ts` cover DIAG-3.2-10, 3.3-01/02/06, 3.5-01/10/11/12, 3.7-01, 3.8-10/14, 3.10-17, 3.14-01/02/04/05/08/09/10, 3.16-12, 3.17-02/03/06/07/08/09. Seed helpers in `e2e/helpers/diagramSeeds.ts`. Deeper drag/scroll geometry (3.2 panning, 3.5 drag, 3.7 layer drag) remains ❌ — would need a **React Flow test harness** with fake `IntersectionObserver` and stubbed `getBoundingClientRect`, potentially unlocking 30-40 more cases.
-2. ✅ **Tiptap integration harness** (Bucket 27 — done) — `MarkdownEditor.test.tsx` mounts the real `MarkdownEditor` with full extension stack and drives the toolbar via `fireEvent.mouseDown` (`TBtn` uses onMouseDown+preventDefault to avoid focus loss). Unlocked 9 new ✅ cases in DOC-4.5 (toolbar visibility, raw/WYSIWYG toggle, heading+block toggles, horizontal rule, active-state) plus DOC-4.12-04.
-3. ✅ **Playwright File System Access mock** (Bucket 25 — done) — `e2e/fixtures/fsMock.ts` + `page.addInitScript` replaces `window.showDirectoryPicker` with an in-memory FS; `e2e/goldenPath.spec.ts` drives the open-folder → click-file → pane-renders flows.
-4. ✅ **Extract module-private helpers** (Bucket 26 — done) — `fileTree.ts` (scanTree + flattenTree out of `useFileExplorer.ts`), `documentAttachments.ts` (hasDocuments + getDocumentsForEntity out of `DiagramView.tsx`), and `rawBlockHelpers.ts` (parseHeadingPrefix + hasBlockquotePrefix + computeActiveRawFormatsAt out of `MarkdownEditor.tsx`) — added 40 direct unit tests and flipped 9 🟡/🚫 markers to ✅.
+1. ✅ **Playwright diagram specs** (2026-04-24 — done) — `diagramKeyboard.spec.ts`, `diagramReadOnly.spec.ts`, `diagramConnectionRendering.spec.ts`, `diagramMinimap.spec.ts` cover DIAG-3.2-10, 3.3-01/02/06, 3.5-01/10/11/12, 3.7-01, 3.8-10/14, 3.10-17, 3.14-01/02/04/05/08/09/10, 3.16-12, 3.17-02/03/06/07/08/09. Seed helpers in `e2e/helpers/diagramSeeds.ts`.
+2. ✅ **Tiptap integration harness** (done) — `MarkdownEditor.test.tsx` mounts the real `MarkdownEditor` with full extension stack. Unlocked DOC-4.5 toolbar cases and DOC-4.12-04.
+3. ✅ **Playwright File System Access mock** (done) — `e2e/fixtures/fsMock.ts` + `page.addInitScript` replaces `window.showDirectoryPicker` with an in-memory FS.
+4. ✅ **Extract module-private helpers** (done) — `fileTree.ts`, `documentAttachments.ts`, `rawBlockHelpers.ts` extracted; 40 direct unit tests added.
+5. ✅ **Document editor E2E** (2026-04-25 — done) — `e2e/documentEditor.spec.ts` covers backlinks dropdown, wiki-link suggestion popup, LinkEditorPopover browse button, and read-mode click navigation (11 tests).
+6. ❌ **LINK-5.x Playwright flows** — multi-document vault scenarios for backlink propagation and rename cascades. Needs `installMockFS` seeded with multi-file vaults and link index pre-warming.
+7. ❌ **DIAG-3.2/3.5/3.7 drag geometry** — React Flow pointer-event sequences + stubbed `getBoundingClientRect`. Could unlock 30-40 cases.
 
 ### Regenerate the numbers
 

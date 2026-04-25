@@ -16,6 +16,7 @@ import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
 import { getMarkRange } from "@tiptap/core";
 import { WikiLink } from "../extensions/wikiLink";
+import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
 import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer";
@@ -30,6 +31,8 @@ interface MarkdownEditorProps {
   onCreateDocument?: (path: string) => void;
   existingDocPaths?: Set<string>;
   allDocPaths?: string[];
+  /** Full file tree — passed to the wiki-link folder picker. */
+  tree?: TreeNode[];
   /** Directory of the current document (from vault root), e.g. "docs/architecture".
    *  Used to resolve wiki-link paths relative to the current file, Obsidian-style. */
   currentDocDir?: string;
@@ -67,6 +70,7 @@ export default function MarkdownEditor({
   onCreateDocument,
   existingDocPaths,
   allDocPaths,
+  tree,
   currentDocDir = "",
   readOnly = false,
   rightSidebar,
@@ -133,6 +137,7 @@ export default function MarkdownEditor({
         onCreateDocument,
         existingDocPaths,
         allDocPaths,
+        tree,
         currentDocDir,
       }),
       RawBlock,
@@ -276,12 +281,13 @@ export default function MarkdownEditor({
         if (ext.name === "wikiLink") {
           ext.options.existingDocPaths = existingDocPaths;
           ext.options.allDocPaths = allDocPaths;
+          ext.options.tree = tree;
           ext.options.currentDocDir = currentDocDir;
         }
       });
       editor.view.dispatch(editor.state.tr);
     });
-  }, [editor, existingDocPaths, allDocPaths, currentDocDir]);
+  }, [editor, existingDocPaths, allDocPaths, tree, currentDocDir]);
 
   const handleToggleRawMode = useCallback(() => {
     if (!editor) return;
@@ -404,7 +410,7 @@ export default function MarkdownEditor({
       {/* Floating editor for the link under the cursor. Self-hides when the
           selection isn't inside a link mark or when the editor is read-only. */}
       {editor && !showRaw && (
-        <LinkEditorPopover editor={editor} allDocPaths={allDocPaths} />
+        <LinkEditorPopover editor={editor} allDocPaths={allDocPaths} tree={tree} currentDocDir={currentDocDir} />
       )}
     </div>
   );

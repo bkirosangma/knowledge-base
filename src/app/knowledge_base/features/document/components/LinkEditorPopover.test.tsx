@@ -322,4 +322,142 @@ describe('LinkEditorPopover — wiki-link mode (DOC-4.7-02, 4.7-06, 4.7-10, 4.7-
       expect(editorRef!.getHTML()).not.toContain('data-wiki-link')
     })
   })
+
+  it('DOC-4.3-14: Escape in the display-text input reverts to the prior display value', async () => {
+    render(<LinkEditorHost />)
+    await waitForEditor()
+    await insertAndSelectWikiLink('notes/test.md')
+
+    await waitFor(
+      () => expect(screen.queryByText('Path')).not.toBeNull(),
+      { timeout: 3000 },
+    )
+
+    // The Text input is the second input in the popover
+    const inputs = document.querySelectorAll<HTMLInputElement>('.bg-white input')
+    const displayInput = Array.from(inputs).find(
+      (el) => el !== screen.getByPlaceholderText('path/to/note#section'),
+    )!
+
+    await act(async () => {
+      fireEvent.change(displayInput, { target: { value: 'Edited label' } })
+    })
+    expect(displayInput.value).toBe('Edited label')
+
+    await act(async () => {
+      fireEvent.keyDown(displayInput, { key: 'Escape' })
+    })
+
+    // Escape should revert to the original display (path-derived default = 'notes/test.md')
+    await waitFor(() => expect(displayInput.value).toBe('notes/test.md'))
+  })
+})
+
+// ── DOC-4.3-04: diagram icon NodeView rendering ────────────────────────────
+
+function WikiLinkHost({
+  existingDocPaths,
+  onNavigate,
+  onCreateDocument,
+}: {
+  existingDocPaths?: Set<string>
+  onNavigate?: (path: string, section?: string) => void
+  onCreateDocument?: (path: string) => void
+}) {
+  const [, forceUpdate] = useState(0)
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      WikiLink.configure({ existingDocPaths, onNavigate, onCreateDocument }),
+    ],
+    content: '<p>Start</p>',
+    immediatelyRender: false,
+  })
+  editorRef = editor
+
+  useEffect(() => {
+    if (!editor) return
+    const fn = () => forceUpdate((n) => n + 1)
+    editor.on('transaction', fn)
+    return () => { editor.off('transaction', fn) }
+  }, [editor])
+
+  if (!editor) return null
+  return <EditorContent editor={editor} />
+}
+
+// DOC-4.3-15, 4.3-16, 4.12-05 (click-in-read-mode navigation/create) are 🚫 —
+// ProseMirror handleClickOn uses posAtCoords({x,y}) which needs real viewport layout;
+// JSDOM returns zero for all getBoundingClientRect calls. Covered in e2e/documentEditor.spec.ts.
+
+describe('WikiLink NodeView — icon and inline-edit (DOC-4.3-04, 4.3-12, 4.3-13)', () => {
+  it('DOC-4.3-04: .json target renders with diagram icon (data-kind="diagram")', async () => {
+    render(
+      <WikiLinkHost existingDocPaths={new Set(['diagram.json'])} />,
+    )
+    await waitForEditor()
+
+    await act(async () => {
+      editorRef!.chain().focus('end').insertWikiLink('diagram.json').run()
+    })
+
+    await waitFor(() => {
+      const iconEl = document.querySelector<HTMLElement>('.wiki-link-icon')
+      expect(iconEl).not.toBeNull()
+      expect(iconEl!.dataset.kind).toBe('diagram')
+    })
+  })
+
+  it('DOC-4.3-12: pressing a printable key while wiki-link is selected appends to display text', async () => {
+    render(<WikiLinkHost />)
+    await waitForEditor()
+
+    await act(async () => {
+      editorRef!.chain().focus('end').insertWikiLink('notes/test.md').run()
+    })
+    const pos = findNodePos(editorRef!, 'wikiLink')
+    await act(async () => {
+      const sel = NodeSelection.create(editorRef!.state.doc, pos)
+      editorRef!.view.dispatch(editorRef!.state.tr.setSelection(sel))
+    })
+
+    const nodeBeforeKey = editorRef!.state.doc.nodeAt(findNodePos(editorRef!, 'wikiLink'))
+    const displayBefore = (nodeBeforeKey?.attrs.display as string) ?? 'notes/test.md'
+
+    await act(async () => {
+      fireEvent.keyDown(editorRef!.view.dom, { key: 'x' })
+    })
+
+    await waitFor(() => {
+      const node = editorRef!.state.doc.nodeAt(findNodePos(editorRef!, 'wikiLink'))
+      expect(node?.attrs.display).toBe(displayBefore + 'x')
+    })
+  })
+
+  it('DOC-4.3-13: Backspace while wiki-link is selected removes the last display character', async () => {
+    render(<WikiLinkHost />)
+    await waitForEditor()
+
+    await act(async () => {
+      editorRef!.chain().focus('end').insertWikiLink('notes/test.md').run()
+    })
+    const pos = findNodePos(editorRef!, 'wikiLink')
+    await act(async () => {
+      const sel = NodeSelection.create(editorRef!.state.doc, pos)
+      editorRef!.view.dispatch(editorRef!.state.tr.setSelection(sel))
+    })
+
+    const nodeBefore = editorRef!.state.doc.nodeAt(findNodePos(editorRef!, 'wikiLink'))
+    const displayBefore = (nodeBefore?.attrs.display as string) ?? 'notes/test.md'
+
+    await act(async () => {
+      fireEvent.keyDown(editorRef!.view.dom, { key: 'Backspace' })
+    })
+
+    await waitFor(() => {
+      const node = editorRef!.state.doc.nodeAt(findNodePos(editorRef!, 'wikiLink'))
+      expect(node?.attrs.display).toBe(displayBefore.slice(0, -1))
+    })
+  })
+
 })
