@@ -16,17 +16,17 @@ describe('fnv1a', () => {
 })
 
 describe('historyFileName', () => {
-  it('strips .json extension', () => {
-    expect(historyFileName('diagram.json')).toBe('.diagram.history.json')
+  it('includes .json extension in sidecar name', () => {
+    expect(historyFileName('diagram.json')).toBe('.diagram.json.history.json')
   })
-  it('strips .md extension', () => {
-    expect(historyFileName('notes.md')).toBe('.notes.history.json')
+  it('includes .md extension in sidecar name', () => {
+    expect(historyFileName('notes.md')).toBe('.notes.md.history.json')
   })
   it('preserves directory prefix', () => {
-    expect(historyFileName('docs/notes.md')).toBe('docs/.notes.history.json')
+    expect(historyFileName('docs/notes.md')).toBe('docs/.notes.md.history.json')
   })
   it('handles nested paths', () => {
-    expect(historyFileName('a/b/c.json')).toBe('a/b/.c.history.json')
+    expect(historyFileName('a/b/c.json')).toBe('a/b/.c.json.history.json')
   })
 })
 
@@ -70,18 +70,33 @@ describe('HIST-5.4: readHistoryFile', () => {
         { id: 1, description: 'Draft', timestamp: 2000, snapshot: 'v1' },
       ],
     }
-    const histFile = new MockFileHandle('.notes.history.json', new MockFile(JSON.stringify(data)))
-    root.files.set('.notes.history.json', histFile)
+    const histFile = new MockFileHandle('.notes.md.history.json', new MockFile(JSON.stringify(data)))
+    root.files.set('.notes.md.history.json', histFile)
     const result = await readHistoryFile<string>(root as unknown as FileSystemDirectoryHandle, 'notes.md')
     expect(result).toEqual(data)
   })
 
   it('HIST-5.4-03: returns null for malformed JSON', async () => {
     const root = new MockDir('root')
-    const histFile = new MockFileHandle('.notes.history.json', new MockFile('not valid json{'))
-    root.files.set('.notes.history.json', histFile)
+    const histFile = new MockFileHandle('.notes.md.history.json', new MockFile('not valid json{'))
+    root.files.set('.notes.md.history.json', histFile)
     const result = await readHistoryFile(root as unknown as FileSystemDirectoryHandle, 'notes.md')
     expect(result).toBeNull()
+  })
+
+  it('HIST-5.4-04: falls back to legacy sidecar name for migration', async () => {
+    const root = new MockDir('root')
+    const data: HistoryFile<string> = {
+      checksum: 'abc123',
+      currentIndex: 0,
+      savedIndex: 0,
+      entries: [{ id: 0, description: 'File loaded', timestamp: 1000, snapshot: 'v0' }],
+    }
+    // Only the old-format sidecar exists
+    const histFile = new MockFileHandle('.notes.history.json', new MockFile(JSON.stringify(data)))
+    root.files.set('.notes.history.json', histFile)
+    const result = await readHistoryFile<string>(root as unknown as FileSystemDirectoryHandle, 'notes.md')
+    expect(result).toEqual(data)
   })
 })
 
@@ -95,7 +110,7 @@ describe('HIST-5.5: writeHistoryFile', () => {
       entries: [{ id: 0, description: 'File loaded', timestamp: 1000, snapshot: 'v0' }],
     }
     await writeHistoryFile(root as unknown as FileSystemDirectoryHandle, 'notes.md', data)
-    const writtenHandle = root.files.get('.notes.history.json')
+    const writtenHandle = root.files.get('.notes.md.history.json')
     expect(writtenHandle).toBeDefined()
     expect(JSON.parse(writtenHandle!.file.data)).toEqual(data)
   })

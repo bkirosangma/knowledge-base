@@ -136,13 +136,13 @@ describe('FS-2.3-25..29: renameFile', () => {
   it('FS-2.3-29: renames the history sidecar alongside the file', async () => {
     const root = new MockDir('vault')
     root.files.set('diagram.json', new MockFileHandle('diagram.json', new MockFile('c')))
-    root.files.set('.diagram.history.json', new MockFileHandle('.diagram.history.json', new MockFile('{"entries":[]}')))
+    root.files.set('.diagram.json.history.json', new MockFileHandle('.diagram.json.history.json', new MockFile('{"entries":[]}')))
     const result = await setupWithRoot(root)
 
     await act(async () => { await result.current.renameFile('diagram.json', 'renamed.json') })
 
-    expect(root.files.has('.renamed.history.json')).toBe(true)
-    expect(root.files.has('.diagram.history.json')).toBe(false)
+    expect(root.files.has('.renamed.json.history.json')).toBe(true)
+    expect(root.files.has('.diagram.json.history.json')).toBe(false)
   })
 })
 
