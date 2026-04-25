@@ -93,7 +93,13 @@ export function useBackgroundScanner({
         continue; // no way to read without handle or override
       }
 
-      const checksum = fnv1a(text);
+      // Normalize JSON content to match the checksum format used by
+      // useHistoryFileSync (JSON.stringify re-serialization strips trailing
+      // newlines that editors like VS Code add, preventing false positives).
+      const contentForChecksum = filePath.endsWith(".json")
+        ? JSON.stringify(JSON.parse(text), null, 2)
+        : text;
+      const checksum = fnv1a(contentForChecksum);
       // No change — nothing to do
       if (checksum === sidecar.checksum) continue;
 
