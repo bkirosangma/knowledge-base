@@ -55,11 +55,11 @@ function KnowledgeBaseInner() {
   // Sort preferences
   const SORT_PREFS_KEY = "knowledge-base-sort-prefs";
   const [sortPrefs, setSortPrefs] = useState<{ field: SortField; direction: SortDirection; grouping: SortGrouping }>(() => {
-    if (typeof window === "undefined") return { field: "name", direction: "asc", grouping: "folders-first" };
+    if (typeof window === "undefined") return { field: "name", direction: "asc", grouping: "files-first" };
     try {
       const raw = JSON.parse(localStorage.getItem(SORT_PREFS_KEY) || "{}");
-      return { field: raw.field ?? "name", direction: raw.direction ?? "asc", grouping: raw.grouping ?? "folders-first" };
-    } catch { return { field: "name", direction: "asc", grouping: "folders-first" }; }
+      return { field: raw.field ?? "name", direction: raw.direction ?? "asc", grouping: raw.grouping ?? "files-first" };
+    } catch { return { field: "name", direction: "asc", grouping: "files-first" }; }
   });
   const handleSortChange = useCallback((field: SortField, direction: SortDirection, grouping: SortGrouping) => {
     setSortPrefs({ field, direction, grouping });
