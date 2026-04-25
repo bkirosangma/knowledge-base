@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
  * Per-file Read Mode state. Persists to localStorage under
  * `<prefix>:<activeFile>` so each file remembers its mode independently.
  *
- * Defaults to `true` (read-only) when no localStorage entry exists.
+ * Defaults to `false` (edit mode) when no localStorage entry exists.
  * Returns `readOnly: true` whenever `activeFile` is null.
  */
 export function useReadOnlyState(
@@ -17,7 +17,7 @@ export function useReadOnlyState(
   toggleReadOnly: () => void;
 } {
   const storageKey = activeFile ? `${prefix}:${activeFile}` : null;
-  const [readOnly, setReadOnly] = useState(true);
+  const [readOnly, setReadOnly] = useState(false);
 
   useEffect(() => {
     if (!storageKey || typeof window === "undefined") {
@@ -25,7 +25,7 @@ export function useReadOnlyState(
       return;
     }
     const stored = localStorage.getItem(storageKey);
-    setReadOnly(stored === null ? true : stored === "true");
+    setReadOnly(stored === "true");
   }, [storageKey]);
 
   const toggleReadOnly = useCallback(() => {
