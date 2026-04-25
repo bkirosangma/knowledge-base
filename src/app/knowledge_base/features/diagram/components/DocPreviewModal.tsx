@@ -78,7 +78,7 @@ export default function DocPreviewModal({
       const t = el.scrollWidth > el.offsetWidth;
       setFilenameTruncated(prev => prev === t ? prev : t);
     }
-  });
+  }, []);
 
   useEffect(() => {
     const el = entityRef.current;
@@ -86,7 +86,7 @@ export default function DocPreviewModal({
       const t = el.scrollWidth > el.offsetWidth;
       setEntityTruncated(prev => prev === t ? prev : t);
     }
-  });
+  }, []);
 
   const handleEdgeDrag = useCallback((e: React.MouseEvent, edge: 'left' | 'right') => {
     e.preventDefault();
