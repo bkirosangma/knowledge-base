@@ -120,3 +120,12 @@ Banner shown when a file changes on disk while the user has unsaved edits. See [
 - **SHELL-1.9-01** ✅ **Conflict message rendered with alert role** — `ConflictBanner` renders a `role="alert"` element containing "This file was changed outside the app." _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-02** ✅ **Reload from disk button calls handler** — clicking "Reload from disk" invokes the `onReload` callback exactly once. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-03** ✅ **Keep my edits button calls handler** — clicking "Keep my edits" invokes the `onKeep` callback exactly once. _(ConflictBanner.test.tsx)_
+
+## 1.10 File Watcher
+
+Background polling primitive that manages a 5-second interval with named subscriber registry. See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx).
+
+- **SHELL-1.10-01** ✅ **Subscribers called on 5s interval** — after mounting `FileWatcherProvider`, registered subscribers fire every 5 seconds. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-02** ✅ **refresh() fires all subscribers immediately** — calling `refresh()` invokes all registered subscribers without waiting for the interval. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-03** ✅ **unsubscribe removes subscriber** — calling `unsubscribe(id)` stops firing the subscriber for future ticks. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-04** ✅ **useFileWatcher throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_

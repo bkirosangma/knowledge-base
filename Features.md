@@ -44,6 +44,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **ToolbarContext** (`shell/ToolbarContext.tsx`) — publishes `activePaneType` (`diagram | document | mixed`), `focusedPane`, `paneCount`. Consumed by the Footer for pane-aware status text; the Header no longer reads it after the 2026-04-19 strip-down.
 - ⚙️ **FooterContext** (`shell/FooterContext.tsx`) — per-side diagram info (world size, patches, zoom) feeding the Footer.
 - ⚙️ **ToastContext** (`shell/ToastContext.tsx`) — lightweight info-level toast system. `ToastProvider` exposes `showToast(message, duration?)` via `useToast()`; renders a single timed `role="status"` banner (auto-dismisses after 3 s by default, replaces any previous toast). Separate from `ShellErrorContext` which handles actionable file-system errors.
+- ⚙️ **FileWatcherContext** (`shared/context/FileWatcherContext.tsx`) — 5s polling interval with named subscriber registry; `refresh()` fires all subscribers immediately; pauses when tab is hidden.
 
 ### 1.6 Pane Content Chrome
 - ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle, right-side action slot.
