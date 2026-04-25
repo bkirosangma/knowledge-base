@@ -373,3 +373,14 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 | DIAG-3.20-09 | ✅ | Entity name badge shown in header when context is known (flow name) |
 
 Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), filename in header.
+
+## 3.21 Diagram File Watcher
+`features/diagram/hooks/useDiagramFileWatcher.ts`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.21-01 | ✅ | No-op when on-disk checksum matches last-known checksum — `checkForChanges` exits early without calling `applySnapshot` |
+| DIAG-3.21-02 | ✅ | Silent reload when diagram is clean and disk changed — records "Reloaded from disk" history entry, moves saved point, calls `applySnapshot` |
+| DIAG-3.21-03 | ✅ | Conflict detection when diagram is dirty and disk changed — sets `conflictSnapshot`, does not modify history or apply snapshot |
+| DIAG-3.21-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk snapshot — records history, moves saved point, applies snapshot |
+| DIAG-3.21-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |

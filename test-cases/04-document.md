@@ -277,6 +277,8 @@
 - **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
 - **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — same JSDOM layout constraint as DOC-4.3-15; covered in `e2e/documentEditor.spec.ts`.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.
+- **DOC-4.12-07** ✅ **Default read-only on open** — given a document file with no saved read-only preference, when opened, then `useReadOnlyState` defaults `readOnly` to `true`. _(useReadOnlyState.test.ts)_
+- **DOC-4.12-08** ✅ **Read-only preference persisted per file** — given a document opened in read mode, when the user toggles read mode, then the preference is persisted to localStorage under `document-read-only:<filePath>` and restored on next open. _(useReadOnlyState.test.ts)_
 
 ## 4.13 Pane Header Title (first-heading derivation)
 
@@ -306,3 +308,14 @@
 - **DOC-4.14-02** ✅ **Cmd+Shift+Z calls onRedo** — `metaKey+shift+z` fires `onRedo` once, `onUndo` not called. _(useDocumentKeyboardShortcuts.test.ts)_
 - **DOC-4.14-03** ✅ **Ctrl+Z calls onUndo (non-Mac)** — `ctrlKey+z` fires `onUndo` once. _(useDocumentKeyboardShortcuts.test.ts)_
 - **DOC-4.14-04** ✅ **readOnly=true suppresses all shortcuts** — Cmd+Z and Cmd+Shift+Z both no-op when `readOnly` is true. _(useDocumentKeyboardShortcuts.test.ts)_
+
+## 4.15 Document File Watcher
+`features/document/hooks/useDocumentFileWatcher.ts`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DOC-4.15-01 | ✅ | No-op when on-disk checksum matches last-known checksum — `checkForChanges` exits early without calling `resetToContent` |
+| DOC-4.15-02 | ✅ | Silent reload when file is clean and disk changed — records "Reloaded from disk" history entry, moves saved point, calls `resetToContent`, updates disk checksum |
+| DOC-4.15-03 | ✅ | Conflict detection when file is dirty and disk changed — sets `conflictContent`, does not modify history or reset editor |
+| DOC-4.15-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk content — records history, moves saved point, resets editor |
+| DOC-4.15-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |

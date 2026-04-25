@@ -20,6 +20,9 @@ import { ToolbarProvider } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
+import { FileWatcherProvider, useFileWatcher } from "./shared/context/FileWatcherContext";
+import { ToastProvider, useToast } from "./shell/ToastContext";
+import { useBackgroundScanner } from "./shared/hooks/useBackgroundScanner";
 import ShellErrorBanner from "./shell/ShellErrorBanner";
 import ShellErrorBoundary from "./shell/ShellErrorBoundary";
 import { readOrNull } from "./domain/repositoryHelpers";
@@ -35,6 +38,38 @@ function KnowledgeBaseInner() {
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
   const panes = usePaneManager();
+  const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
+
+  // ─── Tree subscriber: file-watcher events trigger quiet rescan ───
+  // Uses watcherRescan (not refresh) to avoid loading-state flash and
+  // permission re-check on every polling tick.
+  useEffect(() => {
+    subscribe("tree", fileExplorer.watcherRescan);
+    return () => unsubscribe("tree");
+  }, [subscribe, unsubscribe, fileExplorer.watcherRescan]);
+
+  // ─── Background scanner: update .history.json sidecars for closed files ───
+  const { showToast } = useToast();
+  const openFilePath = panes.activeEntry?.filePath ?? null;
+  const { scan } = useBackgroundScanner({
+    tree: fileExplorer.tree,
+    openFilePath,
+    dirHandleRef: fileExplorer.dirHandleRef,
+    dirtyFiles: fileExplorer.dirtyFiles,
+  });
+  useEffect(() => {
+    subscribe("background", async () => {
+      try {
+        const count = await scan();
+        if (count === 1) showToast("File reloaded from disk");
+        else if (count > 1) showToast(`${count} files reloaded from disk`);
+      } catch {
+        // Background scan errors are non-fatal — silently swallow so the
+        // subscriber failure doesn't block other watchers on this tick.
+      }
+    });
+    return () => unsubscribe("background");
+  }, [subscribe, unsubscribe, scan, showToast]);
 
   // ─── Diagram bridge: DiagramView pushes its state here ───
   const diagramBridgeRef = useRef<DiagramBridge | null>(null);
@@ -72,6 +107,14 @@ function KnowledgeBaseInner() {
   // overlays the whole viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
+  // Fallback confirm state for file/folder deletion when no DiagramView is open.
+  const [shellConfirmAction, setShellConfirmAction] = useState<{
+    type: "delete-file" | "delete-folder";
+    path: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   // ─── Wiki-link aware rename/delete ───
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
     if (diagramBridgeRef.current) {
@@ -96,16 +139,18 @@ function KnowledgeBaseInner() {
     }
   }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError]);
 
-  const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
-    diagramBridgeRef.current?.handleDeleteFile(path, event);
-    if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
-      try {
-        await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
-      } catch (e) {
-        reportError(e, `Updating link index after deleting ${path}`);
+  const handleDeleteFileWithLinks = useCallback((path: string, event: React.MouseEvent) => {
+    if (diagramBridgeRef.current) {
+      diagramBridgeRef.current.handleDeleteFile(path, event);
+      if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
+        void linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
+          (e) => reportError(e, `Updating link index after deleting ${path}`)
+        );
       }
+    } else {
+      setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Capture tree snapshot before the FS move triggers a rescan
@@ -491,13 +536,19 @@ function KnowledgeBaseInner() {
             onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
-            onDeleteFolder={(path, event) => diagramBridgeRef.current?.handleDeleteFolder(path, event)}
+            onDeleteFolder={(path, event) => {
+              if (diagramBridgeRef.current) {
+                diagramBridgeRef.current.handleDeleteFolder(path, event);
+              } else {
+                setShellConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
+              }
+            }}
             onRenameFile={handleRenameFileWithLinks}
             onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
             onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
             onMoveItem={handleMoveItemWithLinks}
             isLoading={fileExplorer.isLoading}
-            onRefresh={fileExplorer.refresh}
+            onRefresh={watcherRefresh}
             sortField={sortPrefs.field}
             sortDirection={sortPrefs.direction}
             sortGrouping={sortPrefs.grouping}
@@ -523,7 +574,7 @@ function KnowledgeBaseInner() {
       {/* Global footer — reads info from the focused pane */}
       <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
 
-      {/* Confirmation popover — state owned by DiagramView via bridge */}
+      {/* Confirmation popover — bridge-owned (diagram open) or shell-owned (no diagram) */}
       {confirmAction && (
         <ConfirmPopover
           message={
@@ -545,6 +596,33 @@ function KnowledgeBaseInner() {
           onCancel={() => diagramBridgeRef.current?.setConfirmAction(null)}
         />
       )}
+      {shellConfirmAction && (
+        <ConfirmPopover
+          message={
+            shellConfirmAction.type === "delete-file"
+              ? `Delete "${shellConfirmAction.path.split("/").pop()}"?`
+              : `Delete folder "${shellConfirmAction.path.split("/").pop()}" and all its contents?`
+          }
+          confirmLabel="Delete"
+          confirmColor="red"
+          position={{ x: shellConfirmAction.x, y: shellConfirmAction.y }}
+          onConfirm={async () => {
+            const { type, path } = shellConfirmAction;
+            setShellConfirmAction(null);
+            if (type === "delete-file") {
+              await fileExplorer.deleteFile(path);
+              if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
+                await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
+                  (e) => reportError(e, `Updating link index after deleting ${path}`)
+                );
+              }
+            } else {
+              await fileExplorer.deleteFolder(path);
+            }
+          }}
+          onCancel={() => setShellConfirmAction(null)}
+        />
+      )}
     </div>
     </RepositoryProvider>
   );
@@ -557,7 +635,11 @@ export default function KnowledgeBase() {
         <ShellErrorBanner />
         <ToolbarProvider>
           <FooterProvider>
-            <KnowledgeBaseInner />
+            <FileWatcherProvider>
+              <ToastProvider>
+                <KnowledgeBaseInner />
+              </ToastProvider>
+            </FileWatcherProvider>
           </FooterProvider>
         </ToolbarProvider>
       </ShellErrorProvider>

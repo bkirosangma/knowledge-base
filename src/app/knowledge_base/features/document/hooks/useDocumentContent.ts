@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRepositories } from "../../../shell/RepositoryContext";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
 import { FileSystemError, classifyError } from "../../../domain/errors";
+import { fnv1a } from "../../../shared/utils/historyPersistence";
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
@@ -48,6 +49,7 @@ export function useDocumentContent(filePath: string | null) {
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
   const loadErrorRef = useRef<FileSystemError | null>(null);
+  const diskChecksumRef = useRef<string>("");
   const documentRepoRef = useRef(documentRepo);
   documentRepoRef.current = documentRepo;
 
@@ -67,6 +69,7 @@ export function useDocumentContent(filePath: string | null) {
     if (loadErrorRef.current) return;
     try {
       await repo.write(filePath, contentRef.current);
+      diskChecksumRef.current = fnv1a(contentRef.current);
       setDirty(false);
     } catch (e) {
       reportError(e, `Saving ${filePath}`);
@@ -115,6 +118,7 @@ export function useDocumentContent(filePath: string | null) {
       try {
         const text = await repo.read(filePath);
         setContent(text);
+        diskChecksumRef.current = fnv1a(text);
         setDirty(false);
         setLoadError(null);
         setLoadedPath(filePath);
@@ -144,6 +148,21 @@ export function useDocumentContent(filePath: string | null) {
     if (markdown === contentRef.current) return;
     setContent(markdown);
     setDirty(true);
+  }, []);
+
+  const getContentFromDisk = useCallback(async (): Promise<{ text: string; checksum: string } | null> => {
+    const repo = documentRepoRef.current;
+    if (!repo || !filePath) return null;
+    try {
+      const text = await repo.read(filePath);
+      return { text, checksum: fnv1a(text) };
+    } catch {
+      return null;
+    }
+  }, [filePath]);
+
+  const updateDiskChecksum = useCallback((checksum: string) => {
+    diskChecksumRef.current = checksum;
   }, []);
 
   // Apply a snapshot string directly — no disk I/O. Used when history can
@@ -179,5 +198,5 @@ export function useDocumentContent(filePath: string | null) {
     get content() { return contentRef.current; },
   }), [save, discard, filePath]);
 
-  return { content, dirty, loadError, loadedPath, save, discard, resetToContent, updateContent, bridge };
+  return { content, dirty, loadError, loadedPath, save, discard, resetToContent, updateContent, bridge, diskChecksumRef, getContentFromDisk, updateDiskChecksum };
 }

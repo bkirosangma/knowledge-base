@@ -10,6 +10,9 @@ import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
+import { useDocumentFileWatcher } from "./hooks/useDocumentFileWatcher";
+import ConflictBanner from "../../shared/components/ConflictBanner";
+import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
@@ -37,14 +40,26 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
 }: DocumentViewProps) {
-  const { content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath } = useDocumentContent(filePath);
+  const {
+    content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
+    diskChecksumRef, getContentFromDisk, updateDiskChecksum,
+  } = useDocumentContent(filePath);
   const history = useDocumentHistory();
+  const { conflictContent, handleReloadFromDisk, handleKeepEdits } = useDocumentFileWatcher({
+    filePath,
+    dirty,
+    diskChecksumRef,
+    getContentFromDisk,
+    resetToContent,
+    history,
+    updateDiskChecksum,
+  });
   const saveStateRef = useRef({ content, history });
   saveStateRef.current = { content, history };
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
   const bumpToken = () => setHistoryToken((t) => t + 1);
-  const [readOnly, setReadOnly] = useState(false);
+  const { readOnly, toggleReadOnly } = useReadOnlyState(filePath, "document-read-only");
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
@@ -235,7 +250,13 @@ export default function DocumentView({
 
   return (
     <div className="flex-1 flex min-h-0 h-full">
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 flex flex-col min-h-0">
+        {conflictContent && (
+          <ConflictBanner
+            onReload={handleReloadFromDisk}
+            onKeep={handleKeepEdits}
+          />
+        )}
         <MarkdownPane
           filePath={filePath}
           content={content}
@@ -254,7 +275,7 @@ export default function DocumentView({
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
           readOnly={readOnly}
-          onToggleReadOnly={() => setReadOnly((v) => !v)}
+          onToggleReadOnly={toggleReadOnly}
           rightSidebar={
             <DocumentProperties
               filePath={filePath}

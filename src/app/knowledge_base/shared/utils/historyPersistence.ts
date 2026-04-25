@@ -25,6 +25,18 @@ export function historyFileName(filePath: string): string {
   const parts = filePath.split("/");
   const name = parts.pop()!;
   const dir = parts.join("/");
+  // Include the full filename (with extension) so .json and .md files that
+  // share the same base name don't collide on the same sidecar file.
+  const histName = `.${name}.history.json`;
+  return dir ? `${dir}/${histName}` : histName;
+}
+
+// Pre-fix naming that stripped the extension — used as a migration fallback
+// when reading sidecars created before the collision was fixed.
+function historyFileNameLegacy(filePath: string): string {
+  const parts = filePath.split("/");
+  const name = parts.pop()!;
+  const dir = parts.join("/");
   const histName = `.${name.replace(/\.(json|md)$/, "")}.history.json`;
   return dir ? `${dir}/${histName}` : histName;
 }
@@ -50,10 +62,20 @@ export async function readHistoryFile<T>(
     const histPath = historyFileName(filePath);
     const parentHandle = await resolveParentHandle(rootHandle, histPath);
     const fileName = histPath.split("/").pop()!;
-    const fileHandle = await parentHandle.getFileHandle(fileName);
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    return JSON.parse(text) as HistoryFile<T>;
+    try {
+      const fileHandle = await parentHandle.getFileHandle(fileName);
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      return JSON.parse(text) as HistoryFile<T>;
+    } catch {
+      // Migration: fall back to legacy name for sidecars created before
+      // extension-specific naming was introduced to prevent .json/.md collision.
+      const legacyName = historyFileNameLegacy(filePath).split("/").pop()!;
+      const legacyHandle = await parentHandle.getFileHandle(legacyName);
+      const legacyFile = await legacyHandle.getFile();
+      const legacyText = await legacyFile.text();
+      return JSON.parse(legacyText) as HistoryFile<T>;
+    }
   } catch {
     return null;
   }

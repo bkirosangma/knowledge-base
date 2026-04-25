@@ -114,20 +114,20 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-25 (document editor E2E + FolderPicker/DocumentView.discard unit tests; 28 ❌→🚫 reclassifications in DOC-4 for JSDOM-geometry-blocked cases). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-04-25 (feat/file-watching review fixes: ToastContext, ConflictBanner, useReadOnlyState→shared/hooks; 9 new ✅ cases added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 52 | 12 | 3 | 1 | 5 | 73 |
+| 01-app-shell.md | 59 | 12 | 3 | 1 | 5 | 80 |
 | 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
 | 03-diagram.md | 178 | 35 | 0 | 37 | 3 | 253 |
-| 04-document.md | 168 | 34 | 3 | 9 | 32 | 246 |
+| 04-document.md | 170 | 34 | 3 | 9 | 32 | 248 |
 | 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
 | 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
 | 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **638** | **96** | **11** | **60** | **52** | **857** |
+| **Total** | **647** | **96** | **11** | **60** | **52** | **866** |
 
-Covered (✅ + 🟡 + 🧪) = **745 / 857 (87%)**; open gaps (❌) = **60 (7%)**; consciously waived (🚫) = **52 (6%)**.
+Covered (✅ + 🟡 + 🧪) = **754 / 866 (87%)**; open gaps (❌) = **60 (7%)**; consciously waived (🚫) = **52 (6%)**.
 
 The 52 🚫 items break down into:
 - **JSDOM geometry blocked** (DOC-4.3-xx, DOC-4.5-xx, DOC-4.7-xx, DOC-4.12-xx) — Tiptap NodeView rendering, `editor.isActive()`, link popover geometry, and read-mode click navigation need a real browser.

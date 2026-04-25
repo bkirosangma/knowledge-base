@@ -239,17 +239,25 @@ export async function renameSidecar(
   oldFileName: string,
   newFileName: string,
 ): Promise<void> {
-  const oldSidecar = `.${oldFileName.replace(/\.json$/, "")}.history.json`;
-  const newSidecar = `.${newFileName.replace(/\.json$/, "")}.history.json`;
-  try {
-    const oldHandle = await parentHandle.getFileHandle(oldSidecar);
-    const content = await (await oldHandle.getFile()).text();
-    const newHandle = await parentHandle.getFileHandle(newSidecar, { create: true });
-    const writable = await newHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-    await parentHandle.removeEntry(oldSidecar);
-  } catch {
-    // No sidecar exists or rename failed — best-effort
+  const newSidecar = `.${newFileName}.history.json`;
+  // Try new naming (with extension) first, then fall back to legacy naming.
+  const oldSidecarCandidates = [
+    `.${oldFileName}.history.json`,
+    `.${oldFileName.replace(/\.(json|md)$/, "")}.history.json`,
+  ];
+  for (const oldSidecar of oldSidecarCandidates) {
+    try {
+      const oldHandle = await parentHandle.getFileHandle(oldSidecar);
+      const content = await (await oldHandle.getFile()).text();
+      const newHandle = await parentHandle.getFileHandle(newSidecar, { create: true });
+      const writable = await newHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      await parentHandle.removeEntry(oldSidecar);
+      return;
+    } catch {
+      // Try next candidate
+    }
   }
+  // No sidecar exists or rename failed — best-effort
 }

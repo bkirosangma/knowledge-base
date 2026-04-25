@@ -29,6 +29,20 @@ export { readTextFile, writeTextFile, getSubdirectoryHandle };
 
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
 
+// Lightweight tree signature: path + lastModified for every node in DFS order.
+// Used by watcherRescan to skip setTree when the vault tree hasn't changed.
+function treeSignature(nodes: TreeNode[]): string {
+  const parts: string[] = [];
+  function walk(items: TreeNode[]) {
+    for (const item of items) {
+      parts.push(`${item.path}:${item.lastModified ?? 0}`);
+      if (item.children) walk(item.children);
+    }
+  }
+  walk(nodes);
+  return parts.join("|");
+}
+
 /* ── Hook ── */
 
 export function useFileExplorer() {
@@ -83,6 +97,20 @@ export function useFileExplorer() {
     const nodes = await scanTree(dirHandleRef.current, "");
     setTree(nodes);
     drafts.refreshDrafts();
+  }, []);
+
+  // Ref tracks the last signature so watcherRescan can skip setTree when nothing changed.
+  const prevTreeSigRef = useRef("");
+
+  // Quiet rescan for the file-watcher polling subscriber: no loading state, no
+  // requestPermission call, and no-op if the tree content hasn't changed.
+  const watcherRescan = useCallback(async () => {
+    if (!dirHandleRef.current) return;
+    const nodes = await scanTree(dirHandleRef.current, "");
+    const sig = treeSignature(nodes);
+    if (sig === prevTreeSigRef.current) return;
+    prevTreeSigRef.current = sig;
+    setTree(nodes);
   }, []);
 
   const openFolder = useCallback(async () => {
@@ -568,6 +596,7 @@ export function useFileExplorer() {
     discardFile,
     markDirty: drafts.markDirty,
     refresh,
+    watcherRescan,
     handleFallbackInput,
     inputRef,
     setActiveFile,

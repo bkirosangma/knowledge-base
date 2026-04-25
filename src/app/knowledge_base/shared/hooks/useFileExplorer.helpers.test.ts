@@ -94,12 +94,12 @@ describe('getSubdirectoryHandle', () => {
 })
 
 describe('renameSidecar (HOOK-6.1-10)', () => {
-  it('renames the sidecar from .old.history.json to .new.history.json', async () => {
+  it('migrates legacy sidecar (.old.history.json) to new name (.new.json.history.json)', async () => {
     const dir = new MockDir()
     dir.files.set('.old.history.json', new MockFileHandle('.old.history.json', new MockFile('{"entries":[]}')))
     await renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'old.json', 'new.json')
     expect(dir.files.has('.old.history.json')).toBe(false)
-    expect(dir.files.get('.new.history.json')!.file.data).toBe('{"entries":[]}')
+    expect(dir.files.get('.new.json.history.json')!.file.data).toBe('{"entries":[]}')
   })
 
   it('is a no-op when no sidecar exists (new file, no history yet)', async () => {
@@ -113,9 +113,9 @@ describe('renameSidecar (HOOK-6.1-10)', () => {
   it('preserves sidecar content exactly', async () => {
     const histJson = JSON.stringify({ checksum: 'abc', currentIndex: 2, savedIndex: 1, entries: [1, 2, 3] })
     const dir = new MockDir()
-    dir.files.set('.diagram.history.json', new MockFileHandle('.diagram.history.json', new MockFile(histJson)))
+    dir.files.set('.diagram.json.history.json', new MockFileHandle('.diagram.json.history.json', new MockFile(histJson)))
     await renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'diagram.json', 'renamed.json')
-    expect(dir.files.get('.renamed.history.json')!.file.data).toBe(histJson)
+    expect(dir.files.get('.renamed.json.history.json')!.file.data).toBe(histJson)
   })
 
   it('works for files without the .json extension in the name', async () => {
