@@ -129,3 +129,22 @@ Background polling primitive that manages a 5-second interval with named subscri
 - **SHELL-1.10-02** ✅ **refresh() fires all subscribers immediately** — calling `refresh()` invokes all registered subscribers without waiting for the interval. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-03** ✅ **unsubscribe removes subscriber** — calling `unsubscribe(id)` stops firing the subscriber for future ticks. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-04** ✅ **useFileWatcher throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_
+
+## 1.11 Command Registry & Palette
+
+Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay (`CommandPalette.tsx`). Commands registered by mounted hooks; auto-unregistered on unmount. See [`src/app/knowledge_base/shared/context/CommandRegistry.tsx`](../src/app/knowledge_base/shared/context/CommandRegistry.tsx) and [`src/app/knowledge_base/shared/components/CommandPalette.tsx`](../src/app/knowledge_base/shared/components/CommandPalette.tsx).
+
+- **SHELL-1.11-01** 🧪 **⌘K opens palette** — pressing `⌘K` (or `Ctrl+K`) while focus is not in an input/textarea/contenteditable → `role="dialog"` palette appears with autofocused search input. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-01)_
+- **SHELL-1.11-02** 🧪 **Header chip opens palette** — clicking the "Search commands… ⌘K" chip in the header → palette appears. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-04)_
+- **SHELL-1.11-03** 🧪 **Typing filters results** — typing in the search input narrows the list by case-insensitive substring match; non-matching query shows "No matching commands". _(e2e: `e2e/commandPalette.spec.ts` CMD-1-02)_
+- **SHELL-1.11-04** 🧪 **Escape closes palette** — pressing Escape while palette is open → dialog dismissed. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-03)_
+- **SHELL-1.11-05** 🧪 **Enter executes command and closes** — navigating to a command with ↑/↓ and pressing Enter → command fires, palette closes. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-05)_
+- **SHELL-1.11-06** ❌ **Backdrop click closes palette** — clicking outside the panel (on the semi-transparent backdrop) → palette closes.
+- **SHELL-1.11-07** ❌ **↑/↓ navigate rows** — pressing ArrowDown highlights the next row; ArrowUp highlights the previous; wraps at boundaries.
+- **SHELL-1.11-08** ✅ **useRegisterCommands no-ops outside provider** — calling `useRegisterCommands` in a component not wrapped by `CommandRegistryProvider` does not throw. _(covered implicitly by unit tests that render keyboard-shortcut hooks without provider)_
+- **SHELL-1.11-09** ✅ **useCommandRegistry returns stub outside provider** — calling `useCommandRegistry()` outside the provider returns empty fallback state without throwing. _(Header.test.tsx renders Header — which calls useCommandRegistry — without provider)_
+- **SHELL-1.11-10** ❌ **⌘K blocked inside contenteditable** — pressing `⌘K` while a Tiptap editor has focus → palette does NOT open.
+- **SHELL-1.11-11** ❌ **Diagram commands absent when no diagram open** — with only a document pane open, "Delete Selected" and diagram "Toggle Read / Edit Mode" commands do not appear in the palette.
+- **SHELL-1.11-12** ❌ **Diagram commands present when diagram open** — with a diagram pane open, "Delete Selected" (when a node is selected) and "Toggle Read / Edit Mode" appear.
+- **SHELL-1.11-13** ❌ **Document commands present when document open** — with a document pane open, document "Toggle Read / Edit Mode" appears in the palette.
+- **SHELL-1.11-14** ❌ **`when` guard hides Delete Selected when nothing selected** — with a diagram open but nothing selected, "Delete Selected" does not appear.

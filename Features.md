@@ -23,6 +23,14 @@ Top-level chrome that hosts every other feature.
 `src/app/knowledge_base/shared/components/Header.tsx`
 - ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Only cross-pane chrome left at the top level — title editing, dirty dot, Save, and Discard relocated to each pane's `PaneTitle` row on 2026-04-19.
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
+- ✅ **⌘K trigger chip** — centered search-commands button in the header flex gap; clicking it opens the Command Palette. 220px wide, muted placeholder text + `⌘K` badge.
+
+### 1.11 Command Registry & Palette
+`src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
+- ⚙️ **CommandRegistryContext** — typed command registry context. Commands are keyed by `id` and stored in a `useRef` map; registration is additive (multiple callers mount simultaneously). Exposes `useRegisterCommands(commands)` (mounts/unmounts cleanup) and `useCommandRegistry()` (palette open state + live command list). Falls back to no-op stubs when used outside the provider so unit tests don't require wrapping.
+- ✅ **Command Palette** — modal overlay triggered by `⌘K` (global keydown guard skips inputs/textareas/contenteditable). Full-screen semi-transparent backdrop, centered 560px panel, rounded-lg shadow-xl. Search input autofocused on open. Results grouped by `group` with muted uppercase headers. Each row: title left, shortcut badge right. Keyboard nav: ↑/↓ move active row, Enter executes + closes, Escape closes. Case-insensitive substring filter. Commands hidden when their `when()` guard returns false. Backdrop click closes.
+- ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
+- ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
