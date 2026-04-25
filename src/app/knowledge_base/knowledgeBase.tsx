@@ -20,6 +20,8 @@ import { ToolbarProvider } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
+import { FileWatcherProvider, useFileWatcher } from "./shared/context/FileWatcherContext";
+import { ToastProvider } from "./shell/ToastContext";
 import ShellErrorBanner from "./shell/ShellErrorBanner";
 import ShellErrorBoundary from "./shell/ShellErrorBoundary";
 import { readOrNull } from "./domain/repositoryHelpers";
@@ -557,7 +559,11 @@ export default function KnowledgeBase() {
         <ShellErrorBanner />
         <ToolbarProvider>
           <FooterProvider>
-            <KnowledgeBaseInner />
+            <FileWatcherProvider>
+              <ToastProvider>
+                <KnowledgeBaseInner />
+              </ToastProvider>
+            </FileWatcherProvider>
           </FooterProvider>
         </ToolbarProvider>
       </ShellErrorProvider>
