@@ -1,14 +1,14 @@
 import { render, screen, act } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { useEffect } from "react";
 import { FileWatcherProvider, useFileWatcher } from "./FileWatcherContext";
 
 function Harness({ onTick }: { onTick: () => Promise<void> }) {
   const { subscribe, unsubscribe } = useFileWatcher();
-  const ref = { current: false };
-  if (!ref.current) {
-    ref.current = true;
+  useEffect(() => {
     subscribe("test", onTick);
-  }
+    return () => unsubscribe("test");
+  }, [subscribe, unsubscribe, onTick]);
   return <button onClick={() => unsubscribe("test")}>unsub</button>;
 }
 
@@ -40,8 +40,11 @@ describe("FileWatcherContext", () => {
   it("refresh() calls all subscribers immediately", async () => {
     const tick = vi.fn().mockResolvedValue(undefined);
     function RefreshButton() {
-      const { refresh, subscribe } = useFileWatcher();
-      subscribe("r", tick);
+      const { refresh, subscribe, unsubscribe } = useFileWatcher();
+      useEffect(() => {
+        subscribe("r", tick);
+        return () => unsubscribe("r");
+      }, [subscribe, unsubscribe]);
       return <button onClick={refresh}>refresh</button>;
     }
     render(
