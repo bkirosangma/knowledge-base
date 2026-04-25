@@ -18,6 +18,12 @@ async function setupFs(page: Page, seed: Record<string, string>) {
     try { indexedDB.deleteDatabase('knowledge-base') } catch { /* ignore */ }
     try { localStorage.clear() } catch { /* ignore */ }
   })
+  await page.addInitScript((files) => {
+    for (const filename of Object.keys(files)) {
+      localStorage.setItem(`diagram-read-only:${filename}`, 'false')
+      localStorage.setItem(`document-read-only:${filename}`, 'false')
+    }
+  }, seed)
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
   await page.evaluate((files) => {
