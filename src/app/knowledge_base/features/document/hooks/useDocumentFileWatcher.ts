@@ -38,6 +38,7 @@ export function useDocumentFileWatcher({
   const [conflictContent, setConflictContent] = useState<string | null>(null);
   const dismissedChecksumRef = useRef<string | null>(null);
   const dirtyRef = useRef(dirty);
+  // Sync every render so the async subscriber always reads the latest dirty flag.
   dirtyRef.current = dirty;
 
   const checkForChanges = useCallback(async () => {
@@ -60,9 +61,13 @@ export function useDocumentFileWatcher({
   }, [filePath, getContentFromDisk, diskChecksumRef, history, resetToContent, updateDiskChecksum, showToast]);
 
   useEffect(() => {
-    subscribe("content", checkForChanges);
-    return () => unsubscribe("content");
+    subscribe("content:doc", checkForChanges);
+    return () => unsubscribe("content:doc");
   }, [subscribe, unsubscribe, checkForChanges]);
+
+  useEffect(() => {
+    dismissedChecksumRef.current = null;
+  }, [filePath]);
 
   const handleReloadFromDisk = useCallback(() => {
     if (!conflictContent) return;

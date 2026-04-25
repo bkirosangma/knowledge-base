@@ -1,5 +1,5 @@
 import { renderHook, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useDocumentFileWatcher } from "./useDocumentFileWatcher";
 import { fnv1a } from "../../../shared/utils/historyPersistence";
 import { FileWatcherProvider } from "../../../shared/context/FileWatcherContext";
@@ -15,7 +15,7 @@ function makeHistory() {
 }
 
 describe("useDocumentFileWatcher", () => {
-  it("no-ops when content checksum matches disk", async () => {
+  it("DOC-4.15-01: no-ops when content checksum matches disk", async () => {
     const history = makeHistory();
     const getContentFromDisk = vi.fn().mockResolvedValue({ text: "abc", checksum: fnv1a("abc") });
     const diskChecksumRef = { current: fnv1a("abc") };
@@ -31,7 +31,7 @@ describe("useDocumentFileWatcher", () => {
     expect(resetToContent).not.toHaveBeenCalled();
   });
 
-  it("silently reloads when checksum differs and file is clean", async () => {
+  it("DOC-4.15-02: silently reloads when checksum differs and file is clean", async () => {
     const history = makeHistory();
     const newText = "updated content";
     const getContentFromDisk = vi.fn().mockResolvedValue({ text: newText, checksum: fnv1a(newText) });
@@ -52,7 +52,7 @@ describe("useDocumentFileWatcher", () => {
     expect(updateDiskChecksum).toHaveBeenCalledWith(fnv1a(newText));
   });
 
-  it("sets conflictContent when file is dirty and disk differs", async () => {
+  it("DOC-4.15-03: sets conflictContent when file is dirty and disk differs", async () => {
     const history = makeHistory();
     const newText = "disk version";
     const getContentFromDisk = vi.fn().mockResolvedValue({ text: newText, checksum: fnv1a(newText) });
@@ -69,7 +69,7 @@ describe("useDocumentFileWatcher", () => {
     expect(history.recordAction).not.toHaveBeenCalled();
   });
 
-  it("handleReloadFromDisk clears conflict and applies disk content", async () => {
+  it("DOC-4.15-04: handleReloadFromDisk clears conflict and applies disk content", async () => {
     const history = makeHistory();
     const newText = "disk version";
     const getContentFromDisk = vi.fn().mockResolvedValue({ text: newText, checksum: fnv1a(newText) });
@@ -92,7 +92,7 @@ describe("useDocumentFileWatcher", () => {
     expect(history.markSaved).toHaveBeenCalled();
   });
 
-  it("handleKeepEdits dismisses the banner and suppresses the same checksum", async () => {
+  it("DOC-4.15-05: handleKeepEdits dismisses the banner and suppresses the same checksum", async () => {
     const history = makeHistory();
     const diskText = "disk";
     const getContentFromDisk = vi.fn().mockResolvedValue({ text: diskText, checksum: fnv1a(diskText) });
