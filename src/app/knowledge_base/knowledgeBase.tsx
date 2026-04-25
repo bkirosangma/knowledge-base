@@ -107,6 +107,14 @@ function KnowledgeBaseInner() {
   // overlays the whole viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
+  // Fallback confirm state for file/folder deletion when no DiagramView is open.
+  const [shellConfirmAction, setShellConfirmAction] = useState<{
+    type: "delete-file" | "delete-folder";
+    path: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   // ─── Wiki-link aware rename/delete ───
   const handleRenameFileWithLinks = useCallback(async (oldPath: string, newName: string) => {
     if (diagramBridgeRef.current) {
@@ -131,16 +139,18 @@ function KnowledgeBaseInner() {
     }
   }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError]);
 
-  const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
-    diagramBridgeRef.current?.handleDeleteFile(path, event);
-    if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
-      try {
-        await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path);
-      } catch (e) {
-        reportError(e, `Updating link index after deleting ${path}`);
+  const handleDeleteFileWithLinks = useCallback((path: string, event: React.MouseEvent) => {
+    if (diagramBridgeRef.current) {
+      diagramBridgeRef.current.handleDeleteFile(path, event);
+      if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
+        void linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
+          (e) => reportError(e, `Updating link index after deleting ${path}`)
+        );
       }
+    } else {
+      setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Capture tree snapshot before the FS move triggers a rescan
@@ -526,7 +536,13 @@ function KnowledgeBaseInner() {
             onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
-            onDeleteFolder={(path, event) => diagramBridgeRef.current?.handleDeleteFolder(path, event)}
+            onDeleteFolder={(path, event) => {
+              if (diagramBridgeRef.current) {
+                diagramBridgeRef.current.handleDeleteFolder(path, event);
+              } else {
+                setShellConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
+              }
+            }}
             onRenameFile={handleRenameFileWithLinks}
             onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
             onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
@@ -558,7 +574,7 @@ function KnowledgeBaseInner() {
       {/* Global footer — reads info from the focused pane */}
       <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
 
-      {/* Confirmation popover — state owned by DiagramView via bridge */}
+      {/* Confirmation popover — bridge-owned (diagram open) or shell-owned (no diagram) */}
       {confirmAction && (
         <ConfirmPopover
           message={
@@ -578,6 +594,33 @@ function KnowledgeBaseInner() {
           position={{ x: confirmAction.x, y: confirmAction.y }}
           onConfirm={() => diagramBridgeRef.current?.handleConfirmAction()}
           onCancel={() => diagramBridgeRef.current?.setConfirmAction(null)}
+        />
+      )}
+      {shellConfirmAction && (
+        <ConfirmPopover
+          message={
+            shellConfirmAction.type === "delete-file"
+              ? `Delete "${shellConfirmAction.path.split("/").pop()}"?`
+              : `Delete folder "${shellConfirmAction.path.split("/").pop()}" and all its contents?`
+          }
+          confirmLabel="Delete"
+          confirmColor="red"
+          position={{ x: shellConfirmAction.x, y: shellConfirmAction.y }}
+          onConfirm={async () => {
+            const { type, path } = shellConfirmAction;
+            setShellConfirmAction(null);
+            if (type === "delete-file") {
+              await fileExplorer.deleteFile(path);
+              if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
+                await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
+                  (e) => reportError(e, `Updating link index after deleting ${path}`)
+                );
+              }
+            } else {
+              await fileExplorer.deleteFolder(path);
+            }
+          }}
+          onCancel={() => setShellConfirmAction(null)}
         />
       )}
     </div>
