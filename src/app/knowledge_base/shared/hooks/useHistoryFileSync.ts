@@ -1,5 +1,6 @@
 // src/app/knowledge_base/shared/hooks/useHistoryFileSync.ts
 import { useRef, useCallback } from "react";
+import type React from "react";
 import { useHistoryCore } from "./useHistoryCore";
 import type { HistoryCore } from "./useHistoryCore";
 import { fnv1a, readHistoryFile, writeHistoryFile } from "../utils/historyPersistence";
@@ -17,6 +18,7 @@ export interface HistoryFileSync<T> extends HistoryCore<T> {
   ): Promise<void>;
   onFileSave(fileContent: string): void;
   clearHistory(): void;
+  readonly diskChecksumRef: React.RefObject<string>;
 }
 
 export function useHistoryFileSync<T>(): HistoryFileSync<T> {
@@ -106,5 +108,6 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
     initHistory,
     onFileSave,
     clearHistory,
+    diskChecksumRef: checksumRef,
   };
 }
