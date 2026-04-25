@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import ConflictBanner from "./ConflictBanner";
 
-// Covers PERSIST-7.2-01/02/03: conflict banner UI and interaction.
+// Covers SHELL-1.9-01, SHELL-1.9-02, SHELL-1.9-03: conflict banner UI and interaction.
 
 describe("ConflictBanner", () => {
   it("renders the conflict message", () => {

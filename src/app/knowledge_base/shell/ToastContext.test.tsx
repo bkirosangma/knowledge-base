@@ -11,7 +11,7 @@ describe("ToastContext", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("renders the toast message when showToast is called", () => {
+  it("SHELL-1.8-01: renders the toast message when showToast is called", () => {
     render(
       <ToastProvider>
         <ShowToastButton msg="File reloaded from disk" />
@@ -21,7 +21,7 @@ describe("ToastContext", () => {
     expect(screen.getByRole("status")).toHaveTextContent("File reloaded from disk");
   });
 
-  it("auto-dismisses after the default 3000ms", () => {
+  it("SHELL-1.8-02: auto-dismisses after the default 3000ms", () => {
     render(
       <ToastProvider>
         <ShowToastButton msg="hello" />
@@ -33,7 +33,7 @@ describe("ToastContext", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("replaces a previous toast with a new one", () => {
+  it("SHELL-1.8-03: replaces a previous toast with a new one", () => {
     function TwoButtons() {
       const { showToast } = useToast();
       return (
@@ -50,7 +50,7 @@ describe("ToastContext", () => {
     expect(screen.queryByText("Toast: first")).toBeNull();
   });
 
-  it("throws when useToast is called outside the provider", () => {
+  it("SHELL-1.8-04: throws when useToast is called outside the provider", () => {
     function Bad() { useToast(); return null; }
     expect(() => render(<Bad />)).toThrow("useToast must be used within ToastProvider");
   });

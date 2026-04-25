@@ -277,6 +277,8 @@
 - **DOC-4.12-04** ✅ **Editor becomes `contenteditable=false`** — `MarkdownEditor.test.tsx` asserts the ProseMirror surface's `contenteditable` attribute is `"false"` when mounted with `readOnly=true`.
 - **DOC-4.12-05** 🚫 **Wiki-link click navigates instead of selecting** — same JSDOM layout constraint as DOC-4.3-15; covered in `e2e/documentEditor.spec.ts`.
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.
+- **DOC-4.12-07** ✅ **Default read-only on open** — given a document file with no saved read-only preference, when opened, then `useReadOnlyState` defaults `readOnly` to `true`. _(useReadOnlyState.test.ts)_
+- **DOC-4.12-08** ✅ **Read-only preference persisted per file** — given a document opened in read mode, when the user toggles read mode, then the preference is persisted to localStorage under `document-read-only:<filePath>` and restored on next open. _(useReadOnlyState.test.ts)_
 
 ## 4.13 Pane Header Title (first-heading derivation)
 

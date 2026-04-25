@@ -10,7 +10,7 @@ import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
-import { useReadOnlyState } from "../../features/diagram/hooks/useReadOnlyState";
+import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 

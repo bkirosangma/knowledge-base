@@ -103,3 +103,20 @@ Shell-level typed-error surface introduced in Phase 5c (2026-04-19). `ShellError
 - **SHELL-1.7-05** 🟡 **Banner renders current error** — `ShellErrorBanner` reads `current` and shows `kindLabel(kind)` + `context` + `message` + Dismiss button. Visual-only; the state round-trip is covered by SHELL-1.7-02..04.
 - **SHELL-1.7-06** 🟡 **Boundary catches render throws** — `ShellErrorBoundary` React class renders a fallback on uncaught render errors, logs via `classifyError`. No assertion coverage — component is never exercised in the current test suite because no rendered component throws synchronously during normal operation.
 - **SHELL-1.7-07** ✅ **`useShellErrors` without provider throws** — guard asserted in `ShellErrorContext.test.tsx`.
+
+## 1.8 Toast Surface
+
+Lightweight info-level toast for transient user feedback (separate from the error-level `ShellErrorContext`). `ToastProvider` wraps the app; consumers call `useToast().showToast(msg, duration?)` to show a timed `role="status"` banner. See [`src/app/knowledge_base/shell/ToastContext.tsx`](../src/app/knowledge_base/shell/ToastContext.tsx).
+
+- **SHELL-1.8-01** ✅ **Toast renders message** — `showToast("…")` causes a `role="status"` element to appear with the message text. _(ToastContext.test.tsx)_
+- **SHELL-1.8-02** ✅ **Toast auto-dismisses after 3 s** — after 3000 ms the `role="status"` element is removed from the DOM. _(ToastContext.test.tsx)_
+- **SHELL-1.8-03** ✅ **Toast replaces previous toast** — calling `showToast` a second time replaces the first message; only one `role="status"` banner is present. _(ToastContext.test.tsx)_
+- **SHELL-1.8-04** ✅ **`useToast` throws outside provider** — calling `useToast()` without a wrapping `ToastProvider` throws with a descriptive message. _(ToastContext.test.tsx)_
+
+## 1.9 Disk Conflict Surface
+
+Banner shown when a file changes on disk while the user has unsaved edits. See [`src/app/knowledge_base/shared/components/ConflictBanner.tsx`](../src/app/knowledge_base/shared/components/ConflictBanner.tsx).
+
+- **SHELL-1.9-01** ✅ **Conflict message rendered with alert role** — `ConflictBanner` renders a `role="alert"` element containing "This file was changed outside the app." _(ConflictBanner.test.tsx)_
+- **SHELL-1.9-02** ✅ **Reload from disk button calls handler** — clicking "Reload from disk" invokes the `onReload` callback exactly once. _(ConflictBanner.test.tsx)_
+- **SHELL-1.9-03** ✅ **Keep my edits button calls handler** — clicking "Keep my edits" invokes the `onKeep` callback exactly once. _(ConflictBanner.test.tsx)_

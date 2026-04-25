@@ -60,7 +60,7 @@ import { Activity, Tag, Map as MapIcon } from "lucide-react";
 import AutoArrangeDropdown from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
-import { useReadOnlyState } from "./hooks/useReadOnlyState";
+import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
 import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
 import DiagramNodeLayer from "./components/DiagramNodeLayer";
