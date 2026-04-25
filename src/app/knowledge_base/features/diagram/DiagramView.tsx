@@ -65,6 +65,7 @@ import AutoArrangeDropdown from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
+import { useToast } from "../../shell/ToastContext";
 import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
 import DiagramNodeLayer from "./components/DiagramNodeLayer";
@@ -162,6 +163,13 @@ export default function DiagramView({
 
   // Per-file Read Mode state. Persisted to localStorage keyed by activeFile.
   const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile, "diagram-read-only");
+  const { showToast } = useToast();
+  const hasShownReadModeToast = useRef(false);
+  const handleFirstKeystrokeInReadMode = useCallback(() => {
+    if (hasShownReadModeToast.current) return;
+    hasShownReadModeToast.current = true;
+    showToast("Press E to edit");
+  }, [showToast]);
 
   // Clear stale overlays when entering Read Mode so nothing lingers.
   useEffect(() => {
@@ -775,6 +783,7 @@ export default function DiagramView({
     handleCreateFlow, handleUndo, handleRedo,
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
     readOnly, onToggleReadOnly: toggleReadOnly,
+    onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
   });
 
   // Drag-end watchers for history recording

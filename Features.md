@@ -29,8 +29,8 @@ Top-level chrome that hosts every other feature.
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
 - ⚙️ **CommandRegistryContext** — typed command registry context. Commands are keyed by `id` and stored in a `useRef` map; registration is additive (multiple callers mount simultaneously). Exposes `useRegisterCommands(commands)` (mounts/unmounts cleanup) and `useCommandRegistry()` (palette open state + live command list). Falls back to no-op stubs when used outside the provider so unit tests don't require wrapping.
 - ✅ **Command Palette** — modal overlay triggered by `⌘K` (global keydown guard skips inputs/textareas/contenteditable). Full-screen semi-transparent backdrop, centered 560px panel, rounded-lg shadow-xl. Search input autofocused on open. Results grouped by `group` with muted uppercase headers. Each row: title left, shortcut badge right. Keyboard nav: ↑/↓ move active row, Enter executes + closes, Escape closes. Case-insensitive substring filter. Commands hidden when their `when()` guard returns false. Backdrop click closes.
-- ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
-- ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
+- ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
+- ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
@@ -55,7 +55,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **FileWatcherContext** (`shared/context/FileWatcherContext.tsx`) — 5s polling interval with named subscriber registry; `refresh()` fires all subscribers immediately; pauses when tab is hidden.
 
 ### 1.6 Pane Content Chrome
-- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle, right-side action slot.
+- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), right-side action slot.
 - ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — title row between the breadcrumb and the toolbar. Shows the diagram's editable title (click-to-edit, Enter/Escape commit/cancel) for diagram panes; shows the debounced first H1 of the markdown (read-only, 250 ms) for document panes. Hosts the dirty dot + Save + Discard buttons on the right of each pane's title.
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
 - ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="alert"` banner with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). Wired into document and diagram panes by their respective file-watcher hooks.
@@ -226,6 +226,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ `Delete` / `Backspace` — delete selection (prompts on flow break).
 - ✅ `Cmd/Ctrl+G` — create flow from multi-line selection.
 - ✅ `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` — undo / redo.
+- ✅ `E` — toggle read-only mode (alias for `Cmd/Ctrl+Shift+R`; disabled when focus is in an input/textarea/contenteditable).
 - ✅ `Cmd/Ctrl+Shift+R` — toggle read-only mode.
 - ✅ **Disabled inside inputs / contenteditable.**
 
@@ -247,8 +248,9 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **HistoryPanel** (`shared/components/HistoryPanel.tsx`) — collapsible UI list of history entries with click-to-revert; `relativeTime()` bucketing (just now / Xs ago / Xm ago / Xh ago / Xd ago); entries rendered newest-first.
 
 ### 3.17 Read-Only Mode
-- ✅ **Default read-only on open** — diagram files open in read mode by default (`shared/hooks/useReadOnlyState` defaults to `readOnly: true` when no localStorage preference exists for the file, and when `activeFile` is null). The user must explicitly switch to edit mode; that choice is persisted per file under `diagram-read-only:<filename>` in localStorage so subsequent opens honour the preference.
-- ✅ **Pane-level toggle** — via PaneHeader lock icon and `Cmd/Ctrl+Shift+R`.
+- ✅ **Default read-only on open** — diagram files open in read mode by default (`shared/hooks/useReadOnlyState` defaults to `readOnly: true` when no localStorage preference exists for the file, and when `activeFile` is null). The user must explicitly switch to edit mode; that choice is persisted per file under `diagram-read-only:<filename>` in localStorage so subsequent opens honour the preference. Newly created files bypass this default by pre-seeding `diagram-read-only:<path>=false` in localStorage immediately after creation.
+- ✅ **Pane-level toggle** — via PaneHeader lock icon (`E` key) and `Cmd/Ctrl+Shift+R`. PaneHeader pill shows amber background with Lock icon when in read mode; subtle slate when editing.
+- ✅ **First-keystroke toast** — the first time the user presses any printable key while in read mode (excluding modifiers and `E`), a toast "Press E to edit" appears once per session.
 - ✅ **Disables drag / delete / edit / property panel inputs.**
 
 ### 3.18 Document Integration
@@ -362,11 +364,12 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.11 Read-Only Mode (Doc)
 - ✅ **Editor locked** — toolbar hidden, table toolbar disabled, link popover disabled, wiki-link click navigates instead of selecting.
-- ✅ **Default read-only on open** — document files open in read mode by default (`useReadOnlyState` with prefix `"document-read-only"` defaults to `readOnly: true` when no localStorage preference exists, matching diagram behaviour). The user must explicitly switch to edit mode; that choice is persisted per file under `document-read-only:<filePath>` in localStorage so subsequent opens honour the preference.
+- ✅ **Default read-only on open** — document files open in read mode by default (`useReadOnlyState` with prefix `"document-read-only"` defaults to `readOnly: true` when no localStorage preference exists, matching diagram behaviour). The user must explicitly switch to edit mode; that choice is persisted per file under `document-read-only:<filePath>` in localStorage so subsequent opens honour the preference. Newly created documents bypass this default by pre-seeding `document-read-only:<path>=false` in localStorage immediately after creation.
+- ✅ **First-keystroke toast** — the first time the user presses any printable key while in read mode (excluding modifiers and `E`), a toast "Press E to edit" appears once per session.
 
 ### 4.12 Document Keyboard Shortcuts
 `features/document/hooks/useDocumentKeyboardShortcuts.ts`
-- ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; Cmd/Ctrl+Z → `onUndo`, Cmd/Ctrl+Shift+Z → `onRedo`; no-op when `readOnly=true`. Stale-closure-safe via refs.
+- ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; `E` (no modifier) → toggle read/edit mode (guarded: no-op when focus is inside contenteditable/input); `Cmd/Ctrl+Shift+R` → toggle read/edit mode; `Cmd/Ctrl+Z` → `onUndo`; `Cmd/Ctrl+Shift+Z` → `onRedo` (undo/redo no-op when `readOnly=true`). Stale-closure-safe via refs.
 
 ### 4.13 Document File Watcher
 `features/document/hooks/useDocumentFileWatcher.ts`

@@ -5,6 +5,7 @@ import DocumentView, { type DocumentPaneBridge } from './DocumentView'
 import { StubRepositoryProvider } from '../../shell/RepositoryContext'
 import { StubShellErrorProvider } from '../../shell/ShellErrorContext'
 import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
+import { ToastProvider } from '../../shell/ToastContext'
 import type { DocumentRepository } from '../../domain/repositories'
 import type { useLinkIndex } from './hooks/useLinkIndex'
 
@@ -95,16 +96,18 @@ function renderDocView(
         value={{ document: docRepo, diagram: null, linkIndex: null, vaultConfig: null }}
       >
         <FileWatcherProvider>
-          <DocumentView
-            focused
-            filePath="test.md"
-            dirHandleRef={dirHandleRef}
-            linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
-            tree={[]}
-            onNavigateLink={vi.fn()}
-            onCreateDocument={vi.fn()}
-            onDocBridge={extra?.onDocBridge}
-          />
+          <ToastProvider>
+            <DocumentView
+              focused
+              filePath="test.md"
+              dirHandleRef={dirHandleRef}
+              linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
+              tree={[]}
+              onNavigateLink={vi.fn()}
+              onCreateDocument={vi.fn()}
+              onDocBridge={extra?.onDocBridge}
+            />
+          </ToastProvider>
         </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>,

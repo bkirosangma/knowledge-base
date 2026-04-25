@@ -327,6 +327,10 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.17-07** ✅ **Context menu suppressed or read-only variant.** — e2e/diagramReadOnly.spec.ts
 - **DIAG-3.17-08** ✅ **Properties panel inputs disabled.** — e2e/diagramReadOnly.spec.ts
 - **DIAG-3.17-09** ✅ **Navigation (click → select) still works.** — e2e/diagramReadOnly.spec.ts
+- **DIAG-3.17-10** 🧪 **E key toggles from read to edit mode.** — e2e/readModeEscape.spec.ts
+- **DIAG-3.17-11** ❌ **E key does not fire when focus is in contenteditable / input.** — e2e/readModeEscape.spec.ts
+- **DIAG-3.17-12** 🧪 **First keystroke in read mode shows toast "Press E to edit".** — e2e/readModeEscape.spec.ts
+- **DIAG-3.17-13** 🧪 **Newly created diagram file opens in edit mode.** — e2e/readModeEscape.spec.ts
 
 ## 3.18 Document Integration
 
