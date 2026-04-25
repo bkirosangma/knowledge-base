@@ -57,9 +57,14 @@ function KnowledgeBaseInner() {
   });
   useEffect(() => {
     subscribe("background", async () => {
-      const count = await scan();
-      if (count === 1) showToast("File reloaded from disk");
-      else if (count > 1) showToast(`${count} files reloaded from disk`);
+      try {
+        const count = await scan();
+        if (count === 1) showToast("File reloaded from disk");
+        else if (count > 1) showToast(`${count} files reloaded from disk`);
+      } catch {
+        // Background scan errors are non-fatal — silently swallow so the
+        // subscriber failure doesn't block other watchers on this tick.
+      }
     });
     return () => unsubscribe("background");
   }, [subscribe, unsubscribe, scan, showToast]);

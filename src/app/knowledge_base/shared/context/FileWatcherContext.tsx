@@ -27,7 +27,8 @@ export function FileWatcherProvider({ children }: { children: ReactNode }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const runAll = useCallback(async () => {
-    await Promise.all(
+    // allSettled so one failing subscriber doesn't prevent others from running
+    await Promise.allSettled(
       [...subscribersRef.current.values()].map((fn) => fn())
     );
   }, []);

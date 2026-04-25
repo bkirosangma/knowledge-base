@@ -40,11 +40,17 @@ export function useDocumentFileWatcher({
   const dirtyRef = useRef(dirty);
   // Sync every render so the async subscriber always reads the latest dirty flag.
   dirtyRef.current = dirty;
+  // Tracks the latest filePath across renders so async callbacks can detect navigation.
+  const currentFileRef = useRef(filePath);
+  currentFileRef.current = filePath;
 
   const checkForChanges = useCallback(async () => {
     if (!filePath) return;
+    const pathAtStart = filePath; // closure value at subscriber creation time
     const result = await getContentFromDisk();
     if (!result) return;
+    // Bail if the user navigated to a different file while we were awaiting disk I/O.
+    if (currentFileRef.current !== pathAtStart) return;
     const { text, checksum } = result;
     if (checksum === diskChecksumRef.current) return;
     if (checksum === dismissedChecksumRef.current) return;

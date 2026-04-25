@@ -97,6 +97,13 @@ export function useBackgroundScanner({
       // No change — nothing to do
       if (checksum === sidecar.checksum) continue;
 
+      // Guard against malformed sidecars to avoid crashing the scan loop
+      if (
+        !sidecar.entries.length ||
+        sidecar.currentIndex < 0 ||
+        sidecar.currentIndex >= sidecar.entries.length
+      ) continue;
+
       // File has changed — build updated entries
       const isDirty = dirtyFiles.has(filePath);
       const now = Date.now();
@@ -104,6 +111,10 @@ export function useBackgroundScanner({
         (m, e) => Math.max(m, e.id),
         -1
       );
+
+      // Diagram files store DiagramSnapshot objects; document files store plain
+      // text strings. Parse .json content so undo/restore gets the right type.
+      const diskSnapshot: unknown = filePath.endsWith(".json") ? JSON.parse(text) : text;
 
       // Keep entries up to and including the current pointer
       let newEntries = [...sidecar.entries.slice(0, sidecar.currentIndex + 1)];
@@ -125,7 +136,7 @@ export function useBackgroundScanner({
         id: nextId,
         description: "Reloaded from disk",
         timestamp: now,
-        snapshot: text,
+        snapshot: diskSnapshot,
       });
 
       const newCurrentIndex = newEntries.length - 1;

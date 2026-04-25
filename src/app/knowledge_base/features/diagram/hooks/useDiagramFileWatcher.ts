@@ -40,11 +40,17 @@ export function useDiagramFileWatcher({
   const dismissedChecksumRef = useRef<string | null>(null);
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  // Tracks the latest activeFile across renders so async callbacks can detect navigation.
+  const currentFileRef = useRef(activeFile);
+  currentFileRef.current = activeFile;
 
   const checkForChanges = useCallback(async () => {
     if (!activeFile) return;
+    const pathAtStart = activeFile; // closure value at subscriber creation time
     const result = await getJsonFromDisk();
     if (!result) return;
+    // Bail if the user navigated to a different file while we were awaiting disk I/O.
+    if (currentFileRef.current !== pathAtStart) return;
     const { checksum, snapshot } = result;
     if (checksum === diskChecksumRef.current) return;
     if (checksum === dismissedChecksumRef.current) return;
@@ -77,7 +83,7 @@ export function useDiagramFileWatcher({
     history.markSaved();
     applySnapshot(snapshot);
     updateDiskChecksum(checksum);
-    clearDraft(activeFile ?? "");
+    if (activeFile) clearDraft(activeFile);
     dismissedChecksumRef.current = null;
     setConflictState(null);
     showToast("File reloaded from disk");
