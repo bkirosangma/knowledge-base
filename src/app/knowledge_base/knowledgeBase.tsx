@@ -21,7 +21,8 @@ import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
 import { FileWatcherProvider, useFileWatcher } from "./shared/context/FileWatcherContext";
-import { ToastProvider } from "./shell/ToastContext";
+import { ToastProvider, useToast } from "./shell/ToastContext";
+import { useBackgroundScanner } from "./shared/hooks/useBackgroundScanner";
 import ShellErrorBanner from "./shell/ShellErrorBanner";
 import ShellErrorBoundary from "./shell/ShellErrorBoundary";
 import { readOrNull } from "./domain/repositoryHelpers";
@@ -44,6 +45,24 @@ function KnowledgeBaseInner() {
     subscribe("tree", fileExplorer.refresh);
     return () => unsubscribe("tree");
   }, [subscribe, unsubscribe, fileExplorer.refresh]);
+
+  // ─── Background scanner: update .history.json sidecars for closed files ───
+  const { showToast } = useToast();
+  const openFilePath = panes.activeEntry?.filePath ?? null;
+  const { scan } = useBackgroundScanner({
+    tree: fileExplorer.tree,
+    openFilePath,
+    dirHandleRef: fileExplorer.dirHandleRef,
+    dirtyFiles: fileExplorer.dirtyFiles,
+  });
+  useEffect(() => {
+    subscribe("background", async () => {
+      const count = await scan();
+      if (count === 1) showToast("File reloaded from disk");
+      else if (count > 1) showToast(`${count} files reloaded from disk`);
+    });
+    return () => unsubscribe("background");
+  }, [subscribe, unsubscribe, scan, showToast]);
 
   // ─── Diagram bridge: DiagramView pushes its state here ───
   const diagramBridgeRef = useRef<DiagramBridge | null>(null);
