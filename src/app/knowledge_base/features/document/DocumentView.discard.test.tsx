@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import DocumentView, { type DocumentPaneBridge } from './DocumentView'
 import { StubRepositoryProvider } from '../../shell/RepositoryContext'
 import { StubShellErrorProvider } from '../../shell/ShellErrorContext'
+import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
 import type { DocumentRepository } from '../../domain/repositories'
 import type { useLinkIndex } from './hooks/useLinkIndex'
 
@@ -47,6 +48,14 @@ vi.mock('../../shared/hooks/useDocumentHistory', () => ({
   }),
 }))
 
+vi.mock('./hooks/useDocumentFileWatcher', () => ({
+  useDocumentFileWatcher: () => ({
+    conflictContent: null,
+    handleReloadFromDisk: vi.fn(),
+    handleKeepEdits: vi.fn(),
+  }),
+}))
+
 // ── Stub repo helpers ────────────────────────────────────────────────────────
 
 function makeDocRepo(initial = '# Original'): DocumentRepository {
@@ -85,16 +94,18 @@ function renderDocView(
       <StubRepositoryProvider
         value={{ document: docRepo, diagram: null, linkIndex: null, vaultConfig: null }}
       >
-        <DocumentView
-          focused
-          filePath="test.md"
-          dirHandleRef={dirHandleRef}
-          linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
-          tree={[]}
-          onNavigateLink={vi.fn()}
-          onCreateDocument={vi.fn()}
-          onDocBridge={extra?.onDocBridge}
-        />
+        <FileWatcherProvider>
+          <DocumentView
+            focused
+            filePath="test.md"
+            dirHandleRef={dirHandleRef}
+            linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
+            tree={[]}
+            onNavigateLink={vi.fn()}
+            onCreateDocument={vi.fn()}
+            onDocBridge={extra?.onDocBridge}
+          />
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>,
   )
