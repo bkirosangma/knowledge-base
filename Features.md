@@ -356,6 +356,10 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 `features/document/hooks/useDocumentKeyboardShortcuts.ts`
 - ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; Cmd/Ctrl+Z → `onUndo`, Cmd/Ctrl+Shift+Z → `onRedo`; no-op when `readOnly=true`. Stale-closure-safe via refs.
 
+### 4.13 Document File Watcher
+`features/document/hooks/useDocumentFileWatcher.ts`
+- ⚙️ **`useDocumentFileWatcher`** — subscribes to the `"content:doc"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the document is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the document is dirty, exposes `conflictContent` so `DocumentView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`.
+
 ---
 
 ## 5. Cross-Cutting Link & Graph Layer
