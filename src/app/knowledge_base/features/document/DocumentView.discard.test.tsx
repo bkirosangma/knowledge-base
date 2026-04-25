@@ -1,11 +1,11 @@
 // Covers DOC-4.11-22, 4.11-23, 4.11-24, 4.11-25.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { createElement, useRef, type ReactNode } from 'react'
-import DocumentView from './DocumentView'
+import DocumentView, { type DocumentPaneBridge } from './DocumentView'
 import { StubRepositoryProvider } from '../../shell/RepositoryContext'
 import { StubShellErrorProvider } from '../../shell/ShellErrorContext'
 import type { DocumentRepository } from '../../domain/repositories'
+import type { useLinkIndex } from './hooks/useLinkIndex'
 
 // ── Heavy sub-component mocks ────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ const stubShellErrorValue = {
 
 function renderDocView(
   docRepo: DocumentRepository,
-  extra?: { onDocBridge?: (b: unknown) => void },
+  extra?: { onDocBridge?: (b: DocumentPaneBridge | null) => void },
 ) {
   const dirHandleRef = { current: null } as React.RefObject<FileSystemDirectoryHandle | null>
   const stubLinkManager = {
@@ -89,11 +89,11 @@ function renderDocView(
           focused
           filePath="test.md"
           dirHandleRef={dirHandleRef}
-          linkManager={stubLinkManager as any}
+          linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
           tree={[]}
           onNavigateLink={vi.fn()}
           onCreateDocument={vi.fn()}
-          onDocBridge={extra?.onDocBridge as any}
+          onDocBridge={extra?.onDocBridge}
         />
       </StubRepositoryProvider>
     </StubShellErrorProvider>,
@@ -187,7 +187,7 @@ describe('DocumentView — bridge save path (DOC-4.11-25)', () => {
     let capturedBridge: { save: () => Promise<void> } | null = null
 
     renderDocView(docRepo, {
-      onDocBridge: (b: unknown) => { capturedBridge = b as typeof capturedBridge },
+      onDocBridge: (b: DocumentPaneBridge | null) => { capturedBridge = b as typeof capturedBridge },
     })
 
     await waitFor(() => expect(capturedBridge).not.toBeNull())
