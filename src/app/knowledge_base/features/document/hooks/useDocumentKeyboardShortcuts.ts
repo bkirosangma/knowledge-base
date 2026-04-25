@@ -44,7 +44,6 @@ export function useDocumentKeyboardShortcuts({ onUndo, onRedo, readOnly, onToggl
       },
     ];
   // Re-memoize only when onToggleReadOnly identity changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onToggleReadOnly]);
 
   useRegisterCommands(documentCmds);

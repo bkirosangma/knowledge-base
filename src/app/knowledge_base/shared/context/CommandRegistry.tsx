@@ -30,8 +30,6 @@ interface CommandRegistryContextValue {
   commands: Command[];
   open: boolean;
   setOpen: (v: boolean) => void;
-  query: string;
-  setQuery: (v: string) => void;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -46,7 +44,6 @@ export function CommandRegistryProvider({ children }: { children: React.ReactNod
   // Version counter triggers a re-derive of the `commands` array.
   const [version, setVersion] = useState(0);
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
 
   const _register = useCallback((commands: Command[]) => {
     for (const cmd of commands) {
@@ -70,8 +67,8 @@ export function CommandRegistryProvider({ children }: { children: React.ReactNod
   );
 
   const value = useMemo<CommandRegistryContextValue>(
-    () => ({ _register, _unregister, commands, open, setOpen, query, setQuery }),
-    [_register, _unregister, commands, open, query],
+    () => ({ _register, _unregister, commands, open, setOpen }),
+    [_register, _unregister, commands, open],
   );
 
   return (
@@ -109,19 +106,15 @@ export function useRegisterCommands(commands: Command[]) {
       _unregister(idsRef.current);
     };
     // Re-run only when command identity or registration fns change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands, _register, _unregister]);
 }
 
 // Stable no-op fallback used when the context is absent (e.g. unit tests).
-// eslint-disable-next-line @typescript-eslint/no-empty-function
 const noop = () => {};
 const FALLBACK_REGISTRY = {
   commands: [] as Command[],
   open: false,
   setOpen: noop as (v: boolean) => void,
-  query: "",
-  setQuery: noop as (v: string) => void,
 };
 
 /**
@@ -131,6 +124,6 @@ const FALLBACK_REGISTRY = {
 export function useCommandRegistry() {
   const ctx = useContext(CommandRegistryContext);
   if (!ctx) return FALLBACK_REGISTRY;
-  const { commands, open, setOpen, query, setQuery } = ctx;
-  return { commands, open, setOpen, query, setQuery };
+  const { commands, open, setOpen } = ctx;
+  return { commands, open, setOpen };
 }

@@ -7,9 +7,12 @@ import type { Command } from "../context/CommandRegistry";
 // ─── CommandPalette ───────────────────────────────────────────────────────────
 
 export default function CommandPalette() {
-  const { commands, open, setOpen, query, setQuery } = useCommandRegistry();
+  const { commands, open, setOpen } = useCommandRegistry();
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  // query is local — nothing outside the palette reads it, so no need for global state.
+  const [query, setQuery] = useState("");
 
   // Filter to visible commands: `when` guard must pass (or be absent).
   // Then apply case-insensitive substring match on title.
@@ -33,24 +36,32 @@ export default function CommandPalette() {
   // Flat ordered list for keyboard navigation.
   const flatList = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
-  // Reset active index when query changes or palette opens.
+  const activeCmd = flatList[activeIndex] ?? null;
+
+  // Reset active index when query changes.
   useEffect(() => {
     setActiveIndex(0);
-  }, [query, open]);
+  }, [query]);
 
-  // Auto-focus input on open.
+  // Auto-focus input on open; restore focus on close.
   useEffect(() => {
     if (open) {
+      // Capture the currently focused element before taking focus.
+      prevFocusRef.current = document.activeElement as HTMLElement;
       // Small delay to let the DOM mount.
       const t = setTimeout(() => inputRef.current?.focus(), 10);
-      return () => clearTimeout(t);
+      return () => {
+        clearTimeout(t);
+        prevFocusRef.current?.focus();
+        prevFocusRef.current = null;
+      };
     }
   }, [open]);
 
   const close = useCallback(() => {
     setOpen(false);
     setQuery("");
-  }, [setOpen, setQuery]);
+  }, [setOpen]);
 
   const execute = useCallback(
     (cmd: Command) => {
@@ -68,6 +79,11 @@ export default function CommandPalette() {
         close();
         return;
       }
+      if (e.key === "Tab") {
+        // Trap focus: items are navigated with arrow keys, input is the only focusable element.
+        e.preventDefault();
+        return;
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, flatList.length - 1));
@@ -80,15 +96,18 @@ export default function CommandPalette() {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        const cmd = flatList[activeIndex];
-        if (cmd) execute(cmd);
+        if (activeCmd) execute(activeCmd);
         return;
       }
     },
-    [flatList, activeIndex, close, execute],
+    [flatList.length, activeCmd, close, execute],
   );
 
   if (!open) return null;
+
+  // Announce result count for screen readers.
+  const announcement =
+    flatList.length === 0 ? "No commands" : `${flatList.length} command${flatList.length === 1 ? "" : "s"}`;
 
   return (
     // Backdrop
@@ -108,6 +127,15 @@ export default function CommandPalette() {
         className="w-full max-w-[560px] mx-4 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* Screen-reader live region — announces result count on each filter change */}
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {announcement}
+        </div>
+
         {/* Search input */}
         <div className="border-b border-slate-100 px-4 py-3">
           <input
@@ -119,22 +147,33 @@ export default function CommandPalette() {
             onKeyDown={handleKeyDown}
             className="w-full text-sm text-slate-800 placeholder-slate-400 outline-none bg-transparent"
             aria-label="Search commands"
+            aria-autocomplete="list"
+            aria-controls="cmd-listbox"
+            aria-activedescendant={activeCmd ? `cmd-option-${activeCmd.id}` : undefined}
           />
         </div>
 
         {/* Results */}
-        <div className="max-h-[360px] overflow-y-auto py-1" role="listbox">
+        <ul
+          id="cmd-listbox"
+          role="listbox"
+          aria-label="Commands"
+          className="max-h-[360px] overflow-y-auto py-1 list-none m-0 p-0"
+        >
           {flatList.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-slate-400">
+            <li className="px-4 py-6 text-center text-sm text-slate-400" role="presentation">
               No matching commands
-            </div>
+            </li>
           ) : (
             (() => {
               let flatIdx = 0;
               return grouped.map(({ group, items }) => (
-                <div key={group}>
-                  {/* Group header */}
-                  <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 select-none">
+                <li key={group} role="group" aria-label={group}>
+                  {/* Group header — decorative, hidden from AT since the group aria-label suffices */}
+                  <div
+                    aria-hidden="true"
+                    className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 select-none"
+                  >
                     {group}
                   </div>
                   {items.map((cmd) => {
@@ -143,6 +182,7 @@ export default function CommandPalette() {
                     return (
                       <div
                         key={cmd.id}
+                        id={`cmd-option-${cmd.id}`}
                         role="option"
                         aria-selected={isActive}
                         className={`flex items-center gap-3 px-4 py-2 cursor-pointer select-none transition-colors ${
@@ -167,11 +207,11 @@ export default function CommandPalette() {
                       </div>
                     );
                   })}
-                </div>
+                </li>
               ));
             })()
           )}
-        </div>
+        </ul>
       </div>
     </div>
   );
