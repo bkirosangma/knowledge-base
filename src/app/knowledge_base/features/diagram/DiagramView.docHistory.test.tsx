@@ -75,6 +75,7 @@ function snapWithDoc(): DiagramSnapshot {
 beforeEach(() => {
   cleanup()
   vi.clearAllMocks()
+  localStorage.clear()
 })
 
 function stubFileExplorer() {
@@ -149,8 +150,9 @@ describe('DiagramView — document attachment history', () => {
     const priorSnap = emptySnap() // snapshot before attach had empty documents
     mockUndo.mockReturnValue(priorSnap)
 
+    localStorage.setItem('diagram-read-only:test-diagram.json', 'false')
     const onLoadDocuments = vi.fn()
-    renderDV(makeProps({ onLoadDocuments }))
+    renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
 
     // Click the Undo button (rendered by HistoryPanel inside DiagramOverlays)
     const undoBtn = document.querySelector('button[title="Undo (Cmd+Z)"]')
@@ -173,8 +175,9 @@ describe('DiagramView — document attachment history', () => {
   it('DIAG-3.10-41: redo calls onLoadDocuments with the document from the next snapshot', async () => {
     mockRedo.mockReturnValue(snapWithDoc())
 
+    localStorage.setItem('diagram-read-only:test-diagram.json', 'false')
     const onLoadDocuments = vi.fn()
-    renderDV(makeProps({ onLoadDocuments }))
+    renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
 
     const redoBtn = document.querySelector('button[title="Redo (Cmd+Shift+Z)"]')
     if (!redoBtn) {

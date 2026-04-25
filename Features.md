@@ -236,6 +236,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **HistoryPanel** (`shared/components/HistoryPanel.tsx`) — collapsible UI list of history entries with click-to-revert; `relativeTime()` bucketing (just now / Xs ago / Xm ago / Xh ago / Xd ago); entries rendered newest-first.
 
 ### 3.17 Read-Only Mode
+- ✅ **Default read-only on open** — diagram files open in read mode by default (`useReadOnlyState` defaults to `readOnly: true` when no localStorage preference exists for the file, and when `activeFile` is null). The user must explicitly switch to edit mode; that choice is persisted per file under `diagram-read-only:<filename>` in localStorage so subsequent opens honour the preference.
 - ✅ **Pane-level toggle** — via PaneHeader lock icon and `Cmd/Ctrl+Shift+R`.
 - ✅ **Disables drag / delete / edit / property panel inputs.**
 
