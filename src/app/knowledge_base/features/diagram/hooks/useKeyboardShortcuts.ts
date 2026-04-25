@@ -134,10 +134,10 @@ export function useKeyboardShortcuts({
         if (pending) setPendingDeletion(pending);
       },
     },
-  // Commands reference stable refs and callbacks — re-memoize only when
-  // onToggleReadOnly or the deletion callbacks change.
+  // Commands reference stable refs and callbacks — re-memoize when
+  // onToggleReadOnly, the deletion callbacks, or readOnly changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [onToggleReadOnly, deleteSelection, setPendingDeletion]);
+  ], [onToggleReadOnly, deleteSelection, setPendingDeletion, readOnly]);
 
   useRegisterCommands(diagramCmds);
 }

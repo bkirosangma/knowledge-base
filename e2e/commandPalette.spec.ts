@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { installMockFS } from './fixtures/fsMock'
 
-// Covers CMD-1-01 through CMD-1-05 (command palette open, filter, close, chip trigger, execute).
+// Covers SHELL-1.11-01 through SHELL-1.11-05 (command palette open, filter, close, chip trigger, execute).
 
 async function setupFs(page: Page, seed: Record<string, string>) {
   await page.addInitScript(installMockFS)
@@ -39,7 +39,7 @@ const SEED = {
 }
 
 test.describe('Command Palette', () => {
-  test('CMD-1-01: ⌘K opens the command palette', async ({ page }) => {
+  test('SHELL-1.11-01: ⌘K opens the command palette', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
     await openDocument(page, 'note.md')
@@ -52,7 +52,7 @@ test.describe('Command Palette', () => {
     await expect(page.getByPlaceholder('Search commands…')).toBeVisible()
   })
 
-  test('CMD-1-02: Typing in the palette filters results', async ({ page }) => {
+  test('SHELL-1.11-02: Typing in the palette filters results', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
     await openDocument(page, 'note.md')
@@ -69,7 +69,7 @@ test.describe('Command Palette', () => {
     await expect(page.getByText('No matching commands')).toBeVisible()
   })
 
-  test('CMD-1-03: Escape closes the palette', async ({ page }) => {
+  test('SHELL-1.11-03: Escape closes the palette', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
     await openDocument(page, 'note.md')
@@ -81,7 +81,7 @@ test.describe('Command Palette', () => {
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).not.toBeVisible({ timeout: 3000 })
   })
 
-  test('CMD-1-04: Clicking the Header chip opens the palette', async ({ page }) => {
+  test('SHELL-1.11-04: Clicking the Header chip opens the palette', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
 
@@ -90,7 +90,7 @@ test.describe('Command Palette', () => {
     await expect(page.getByPlaceholder('Search commands…')).toBeVisible()
   })
 
-  test('CMD-1-05: Enter executes a command and closes the palette', async ({ page }) => {
+  test('SHELL-1.11-05: Enter executes a command and closes the palette', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
     await openDocument(page, 'note.md')
