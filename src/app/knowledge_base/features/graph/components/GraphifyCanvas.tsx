@@ -160,6 +160,39 @@ export default function GraphifyCanvas({
     };
   }, []);
 
+  // ── Wheel: pinch (ctrlKey) → zoom, two-finger scroll → pan ───────────────
+  // Captured before d3-zoom's bubble-phase handler so we own all wheel events.
+  // deltaMode: 0 = pixels (trackpad), 1 = lines (mouse), 2 = pages.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      e.stopPropagation(); // prevent d3-zoom from also reacting
+      const graph = graphRef.current;
+      if (!graph) return;
+
+      const lineScale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 200 : 1;
+      const dx = e.deltaX * lineScale;
+      const dy = e.deltaY * lineScale;
+
+      if (e.ctrlKey) {
+        // Pinch on trackpad, or Ctrl+scroll → smooth zoom, no snap.
+        const z: number = graph.zoom();
+        graph.zoom(Math.max(0.1, Math.min(10, z * Math.pow(2, -dy * 0.004))), 0);
+      } else {
+        // Two-finger scroll (trackpad) or mouse wheel → pan.
+        const z: number = graph.zoom();
+        const { x, y }: { x: number; y: number } = graph.centerAt();
+        graph.centerAt(x + dx / z, y + dy / z, 0);
+      }
+    }
+
+    el.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => el.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+  }, []);
+
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
 
   const nodeColor = useCallback(
