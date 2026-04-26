@@ -54,7 +54,7 @@ interface UseGraphDataArgs {
   layout?: Record<string, { x: number; y: number }> | null;
 }
 
-function topLevelFolder(path: string): string {
+export function topLevelFolder(path: string): string {
   const idx = path.indexOf("/");
   return idx === -1 ? "" : path.substring(0, idx);
 }

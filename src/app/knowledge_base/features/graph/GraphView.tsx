@@ -28,6 +28,7 @@ import {
   listTopFolders,
   type GraphFilters as FiltersState,
 } from "./hooks/useGraphData";
+import { useGraphifyData } from "./hooks/useGraphifyData";
 import GraphFilters from "./components/GraphFilters";
 
 // Lazy-load the canvas wrapper. `ssr: false` because react-force-graph-2d
@@ -57,19 +58,25 @@ export interface GraphViewProps {
   onSelectNode: (filePath: string) => void;
   /** Trigger a full vault scan to rebuild the link index. */
   onRefresh?: () => Promise<void>;
+  /** Vault root handle — used to read graphify-out/graph.json for the knowledge graph mode. */
+  dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>;
 }
 
-export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: GraphViewProps) {
+type GraphMode = "linkIndex" | "graphify";
+
+export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh, dirHandleRef }: GraphViewProps) {
   // Read theme from context — propagates dark-mode flips to canvas colors.
   const { theme } = useTheme();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [graphMode, setGraphMode] = useState<GraphMode>("linkIndex");
 
   const handleRefresh = useCallback(async () => {
     if (!onRefresh || isRefreshing) return;
     setIsRefreshing(true);
     try { await onRefresh(); } finally { setIsRefreshing(false); }
   }, [onRefresh, isRefreshing]);
-  // ─── Filters ─────────────────────────────────────────────────────────
+
+  // ─── Filters (link-index mode only) ──────────────────────────────────
   const allFolders = useMemo(() => listTopFolders(tree), [tree]);
   const [filters, setFilters] = useState<FiltersState>(() => ({
     folders: null,
@@ -119,8 +126,14 @@ export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: 
     [repos.vaultConfig],
   );
 
-  // ─── Derived graph data ──────────────────────────────────────────────
-  const data = useGraphData({ tree, linkIndex, filters, layout });
+  // ─── Graph data (both sources) ───────────────────────────────────────
+  const linkIndexData = useGraphData({ tree, linkIndex, filters, layout });
+  const { data: graphifyData, status: graphifyStatus } = useGraphifyData(
+    dirHandleRef,
+    graphMode === "graphify",
+  );
+
+  const activeData = graphMode === "graphify" ? graphifyData : linkIndexData;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full" data-testid="graph-view">
@@ -134,9 +147,18 @@ export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: 
         <Network size={14} className="text-mute" aria-hidden="true" />
         <span className="text-sm font-semibold text-ink">Vault graph</span>
         <span className="text-xs text-mute">
-          {data.nodes.length} node{data.nodes.length === 1 ? "" : "s"} · {data.links.length} edge{data.links.length === 1 ? "" : "s"}
+          {activeData.nodes.length} node{activeData.nodes.length === 1 ? "" : "s"} · {activeData.links.length} edge{activeData.links.length === 1 ? "" : "s"}
         </span>
-        {onRefresh && (
+        <select
+          value={graphMode}
+          onChange={(e) => setGraphMode(e.target.value as GraphMode)}
+          className="ml-2 text-xs bg-surface border border-line rounded px-1 py-0.5 text-ink"
+          aria-label="Graph source"
+        >
+          <option value="linkIndex">Link index</option>
+          <option value="graphify">Knowledge graph</option>
+        </select>
+        {onRefresh && graphMode === "linkIndex" && (
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -149,13 +171,36 @@ export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: 
       </div>
 
       <div className="flex-1 flex min-h-0">
-        <GraphFilters allFolders={allFolders} filters={filters} onChange={setFilters} />
-        <GraphCanvas
-          data={data}
-          theme={theme}
-          onSelectNode={onSelectNode}
-          onLayoutChange={handleLayoutChange}
-        />
+        {graphMode === "linkIndex" ? (
+          <>
+            <GraphFilters allFolders={allFolders} filters={filters} onChange={setFilters} />
+            <GraphCanvas
+              data={linkIndexData}
+              theme={theme}
+              onSelectNode={onSelectNode}
+              onLayoutChange={handleLayoutChange}
+            />
+          </>
+        ) : graphifyStatus === "loading" ? (
+          <div className="flex-1 flex items-center justify-center bg-surface-2 text-mute text-sm">
+            Loading knowledge graph…
+          </div>
+        ) : graphifyStatus === "missing" ? (
+          <div className="flex-1 flex items-center justify-center bg-surface-2 text-mute text-sm px-6 text-center">
+            Run <code className="mx-1 px-1 bg-surface rounded font-mono">graphify . --update</code> inside the vault to build the knowledge graph.
+          </div>
+        ) : graphifyStatus === "error" ? (
+          <div className="flex-1 flex items-center justify-center bg-surface-2 text-mute text-sm">
+            Could not parse graphify-out/graph.json
+          </div>
+        ) : (
+          <GraphCanvas
+            data={graphifyData}
+            theme={theme}
+            onSelectNode={onSelectNode}
+            onLayoutChange={handleLayoutChange}
+          />
+        )}
       </div>
     </div>
   );

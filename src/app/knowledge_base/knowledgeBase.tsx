@@ -631,8 +631,17 @@ function KnowledgeBaseInner() {
   const panesOpenFile = panes.openFile;
   const panesEnterSplit = panes.enterSplit;
   const panesSetFocusedSide = panes.setFocusedSide;
-  const handleOpenGraph = useCallback(() => {
-    panesOpenFile(GRAPH_SENTINEL, "graph");
+  const handleToggleGraph = useCallback(() => {
+    const p = panesRef.current;
+    const leftIsGraph  = p.leftPane?.fileType  === "graph";
+    const rightIsGraph = p.rightPane?.fileType === "graph";
+    if (leftIsGraph || rightIsGraph) {
+      const side = leftIsGraph ? "left" : "right";
+      p.setFocusedSide(side);
+      p.closeFocusedPane();
+    } else {
+      panesOpenFile(GRAPH_SENTINEL, "graph");
+    }
   }, [panesOpenFile]);
 
   // Click-from-graph: open the file in the OPPOSITE pane so the graph
@@ -677,11 +686,11 @@ function KnowledgeBaseInner() {
   // the modifier set is distinct.
   const openGraphCommands = useMemo(() => [{
     id: "view.open-graph",
-    title: "Open Graph View",
+    title: "Toggle Graph View",
     group: "View",
     shortcut: "⌘⇧G",
-    run: handleOpenGraph,
-  }], [handleOpenGraph]);
+    run: handleToggleGraph,
+  }], [handleToggleGraph]);
   useRegisterCommands(openGraphCommands);
 
   useEffect(() => {
@@ -693,12 +702,12 @@ function KnowledgeBaseInner() {
           if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
         }
         e.preventDefault();
-        handleOpenGraph();
+        handleToggleGraph();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenGraph]);
+  }, [handleToggleGraph]);
 
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
@@ -709,6 +718,7 @@ function KnowledgeBaseInner() {
           tree={fileExplorer.tree}
           linkIndex={linkManager.linkIndex}
           onSelectNode={handleSelectFromGraph}
+          dirHandleRef={fileExplorer.dirHandleRef}
           onRefresh={async () => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
@@ -840,6 +850,7 @@ function KnowledgeBaseInner() {
           readPane={mobileReadPane}
           linkIndex={linkManager.linkIndex}
           onSelectFromGraph={handleSelectFromGraph}
+          dirHandleRef={fileExplorer.dirHandleRef}
           directoryName={fileExplorer.directoryName}
           tree={fileExplorer.tree}
           leftPaneFile={panes.leftPane?.filePath ?? null}
