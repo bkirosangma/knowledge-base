@@ -3,9 +3,15 @@ import { installMockFS } from './fixtures/fsMock'
 
 // Covers: EXPL-2.7-01, EXPL-2.7-02, EXPL-2.8-01, EXPL-2.8-02, EXPL-2.9-01
 
-const EMPTY_DIAGRAM = JSON.stringify({
-  title: 'empty', layers: [], nodes: [], connections: [],
-  layerManualSizes: {}, lineCurve: 'orthogonal', flows: [],
+const ONE_NODE_DIAGRAM = JSON.stringify({
+  title: 'arch',
+  layers: [],
+  nodes: [{ id: 'n1', label: 'Service', icon: 'Box', x: 120, y: 120, w: 180, layer: '', type: 'default' }],
+  connections: [],
+  flows: [],
+  documents: [],
+  layerManualSizes: {},
+  lineCurve: 'orthogonal',
 })
 
 async function setupFs(page: Page, seed: Record<string, string>) {
@@ -52,11 +58,12 @@ test.describe('Explorer Search', () => {
 
     // Search results should show the matching file
     await expect(page.getByTestId('explorer-search-results')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByText('deep.md')).toBeVisible()
+    // Use first() because the search result renders both a filename span and a path span
+    await expect(page.getByText('deep.md').first()).toBeVisible()
 
-    // Non-matching files should not be visible in the tree
-    await expect(page.getByText('alpha.md')).not.toBeVisible()
-    await expect(page.getByText('beta.md')).not.toBeVisible()
+    // Non-matching files should not be visible in the tree or search results
+    await expect(page.getByTestId('explorer-search-results').getByText('alpha.md')).not.toBeVisible()
+    await expect(page.getByTestId('explorer-search-results').getByText('beta.md')).not.toBeVisible()
   })
 
   test('EXPL-2.7-02: clearing the search restores the full tree', async ({ page }) => {
@@ -72,7 +79,7 @@ test.describe('Explorer Search', () => {
     // Filter
     const searchInput = page.getByTestId('explorer-search')
     await searchInput.fill('deep')
-    await expect(page.getByText('deep.md')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByText('deep.md').first()).toBeVisible({ timeout: 3000 })
 
     // Clear via clear button
     await page.getByRole('button', { name: 'Clear search' }).click()
@@ -137,7 +144,7 @@ test.describe('Explorer Recents', () => {
 test.describe('Explorer Unsaved', () => {
   test('EXPL-2.9-01: Unsaved group shows files with unsaved changes', async ({ page }) => {
     await setupFs(page, {
-      'arch.json': EMPTY_DIAGRAM,
+      'arch.json': ONE_NODE_DIAGRAM,
     })
     await openFolder(page)
 
@@ -145,15 +152,20 @@ test.describe('Explorer Unsaved', () => {
 
     // Open the diagram
     await page.getByText('arch.json').first().click()
-    await page.locator('[data-testid="diagram-canvas"]').waitFor({ timeout: 5000 })
+    await expect(page.locator('[data-testid="node-n1"]')).toBeVisible({ timeout: 5000 })
 
-    // Make a change — add a node via keyboard (press Escape to ensure no selection, then use the canvas)
-    // Simulate a dirty state by interacting with the diagram canvas
-    // The diagram marks dirty after any change. Double-click to add a node.
-    await page.locator('[data-testid="diagram-canvas"]').dblclick({ position: { x: 200, y: 200 } })
+    // Drag the node to mark the diagram dirty
+    const node = page.locator('[data-testid="node-n1"]')
+    const box = await node.boundingBox()
+    if (!box) throw new Error('node-n1 has no bounding box')
+    const sx = box.x + 20
+    const sy = box.y + 20
+    await node.dispatchEvent('mousedown', { bubbles: true, cancelable: true, clientX: sx, clientY: sy })
+    await page.mouse.move(sx + 150, sy + 50, { steps: 5 })
+    await page.mouse.up()
 
-    // The Unsaved group should appear
+    // The Unsaved group should appear (dirty state is debounced by 500ms in persistence hook)
     await expect(page.getByText('Unsaved changes', { exact: false })).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('text=arch.json').first()).toBeVisible()
+    await expect(page.getByText('arch.json').first()).toBeVisible()
   })
 })
