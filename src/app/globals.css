@@ -54,6 +54,18 @@
   --focus: rgba(52, 211, 153, 0.5);
 }
 
+/* Active-row backgrounds — `bg-blue-50` (left pane) and `bg-green-50`
+ * (right pane) read as near-white on the dark surface, which kills the
+ * active affordance. Re-bind to translucent accent / green fills so the
+ * active row stays visible without introducing new tokens or touching
+ * every consumer (Phase 3 PR 1, 2026-04-26). */
+[data-theme="dark"] .bg-blue-50 {
+  background-color: rgba(52, 211, 153, 0.18);
+}
+[data-theme="dark"] .bg-green-50 {
+  background-color: rgba(74, 222, 128, 0.15);
+}
+
 @theme inline {
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);

@@ -1071,8 +1071,8 @@ export default function DiagramView({
           />
 
           {/* Diagram toolbar */}
-          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">
-            <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
+          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-surface-2 border-b border-line z-10">
+            <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-line">
               <button
                 onClick={() => setIsLive(l => !l)}
                 className={toggleClass(isLive)}
@@ -1097,7 +1097,7 @@ export default function DiagramView({
             <button
               onClick={() => setShowMinimap(m => !m)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-                showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
+                showMinimap ? "bg-surface shadow-sm text-accent border-line" : "bg-surface text-mute hover:text-ink-2 border-line"
               }`}
               title="Toggle minimap"
               aria-label="Toggle minimap"
@@ -1107,17 +1107,17 @@ export default function DiagramView({
               <span className="hidden xl:inline">Minimap</span>
             </button>
 
-            <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100" role="group" aria-label="Zoom controls">
+            <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-line" role="group" aria-label="Zoom controls">
               <button
                 onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))}
-                className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all"
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-mute hover:text-ink-2 hover:bg-surface-2 transition-all"
                 title="Zoom out"
                 aria-label="Zoom out"
               >&minus;</button>
               <button
                 onClick={() => setZoomTo(1)}
                 className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
-                  Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+                  Math.abs(zoom - 1) < 0.01 ? "text-accent bg-surface shadow-sm border border-line" : "text-ink-2 hover:text-accent hover:bg-surface border border-transparent"
                 }`}
                 title="Reset zoom to 100%"
                 aria-label="Reset zoom to 100%"
@@ -1126,7 +1126,7 @@ export default function DiagramView({
               </button>
               <button
                 onClick={() => setZoomTo(Math.min(3, zoom + 0.25))}
-                className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all"
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-mute hover:text-ink-2 hover:bg-surface-2 transition-all"
                 title="Zoom in"
                 aria-label="Zoom in"
               >+</button>
@@ -1134,7 +1134,7 @@ export default function DiagramView({
 
             {!readOnly && (
               <>
-                <div className="h-5 w-px bg-slate-200" />
+                <div className="h-5 w-px bg-line" />
                 <AutoArrangeDropdown onSelect={handleAutoArrange} />
               </>
             )}

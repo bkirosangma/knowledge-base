@@ -81,26 +81,23 @@ export async function updateVaultConfig(
   rootHandle: FileSystemDirectoryHandle,
   patch: Partial<VaultConfig>,
 ): Promise<VaultConfig> {
-  let current: VaultConfig;
+  // Acquire dir + file handles ONCE and reuse for both read and write —
+  // mirrors `updateVaultLastOpened` so two concurrent patches (e.g. theme
+  // + lastOpened) can't interleave their separate read/write lookups and
+  // drop one update.
   try {
     const configDir = await rootHandle.getDirectoryHandle(CONFIG_DIR);
     const fileHandle = await configDir.getFileHandle(CONFIG_FILE);
     const file = await fileHandle.getFile();
-    current = JSON.parse(await file.text()) as VaultConfig;
-  } catch (e) {
-    throw classifyError(e);
-  }
-  const next: VaultConfig = { ...current, ...patch };
-  try {
-    const configDir = await rootHandle.getDirectoryHandle(CONFIG_DIR);
-    const fileHandle = await configDir.getFileHandle(CONFIG_FILE);
+    const current = JSON.parse(await file.text()) as VaultConfig;
+    const next: VaultConfig = { ...current, ...patch };
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(next, null, 2));
     await writable.close();
+    return next;
   } catch (e) {
     throw classifyError(e);
   }
-  return next;
 }
 
 export async function updateVaultLastOpened(

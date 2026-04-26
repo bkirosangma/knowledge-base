@@ -84,8 +84,13 @@ test.describe('Theme toggle (SHELL-1.13)', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 
-  test('SHELL-1.13-03: theme persists across reload via vault config', async ({ page }) => {
+  test('SHELL-1.13-03: first mount reads theme from vault config', async ({ page }) => {
     // Pre-seed the vault with theme: "dark" — first mount must apply it.
+    // (Full toggle → reload → re-assert round-trip isn't covered by e2e
+    // because the mock FS is closure-scoped to the page and `addInitScript`
+    // re-fires per reload, so reload-persisted vault state isn't feasible.
+    // The write half is covered in `vaultConfig.test.ts`; this spec covers
+    // the read half — together they verify the full round-trip.)
     await setupFs(page, SEED_DARK)
     await openFolder(page)
 

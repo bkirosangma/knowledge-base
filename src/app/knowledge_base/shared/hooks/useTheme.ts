@@ -60,9 +60,12 @@ export function useTheme(): UseThemeApi {
 
   // ─── First-mount + vault-config sync ─────────────────────────────────
   // Re-runs whenever the vaultConfig repo identity changes (folder pick,
-  // folder swap). When the user has already toggled this session we
-  // skip the vault read so we don't yank their choice.
+  // folder swap). Resets the user-toggled flag at the top of the effect
+  // so a new vault's persisted `theme` is honoured even if the user
+  // previously toggled in a different vault — `userToggledRef` is scoped
+  // to a vault identity, not the component lifetime.
   useEffect(() => {
+    userToggledRef.current = false;
     let cancelled = false;
     (async () => {
       // Default to OS pref while we wait for vault read.
