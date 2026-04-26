@@ -542,7 +542,7 @@ export default function ExplorerPanel({
                     )}
                   </div>
                 ) : (
-                  <div className="py-1">
+                  <div className="py-1" data-testid="explorer-tree">
                     {isLoading ? (
                       <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
                     ) : tree.length === 0 ? (

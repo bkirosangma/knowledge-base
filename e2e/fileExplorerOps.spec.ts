@@ -49,14 +49,15 @@ async function readMockFile(page: Page, path: string): Promise<string | undefine
   }, path)
 }
 
-/** Right-click the first explorer row containing `filename` to open the context menu. */
+/** Right-click the first explorer-tree row containing `filename` to open the context menu.
+ *  Scoped to the tree so it doesn't pick up Recents/Unsaved entries. */
 async function rightClickFile(page: Page, filename: string) {
-  await page.getByText(filename).first().click({ button: 'right' })
+  await page.getByTestId('explorer-tree').getByText(filename).first().click({ button: 'right' })
 }
 
-/** Open a diagram file; waits for canvas to confirm DiagramBridge is live. */
+/** Open a diagram file from the tree; waits for canvas to confirm DiagramBridge is live. */
 async function openDiagram(page: Page, filename: string) {
-  await page.getByText(filename).first().click()
+  await page.getByTestId('explorer-tree').getByText(filename).first().click()
   await page.locator('[data-testid="diagram-canvas"]').waitFor({ timeout: 5000 })
 }
 
