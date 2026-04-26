@@ -88,6 +88,7 @@ function renderDocView(
     renameDocumentInIndex: vi.fn().mockResolvedValue(undefined),
     getBacklinksFor: vi.fn(() => []),
     fullRebuild: vi.fn().mockResolvedValue(undefined),
+    updateDiagramLinks: vi.fn().mockResolvedValue(undefined),
   }
 
   return render(

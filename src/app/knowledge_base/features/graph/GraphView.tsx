@@ -17,7 +17,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Network } from "lucide-react";
+import { Network, RefreshCw } from "lucide-react";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import type { LinkIndex } from "../document/types";
 import { useRepositories } from "../../shell/RepositoryContext";
@@ -55,11 +55,20 @@ export interface GraphViewProps {
   linkIndex: LinkIndex;
   /** Open a file in the OPPOSITE pane (graph never gets replaced). */
   onSelectNode: (filePath: string) => void;
+  /** Trigger a full vault scan to rebuild the link index. */
+  onRefresh?: () => Promise<void>;
 }
 
-export default function GraphView({ tree, linkIndex, onSelectNode }: GraphViewProps) {
+export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: GraphViewProps) {
   // Read theme from context — propagates dark-mode flips to canvas colors.
   const { theme } = useTheme();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try { await onRefresh(); } finally { setIsRefreshing(false); }
+  }, [onRefresh, isRefreshing]);
   // ─── Filters ─────────────────────────────────────────────────────────
   const allFolders = useMemo(() => listTopFolders(tree), [tree]);
   const [filters, setFilters] = useState<FiltersState>(() => ({
@@ -127,6 +136,16 @@ export default function GraphView({ tree, linkIndex, onSelectNode }: GraphViewPr
         <span className="text-xs text-mute">
           {data.nodes.length} node{data.nodes.length === 1 ? "" : "s"} · {data.links.length} edge{data.links.length === 1 ? "" : "s"}
         </span>
+        {onRefresh && (
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            aria-label="Rebuild graph index"
+            className="ml-auto p-1 rounded text-mute hover:text-ink hover:bg-surface-2 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 flex min-h-0">

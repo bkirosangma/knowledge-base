@@ -40,6 +40,22 @@ function buildDocumentEntry(
   return { outboundLinks, sectionLinks };
 }
 
+/** Build a link-index entry for a diagram JSON file.
+ *  Edges = the list of .md files attached to nodes/connections/flows in the diagram. */
+function buildDiagramEntry(
+  jsonContent: string,
+): { outboundLinks: OutboundLink[]; sectionLinks: [] } {
+  try {
+    const data = JSON.parse(jsonContent) as { documents?: { filename?: string }[] };
+    const outboundLinks: OutboundLink[] = (data.documents ?? [])
+      .filter((d) => typeof d.filename === "string" && d.filename.length > 0)
+      .map((d) => ({ targetPath: d.filename as string, type: "document" as const }));
+    return { outboundLinks, sectionLinks: [] };
+  } catch {
+    return { outboundLinks: [], sectionLinks: [] };
+  }
+}
+
 function collectCrossReferences(index: LinkIndex): CrossReference[] {
   const refs: CrossReference[] = [];
   for (const [source, entry] of Object.entries(index.documents)) {
@@ -187,8 +203,12 @@ export function useLinkIndex() {
     for (const docPath of allDocPaths) {
       try {
         const content = await repo.readDocContent(docPath);
-        const docDir = getDocDir(docPath);
-        index.documents[docPath] = buildDocumentEntry(content, docDir);
+        if (docPath.endsWith(".json")) {
+          index.documents[docPath] = buildDiagramEntry(content);
+        } else {
+          const docDir = getDocDir(docPath);
+          index.documents[docPath] = buildDocumentEntry(content, docDir);
+        }
       } catch {
         // File read failed — skip
       }
@@ -199,10 +219,31 @@ export function useLinkIndex() {
     return index;
   }, [saveIndex]);
 
+  /** Incrementally update the link index for a diagram when its document
+   *  attachments change (on load or save). `docFilenames` is the list of
+   *  `.md` paths currently attached to the diagram's entities. */
+  const updateDiagramLinks = useCallback(async (
+    rootHandle: FileSystemDirectoryHandle,
+    diagramPath: string,
+    docFilenames: string[],
+    currentIndex?: LinkIndex,
+  ) => {
+    const index = currentIndex ?? { ...linkIndex };
+    index.documents[diagramPath] = {
+      outboundLinks: docFilenames.map((f) => ({ targetPath: f, type: "document" as const })),
+      sectionLinks: [],
+    };
+    rebuildBacklinks(index);
+    await saveIndex(rootHandle, index);
+    emitCrossReferences(rootHandle, collectCrossReferences(index));
+    return index;
+  }, [linkIndex, saveIndex]);
+
   return {
     linkIndex,
     loadIndex,
     updateDocumentLinks,
+    updateDiagramLinks,
     removeDocumentFromIndex,
     renameDocumentInIndex,
     getBacklinksFor,
