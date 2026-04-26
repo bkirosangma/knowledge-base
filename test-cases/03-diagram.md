@@ -399,3 +399,21 @@ Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base
 | DIAG-3.22-03 | 🧪 | Edge handles do not appear in read mode — e2e/dragToConnect.spec.ts |
 | DIAG-3.22-04 | ❌ | Dropping on empty canvas opens AnchorPopupMenu at drop point |
 | DIAG-3.22-05 | ❌ | No self-connection created when dragging handle back onto its own node |
+
+## 3.23 Canvas Quick Inspector
+`components/QuickInspector.tsx`, wired in `DiagramView.tsx`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.23-01 | 🧪 | Quick Inspector appears when a single node is selected — e2e/quickInspector.spec.ts |
+| DIAG-3.23-02 | 🧪 | Quick Inspector is hidden in read mode — e2e/quickInspector.spec.ts |
+| DIAG-3.23-03 | 🧪 | Clicking delete in Quick Inspector removes the node — e2e/quickInspector.spec.ts |
+| DIAG-3.23-04 | 🧪 | Clicking a colour swatch changes the node colour — e2e/quickInspector.spec.ts |
+| DIAG-3.23-05 | ❌ | Quick Inspector hidden when no node is selected |
+| DIAG-3.23-06 | ❌ | Quick Inspector hidden when multiple nodes are selected |
+| DIAG-3.23-07 | ❌ | Quick Inspector hidden while node is being dragged |
+| DIAG-3.23-08 | ❌ | Connect button mousedown starts drag-to-connect from east edge |
+| DIAG-3.23-09 | ❌ | Duplicate button adds a copy of the node offset by 30 px |
+| DIAG-3.23-10 | ❌ | Label button triggers inline label editing |
+| DIAG-3.23-11 | ❌ | "Other…" swatch opens native colour picker |
+| DIAG-3.23-12 | ❌ | Colour popover closes when clicking outside |

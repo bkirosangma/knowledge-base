@@ -189,6 +189,8 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Persistent edge handles** — when a node is selected (and not in read-only mode), four blue 8 px dots appear at the N/E/S/W edge midpoints. `components/DiagramNodeLayer.tsx` (`EdgeHandles`), `hooks/useDragToConnect.ts`.
   - `data-testid="edge-handle-{nodeId}-{n|e|s|w}"` for testability.
 - ✅ **Drag-to-connect from edge handle** — mousedown on an edge handle starts a dashed blue preview line (`isDashed` flag in `CreatingLine`); dropping on a node creates a connection; dropping on empty canvas opens the existing `AnchorPopupMenu` radial menu at the drop point (`onEmptyDrop` callback in `useLineDrag`). `hooks/useDragToConnect.ts`, `hooks/useLineDrag.ts`.
+- ✅ **Canvas Quick Inspector** — a floating pill toolbar that appears 16 px above the selected node's bounding box in viewport space whenever exactly one node is selected and the diagram is not in read-only mode. Provides 6 actions: colour-scheme picker (6 swatches + native "Other…" picker, applies full fill/border/text scheme), inline label edit (pencil), start-connection drag from the east edge (reuses `useDragToConnect`), duplicate node (+30 px offset), and delete. Hidden on drag, hidden in read mode, and hidden when no node or multiple nodes are selected. `components/QuickInspector.tsx`, wired in `DiagramView.tsx`.
+  - `data-testid="quick-inspector"` on the toolbar root.
 
 ### 3.10 Flows (Named Connection Sequences)
 `utils/flowUtils.ts`, `components/FlowBreakWarningModal.tsx`, `components/FlowDots.tsx`, `properties/FlowProperties.tsx`, `hooks/useFlowManagement.ts`
