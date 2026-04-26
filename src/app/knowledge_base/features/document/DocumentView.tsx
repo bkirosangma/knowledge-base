@@ -30,6 +30,15 @@ export interface DocumentViewProps {
   tree: TreeNode[];
   onNavigateLink: (path: string) => void;
   onCreateDocument: (path: string) => void;
+  /** Shell-level Focus Mode flag (⌘.). When on, MarkdownPane hides its
+   *  toolbar/title row and DocumentView hides the properties sidebar. */
+  focusMode?: boolean;
+  /**
+   * Notify the shell when this document's dirty state flips, so the global
+   * "N unsaved" indicator in `Header` can include open documents alongside
+   * diagram drafts. (SHELL-1.12, 2026-04-26.)
+   */
+  onDirtyChange?: (filePath: string, dirty: boolean) => void;
 }
 
 export default function DocumentView({
@@ -40,6 +49,8 @@ export default function DocumentView({
   tree,
   onNavigateLink,
   onCreateDocument,
+  focusMode = false,
+  onDirtyChange,
 }: DocumentViewProps) {
   const {
     content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
@@ -71,9 +82,10 @@ export default function DocumentView({
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
-  // keystroke; re-rendering PaneTitle that often is wasteful, and the user
-  // doesn't need instant title sync — 250 ms settles nicely once they pause.
-  // File-name fallback keeps the pane header populated before the first H1.
+  // keystroke; re-rendering the PaneHeader title that often is wasteful, and
+  // the user doesn't need instant title sync — 250 ms settles nicely once
+  // they pause. File-name fallback keeps the pane header populated before
+  // the first H1.
   const fileBase = filePath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
   const [derivedTitle, setDerivedTitle] = useState(() => getFirstHeading(content) || fileBase);
   useEffect(() => {
@@ -133,11 +145,26 @@ export default function DocumentView({
 
   const existingDocPaths = React.useMemo(() => new Set(allDocPaths), [allDocPaths]);
 
-  // Get backlinks for the current document
-  const backlinks = React.useMemo(() => {
-    if (!filePath) return [];
-    return linkManager.getBacklinksFor(filePath);
-  }, [filePath, linkManager]);
+  // Get backlinks for the current document.
+  // Depend on `linkManager.linkIndex` (the only piece that changes when the
+  // index actually mutates) rather than the whole `linkManager` object —
+  // its identity is fresh on every `useLinkIndex` render and would over-fire
+  // this memo on unrelated re-renders.
+  const backlinks = React.useMemo(
+    () => (filePath ? linkManager.getBacklinksFor(filePath) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filePath, linkManager.linkIndex],
+  );
+
+  // Lookup function for the wiki-link hover card — returns the backlink count
+  // for *any* target path (not just the currently open file). Re-bound when
+  // the link index reference changes so wiki-link inserts/edits in the
+  // current doc surface in the next hover.
+  const getBacklinkCount = React.useCallback(
+    (resolvedPath: string) =>
+      linkManager.linkIndex.backlinks[resolvedPath]?.linkedFrom.length ?? 0,
+    [linkManager.linkIndex],
+  );
 
   // Get outbound links for the current document
   const outboundLinks = React.useMemo(() => {
@@ -205,6 +232,19 @@ export default function DocumentView({
     onDocBridgeRef.current?.(fullBridge);
     return () => onDocBridgeRef.current?.(null);
   }, [bridge, handleSave]); // handleSave stable; bridge changes only on file switch
+
+  // Publish per-pane dirty state up to the shell so the global dirty-stack
+  // indicator in `Header` reflects unsaved documents (not just diagram drafts).
+  // SHELL-1.12, 2026-04-26.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => { onDirtyChangeRef.current = onDirtyChange; }, [onDirtyChange]);
+  useEffect(() => {
+    if (!filePath) return;
+    onDirtyChangeRef.current?.(filePath, dirty);
+    // On unmount or file switch, clear the dirty flag for the previous path
+    // so the indicator doesn't include a path that no longer has an open pane.
+    return () => { onDirtyChangeRef.current?.(filePath, false); };
+  }, [filePath, dirty]);
 
   // History-first discard: restore saved snapshot from history; fall back to
   // disk only if history has no saved state (e.g. freshly opened file).
@@ -284,20 +324,24 @@ export default function DocumentView({
           tree={tree}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
+          getBacklinkCount={getBacklinkCount}
           readOnly={readOnly}
           onToggleReadOnly={toggleReadOnly}
+          hideToolbar={focusMode}
           rightSidebar={
-            <DocumentProperties
-              filePath={filePath}
-              content={content}
-              outbound={outboundLinks}
-              backlinks={backlinks}
-              onNavigateLink={(path) => onNavigateLink?.(path)}
-              collapsed={propertiesCollapsed}
-              onToggleCollapse={toggleProperties}
-              history={historyBridge}
-              readOnly={readOnly}
-            />
+            focusMode ? null : (
+              <DocumentProperties
+                filePath={filePath}
+                content={content}
+                outbound={outboundLinks}
+                backlinks={backlinks}
+                onNavigateLink={(path) => onNavigateLink?.(path)}
+                collapsed={propertiesCollapsed}
+                onToggleCollapse={toggleProperties}
+                history={historyBridge}
+                readOnly={readOnly}
+              />
+            )
           }
         />
       </div>

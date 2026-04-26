@@ -323,3 +323,31 @@
 | DOC-4.15-03 | ✅ | Conflict detection when file is dirty and disk changed — sets `conflictContent`, does not modify history or reset editor |
 | DOC-4.15-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk content — records history, moves saved point, resets editor |
 | DOC-4.15-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |
+
+## 4.16 Editorial Read Mode
+
+> Spec drafted with IDs DOC-4.13-XX but renumbered to 4.16 to avoid colliding with the existing Pane Header Title section. Mirrors §4.14 + §4.15 of [Features.md](../Features.md). Driven by `MarkdownPane`, `MarkdownEditor`, `ReadingTOC`, `ReadingProgress`, `PaneHeader`, and `globals.css` (`.markdown-editor.editorial`).
+
+- **DOC-4.16-01** 🧪 **Read mode applies serif editorial typography** — entering read mode adds the `editorial` class to the editor wrapper and the computed `font-family` on `.ProseMirror` resolves to one of the editorial stack members (Source Serif / Charter / Georgia / generic serif). _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-02** 🧪 **Reading-time pill appears in read mode, hidden in edit mode** — `data-testid="reading-time-pill"` is absent in edit mode and renders `"<N> min read"` (200 wpm estimate) in read mode. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-03** 🧪 **TOC rail appears for documents with three or more headings** — at viewport 1280×800 the `data-testid="reading-toc"` rail is visible and lists the document's H1/H2/H3 entries. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-04** 🧪 **⌘⇧O toggles TOC visibility** — pressing the shortcut while focus is outside the editor unmounts the TOC; pressing again restores it. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-05** 🧪 **⌘. toggles Focus Mode** — explorer container width collapses to 0 on the first press and is restored on the second. _(e2e: `editorialReadMode.spec.ts`)_
+
+## 4.17 Wiki-Link Hover Preview
+
+> Hovering a `[[wiki-link]]` opens a floating preview card after a 200 ms dwell, anchored below the link. Driven by `features/document/components/WikiLinkHoverCard.tsx`, the `onHover` / `onHoverEnd` callbacks on `WikiLinkOptions`, and the hover state machine in `MarkdownEditor.tsx`. Mirrors §4.16 of [Features.md](../Features.md).
+
+- **DOC-4.17-01** 🧪 **Hovering a wiki-link for ≥200 ms shows the hover card** — the link's `mouseenter` schedules a 200 ms `setTimeout` that opens a portal-rendered card with `data-testid="wiki-link-hover-card"`. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-02** 🧪 **Card displays the target's first heading or filename** — body shows the H1 from the target document (falling back to the basename when the body has no H1), a ~200-char plain-text excerpt, and a footer line with backlink count + file size. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-03** 🧪 **Card disappears when mouse leaves both link and card** — moving the cursor away from both the link and the card region dismisses the card after a small overshoot tolerance; the test moves the mouse to (0, 0) and asserts the card unmounts. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-04** 🧪 **Broken link (missing target) does NOT show the hover card** — hovering a `[[…]]` whose resolved candidates aren't in `existingDocPaths` leaves the card unrendered even after the 200 ms delay; the unresolved red pill stays interactive (click-to-create) but never previews. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-05**: 🚫 Keyboard activation of hover card (Enter on focused wiki-link) — deferred; current PR is mouse-hover only.
+
+## 4.18 Inline Backlinks Rail
+
+> A "Backlinks · N references" section rendered at the bottom of the document body (inside the editor scroll container) listing every doc that references the current file with a 2-line context snippet. Driven by `features/document/components/BacklinksRail.tsx` and the new `belowContent` slot on `MarkdownEditor.tsx`. Mirrors §4.17 of [Features.md](../Features.md).
+
+- **DOC-4.18-01** 🧪 **Document with backlinks shows BacklinksRail at bottom** — opening a target document whose link index already has backlinks renders `[data-testid="backlinks-rail"]` below the editor with header text "Backlinks · N reference(s)", the source filename, and a context snippet sliced from around the source's `[[currentFile]]` occurrence. _(e2e: `backlinksRail.spec.ts`)_
+- **DOC-4.18-02** 🧪 **BacklinksRail is hidden when 0 backlinks** — opening a document with no backlinks renders zero `[data-testid="backlinks-rail"]` elements; the rail is unmounted, not just visually empty. _(e2e: `backlinksRail.spec.ts`)_
+- **DOC-4.18-03** 🧪 **Clicking a backlink entry opens the source file** — clicking `[data-testid="backlinks-rail-entry"]` calls the existing `onNavigateBacklink` handler so the source document loads in the editor. _(e2e: `backlinksRail.spec.ts`)_

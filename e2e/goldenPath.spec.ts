@@ -66,7 +66,7 @@ test.describe('Golden path — folder open + explorer tree', () => {
     await expect(page.getByText('This is a test note.').first()).toBeVisible()
   })
 
-  test('opening a .json routes to the diagram view and the diagram title shows up in the PaneTitle', async ({ page }) => {
+  test('opening a .json routes to the diagram view and the diagram title shows up in the PaneHeader', async ({ page }) => {
     await setupFs(page, {
       'arch.json': JSON.stringify({
         title: 'Architecture Overview',
@@ -76,8 +76,9 @@ test.describe('Golden path — folder open + explorer tree', () => {
     await openFolder(page)
     await page.getByText('arch.json').first().click()
 
-    // The diagram title moved to the pane's `PaneTitle` row (click-to-edit
-    // `<h1>` above the toolbar, next to Save / Discard). Pre-click the
+    // The diagram title lives inline in the `PaneHeader` breadcrumb row
+    // (folded from the old `PaneTitle` strip in SHELL-1.12, 2026-04-26).
+    // Click-to-edit `<h1>` next to the breadcrumb segments; pre-click the
     // heading is static text, not an input.
     await expect(
       page.getByRole('heading', { level: 1, name: 'Architecture Overview' }),

@@ -21,9 +21,10 @@ Top-level chrome that hosts every other feature.
 
 ### 1.2 Header
 `src/app/knowledge_base/shared/components/Header.tsx`
-- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Only cross-pane chrome left at the top level — title editing, dirty dot, Save, and Discard relocated to each pane's `PaneTitle` row on 2026-04-19.
+- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Title editing, dirty dot, Save, and Discard live inside each pane's `PaneHeader` row (folded from the old `PaneTitle` strip on 2026-04-26 / SHELL-1.12).
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
-- ✅ **⌘K trigger chip** — centered search-commands button in the header flex gap; clicking it opens the Command Palette. 220px wide, muted placeholder text + `⌘K` badge.
+- ✅ **⌘K trigger chip** — centered search-commands button in the header (3-column grid keeps it centred regardless of side content); clicking it opens the Command Palette. 220 px wide, muted placeholder text + `⌘K` badge.
+- ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty.
 
 ### 1.11 Command Registry & Palette
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
@@ -55,8 +56,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **FileWatcherContext** (`shared/context/FileWatcherContext.tsx`) — 5s polling interval with named subscriber registry; `refresh()` fires all subscribers immediately; pauses when tab is hidden.
 
 ### 1.6 Pane Content Chrome
-- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), right-side action slot.
-- ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — title row between the breadcrumb and the toolbar. Shows the diagram's editable title (click-to-edit, Enter/Escape commit/cancel) for diagram panes; shows the debounced first H1 of the markdown (read-only, 250 ms) for document panes. Hosts the dirty dot + Save + Discard buttons on the right of each pane's title.
+- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — single chrome strip per pane combining: breadcrumb path, inline title (`<h1>` that turns into an `<input>` on click for diagram panes; static `<h1>` reflecting the debounced first H1 for document panes), dirty dot + Save / Discard buttons (when `onSave` / `onDiscard` are wired), Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), reading-time pill (read mode only), right-side action slot. `hideTitleControls` prop dissolves the title input + Save/Discard while keeping breadcrumb + Read pill (used by Focus Mode). Phase 2 PR 2 (SHELL-1.12, 2026-04-26) folded the former `PaneTitle` row into this header so the per-pane chrome stack drops from 5 strips (Header / Breadcrumb / Title / Toolbar / Content) to 4 (Header / Breadcrumb-with-title / Toolbar / Content).
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
 - ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="alert"` banner with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). Wired into document and diagram panes by their respective file-watcher hooks.
 
@@ -305,7 +305,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.3 Custom Extensions
 `features/document/extensions/`
-- ✅ **WikiLink** (`wikiLink.tsx`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type.
+- ✅ **WikiLink** (`wikiLink.tsx`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type. Live nodeView mirrors `data-wiki-link` / `data-wiki-section` attributes onto the DOM (matching the parsed-HTML output) so e2e tests + delegated listeners can target wiki-links by selector. Emits `onHover` / `onHoverEnd` for the hover-preview state machine in §4.16.
 - ✅ **WikiLink autocomplete** — typing `[[` opens a **folder-at-a-time picker** (`FolderPicker.tsx`) starting at the current document's directory; click a subfolder to drill in, back arrow to go up, click a file to insert. Typing any character after `[[` switches to the existing flat substring-filtered list (arrow-key navigation, Enter selects).
 - ✅ **FolderPicker** (`components/FolderPicker.tsx`) — reusable folder-browser component; shows one directory level at a time with up-navigation. Used by both the `[[` suggestion popup and the Link Editor Popover browse button.
 - ✅ **WikiLink inline edit** — selecting the node lets single keys append to the display text; Backspace/Delete trim; Escape reverts.
@@ -383,6 +383,34 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 ### 4.13 Document File Watcher
 `features/document/hooks/useDocumentFileWatcher.ts`
 - ⚙️ **`useDocumentFileWatcher`** — subscribes to the `"content:doc"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the document is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the document is dirty, exposes `conflictContent` so `DocumentView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`.
+
+### 4.14 Editorial Read Mode
+`features/document/components/MarkdownPane.tsx`, `features/document/components/MarkdownEditor.tsx`, `features/document/components/ReadingTOC.tsx`, `features/document/components/ReadingProgress.tsx`, `shared/components/PaneHeader.tsx`, `src/app/globals.css`
+- ✅ **Editorial typography in read mode** — when `readOnly` is true, the `<EditorContent>` wrapper gains the `editorial` class. CSS in `globals.css` (`.markdown-editor.editorial .ProseMirror …`) switches the surface to a serif stack (`Source Serif 4` → `Charter` → `Georgia`), 18px / 1.7 line-height, `max-width: 70ch` centred. Headings scale to 32 / 26 / 21 px; blockquotes become italic pull-quotes (4px accent border); links use emerald-700; code blocks expose `data-language` as a small uppercase kicker via `::before`. Edit-mode CSS is untouched.
+- ✅ **Reading-time pill** — `PaneHeader` renders a small `<X> min read` pill next to the Read button when `readOnly` is true and reading meta is non-empty. Estimate = `Math.max(1, Math.round(wordCount / 200))`. Word count is derived from `editor.view.dom.textContent` in `MarkdownEditor` and lifted to `MarkdownPane` via `onReadingMetaChange`.
+- ✅ **Sticky right-rail TOC** — `ReadingTOC.tsx` renders a 224px right-rail nav populated with H1/H2/H3 entries (indented 0/16/32 px). Visibility gated on `readOnly && tocOpen && headings.length >= 3 && viewport >= 1100px`. Each entry click smooth-scrolls the editor scroll container. An `IntersectionObserver` provides scrollspy — the closest-to-top heading is highlighted in `text-amber-700`. Heading IDs are stamped onto live DOM nodes by `extractReadingMeta` in `MarkdownEditor` and re-extracted on every Tiptap `onUpdate`.
+- ✅ **Reading progress bar** — `ReadingProgress.tsx` is a 2px amber-600 bar mounted just below `PaneHeader` in read mode only. Reads `scrollTop / (scrollHeight − clientHeight)` of the editor scroll container via passive scroll + ResizeObserver. Resets to 0% on `filePath` change.
+- ✅ **Toggle TOC (⌘⇧O)** — registered in the command palette as `document.toggle-toc` with a `when: () => readOnly` guard so it only appears in read mode. A direct `keydown` handler in `MarkdownPane` provides the shortcut, with the standard input/textarea/contenteditable bypass.
+
+### 4.15 Focus Mode (⌘.)
+`knowledgeBase.tsx`, `features/document/DocumentView.tsx`, `features/document/components/MarkdownPane.tsx`
+- ✅ **Toggle Focus Mode** — shell-level `focusMode` boolean. When on: explorer container collapses to 0px width with its right border removed, the global `Footer` is unmounted, `MarkdownPane`'s editor toolbar is hidden, `PaneHeader`'s title input + Save / Discard dissolve via `hideTitleControls` (breadcrumb + Read pill stay), and `DocumentView` swaps the properties sidebar slot for `null`. Off restores the prior `explorerCollapsed` value via `focusRestoreRef`. Header bar at the top of `knowledgeBase.tsx` stays visible by design — only document chrome dissolves.
+- ✅ **Keyboard shortcut + palette** — registered as `view.toggle-focus-mode` (group `View`, shortcut `⌘.`). A raw `keydown` handler in `knowledgeBase.tsx` mirrors `⌘K`/`⌘F`'s input/textarea/contenteditable guard so the shortcut never fires while typing.
+
+### 4.16 Wiki-Link Hover Preview
+`features/document/components/WikiLinkHoverCard.tsx`, `features/document/extensions/wikiLink.tsx`, `features/document/components/MarkdownEditor.tsx`
+- ✅ **Hover preview card** — hovering a `[[wiki-link]]` for 200 ms opens a 300 px floating card anchored below the link via `getBoundingClientRect()`. Card shows the target's first heading (or filename), a ~200-character plain-text excerpt, and a footer with backlink count + file size. White background, `rounded-lg` + `shadow-lg` + `border-slate-200`, rendered via `createPortal` to `document.body`.
+- ✅ **Hover state machine** — `WikiLinkOptions.onHover` / `onHoverEnd` callbacks fired by the nodeView's `mouseenter` / `mouseleave` listeners; the host (`MarkdownEditor`) owns the 200 ms `setTimeout` open delay and a 60 ms overshoot tolerance before dismissing. Rapid hops between links cancel the prior pending timer; the card stays open while the cursor is over either the link or the card.
+- ✅ **Broken-link suppression** — the nodeView resolves the target via the existing multi-candidate path resolution and passes `resolvedPath: null` for unresolved links so the hover state machine never opens the card. Red unresolved pills remain interactive (click-to-create) but do not preview.
+- ✅ **Scroll dismissal** — any `scroll` event on the editor scroll container or the window force-closes the card. Re-anchoring on scroll is intentionally not implemented — the simpler dismiss-on-scroll is the user-expected pattern for transient hover UI.
+
+### 4.17 Inline Backlinks Rail
+`features/document/components/BacklinksRail.tsx`, `features/document/components/MarkdownPane.tsx`, `features/document/components/MarkdownEditor.tsx`
+- ✅ **Inline rail** — a `<section data-testid="backlinks-rail">` rendered in the editor scroll container below `<EditorContent>` (via the new `belowContent` slot on `MarkdownEditor`), so it scrolls with the document instead of being fixed chrome. Visible in both read and edit modes — it is treated as content, not pane chrome.
+- ✅ **Header** — "Backlinks · N references" in `text-slate-500` uppercase tracking-wider; the rail is hidden entirely when there are zero backlinks.
+- ✅ **Context snippets** — each entry shows the source filename + a 2-line `line-clamp-2` plain-text snippet sliced ±80 chars around the first `[[currentFile]]` occurrence in the source markdown (resolved via `resolveWikiLinkPath` against the source's directory). Source is fetched on demand through `useRepositories().document.read()` with `readOrNull`; un-readable sources fall back to a "(source unavailable)" placeholder.
+- ✅ **Click to navigate** — entries call the existing `onNavigateBacklink` handler; clicking opens the source document in the same pane.
+- ✅ **Properties-panel backlinks coexist** — the existing `DocumentProperties` backlinks list is intentionally retained in this PR; a future cleanup removes the duplicate.
 
 ---
 

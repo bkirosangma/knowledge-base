@@ -8,6 +8,15 @@ import { resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { FolderPicker } from "../components/FolderPicker";
 import type { TreeNode } from "../../../shared/utils/fileTree";
 
+export interface WikiLinkHoverPayload {
+  /** Bounding rect of the link DOM at hover time. */
+  rect: DOMRect;
+  /** Path as written in `[[…]]`. */
+  path: string;
+  /** Resolved vault-relative target path that exists, or `null` for broken links. */
+  resolvedPath: string | null;
+}
+
 export interface WikiLinkOptions {
   onNavigate?: (path: string, section?: string) => void;
   onCreateDocument?: (path: string) => void;
@@ -17,6 +26,13 @@ export interface WikiLinkOptions {
   currentDocDir?: string;
   /** Full file tree, used to render the folder-picker when `[[` is triggered. */
   tree?: TreeNode[];
+  /** Mouse entered a wiki-link DOM node. The host owns the 200ms delay timer
+   *  + portal card; the extension just reports the hover. */
+  onHover?: (payload: WikiLinkHoverPayload) => void;
+  /** Mouse left a wiki-link DOM node. The host's dismiss logic decides whether
+   *  to actually close (e.g. small overshoot tolerance, or the mouse moved
+   *  onto the card itself). */
+  onHoverEnd?: () => void;
 }
 
 declare module "@tiptap/core" {
@@ -41,6 +57,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       existingDocPaths: new Set(),
       currentDocDir: "",
       tree: undefined,
+      onHover: undefined,
+      onHoverEnd: undefined,
     };
   },
 
@@ -106,6 +124,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
   },
 
   addNodeView() {
+    const extOptions = this.options;
     return ({ node }) => {
       const dom = document.createElement("span");
 
@@ -173,6 +192,13 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           (section ? `${path}#${section}` : path);
         const exists = resolveExists(path);
         const kind = detectKind(path);
+        // Expose attributes on the live DOM so e2e tests + delegated hover
+        // listeners can target wiki-links by selector (`[data-wiki-link]`).
+        // renderHTML stamps these on serialised output already; mirroring
+        // here keeps the nodeView and parsed HTML interchangeable.
+        dom.setAttribute("data-wiki-link", path);
+        if (section) dom.setAttribute("data-wiki-section", section);
+        else dom.removeAttribute("data-wiki-section");
         dom.className = `wiki-link cursor-pointer inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
           exists
             ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
@@ -195,12 +221,47 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       // `handleClickOn` prop in addProseMirrorPlugins so that list-item
       // wrappers (and any other PM-managed container) can't eat the event.
 
+      // Hover preview wiring (DOC-4.17). The host (MarkdownEditor) owns the
+      // 200ms delay timer and the portal card; we just emit raw mouseenter /
+      // mouseleave with the link rect + resolution result so the host can
+      // decide whether to show, and where.
+      const handleMouseEnter = () => {
+        const onHover = extOptions.onHover;
+        if (!onHover) return;
+        const path = (node.attrs.path as string) ?? "";
+        const resolvedPath = resolveExistingPath(path);
+        // a11y (DOC-4.17): when a card is about to open (resolved link
+        // only — broken links never preview), associate the link with the
+        // card via aria-describedby. The id matches the card's
+        // data-testid so screen readers can announce the tooltip when the
+        // user focuses or hovers the link. Cleared on mouseleave below.
+        if (resolvedPath) {
+          dom.setAttribute("aria-describedby", "wiki-link-hover-card");
+        }
+        onHover({
+          rect: dom.getBoundingClientRect(),
+          path,
+          resolvedPath,
+        });
+      };
+      const handleMouseLeave = () => {
+        dom.removeAttribute("aria-describedby");
+        extOptions.onHoverEnd?.();
+      };
+      dom.addEventListener("mouseenter", handleMouseEnter);
+      dom.addEventListener("mouseleave", handleMouseLeave);
+
       return {
         dom,
         update(updated) {
           if (updated.type.name !== "wikiLink") return false;
           paintFromAttrs(updated);
           return true;
+        },
+        destroy() {
+          dom.removeEventListener("mouseenter", handleMouseEnter);
+          dom.removeEventListener("mouseleave", handleMouseLeave);
+          dom.removeAttribute("aria-describedby");
         },
       };
     };

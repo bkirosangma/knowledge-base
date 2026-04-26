@@ -84,13 +84,15 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 
 ## 1.6 Pane Content Chrome
 
+> 2026-04-26 / SHELL-1.12 — `PaneTitle.tsx` was folded into `PaneHeader.tsx`. The title input, dirty dot, and Save / Discard buttons now live inline in the breadcrumb row. See §1.12 for the collapse-specific cases.
+
 - **SHELL-1.6-01** ✅ **Breadcrumb path** — `filePath` is split on `/` and every segment is rendered; only the last segment gets the `text-slate-700 font-medium` emphasis. Single-segment paths render without chevrons.
 - **SHELL-1.6-02** ✅ **Read-Mode toggle icon state** — `readOnly=true` renders `<Lock>`; `readOnly=false` renders `<LockOpen>`. The button's `aria-pressed` mirrors the flag and the accessible name swaps between `"Enter Read Mode"` / `"Exit Read Mode"`.
 - **SHELL-1.6-03** 🟡 **Read-Mode toggle disables editing** — click calls `onToggleReadOnly`; the `contenteditable=false` wiring lives inside the Tiptap editor (the Tiptap integration test).
 - **SHELL-1.6-04** ✅ **Right-side action slot renders** — `children` prop is rendered after the Read Mode toggle.
-- **SHELL-1.6-05** ✅ **PaneTitle edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit.
-- **SHELL-1.6-06** ✅ **PaneTitle edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
-- **SHELL-1.6-07** 🧪 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`/`PaneTitle`. _(e2e: `e2e/goldenPath.spec.ts`)_
+- **SHELL-1.6-05** ✅ **PaneHeader title edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit. (Title row folded into PaneHeader on 2026-04-26.)
+- **SHELL-1.6-06** ✅ **PaneHeader title edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
+- **SHELL-1.6-07** 🧪 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`. _(e2e: `e2e/goldenPath.spec.ts`)_
 
 ## 1.7 Error Surface (Phase 5c)
 
@@ -148,3 +150,16 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.11-12** ❌ **Diagram commands present when diagram open** — with a diagram pane open, "Delete Selected" (when a node is selected) and "Toggle Read / Edit Mode" appear.
 - **SHELL-1.11-13** ❌ **Document commands present when document open** — with a document pane open, document "Toggle Read / Edit Mode" appears in the palette.
 - **SHELL-1.11-14** ❌ **`when` guard hides Delete Selected when nothing selected** — with a diagram open but nothing selected, "Delete Selected" does not appear.
+
+## 1.12 Shell Collapse — PaneTitle → PaneHeader (Phase 2 PR 2)
+
+> 2026-04-26 — the per-pane chrome stack dropped from 5 strips (Header / Breadcrumb / Title / Toolbar / Content) to 4. `PaneTitle.tsx` was deleted; its title input, dirty dot, Save, and Discard fields now render inline inside `PaneHeader.tsx`. The shell `Header` reclaims the freed real-estate with a global "N unsaved" dirty-stack indicator next to the ⌘K trigger chip.
+
+- **SHELL-1.12-01** 🧪 **Title input lives inside the breadcrumb row** — the title `<h1>` (`data-testid="pane-title"`) and the file's breadcrumb segment share the same `PaneHeader` strip — there is no separate title row above the toolbar. _(e2e: `e2e/shellCollapse.spec.ts`)_
+- **SHELL-1.12-02** 🧪 **Editing the title and pressing Enter commits the change** — clicking the heading swaps it for an `<input>` (`data-testid="pane-title-input"`); typing + Enter commits via the existing `onTitleChange` wiring (diagram pane). _(e2e: `e2e/shellCollapse.spec.ts`)_
+- **SHELL-1.12-03** 🧪 **Save and Discard appear next to the title** — after a dirtying edit, both buttons render in the same `PaneHeader` row, enabled, with their existing `title` attributes (`Save`, `Discard changes`). _(e2e: `e2e/shellCollapse.spec.ts`)_
+- **SHELL-1.12-04** 🧪 **Dirty-stack indicator in Header shows "1 unsaved" after edit** — typing into a freshly opened doc surfaces an amber pill (`data-testid="dirty-stack-indicator"`) in the global header reading "1 unsaved". _(e2e: `e2e/shellCollapse.spec.ts`)_
+- **SHELL-1.12-05** 🧪 **Dirty-stack indicator hidden when no files are dirty** — with a clean document open, the indicator is absent from the DOM (`toHaveCount(0)`). _(e2e: `e2e/shellCollapse.spec.ts`)_
+- **SHELL-1.12-06** ✅ **`hideTitleControls` dissolves title input + Save/Discard (Focus Mode)** — `PaneHeader` with `hideTitleControls` skips the title section entirely; breadcrumb, Read pill, and reading-time pill still render. _(unit: `PaneHeader.test.tsx`)_
+- **SHELL-1.12-07** ✅ **Header dirty-stack badge tooltip lists every dirty file** — the badge's `title` attribute concatenates every path in `dirtyFiles`; rendered with `bg-amber-50 text-amber-700 border border-amber-200` styling. _(unit: `Header.test.tsx`)_
+- **SHELL-1.12-08** ✅ **Per-pane dirty publishers prevent split-view race** — when the same `.md` is open in BOTH panes and only the LEFT pane is dirty, the global dirty-stack indicator still reports the file as unsaved. The right pane's mount (which fires `onDirtyChange(path, false)`) and unmount cleanup must not clear a path the left pane still owns. The shell tracks `leftDocDirty` and `rightDocDirty` as separate `Set<string>` publishers and unions them for the Header badge. _(unit: `knowledgeBase.dirty.test.tsx` — split-pane has no e2e harness; covered by Vitest unit test exercising the publish/cleanup contract)_

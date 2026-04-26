@@ -34,6 +34,25 @@ import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 
+/**
+ * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
+ * or the same Set when the operation is a no-op. Exported for unit tests.
+ *
+ * Used by per-pane dirty publishers in `KnowledgeBaseInner` (SHELL-1.12).
+ * Each pane gets its own Set so the same file open in both panes is tracked
+ * as two distinct publishers — preventing the right pane's mount from
+ * clearing a path the left pane still owns.
+ */
+export function updateDirtySet(prev: Set<string>, path: string, dirty: boolean): Set<string> {
+  const has = prev.has(path);
+  if (dirty && has) return prev;
+  if (!dirty && !has) return prev;
+  const next = new Set(prev);
+  if (dirty) next.add(path);
+  else next.delete(path);
+  return next;
+}
+
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
   const { reportError } = useShellErrors();
@@ -86,9 +105,48 @@ function KnowledgeBaseInner() {
   const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
   const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
 
+  // ─── Open-document dirty tracker ───
+  // DiagramView already pushes dirty file paths into `fileExplorer.dirtyFiles`
+  // via `useDrafts.markDirty`; documents track dirty state locally inside
+  // `useDocumentContent`. This shell-level state bridges the document side so
+  // the global dirty-stack indicator in `Header` reflects every unsaved file
+  // across panes (SHELL-1.12, 2026-04-26).
+  //
+  // Per-pane publishers (SHELL-1.12, race-condition fix): each pane is its
+  // own publisher, keyed by side. The previous single Set<string> keyed only
+  // by filePath caused a race when the same file was open in both panes —
+  // the right pane's mount effect would fire `onDirtyChange(path, false)` and
+  // clear a path the left pane still owned. Splitting state by side keeps
+  // each pane's publish/cleanup scoped to itself; the Header takes the union.
+  const [leftDocDirty, setLeftDocDirty] = useState<Set<string>>(() => new Set());
+  const [rightDocDirty, setRightDocDirty] = useState<Set<string>>(() => new Set());
+  const handleLeftDocDirty = useCallback((filePath: string, dirty: boolean) => {
+    setLeftDocDirty((prev) => updateDirtySet(prev, filePath, dirty));
+  }, []);
+  const handleRightDocDirty = useCallback((filePath: string, dirty: boolean) => {
+    setRightDocDirty((prev) => updateDirtySet(prev, filePath, dirty));
+  }, []);
+  // Combine diagram drafts + per-pane document dirty state for the Header badge.
+  // Same file open in both panes deduplicates to one entry — the badge counts
+  // distinct unsaved paths globally.
+  const headerDirtyFiles = React.useMemo(() => {
+    const out = new Set<string>(fileExplorer.dirtyFiles);
+    for (const p of leftDocDirty) out.add(p);
+    for (const p of rightDocDirty) out.add(p);
+    return out;
+  }, [fileExplorer.dirtyFiles, leftDocDirty, rightDocDirty]);
+
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
+
+  // ─── Focus Mode (⌘.) ───
+  // Hides explorer + properties + footer + editor toolbar so only the
+  // document content + breadcrumb remain.  Saves the prior collapse state
+  // so toggling off restores whatever the user had before — never just
+  // "explorer back open" by default.
+  const [focusMode, setFocusMode] = useState(false);
+  const focusRestoreRef = useRef<{ explorer: boolean; properties: boolean } | null>(null);
 
   // ─── Recent files + search ref ───
   const { recentFiles, addToRecents } = useRecentFiles();
@@ -109,9 +167,10 @@ function KnowledgeBaseInner() {
   }, []);
 
   // Derived state from bridge (with safe defaults). Title / isDirty now live
-  // in each pane's `PaneTitle` row and don't need lifting to the shell —
-  // only the confirm-popover stays here because it's shell chrome that
-  // overlays the whole viewport.
+  // in each pane's `PaneHeader` row (folded from `PaneTitle` in SHELL-1.12,
+  // 2026-04-26) and don't need lifting to the shell — only the confirm-
+  // popover stays here because it's shell chrome that overlays the whole
+  // viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
   // Fallback confirm state for file/folder deletion when no DiagramView is open.
@@ -409,6 +468,56 @@ function KnowledgeBaseInner() {
   }], [explorerCollapsed]);
   useRegisterCommands(goToFileCommands);
 
+  // ─── Focus Mode toggle (⌘.) — palette + raw key handler ───
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode((prev) => {
+      const next = !prev;
+      if (next) {
+        // Entering — capture current chrome state so we can restore it.
+        focusRestoreRef.current = {
+          explorer: explorerCollapsed,
+          properties: false, // properties state lives in DocumentView; we
+                             // can't read it here, so on exit we just leave
+                             // DocumentView's local state alone.
+        };
+        setExplorerCollapsed(true);
+      } else {
+        // Exiting — restore explorer to whatever the user had.
+        const prior = focusRestoreRef.current;
+        if (prior) setExplorerCollapsed(prior.explorer);
+        focusRestoreRef.current = null;
+      }
+      return next;
+    });
+  }, [explorerCollapsed]);
+
+  const focusModeCommands = useMemo(() => [{
+    id: "view.toggle-focus-mode",
+    title: "Toggle Focus Mode",
+    group: "View",
+    shortcut: "⌘.",
+    run: toggleFocusMode,
+  }], [toggleFocusMode]);
+  useRegisterCommands(focusModeCommands);
+
+  // Raw ⌘. handler — guards against firing while typing in inputs/contenteditable
+  // exactly like the existing ⌘K and ⌘F handlers above.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        toggleFocusMode();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleFocusMode]);
+
   // ─── Restore pane layout (or fall back to single pending file) on directory load ───
   useEffect(() => {
     if (layoutRestoredRef.current || fileExplorer.tree.length === 0) return;
@@ -522,10 +631,12 @@ function KnowledgeBaseInner() {
         focused={focused}
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
+        focusMode={focusMode}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
         }}
+        onDirtyChange={side === "left" ? handleLeftDocDirty : handleRightDocDirty}
         linkManager={linkManager}
         tree={fileExplorer.tree}
         onNavigateLink={handleNavigateWikiLink}
@@ -541,7 +652,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleLeftDocDirty, handleRightDocDirty]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -559,6 +670,7 @@ function KnowledgeBaseInner() {
     <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
         isSplit={panes.isSplit}
+        dirtyFiles={headerDirtyFiles}
         onToggleSplit={() => {
           if (panes.isSplit) {
             panes.exitSplit();
@@ -585,10 +697,13 @@ function KnowledgeBaseInner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Explorer */}
+        {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
+            36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
           className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
-          style={{ width: explorerCollapsed ? 36 : 260 }}
+          style={{ width: focusMode ? 0 : explorerCollapsed ? 36 : 260, borderRightWidth: focusMode ? 0 : 1 }}
+          data-testid="explorer-container"
+          aria-hidden={focusMode}
         >
           <ExplorerPanel
             collapsed={explorerCollapsed}
@@ -649,8 +764,10 @@ function KnowledgeBaseInner() {
         />
       </div>
 
-      {/* Global footer — reads info from the focused pane */}
-      <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
+      {/* Global footer — reads info from the focused pane.  Unmounted in
+          Focus Mode so the document content fills the full vertical
+          space. */}
+      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
       <CommandPalette />

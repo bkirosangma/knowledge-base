@@ -15,7 +15,7 @@ import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
 import { getMarkRange } from "@tiptap/core";
-import { WikiLink } from "../extensions/wikiLink";
+import { WikiLink, type WikiLinkHoverPayload } from "../extensions/wikiLink";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
@@ -23,6 +23,19 @@ import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer
 import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
+import WikiLinkHoverCard from "./WikiLinkHoverCard";
+
+/** Aggregate editorial metadata derived from the rendered Tiptap DOM —
+ *  pushed up to MarkdownPane so the read-mode chrome (TOC, progress bar,
+ *  reading-time pill) can react to content changes without owning a second
+ *  parser. Recomputed inside MarkdownEditor on `onUpdate` and on initial
+ *  content sync. */
+export interface ReadingMeta {
+  /** Word count of the rendered text — drives the reading-time pill. */
+  wordCount: number;
+  /** H1/H2/H3 entries in document order. */
+  headings: Array<{ id: string; level: 1 | 2 | 3; text: string }>;
+}
 
 interface MarkdownEditorProps {
   content: string;
@@ -46,6 +59,25 @@ interface MarkdownEditorProps {
   /** Increment to force-apply `content` to the editor even when focused.
    *  Used by undo/redo to bypass the isFocused guard in the content-sync effect. */
   historyToken?: number;
+  /** When true, hide the formatting toolbar even in edit mode. Used by Focus
+   *  Mode (⌘.) so only the document content remains visible. */
+  hideToolbar?: boolean;
+  /** Called whenever the rendered text changes — surfaces word count + the
+   *  ordered list of H1/H2/H3 IDs/text so `MarkdownPane` can render the TOC
+   *  rail and reading-time pill without re-parsing markdown. */
+  onReadingMetaChange?: (meta: ReadingMeta) => void;
+  /** Imperative ref to the scrollable editor container. The reading
+   *  progress bar reads its scrollTop / scrollHeight; the TOC scrolls it
+   *  to a heading on click. */
+  editorContainerRef?: React.RefObject<HTMLDivElement | null>;
+  /** Optional content rendered *inside* the editor scroll container, after
+   *  the EditorContent. Used by the inline Backlinks rail (DOC-4.18) so
+   *  it scrolls with the document instead of being a fixed footer. */
+  belowContent?: React.ReactNode;
+  /** Lookup function returning the live backlink count for a target path.
+   *  Used by the wiki-link hover card (DOC-4.17) so it can show "N
+   *  backlinks" without re-running the index. */
+  getBacklinkCount?: (resolvedPath: string) => number;
 }
 
 
@@ -62,6 +94,50 @@ const RawAwareTaskItem = TaskItem.extend({
   content: "(paragraph | rawBlock) block*",
 });
 
+/** Slugify a heading's text for use as an `id` anchor. Matches the
+ *  conventional GitHub-style slug closely enough for in-document links —
+ *  lowercase, spaces → hyphens, drop punctuation. Two collisions in one
+ *  doc get a `-2`, `-3`, ... suffix; the caller (`extractReadingMeta`)
+ *  supplies the seen-slug counter. */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Reading-time + TOC source-of-truth. Reads directly from the rendered DOM
+ *  rather than re-parsing markdown so the headings always match what the
+ *  user sees and the IDs stick on the live nodes for click-to-scroll. */
+function extractReadingMeta(root: HTMLElement): ReadingMeta {
+  const text = root.textContent ?? "";
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  const headingNodes = root.querySelectorAll("h1, h2, h3");
+  const headings: ReadingMeta["headings"] = [];
+  const seen = new Map<string, number>();
+  headingNodes.forEach((node) => {
+    const el = node as HTMLElement;
+    const heading = el.textContent?.trim() ?? "";
+    if (!heading) return;
+    const tag = el.tagName.toLowerCase();
+    const level = (tag === "h1" ? 1 : tag === "h2" ? 2 : 3) as 1 | 2 | 3;
+    let id = slugify(heading);
+    if (!id) id = `heading-${headings.length + 1}`;
+    const collisions = seen.get(id) ?? 0;
+    if (collisions > 0) id = `${id}-${collisions + 1}`;
+    seen.set(id, collisions + 1);
+    // Stamp the ID onto the live node so ReadingTOC can scroll-to-element
+    // by id without re-querying.
+    if (el.id !== id) el.id = id;
+    headings.push({ id, level, text: heading });
+  });
+
+  return { wordCount, headings };
+}
+
 
 export default function MarkdownEditor({
   content,
@@ -76,6 +152,11 @@ export default function MarkdownEditor({
   rightSidebar,
   onBlockChange,
   historyToken,
+  hideToolbar = false,
+  onReadingMetaChange,
+  editorContainerRef: editorContainerRefProp,
+  belowContent,
+  getBacklinkCount,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -83,8 +164,17 @@ export default function MarkdownEditor({
   const rawSwapRef = useRef(false);
   // Ref to the scrollable wrapper around <EditorContent>. Passed to the
   // floating table toolbar so it can position itself in the same scroll
-  // context as the table it anchors to.
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  // context as the table it anchors to. May also be supplied externally
+  // (read-mode chrome — progress bar, TOC scrollspy — needs to read the
+  // same scroll container).
+  const localEditorContainerRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = editorContainerRefProp ?? localEditorContainerRef;
+  // Stable ref for the reading-meta callback so the onUpdate closure doesn't
+  // need to be re-bound when MarkdownPane re-renders.
+  const onReadingMetaChangeRef = useRef(onReadingMetaChange);
+  useEffect(() => {
+    onReadingMetaChangeRef.current = onReadingMetaChange;
+  }, [onReadingMetaChange]);
   // Debounce handle for the heavy htmlToMarkdown + onChange round-trip that
   // fires on every keystroke. See docs/perf-analysis-2026-04-15.md #1.
   const pendingChangeRef = useRef<number | null>(null);
@@ -99,6 +189,128 @@ export default function MarkdownEditor({
     onBlockChangeRef.current = onBlockChange;
   }, [onBlockChange]);
   const prevBlockStartRef = useRef(-1);
+
+  // ── Wiki-link hover preview (DOC-4.17) ────────────────────────────────
+  // Single global card managed here, shown 200ms after a wiki-link's
+  // mouseenter and dismissed when the mouse leaves both the link and the
+  // card. Broken links never open the card (resolvedPath is null).
+  const [hoverCard, setHoverCard] = useState<{ rect: DOMRect; resolvedPath: string } | null>(null);
+  // Mirror of `hoverCard` for the Tiptap `onUpdate` closure, which is
+  // captured at editor-init time and never re-runs. Reading from state
+  // there would race; reading from a ref is current.
+  const hoverCardRef = useRef<typeof hoverCard>(null);
+  useEffect(() => { hoverCardRef.current = hoverCard; }, [hoverCard]);
+  // setTimeout handle for the 200ms delay; cleared on rapid mouseleave / re-enter.
+  const hoverTimerRef = useRef<number | null>(null);
+  // Tracks whether the cursor is currently over the link OR the card. Either
+  // one being true keeps the card alive; both being false (after a 60ms
+  // overshoot tolerance) dismisses.
+  const onLinkRef = useRef(false);
+  const onCardRef = useRef(false);
+  const dismissTimerRef = useRef<number | null>(null);
+  const getBacklinkCountRef = useRef(getBacklinkCount);
+  useEffect(() => { getBacklinkCountRef.current = getBacklinkCount; }, [getBacklinkCount]);
+
+  const cancelHoverOpen = useCallback(() => {
+    if (hoverTimerRef.current != null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+  const cancelDismiss = useCallback(() => {
+    if (dismissTimerRef.current != null) {
+      window.clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+  }, []);
+  const scheduleDismiss = useCallback(() => {
+    cancelDismiss();
+    dismissTimerRef.current = window.setTimeout(() => {
+      dismissTimerRef.current = null;
+      if (!onLinkRef.current && !onCardRef.current) {
+        setHoverCard(null);
+      }
+    }, 60);
+  }, [cancelDismiss]);
+
+  const handleWikiHover = useCallback((payload: WikiLinkHoverPayload) => {
+    onLinkRef.current = true;
+    cancelDismiss();
+    // Broken link → never open. Same path as currently shown → no-op.
+    if (!payload.resolvedPath) {
+      cancelHoverOpen();
+      return;
+    }
+    cancelHoverOpen();
+    const resolvedPath = payload.resolvedPath;
+    const rect = payload.rect;
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHoverCard({ rect, resolvedPath });
+    }, 200);
+  }, [cancelDismiss, cancelHoverOpen]);
+
+  const handleWikiHoverEnd = useCallback(() => {
+    onLinkRef.current = false;
+    cancelHoverOpen();
+    scheduleDismiss();
+  }, [cancelHoverOpen, scheduleDismiss]);
+
+  const handleCardEnter = useCallback(() => {
+    onCardRef.current = true;
+    cancelDismiss();
+  }, [cancelDismiss]);
+  const handleCardLeave = useCallback(() => {
+    onCardRef.current = false;
+    scheduleDismiss();
+  }, [scheduleDismiss]);
+
+  // Stable refs for the hover callbacks — extension options are mutated
+  // imperatively elsewhere (existingDocPaths etc.) and we follow the same
+  // shape here so the closure read by the nodeView is always current.
+  const handleWikiHoverRef = useRef(handleWikiHover);
+  const handleWikiHoverEndRef = useRef(handleWikiHoverEnd);
+  useEffect(() => { handleWikiHoverRef.current = handleWikiHover; }, [handleWikiHover]);
+  useEffect(() => { handleWikiHoverEndRef.current = handleWikiHoverEnd; }, [handleWikiHoverEnd]);
+
+  // Cleanup pending timers on unmount.
+  useEffect(() => () => {
+    cancelHoverOpen();
+    cancelDismiss();
+  }, [cancelHoverOpen, cancelDismiss]);
+
+  // Dismiss the hover card whenever the document content changes externally
+  // (file switch, undo/redo, conflict reload). The DOMRect captured at
+  // hover time becomes stale once the doc swaps; clearing it here keeps
+  // the card from pointing at a now-removed link.
+  useEffect(() => {
+    onLinkRef.current = false;
+    onCardRef.current = false;
+    cancelHoverOpen();
+    cancelDismiss();
+    setHoverCard(null);
+  }, [content, cancelHoverOpen, cancelDismiss]);
+
+  // Close the hover card on scroll — re-anchoring is more complex than this
+  // PR needs, and the card going stale on scroll is the user-expected
+  // dismissal pattern for transient hovers.
+  useEffect(() => {
+    if (!hoverCard) return;
+    const close = () => {
+      onLinkRef.current = false;
+      onCardRef.current = false;
+      cancelHoverOpen();
+      cancelDismiss();
+      setHoverCard(null);
+    };
+    const container = editorContainerRef.current;
+    container?.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    return () => {
+      container?.removeEventListener("scroll", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [hoverCard, cancelHoverOpen, cancelDismiss, editorContainerRef]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -139,6 +351,8 @@ export default function MarkdownEditor({
         allDocPaths,
         tree,
         currentDocDir,
+        onHover: (p) => handleWikiHoverRef.current(p),
+        onHoverEnd: () => handleWikiHoverEndRef.current(),
       }),
       RawBlock,
       MarkdownReveal,
@@ -149,6 +363,29 @@ export default function MarkdownEditor({
       if (rawSwapRef.current) {
         rawSwapRef.current = false;
         return;
+      }
+      // Dismiss the hover card on any in-document edit. The captured
+      // DOMRect goes stale the moment the user types — the linked node may
+      // shift, split, or be deleted entirely — so we close eagerly here.
+      // The `content`-prop effect below only catches *external* swaps
+      // (file switch, undo/redo, conflict reload); local typing doesn't
+      // round-trip through `content` synchronously.
+      if (hoverCardRef.current) {
+        onLinkRef.current = false;
+        onCardRef.current = false;
+        cancelHoverOpen();
+        cancelDismiss();
+        setHoverCard(null);
+      }
+      // Recompute reading meta on every doc transaction. ProseMirror has
+      // already committed to the DOM by the time onUpdate fires, so the
+      // rendered headings/word count are accurate without a microtask hop.
+      // Gated to read mode — the TOC and reading-time pill only render in
+      // read mode, and walking every heading + stamping IDs on each
+      // keystroke is pure waste while the user is typing.
+      if (readOnly && onReadingMetaChangeRef.current) {
+        const dom = ed.view.dom as HTMLElement;
+        onReadingMetaChangeRef.current(extractReadingMeta(dom));
       }
       if (!isRawMode) {
         // Debounce the serialize-plus-notify trip. `htmlToMarkdown` re-parses
@@ -264,6 +501,20 @@ export default function MarkdownEditor({
     });
   }, [editor, readOnly]);
 
+  // Emit reading meta whenever the editor mounts or external content changes
+  // land — covers initial render and file switches (where onUpdate doesn't
+  // fire because Tiptap's setContent is invoked with `emitUpdate: false`).
+  // Gated to read mode for the same reason as the onUpdate path: only the
+  // read-mode chrome consumes meta, so skip the DOM walk in edit mode.
+  useEffect(() => {
+    if (!editor || !readOnly || !onReadingMetaChangeRef.current) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      const dom = editor.view.dom as HTMLElement;
+      onReadingMetaChangeRef.current?.(extractReadingMeta(dom));
+    });
+  }, [editor, content, readOnly]);
+
   // Read mode always shows rich text; raw mode is only honored when editable.
   const showRaw = isRawMode && !readOnly;
 
@@ -372,8 +623,8 @@ export default function MarkdownEditor({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Toolbar (hidden in read-only mode) ── */}
-      {!readOnly && (
+      {/* ── Toolbar (hidden in read-only mode and in Focus Mode) ── */}
+      {!readOnly && !hideToolbar && (
         <MarkdownToolbar
           editor={editor}
           isRawMode={isRawMode}
@@ -396,10 +647,26 @@ export default function MarkdownEditor({
             />
           ) : (
             <>
-              <EditorContent
-                editor={editor}
-                className="markdown-editor h-full overflow-auto"
-              />
+              {/* Wrap EditorContent in a div that owns the dynamic class
+                  list.  Tiptap's EditorContent caches its className at
+                  mount in v3, so toggling `editorial` directly on it
+                  doesn't repaint when readOnly flips.  A wrapper div is
+                  cheap, ProseMirror still sits one level inside, and the
+                  selector `.markdown-editor.editorial .ProseMirror` still
+                  matches on toggle. */}
+              {/* Single scroll context: the outer `editorContainerRef` div
+                  owns the scrollbar (used by ReadingProgress + the TOC
+                  scrollspy + the inline Backlinks rail). The inner
+                  `markdown-editor` div is `h-full` so empty space below
+                  short content still hits ProseMirror; the rail is
+                  appended after EditorContent so it scrolls with the
+                  document. */}
+              <div
+                className={`markdown-editor h-full${readOnly ? " editorial" : ""}`}
+              >
+                <EditorContent editor={editor} className="h-full" />
+                {belowContent}
+              </div>
               <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
             </>
           )}
@@ -411,6 +678,19 @@ export default function MarkdownEditor({
           selection isn't inside a link mark or when the editor is read-only. */}
       {editor && !showRaw && (
         <LinkEditorPopover editor={editor} allDocPaths={allDocPaths} tree={tree} currentDocDir={currentDocDir} />
+      )}
+
+      {/* Wiki-link hover preview card (DOC-4.17). Single global instance,
+          shown 200ms after a link's mouseenter and dismissed when the
+          mouse leaves both the link and the card. */}
+      {hoverCard && (
+        <WikiLinkHoverCard
+          anchor={hoverCard.rect}
+          resolvedPath={hoverCard.resolvedPath}
+          backlinkCount={getBacklinkCountRef.current?.(hoverCard.resolvedPath) ?? 0}
+          onMouseEnter={handleCardEnter}
+          onMouseLeave={handleCardLeave}
+        />
       )}
     </div>
   );
