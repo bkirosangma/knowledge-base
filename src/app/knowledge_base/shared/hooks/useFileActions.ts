@@ -94,7 +94,6 @@ export function useFileActions(
     applyDiagramToState(diagram, { setSnapshot: true, snapshotSource, documents: baselineDocs });
     // Restore document attachments from the loaded (possibly draft) diagram
     currentStateRef.current.onLoadDocuments?.(data.documents ?? []);
-    callbacksRef.current.onAfterDiagramSaved?.(fileName, data.documents ?? []);
     isRestoringRef.current = true;
     await history.initHistory(diskJson, {
       title: diskData.title ?? "Untitled",

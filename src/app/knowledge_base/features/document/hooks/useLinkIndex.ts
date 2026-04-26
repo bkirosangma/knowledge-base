@@ -1,7 +1,7 @@
 // src/app/knowledge_base/hooks/useLinkIndex.ts
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { LinkIndex, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
@@ -103,6 +103,12 @@ function rebuildBacklinks(index: LinkIndex): void {
 
 export function useLinkIndex() {
   const [linkIndex, setLinkIndex] = useState<LinkIndex>(emptyIndex);
+  // Always-current ref so write callbacks never read stale closure state.
+  // Without this, a fullRebuild that calls setLinkIndex() followed by an
+  // incremental updateDiagramLinks() before React re-renders would cause
+  // the incremental call to overwrite the full rebuild on disk.
+  const linkIndexRef = useRef(linkIndex);
+  linkIndexRef.current = linkIndex;
 
   const loadIndex = useCallback(async (rootHandle: FileSystemDirectoryHandle) => {
     const repo = createLinkIndexRepository(rootHandle);
@@ -118,10 +124,12 @@ export function useLinkIndex() {
       loaded = null;
     }
     if (loaded) {
+      linkIndexRef.current = loaded;
       setLinkIndex(loaded);
       return loaded;
     }
     const fresh = emptyIndex();
+    linkIndexRef.current = fresh;
     setLinkIndex(fresh);
     return fresh;
   }, []);
@@ -133,6 +141,11 @@ export function useLinkIndex() {
     const repo = createLinkIndexRepository(rootHandle);
     const updated = { ...index, updatedAt: new Date().toISOString() };
     await repo.save(updated);
+    // Update the ref immediately after the disk write so any callback that
+    // fires before React re-renders (e.g. onAfterDiagramSaved triggered by
+    // a concurrent diagram load) reads the freshly-saved index rather than
+    // stale pre-save state and overwrites the disk with fewer documents.
+    linkIndexRef.current = updated;
     setLinkIndex(updated);
   }, []);
 
@@ -142,27 +155,26 @@ export function useLinkIndex() {
     markdownContent: string,
     currentIndex?: LinkIndex,
   ) => {
-    const index = currentIndex ?? { ...linkIndex };
-    // Fix 2 & 4: use shared helpers
+    const index = currentIndex ?? { ...linkIndexRef.current };
     const docDir = getDocDir(docPath);
     index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     emitCrossReferences(rootHandle, collectCrossReferences(index));
     return index;
-  }, [linkIndex, saveIndex]);
+  }, [saveIndex]);
 
   const removeDocumentFromIndex = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
     docPath: string,
     currentIndex?: LinkIndex,
   ) => {
-    const index = currentIndex ?? { ...linkIndex };
+    const index = currentIndex ?? { ...linkIndexRef.current };
     delete index.documents[docPath];
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     return index;
-  }, [linkIndex, saveIndex]);
+  }, [saveIndex]);
 
   const renameDocumentInIndex = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
@@ -170,13 +182,11 @@ export function useLinkIndex() {
     newPath: string,
     currentIndex?: LinkIndex,
   ) => {
-    const index = currentIndex ?? { ...linkIndex };
-    // Move the document's own entry
+    const index = currentIndex ?? { ...linkIndexRef.current };
     if (index.documents[oldPath]) {
       index.documents[newPath] = index.documents[oldPath];
       delete index.documents[oldPath];
     }
-    // Update all outbound links that pointed to oldPath
     for (const entry of Object.values(index.documents)) {
       entry.outboundLinks = entry.outboundLinks.map(link =>
         link.targetPath === oldPath ? { ...link, targetPath: newPath } : link
@@ -188,7 +198,7 @@ export function useLinkIndex() {
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     return index;
-  }, [linkIndex, saveIndex]);
+  }, [saveIndex]);
 
   const getBacklinksFor = useCallback((docPath: string): { sourcePath: string; section?: string }[] => {
     return linkIndex.backlinks[docPath]?.linkedFrom ?? [];
@@ -228,7 +238,7 @@ export function useLinkIndex() {
     docFilenames: string[],
     currentIndex?: LinkIndex,
   ) => {
-    const index = currentIndex ?? { ...linkIndex };
+    const index = currentIndex ?? { ...linkIndexRef.current };
     index.documents[diagramPath] = {
       outboundLinks: docFilenames.map((f) => ({ targetPath: f, type: "document" as const })),
       sectionLinks: [],
@@ -237,7 +247,7 @@ export function useLinkIndex() {
     await saveIndex(rootHandle, index);
     emitCrossReferences(rootHandle, collectCrossReferences(index));
     return index;
-  }, [linkIndex, saveIndex]);
+  }, [saveIndex]);
 
   return {
     linkIndex,
