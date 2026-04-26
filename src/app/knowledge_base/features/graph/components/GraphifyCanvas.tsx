@@ -180,7 +180,7 @@ export default function GraphifyCanvas({
       if (e.ctrlKey) {
         // Pinch on trackpad, or Ctrl+scroll → smooth zoom, no snap.
         const z: number = graph.zoom();
-        graph.zoom(Math.max(0.1, Math.min(10, z * Math.pow(2, -dy * 0.004))), 0);
+        graph.zoom(Math.max(0.1, Math.min(10, z * Math.pow(2, -dy * 0.02))), 0);
       } else {
         // Two-finger scroll (trackpad) or mouse wheel → pan.
         const z: number = graph.zoom();
