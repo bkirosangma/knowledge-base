@@ -17,6 +17,7 @@ import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import GraphView from "./features/graph/GraphView";
+import { collectAllPaths } from "./features/graph/hooks/useGraphData";
 import { ToolbarProvider, GRAPH_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
@@ -708,6 +709,14 @@ function KnowledgeBaseInner() {
           tree={fileExplorer.tree}
           linkIndex={linkManager.linkIndex}
           onSelectNode={handleSelectFromGraph}
+          onRefresh={async () => {
+            const rootHandle = fileExplorer.dirHandleRef.current;
+            if (!rootHandle) return;
+            const allPaths = collectAllPaths(fileExplorer.tree);
+            await linkManager.fullRebuild(rootHandle, allPaths).catch((e) =>
+              reportError(e, "Rebuilding graph index")
+            );
+          }}
         />
       );
     }
@@ -740,6 +749,14 @@ function KnowledgeBaseInner() {
           readDocument={readDocument}
           getDocumentReferences={getDocumentReferences}
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+          onAfterDiagramSaved={(diagramPath, docs) => {
+            const rootHandle = fileExplorer.dirHandleRef.current;
+            if (!rootHandle) return;
+            const docFilenames = docs.map((d) => d.filename);
+            linkManager.updateDiagramLinks(rootHandle, diagramPath, docFilenames).catch((e) =>
+              reportError(e, `Updating diagram links for ${diagramPath}`)
+            );
+          }}
         />
       );
     }
@@ -775,7 +792,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty, reportError]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -832,12 +849,24 @@ function KnowledgeBaseInner() {
           onSelectFile={handleSelectFile}
           onCreateFile={async (parentPath) => {
             const result = await fileExplorer.createFile(parentPath);
-            if (result) handleSelectFile(result.path);
+            if (result) {
+              handleSelectFile(result.path);
+              const rootHandle = fileExplorer.dirHandleRef.current;
+              if (rootHandle) {
+                linkManager.updateDiagramLinks(rootHandle, result.path, []).catch(() => {});
+              }
+            }
             return result?.path ?? null;
           }}
           onCreateDocument={async (parentPath) => {
             const resultPath = await fileExplorer.createDocument(parentPath);
-            if (resultPath) handleSelectFile(resultPath);
+            if (resultPath) {
+              handleSelectFile(resultPath);
+              const rootHandle = fileExplorer.dirHandleRef.current;
+              if (rootHandle) {
+                linkManager.updateDocumentLinks(rootHandle, resultPath, "").catch(() => {});
+              }
+            }
             return resultPath;
           }}
           onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}

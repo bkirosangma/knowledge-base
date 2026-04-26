@@ -47,6 +47,7 @@ export function useFileActions(
   onLoadDocuments?: (docs: DocumentMeta[]) => void,
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
+  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void,
 ) {
   // Keep the "current diagram state" accessible to handleLoadFile /
   // handleSave without listing every state value in their useCallback
@@ -65,8 +66,8 @@ export function useFileActions(
     isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
   };
 
-  const callbacksRef = useRef({ onAfterSave, onAfterDiscard });
-  callbacksRef.current = { onAfterSave, onAfterDiscard };
+  const callbacksRef = useRef({ onAfterSave, onAfterDiscard, onAfterDiagramSaved });
+  callbacksRef.current = { onAfterSave, onAfterDiscard, onAfterDiagramSaved };
 
   const handleLoadFile = useCallback(async (fileName: string) => {
     // SHELL-1.2-22: flush the outgoing file's dirty state to disk before
@@ -93,6 +94,7 @@ export function useFileActions(
     applyDiagramToState(diagram, { setSnapshot: true, snapshotSource, documents: baselineDocs });
     // Restore document attachments from the loaded (possibly draft) diagram
     currentStateRef.current.onLoadDocuments?.(data.documents ?? []);
+    callbacksRef.current.onAfterDiagramSaved?.(fileName, data.documents ?? []);
     isRestoringRef.current = true;
     await history.initHistory(diskJson, {
       title: diskData.title ?? "Untitled",
@@ -126,6 +128,7 @@ export function useFileActions(
       };
       history.onSave(JSON.stringify(onDiskData, null, 2));
       await callbacksRef.current.onAfterSave?.();
+      callbacksRef.current.onAfterDiagramSaved?.(fileExplorer.activeFile, s.documents ?? []);
     }
   }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);
 

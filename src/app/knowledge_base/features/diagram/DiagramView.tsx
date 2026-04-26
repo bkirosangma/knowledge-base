@@ -139,6 +139,8 @@ export interface DiagramViewProps {
   };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  /** Called after a diagram file is saved or loaded with the file path and its attached doc list. */
+  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
 }
 
 export default function DiagramView({
@@ -157,6 +159,7 @@ export default function DiagramView({
   getDocumentReferences,
   deleteDocumentWithCleanup,
   onCreateAndAttach,
+  onAfterDiagramSaved,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const {
@@ -616,6 +619,7 @@ export default function DiagramView({
     onLoadDocuments,
     flushPendingDeletes,
     clearPendingDeletes,
+    onAfterDiagramSaved,
   );
 
   // ─── Auto-load diagram when activeFile changes (mount, restore-on-refresh, pane switch) ───
