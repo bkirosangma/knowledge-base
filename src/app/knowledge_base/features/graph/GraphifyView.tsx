@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BrainCircuit } from "lucide-react";
-import { useTheme } from "../../shared/hooks/useTheme";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
@@ -24,8 +23,7 @@ export interface GraphifyViewProps {
 }
 
 export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyViewProps) {
-  const { theme } = useTheme();
-  const { data, communities, nodeColorMap, nodeSourceMap, status } = useRawGraphify(dirHandleRef);
+  const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(dirHandleRef);
 
   const [search, setSearch] = useState("");
   const [selectedNode, setSelectedNode] = useState<RawGraphifyNode | null>(null);
@@ -47,6 +45,11 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
     setSelectedNode(node);
     setSearch("");
     setHighlightedNode(node.id);
+  }, []);
+
+  const handleDeselect = useCallback(() => {
+    setSelectedNode(null);
+    setHighlightedNode(null);
   }, []);
 
   const handleOpenFile = useCallback((node: RawGraphifyNode) => {
@@ -99,7 +102,11 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
       </div>
 
       {/* Body */}
-      {status === "loading" || status === "idle" ? (
+      {status === "idle" ? (
+        <div className="flex-1 flex items-center justify-center bg-surface-2 text-mute text-sm">
+          Open a vault to view the knowledge graph.
+        </div>
+      ) : status === "loading" ? (
         <div className="flex-1 flex items-center justify-center bg-surface-2 text-mute text-sm">
           Loading knowledge graph…
         </div>
@@ -117,11 +124,13 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
           <GraphifyCanvas
             nodes={data.nodes}
             links={data.links}
+            hyperedges={hyperedges}
             nodeColorMap={nodeColorMap}
+            nodeDegreeMap={nodeDegreeMap}
             highlightedCommunity={highlightedCommunity}
             highlightedNode={highlightedNode}
-            theme={theme}
             onNodeClick={handleNodeClick}
+            onBackgroundClick={handleDeselect}
           />
 
           {/* Sidebar */}
@@ -179,21 +188,24 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                         className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                         style={{ background: nodeColorMap.get(selectedNode.id) ?? "#888" }}
                       />
-                      Community {selectedNode.community}
+                      {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
                     </div>
                   )}
                   {neighbors.length > 0 && (
                     <div>
                       <p className="text-mute mt-1 mb-0.5">Neighbors ({neighbors.length})</p>
                       <ul className="max-h-24 overflow-y-auto space-y-0.5">
-                        {neighbors.slice(0, 15).map(({ node: nb, direction }, i) => (
+                        {neighbors.slice(0, 15).map(({ node: nb, relation, direction }, i) => (
                           <li key={`${nb.id}-${i}`}>
                             <button
-                              className="truncate w-full text-left hover:text-accent"
+                              className="w-full text-left hover:text-accent"
                               style={{ borderLeft: `2px solid ${nodeColorMap.get(nb.id) ?? "#888"}`, paddingLeft: 4 }}
                               onClick={() => handleNodeClick(nb)}
                             >
-                              {direction === "out" ? "→" : "←"} {nb.label}
+                              <span className="truncate block leading-tight">{direction === "out" ? "→" : "←"} {nb.label}</span>
+                              {relation && relation !== "→" && relation !== "←" && (
+                                <span className="text-[9px] text-mute italic">{relation}</span>
+                              )}
                             </button>
                           </li>
                         ))}
@@ -241,13 +253,13 @@ function CommunityRow({
       <button
         className={`flex items-center gap-2 w-full text-left px-1 py-0.5 rounded text-xs transition-opacity ${highlighted ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
         onClick={onToggle}
-        title={`Community ${community.id} — ${community.count} nodes`}
+        title={`${community.name} — ${community.count} nodes`}
       >
         <span
           className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
           style={{ background: community.color }}
         />
-        <span className="flex-1 text-ink truncate">Community {community.id}</span>
+        <span className="flex-1 text-ink truncate">{community.name}</span>
         <span className="text-mute text-[10px]">{community.count}</span>
       </button>
     </li>
