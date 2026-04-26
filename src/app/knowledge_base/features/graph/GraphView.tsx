@@ -15,7 +15,7 @@
  * Phase 3 PR 2 (2026-04-26).
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Network } from "lucide-react";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
@@ -72,21 +72,37 @@ export default function GraphView({ tree, linkIndex, onSelectNode }: GraphViewPr
   //     to vault writes — would feedback-loop with our own onLayoutChange) ─
   const repos = useRepositories();
   const [layout, setLayout] = useState<Record<string, { x: number; y: number }> | null>(null);
+  // Mirror of the most recently persisted layout. `handleLayoutChange`
+  // merges the (possibly filtered) snapshot from GraphCanvas over this
+  // ref so positions for nodes hidden by the active filter are NOT lost
+  // when the filtered subset settles. Without the merge, an "Orphans
+  // only" settle would replace the whole vaultConfig layout map with
+  // just the orphan positions, wiping every other node's cached place.
+  const persistedLayoutRef = useRef<Record<string, { x: number; y: number }>>({});
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!repos.vaultConfig) return;
       const cfg = await readOrNull(() => repos.vaultConfig!.read());
-      if (!cancelled && cfg?.graph?.layout) setLayout(cfg.graph.layout);
+      if (!cancelled && cfg?.graph?.layout) {
+        setLayout(cfg.graph.layout);
+        persistedLayoutRef.current = cfg.graph.layout;
+      }
     })();
     return () => { cancelled = true; };
   }, [repos.vaultConfig]);
 
   // ─── Persist layout writes (debounced inside GraphCanvas) ───────────
   const handleLayoutChange = useCallback(
-    (next: Record<string, { x: number; y: number }>) => {
+    (partial: Record<string, { x: number; y: number }>) => {
       if (!repos.vaultConfig) return;
-      void repos.vaultConfig.update({ graph: { layout: next } }).catch(() => {
+      // Merge over the last-known persisted layout so filtered-out nodes
+      // keep their cached positions. The canvas only knows about visible
+      // nodes; the merge here is what makes layout cache resilient to
+      // filter state.
+      const merged = { ...persistedLayoutRef.current, ...partial };
+      persistedLayoutRef.current = merged;
+      void repos.vaultConfig.update({ graph: { layout: merged } }).catch(() => {
         // Layout cache is best-effort UX — never block the pane on a write
         // miss. Vault permission losses are surfaced elsewhere.
       });

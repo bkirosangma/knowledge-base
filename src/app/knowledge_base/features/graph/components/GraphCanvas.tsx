@@ -163,7 +163,10 @@ export default function GraphCanvas({
       )}
 
       {/* Hidden DOM mirror: lets Playwright click nodes without painting on
-          the canvas; also gives screen-readers a fallback list. */}
+          the canvas; also gives screen-readers a fallback list. Buttons
+          have `tabIndex={-1}` so keyboard tab navigation doesn't traverse
+          every invisible graph node — they remain reachable for SR users
+          via the `<ul>` tree and for tests via `data-testid` clicks. */}
       <ul
         data-testid="graph-debug-list"
         className="sr-only"
@@ -173,6 +176,7 @@ export default function GraphCanvas({
           <li key={n.id}>
             <button
               type="button"
+              tabIndex={-1}
               data-testid={`graph-node-${n.id}`}
               data-orphan={n.orphan ? "true" : "false"}
               data-file-type={n.fileType}

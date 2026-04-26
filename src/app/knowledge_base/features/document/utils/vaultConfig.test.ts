@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   initVault,
   readVaultConfig,
+  updateVaultConfig,
   updateVaultLastOpened,
   isVaultDirectory,
 } from './vaultConfig'
@@ -115,6 +116,58 @@ describe('updateVaultLastOpened', () => {
     await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
       name: 'FileSystemError', kind: 'not-found',
     })
+  })
+})
+
+describe('updateVaultConfig', () => {
+  it('FS-2.2-08: deep-merges nested objects so sibling keys survive a partial nested patch', async () => {
+    // Seed a config where `graph` already has multiple sibling fields.
+    // We use a cast because `graph` accepts a `layout` map per the type,
+    // but for this test we want to assert that ANY sibling under `graph`
+    // (e.g. a future `zoom` field) is preserved when `layout` is patched.
+    await initVault(asRootHandle(root), 'v')
+    const seeded: VaultConfig = {
+      ...(await readVaultConfig(asRootHandle(root))),
+      graph: {
+        layout: { 'a.md': { x: 1, y: 1 } },
+        // Future-sibling — stored via cast; the merge MUST preserve it.
+        ...({ zoom: 2 } as Record<string, unknown>),
+      } as VaultConfig['graph'],
+    }
+    const configDir = root.dirs.get('.archdesigner')!
+    const fh = configDir.files.get('config.json')!
+    const w = await fh.createWritable()
+    await w.write(JSON.stringify(seeded))
+    await w.close()
+
+    // Patch only `graph.layout` — `graph.zoom` must NOT be wiped.
+    const next = await updateVaultConfig(asRootHandle(root), {
+      graph: { layout: { 'a.md': { x: 1, y: 1 }, 'b.md': { x: 2, y: 2 } } },
+    })
+
+    expect(next.graph?.layout).toEqual({
+      'a.md': { x: 1, y: 1 },
+      'b.md': { x: 2, y: 2 },
+    })
+    // The cast back to a generic record is the only way to assert on the
+    // unknown sibling key without widening the type globally.
+    expect((next.graph as unknown as Record<string, unknown>).zoom).toBe(2)
+    // Top-level keys outside `graph` survive.
+    expect(next.name).toBe('v')
+    expect(next.version).toBe('1.0')
+  })
+
+  it('FS-2.2-08: top-level keys outside the patch are preserved', async () => {
+    await initVault(asRootHandle(root), 'v')
+    // Seed a theme so we can confirm it survives a `graph` patch.
+    await updateVaultConfig(asRootHandle(root), { theme: 'dark' })
+
+    const next = await updateVaultConfig(asRootHandle(root), {
+      graph: { layout: { 'a.md': { x: 1, y: 1 } } },
+    })
+
+    expect(next.theme).toBe('dark')
+    expect(next.graph?.layout).toEqual({ 'a.md': { x: 1, y: 1 } })
   })
 })
 

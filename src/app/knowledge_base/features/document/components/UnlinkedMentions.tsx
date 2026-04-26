@@ -52,12 +52,12 @@ export default function UnlinkedMentions({
   };
 
   return (
-    <div className="px-4 py-3 border-b border-slate-100" data-testid="unlinked-mentions">
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+    <div className="px-4 py-3 border-b border-line" data-testid="unlinked-mentions">
+      <div className="text-xs font-semibold text-mute uppercase tracking-wider mb-2">
         Unlinked mentions ({mentions.length})
       </div>
       {mentions.length === 0 ? (
-        <div className="text-xs text-slate-400">No unlinked mentions</div>
+        <div className="text-xs text-mute">No unlinked mentions</div>
       ) : (
         <ul className="space-y-1 m-0 p-0 list-none">
           {mentions.map((m) => (
