@@ -88,6 +88,8 @@ export interface MobileShellProps {
    * the tab also flips to "read" — host's actual behaviour still runs.
    */
   onSelectFromGraph: (path: string) => void;
+  /** Vault root handle — forwarded to GraphView for the knowledge-graph mode. */
+  dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>;
 
   // ─── Header chrome ──────────────────────────────────────────────
   theme: Theme;
@@ -116,6 +118,7 @@ export default function MobileShell(props: MobileShellProps) {
     onToggleTheme,
     dirtyCount,
     linkIndex,
+    dirHandleRef,
     tree,
   } = props;
 
@@ -294,6 +297,7 @@ export default function MobileShell(props: MobileShellProps) {
               tree={tree}
               linkIndex={linkIndex}
               onSelectNode={handleSelectFromGraphMobile}
+              dirHandleRef={dirHandleRef}
             />
           </div>
         )}
