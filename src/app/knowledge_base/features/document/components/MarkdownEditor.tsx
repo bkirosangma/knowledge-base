@@ -195,6 +195,11 @@ export default function MarkdownEditor({
   // mouseenter and dismissed when the mouse leaves both the link and the
   // card. Broken links never open the card (resolvedPath is null).
   const [hoverCard, setHoverCard] = useState<{ rect: DOMRect; resolvedPath: string } | null>(null);
+  // Mirror of `hoverCard` for the Tiptap `onUpdate` closure, which is
+  // captured at editor-init time and never re-runs. Reading from state
+  // there would race; reading from a ref is current.
+  const hoverCardRef = useRef<typeof hoverCard>(null);
+  useEffect(() => { hoverCardRef.current = hoverCard; }, [hoverCard]);
   // setTimeout handle for the 200ms delay; cleared on rapid mouseleave / re-enter.
   const hoverTimerRef = useRef<number | null>(null);
   // Tracks whether the cursor is currently over the link OR the card. Either
@@ -358,6 +363,19 @@ export default function MarkdownEditor({
       if (rawSwapRef.current) {
         rawSwapRef.current = false;
         return;
+      }
+      // Dismiss the hover card on any in-document edit. The captured
+      // DOMRect goes stale the moment the user types — the linked node may
+      // shift, split, or be deleted entirely — so we close eagerly here.
+      // The `content`-prop effect below only catches *external* swaps
+      // (file switch, undo/redo, conflict reload); local typing doesn't
+      // round-trip through `content` synchronously.
+      if (hoverCardRef.current) {
+        onLinkRef.current = false;
+        onCardRef.current = false;
+        cancelHoverOpen();
+        cancelDismiss();
+        setHoverCard(null);
       }
       // Recompute reading meta on every doc transaction. ProseMirror has
       // already committed to the DOM by the time onUpdate fires, so the

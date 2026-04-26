@@ -145,11 +145,16 @@ export default function DocumentView({
 
   const existingDocPaths = React.useMemo(() => new Set(allDocPaths), [allDocPaths]);
 
-  // Get backlinks for the current document
-  const backlinks = React.useMemo(() => {
-    if (!filePath) return [];
-    return linkManager.getBacklinksFor(filePath);
-  }, [filePath, linkManager]);
+  // Get backlinks for the current document.
+  // Depend on `linkManager.linkIndex` (the only piece that changes when the
+  // index actually mutates) rather than the whole `linkManager` object —
+  // its identity is fresh on every `useLinkIndex` render and would over-fire
+  // this memo on unrelated re-renders.
+  const backlinks = React.useMemo(
+    () => (filePath ? linkManager.getBacklinksFor(filePath) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filePath, linkManager.linkIndex],
+  );
 
   // Lookup function for the wiki-link hover card — returns the backlink count
   // for *any* target path (not just the currently open file). Re-bound when

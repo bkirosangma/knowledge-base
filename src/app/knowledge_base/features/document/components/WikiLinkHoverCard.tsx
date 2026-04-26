@@ -1,5 +1,7 @@
 "use client";
 
+// TODO(a11y): keyboard activation (Enter on focused wiki-link) deferred — currently mouse-hover only.
+
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRepositories } from "../../../shell/RepositoryContext";
@@ -123,6 +125,7 @@ export default function WikiLinkHoverCard({
 
   return createPortal(
     <div
+      id="wiki-link-hover-card"
       data-testid="wiki-link-hover-card"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

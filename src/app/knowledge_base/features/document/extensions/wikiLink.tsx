@@ -229,13 +229,23 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         const onHover = extOptions.onHover;
         if (!onHover) return;
         const path = (node.attrs.path as string) ?? "";
+        const resolvedPath = resolveExistingPath(path);
+        // a11y (DOC-4.17): when a card is about to open (resolved link
+        // only — broken links never preview), associate the link with the
+        // card via aria-describedby. The id matches the card's
+        // data-testid so screen readers can announce the tooltip when the
+        // user focuses or hovers the link. Cleared on mouseleave below.
+        if (resolvedPath) {
+          dom.setAttribute("aria-describedby", "wiki-link-hover-card");
+        }
         onHover({
           rect: dom.getBoundingClientRect(),
           path,
-          resolvedPath: resolveExistingPath(path),
+          resolvedPath,
         });
       };
       const handleMouseLeave = () => {
+        dom.removeAttribute("aria-describedby");
         extOptions.onHoverEnd?.();
       };
       dom.addEventListener("mouseenter", handleMouseEnter);
@@ -251,6 +261,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         destroy() {
           dom.removeEventListener("mouseenter", handleMouseEnter);
           dom.removeEventListener("mouseleave", handleMouseLeave);
+          dom.removeAttribute("aria-describedby");
         },
       };
     };

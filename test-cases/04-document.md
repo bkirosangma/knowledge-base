@@ -342,6 +342,7 @@
 - **DOC-4.17-02** 🧪 **Card displays the target's first heading or filename** — body shows the H1 from the target document (falling back to the basename when the body has no H1), a ~200-char plain-text excerpt, and a footer line with backlink count + file size. _(e2e: `wikiLinkHover.spec.ts`)_
 - **DOC-4.17-03** 🧪 **Card disappears when mouse leaves both link and card** — moving the cursor away from both the link and the card region dismisses the card after a small overshoot tolerance; the test moves the mouse to (0, 0) and asserts the card unmounts. _(e2e: `wikiLinkHover.spec.ts`)_
 - **DOC-4.17-04** 🧪 **Broken link (missing target) does NOT show the hover card** — hovering a `[[…]]` whose resolved candidates aren't in `existingDocPaths` leaves the card unrendered even after the 200 ms delay; the unresolved red pill stays interactive (click-to-create) but never previews. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-05**: 🚫 Keyboard activation of hover card (Enter on focused wiki-link) — deferred; current PR is mouse-hover only.
 
 ## 4.18 Inline Backlinks Rail
 
