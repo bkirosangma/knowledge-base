@@ -15,6 +15,8 @@ interface UseLineDragOptions {
   isBlocked: boolean;
   onAnchorClick?: (nodeId: string, anchorId: AnchorId, clientX: number, clientY: number) => void;
   onConnectedAnchorDrag?: (connectionId: string, end: "from" | "to", e: MouseEvent) => void;
+  /** Called when drag ends on empty canvas (no target node). Receives the drop canvas coords. */
+  onEmptyDrop?: (fromNodeId: string, fromAnchorId: AnchorId, canvasX: number, canvasY: number, clientX: number, clientY: number) => void;
 }
 
 export interface CreatingLine {
@@ -28,6 +30,8 @@ export interface CreatingLine {
     x: number;
     y: number;
   } | null;
+  /** When true, an empty-canvas drop opens the AnchorPopupMenu instead of cancelling (used by edge-handle drag). */
+  isDashed?: boolean;
 }
 
 export function useLineDrag({
@@ -40,6 +44,7 @@ export function useLineDrag({
   isBlocked,
   onAnchorClick,
   onConnectedAnchorDrag,
+  onEmptyDrop,
 }: UseLineDragOptions) {
   const [creatingLine, setCreatingLine] = useState<CreatingLine | null>(null);
   const creatingLineRef = useRef(creatingLine);
@@ -52,13 +57,17 @@ export function useLineDrag({
   const connectionsRef = useRef(connections);
   connectionsRef.current = connections;
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isBlockedRef = useRef(isBlocked);
+  isBlockedRef.current = isBlocked;
   const anchorClickRef = useRef(onAnchorClick);
   anchorClickRef.current = onAnchorClick;
   const connectedDragRef = useRef(onConnectedAnchorDrag);
   connectedDragRef.current = onConnectedAnchorDrag;
+  const onEmptyDropRef = useRef(onEmptyDrop);
+  onEmptyDropRef.current = onEmptyDrop;
 
   const handleAnchorDragStart = useCallback(
-    (nodeId: string, anchorId: AnchorId, e: React.MouseEvent) => {
+    (nodeId: string, anchorId: AnchorId, e: React.MouseEvent, opts?: { isDashed?: boolean; skipConnectedCheck?: boolean; immediateStart?: boolean }) => {
       if (isBlocked) return;
 
       const node = nodes.find((n) => n.id === nodeId);
@@ -73,13 +82,11 @@ export function useLineDrag({
       const downY = e.clientY;
       const downTime = Date.now();
 
-      // Delay drag initiation by 150ms to avoid accidental drags
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      holdTimer.current = setTimeout(() => {
-        holdTimer.current = null;
+      const startDrag = () => {
         // Check if this anchor has an existing connection — if so, trigger endpoint drag
-        const connAsFrom = connectionsRef.current.find((c) => c.from === nodeId && c.fromAnchor === anchorId);
-        const connAsTo = connectionsRef.current.find((c) => c.to === nodeId && c.toAnchor === anchorId);
+        // (skip this check for edge handles which always create new connections)
+        const connAsFrom = opts?.skipConnectedCheck ? undefined : connectionsRef.current.find((c) => c.from === nodeId && c.fromAnchor === anchorId);
+        const connAsTo = opts?.skipConnectedCheck ? undefined : connectionsRef.current.find((c) => c.to === nodeId && c.toAnchor === anchorId);
         if ((connAsFrom || connAsTo) && connectedDragRef.current) {
           // Create a synthetic MouseEvent at the anchor position for endpoint drag
           const conn = connAsFrom ?? connAsTo!;
@@ -93,9 +100,22 @@ export function useLineDrag({
             fromPos,
             currentPos: fromPos,
             snappedAnchor: null,
+            isDashed: opts?.isDashed,
           });
         }
-      }, 150);
+      };
+
+      if (opts?.immediateStart) {
+        // Edge handles are persistent grab targets — start drag immediately without delay
+        startDrag();
+      } else {
+        // Delay drag initiation by 150ms to avoid accidental drags on anchor dots
+        if (holdTimer.current) clearTimeout(holdTimer.current);
+        holdTimer.current = setTimeout(() => {
+          holdTimer.current = null;
+          startDrag();
+        }, 150);
+      }
 
       // Cancel if mouse released before timer fires — detect click vs drag
       const cancelOnUp = (upEvent: MouseEvent) => {
@@ -155,9 +175,15 @@ export function useLineDrag({
       );
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
       const cur = creatingLineRef.current;
       if (!cur) return;
+
+      // Guard against readOnly flipping mid-drag
+      if (isBlockedRef.current) {
+        setCreatingLine(null);
+        return;
+      }
 
       if (cur.snappedAnchor && cur.snappedAnchor.nodeId !== cur.fromNodeId) {
         const fromNode = nodesRef.current.find((n) => n.id === cur.fromNodeId);
@@ -177,6 +203,9 @@ export function useLineDrag({
           label: "",
         };
         setConnections((conns) => [...conns, newConnection]);
+      } else if (!cur.snappedAnchor && cur.isDashed && onEmptyDropRef.current) {
+        // Edge-handle drag dropped on empty canvas — open the anchor popup menu
+        onEmptyDropRef.current(cur.fromNodeId, cur.fromAnchorId, cur.currentPos.x, cur.currentPos.y, e.clientX, e.clientY);
       }
 
       setCreatingLine(null);
@@ -189,11 +218,11 @@ export function useLineDrag({
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseup", handleMouseUp as EventListener);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseup", handleMouseUp as EventListener);
       window.removeEventListener("keydown", handleKeyDown);
     };
   // Only attach/detach listeners when creatingLine goes from null↔non-null

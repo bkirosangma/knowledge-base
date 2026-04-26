@@ -279,6 +279,10 @@
 - **DOC-4.12-06** 🟡 **`setEditable` called on prop change (microtask deferred)** — known MEMORY gotcha about Tiptap `editable` being init-only; the `useEffect` wrapper fix is in `MarkdownEditor.tsx` and exercised at integration.
 - **DOC-4.12-07** ✅ **Default read-only on open** — given a document file with no saved read-only preference, when opened, then `useReadOnlyState` defaults `readOnly` to `true`. _(useReadOnlyState.test.ts)_
 - **DOC-4.12-08** ✅ **Read-only preference persisted per file** — given a document opened in read mode, when the user toggles read mode, then the preference is persisted to localStorage under `document-read-only:<filePath>` and restored on next open. _(useReadOnlyState.test.ts)_
+- **DOC-4.12-09** 🧪 **E key toggles from read mode to edit mode in a document.** — e2e/readModeEscape.spec.ts
+- **DOC-4.12-10** 🧪 **E key toggles from edit mode to read mode in a document.** — e2e/readModeEscape.spec.ts
+- **DOC-4.12-11** 🧪 **First keypress in read mode shows toast "Press E to edit".** — e2e/readModeEscape.spec.ts
+- **DOC-4.12-12** 🧪 **Newly created document file opens in edit mode.** — e2e/readModeEscape.spec.ts
 
 ## 4.13 Pane Header Title (first-heading derivation)
 

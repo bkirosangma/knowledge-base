@@ -236,6 +236,8 @@ export function useFileExplorer() {
       await repo.write(filePath, data);
 
       await rescan();
+      // Pre-seed localStorage so new diagrams open in edit mode by default.
+      try { localStorage.setItem(`diagram-read-only:${filePath}`, "false"); } catch { /* ignore */ }
       setActiveFile(filePath);
       return { path: filePath, data };
     } catch (e) {
@@ -253,6 +255,8 @@ export function useFileExplorer() {
       const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
       await writeTextFile(dirHandleRef.current, filePath, "");
       await rescan();
+      // Pre-seed localStorage so new documents open in edit mode by default.
+      try { localStorage.setItem(`document-read-only:${filePath}`, "false"); } catch { /* ignore */ }
       return filePath;
     } catch (e) {
       reportError(e, `Creating document in ${parentPath || "(root)"}`);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { ExplorerFilter } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
@@ -30,8 +30,9 @@ import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
-import { CommandRegistryProvider, useCommandRegistry } from "./shared/context/CommandRegistry";
+import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
+import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
@@ -88,6 +89,10 @@ function KnowledgeBaseInner() {
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
+
+  // ─── Recent files + search ref ───
+  const { recentFiles, addToRecents } = useRecentFiles();
+  const explorerSearchRef = useRef<HTMLInputElement | null>(null);
 
   // Sort preferences
   const SORT_PREFS_KEY = "knowledge-base-sort-prefs";
@@ -358,6 +363,52 @@ function KnowledgeBaseInner() {
     return () => window.removeEventListener("keydown", handler);
   }, [setPaletteOpen]);
 
+  // ─── ⌘F global handler — focus explorer search ───
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        // Guard: don't steal from inputs/textareas/contenteditable
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        // Expand explorer if collapsed
+        if (explorerCollapsed) setExplorerCollapsed(false);
+        // Focus search after a tick (in case explorer was just expanded)
+        setTimeout(() => {
+          explorerSearchRef.current?.focus();
+          explorerSearchRef.current?.select();
+        }, 0);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [explorerCollapsed]);
+
+  // ─── Track recents when active file changes ───
+  useEffect(() => {
+    const path = panes.activeEntry?.filePath;
+    if (path) addToRecents(path);
+  }, [panes.activeEntry?.filePath, addToRecents]);
+
+  // ─── "Go to file…" command in palette ───
+  const goToFileCommands = useMemo(() => [{
+    id: "navigation.go-to-file",
+    title: "Go to file…",
+    group: "Navigation",
+    shortcut: "⌘F",
+    run: () => {
+      if (explorerCollapsed) setExplorerCollapsed(false);
+      setTimeout(() => {
+        explorerSearchRef.current?.focus();
+        explorerSearchRef.current?.select();
+      }, 0);
+    },
+  }], [explorerCollapsed]);
+  useRegisterCommands(goToFileCommands);
+
   // ─── Restore pane layout (or fall back to single pending file) on directory load ───
   useEffect(() => {
     if (layoutRestoredRef.current || fileExplorer.tree.length === 0) return;
@@ -554,7 +605,11 @@ function KnowledgeBaseInner() {
               if (result) handleSelectFile(result.path);
               return result?.path ?? null;
             }}
-            onCreateDocument={(parentPath) => fileExplorer.createDocument(parentPath)}
+            onCreateDocument={async (parentPath) => {
+              const resultPath = await fileExplorer.createDocument(parentPath);
+              if (resultPath) handleSelectFile(resultPath);
+              return resultPath;
+            }}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
             onDeleteFile={handleDeleteFileWithLinks}
             onDeleteFolder={(path, event) => {
@@ -577,6 +632,8 @@ function KnowledgeBaseInner() {
             explorerFilter={explorerFilter}
             onFilterChange={setExplorerFilter}
             onSelectDocument={handleOpenDocument}
+            recentFiles={recentFiles}
+            searchInputRef={explorerSearchRef}
           />
         </div>
 

@@ -41,15 +41,15 @@ export default function PaneHeader({
         onClick={onToggleReadOnly}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
           readOnly
-            ? "bg-white shadow-sm text-blue-600 border-slate-200"
-            : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+            ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
+            : "bg-slate-100 text-slate-600 hover:text-slate-700 border-slate-200"
         }`}
         title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
         aria-pressed={readOnly}
         aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
       >
         {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-        <span>Read Mode</span>
+        <span>{readOnly ? "Read" : "Edit"}</span>
       </button>
 
       {children}

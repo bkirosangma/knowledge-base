@@ -18,6 +18,8 @@ interface KeyboardShortcutsConfig {
   nodesRef: React.RefObject<NodeData[]>;
   readOnly: boolean;
   onToggleReadOnly: () => void;
+  /** Called at most once per session when the user presses a key in read mode. */
+  onFirstKeystrokeInReadMode?: () => void;
 }
 
 function isEditingInput(): boolean {
@@ -39,6 +41,7 @@ export function useKeyboardShortcuts({
   nodesRef,
   readOnly,
   onToggleReadOnly,
+  onFirstKeystrokeInReadMode,
 }: KeyboardShortcutsConfig) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -48,12 +51,30 @@ export function useKeyboardShortcuts({
         setContextMenu(null);
       }
 
+      // E key: toggle read/edit mode (works both in and out of read mode).
+      if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (isEditingInput()) return;
+        e.preventDefault();
+        onToggleReadOnly();
+        return;
+      }
+
       // Toggle Read Mode — works both on and off (Cmd/Ctrl+Shift+R).
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "r" || e.key === "R")) {
         if (isEditingInput()) return;
         e.preventDefault();
         onToggleReadOnly();
         return;
+      }
+
+      // First-keystroke toast: fire once per session when user presses any
+      // printable key while in read mode (excluding modifiers and E/⌘⇧R itself).
+      if (readOnly && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const isModifierOnly = ["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key);
+        const isToggleKey = e.key === "e" || e.key === "E";
+        if (!isModifierOnly && !isToggleKey && !isEditingInput()) {
+          onFirstKeystrokeInReadMode?.();
+        }
       }
 
       if ((e.key === "Delete" || e.key === "Backspace") && selectionRef.current) {
@@ -108,7 +129,7 @@ export function useKeyboardShortcuts({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly]);
+  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly, onFirstKeystrokeInReadMode]);
 
   // ─── Register commands into the global palette ───
   // Use refs so the memoized command array stays stable across selection changes.
@@ -117,7 +138,7 @@ export function useKeyboardShortcuts({
       id: "diagram.toggle-read-only",
       title: "Toggle Read / Edit Mode",
       group: "Diagram",
-      shortcut: "⌘⇧R",
+      shortcut: "E / ⌘⇧R",
       run: () => onToggleReadOnly(),
     },
     {

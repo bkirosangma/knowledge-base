@@ -13,6 +13,7 @@ import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcu
 import { useDocumentFileWatcher } from "./hooks/useDocumentFileWatcher";
 import ConflictBanner from "../../shared/components/ConflictBanner";
 import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
+import { useToast } from "../../shell/ToastContext";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
@@ -60,6 +61,13 @@ export default function DocumentView({
   const [historyToken, setHistoryToken] = useState(0);
   const bumpToken = () => setHistoryToken((t) => t + 1);
   const { readOnly, toggleReadOnly } = useReadOnlyState(filePath, "document-read-only");
+  const { showToast } = useToast();
+  const hasShownReadModeToast = useRef(false);
+  const handleFirstKeystrokeInReadMode = useCallback(() => {
+    if (hasShownReadModeToast.current) return;
+    hasShownReadModeToast.current = true;
+    showToast("Press E to edit");
+  }, [showToast]);
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
@@ -221,7 +229,7 @@ export default function DocumentView({
     setDiscardConfirmPos({ x: e.clientX, y: e.clientY });
   }, [dirty, executeDiscard]);
 
-  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z
+  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z / E
   useDocumentKeyboardShortcuts({
     onUndo: useCallback(() => {
       const s = history.undo();
@@ -233,6 +241,7 @@ export default function DocumentView({
     }, [history, updateContent]),
     readOnly,
     onToggleReadOnly: toggleReadOnly,
+    onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
   });
 
   // Bridge for HistoryPanel in DocumentProperties

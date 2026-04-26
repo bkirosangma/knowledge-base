@@ -29,8 +29,8 @@ Top-level chrome that hosts every other feature.
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
 - ⚙️ **CommandRegistryContext** — typed command registry context. Commands are keyed by `id` and stored in a `useRef` map; registration is additive (multiple callers mount simultaneously). Exposes `useRegisterCommands(commands)` (mounts/unmounts cleanup) and `useCommandRegistry()` (palette open state + live command list). Falls back to no-op stubs when used outside the provider so unit tests don't require wrapping.
 - ✅ **Command Palette** — modal overlay triggered by `⌘K` (global keydown guard skips inputs/textareas/contenteditable). Full-screen semi-transparent backdrop, centered 560px panel, rounded-lg shadow-xl. Search input autofocused on open. Results grouped by `group` with muted uppercase headers. Each row: title left, shortcut badge right. Keyboard nav: ↑/↓ move active row, Enter executes + closes, Escape closes. Case-insensitive substring filter. Commands hidden when their `when()` guard returns false. Backdrop click closes.
-- ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
-- ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
+- ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
+- ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
@@ -55,7 +55,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **FileWatcherContext** (`shared/context/FileWatcherContext.tsx`) — 5s polling interval with named subscriber registry; `refresh()` fires all subscribers immediately; pauses when tab is hidden.
 
 ### 1.6 Pane Content Chrome
-- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle, right-side action slot.
+- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), right-side action slot.
 - ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — title row between the breadcrumb and the toolbar. Shows the diagram's editable title (click-to-edit, Enter/Escape commit/cancel) for diagram panes; shows the debounced first H1 of the markdown (read-only, 250 ms) for document panes. Hosts the dirty dot + Save + Discard buttons on the right of each pane's title.
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
 - ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="alert"` banner with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). Wired into document and diagram panes by their respective file-watcher hooks.
@@ -93,6 +93,10 @@ Top-level chrome that hosts every other feature.
 - ✅ **Refresh** — button calls `FileWatcherContext.refresh()`, which fires all named subscribers (including the "tree" subscriber that rescans the directory tree) in addition to any future document/diagram watchers.
 - ✅ **Drag-over feedback** — `dragOverPath` state highlights the target folder.
 - ✅ **Dirty file indicator** — visual mark on files with unsaved changes.
+- ✅ **Explorer search** — text input at the top of the panel (`data-testid="explorer-search"`, placeholder "Search files… ⌘F") filters the file tree live; non-matching files are hidden; when the query matches, a flat list of matching paths replaces the nested tree. Clear button (✕) empties the query. `shared/components/explorer/ExplorerPanel.tsx`.
+- ✅ **⌘F shortcut** — global `keydown` handler in `knowledgeBase.tsx`; when focus is not in an input/textarea/contenteditable, prevents default and focuses the explorer search input (expands the sidebar first if collapsed). Also registered as a "Go to file…" command in the Command Palette (⌘K) under the Navigation group. `shared/hooks/useRecentFiles.ts`.
+- ✅ **Recents group** — collapsible "Recents" section above the file tree showing the last 10 opened files (most recent first), deduplicated by path, persisted to `localStorage` under `kb-recents`. Collapse state resets to open on reload. Hidden when empty. `shared/hooks/useRecentFiles.ts`, `knowledgeBase.tsx`.
+- ✅ **Unsaved changes group** — "Unsaved changes" section (no collapse) showing all currently-dirty files; hidden when clean. Clicking an entry opens the file. `shared/components/explorer/ExplorerPanel.tsx`.
 
 ### 2.4 Confirmation Popover
 `shared/components/explorer/ConfirmPopover.tsx`
@@ -182,6 +186,11 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Flow-break check on reconnect** — simulates new topology and warns if it breaks a flow.
 - ✅ **Segment drag** — reshape the path by dragging segments / waypoints; commits to history.
 - ✅ **Anchor popup menu** — hover on a node shows anchors for connect/edit.
+- ✅ **Persistent edge handles** — when a node is selected (and not in read-only mode), four blue 8 px dots appear at the N/E/S/W edge midpoints. `components/DiagramNodeLayer.tsx` (`EdgeHandles`), `hooks/useDragToConnect.ts`.
+  - `data-testid="edge-handle-{nodeId}-{n|e|s|w}"` for testability.
+- ✅ **Drag-to-connect from edge handle** — mousedown on an edge handle starts a dashed blue preview line (`isDashed` flag in `CreatingLine`); dropping on a node creates a connection; dropping on empty canvas opens the existing `AnchorPopupMenu` radial menu at the drop point (`onEmptyDrop` callback in `useLineDrag`). `hooks/useDragToConnect.ts`, `hooks/useLineDrag.ts`.
+- ✅ **Canvas Quick Inspector** — a floating pill toolbar that appears 16 px above the selected node's bounding box in viewport space whenever exactly one node is selected and the diagram is not in read-only mode. Provides 6 actions: colour-scheme picker (6 swatches + native "Other…" picker, applies full fill/border/text scheme), inline label edit (pencil), start-connection drag from the east edge (reuses `useDragToConnect`), duplicate node (+30 px offset), and delete. Hidden on drag, hidden in read mode, and hidden when no node or multiple nodes are selected. `components/QuickInspector.tsx`, wired in `DiagramView.tsx`.
+  - `data-testid="quick-inspector"` on the toolbar root.
 
 ### 3.10 Flows (Named Connection Sequences)
 `utils/flowUtils.ts`, `components/FlowBreakWarningModal.tsx`, `components/FlowDots.tsx`, `properties/FlowProperties.tsx`, `hooks/useFlowManagement.ts`
@@ -226,6 +235,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ `Delete` / `Backspace` — delete selection (prompts on flow break).
 - ✅ `Cmd/Ctrl+G` — create flow from multi-line selection.
 - ✅ `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` — undo / redo.
+- ✅ `E` — toggle read-only mode (alias for `Cmd/Ctrl+Shift+R`; disabled when focus is in an input/textarea/contenteditable).
 - ✅ `Cmd/Ctrl+Shift+R` — toggle read-only mode.
 - ✅ **Disabled inside inputs / contenteditable.**
 
@@ -247,8 +257,9 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **HistoryPanel** (`shared/components/HistoryPanel.tsx`) — collapsible UI list of history entries with click-to-revert; `relativeTime()` bucketing (just now / Xs ago / Xm ago / Xh ago / Xd ago); entries rendered newest-first.
 
 ### 3.17 Read-Only Mode
-- ✅ **Default read-only on open** — diagram files open in read mode by default (`shared/hooks/useReadOnlyState` defaults to `readOnly: true` when no localStorage preference exists for the file, and when `activeFile` is null). The user must explicitly switch to edit mode; that choice is persisted per file under `diagram-read-only:<filename>` in localStorage so subsequent opens honour the preference.
-- ✅ **Pane-level toggle** — via PaneHeader lock icon and `Cmd/Ctrl+Shift+R`.
+- ✅ **Default read-only on open** — diagram files open in read mode by default (`shared/hooks/useReadOnlyState` defaults to `readOnly: true` when no localStorage preference exists for the file, and when `activeFile` is null). The user must explicitly switch to edit mode; that choice is persisted per file under `diagram-read-only:<filename>` in localStorage so subsequent opens honour the preference. Newly created files bypass this default by pre-seeding `diagram-read-only:<path>=false` in localStorage immediately after creation.
+- ✅ **Pane-level toggle** — via PaneHeader lock icon (`E` key) and `Cmd/Ctrl+Shift+R`. PaneHeader pill shows amber background with Lock icon when in read mode; subtle slate when editing.
+- ✅ **First-keystroke toast** — the first time the user presses any printable key while in read mode (excluding modifiers and `E`), a toast "Press E to edit" appears once per session.
 - ✅ **Disables drag / delete / edit / property panel inputs.**
 
 ### 3.18 Document Integration
@@ -362,11 +373,12 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.11 Read-Only Mode (Doc)
 - ✅ **Editor locked** — toolbar hidden, table toolbar disabled, link popover disabled, wiki-link click navigates instead of selecting.
-- ✅ **Default read-only on open** — document files open in read mode by default (`useReadOnlyState` with prefix `"document-read-only"` defaults to `readOnly: true` when no localStorage preference exists, matching diagram behaviour). The user must explicitly switch to edit mode; that choice is persisted per file under `document-read-only:<filePath>` in localStorage so subsequent opens honour the preference.
+- ✅ **Default read-only on open** — document files open in read mode by default (`useReadOnlyState` with prefix `"document-read-only"` defaults to `readOnly: true` when no localStorage preference exists, matching diagram behaviour). The user must explicitly switch to edit mode; that choice is persisted per file under `document-read-only:<filePath>` in localStorage so subsequent opens honour the preference. Newly created documents bypass this default by pre-seeding `document-read-only:<path>=false` in localStorage immediately after creation.
+- ✅ **First-keystroke toast** — the first time the user presses any printable key while in read mode (excluding modifiers and `E`), a toast "Press E to edit" appears once per session.
 
 ### 4.12 Document Keyboard Shortcuts
 `features/document/hooks/useDocumentKeyboardShortcuts.ts`
-- ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; Cmd/Ctrl+Z → `onUndo`, Cmd/Ctrl+Shift+Z → `onRedo`; no-op when `readOnly=true`. Stale-closure-safe via refs.
+- ⚙️ **`useDocumentKeyboardShortcuts`** — window-level `keydown` listener; `E` (no modifier) → toggle read/edit mode (guarded: no-op when focus is inside contenteditable/input); `Cmd/Ctrl+Shift+R` → toggle read/edit mode; `Cmd/Ctrl+Z` → `onUndo`; `Cmd/Ctrl+Shift+Z` → `onRedo` (undo/redo no-op when `readOnly=true`). Stale-closure-safe via refs.
 
 ### 4.13 Document File Watcher
 `features/document/hooks/useDocumentFileWatcher.ts`

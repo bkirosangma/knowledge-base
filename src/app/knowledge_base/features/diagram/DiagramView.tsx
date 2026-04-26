@@ -35,8 +35,10 @@ import { useLayerResize } from "./hooks/useLayerResize";
 import { useEndpointDrag } from "./hooks/useEndpointDrag";
 import { useSegmentDrag } from "./hooks/useSegmentDrag";
 import { computeLayout, type ArrangeAlgorithm } from "./utils/autoArrange";
-import { createLayerId } from "./utils/idFactory";
+import { createLayerId, createElementId } from "./utils/idFactory";
+import QuickInspector from "./components/QuickInspector";
 import { useLineDrag } from "./hooks/useLineDrag";
+import { useDragToConnect } from "./hooks/useDragToConnect";
 import { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
@@ -65,6 +67,7 @@ import AutoArrangeDropdown from "./components/AutoArrangeDropdown";
 import { toggleClass } from "./utils/toolbarClass";
 import { useDiagramLayoutState } from "./hooks/useDiagramLayoutState";
 import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
+import { useToast } from "../../shell/ToastContext";
 import DiagramOverlays from "./components/DiagramOverlays";
 import DiagramLabelEditor from "./components/DiagramLabelEditor";
 import DiagramNodeLayer from "./components/DiagramNodeLayer";
@@ -162,6 +165,13 @@ export default function DiagramView({
 
   // Per-file Read Mode state. Persisted to localStorage keyed by activeFile.
   const { readOnly, toggleReadOnly } = useReadOnlyState(activeFile, "diagram-read-only");
+  const { showToast } = useToast();
+  const hasShownReadModeToast = useRef(false);
+  const handleFirstKeystrokeInReadMode = useCallback(() => {
+    if (hasShownReadModeToast.current) return;
+    hasShownReadModeToast.current = true;
+    showToast("Press E to edit");
+  }, [showToast]);
 
   // Clear stale overlays when entering Read Mode so nothing lingers.
   useEffect(() => {
@@ -315,6 +325,33 @@ export default function DiagramView({
   const { toCanvasCoords, setWorldOffset } = useCanvasCoords(canvasRef, zoomRef);
   const { scrollToRect } = useCanvasEffects(canvasRef, worldRef, zoomRef);
 
+  // Scroll-tick: bump whenever the canvas scrolls so QuickInspector repositions.
+  const [_canvasScrollTick, setCanvasScrollTick] = useState(0);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onScroll = () => setCanvasScrollTick((t) => t + 1);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [canvasRef]);
+
+  /**
+   * Convert canvas-space (world) coordinates to viewport (screen) coordinates.
+   * This is the exact inverse of toCanvasCoords from useCanvasCoords.
+   * Formula: clientX = (canvasX - wo.x) * zoom + rect.left - scrollLeft + PAD
+   */
+  const canvasToViewport = useCallback((canvasX: number, canvasY: number) => {
+    const el = canvasRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    const zoom = zoomRef.current;
+    const wo = worldRef.current;
+    return {
+      x: (canvasX - wo.x) * zoom + rect.left - el.scrollLeft + VIEWPORT_PADDING,
+      y: (canvasY - wo.y) * zoom + rect.top  - el.scrollTop  + VIEWPORT_PADDING,
+    };
+  }, [canvasRef, zoomRef, worldRef, _canvasScrollTick]);
+
   const { draggingEndpoint, handleLineClick, handleConnectedAnchorDrag, endpointDragDidMove } = useEndpointDrag({
     connections, nodes, measuredSizes, layerShiftsRef, toCanvasCoords, setConnections,
   });
@@ -365,7 +402,13 @@ export default function DiagramView({
     isBlocked: readOnly || !!draggingEndpoint,
     onAnchorClick,
     onConnectedAnchorDrag: handleConnectedAnchorDrag,
+    onEmptyDrop: (fromNodeId, fromAnchorId, _canvasX, _canvasY, clientX, clientY) => {
+      if (readOnly) return;
+      setAnchorPopup({ clientX, clientY, nodeId: fromNodeId, anchorId: fromAnchorId, edge: getAnchorEdge(fromAnchorId) });
+    },
   });
+
+  const { startEdgeHandleDrag } = useDragToConnect({ readOnly, handleAnchorDragStart });
 
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
     isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta,
@@ -605,6 +648,49 @@ export default function DiagramView({
     setNodes, setConnections, setLayerDefs, setLayerManualSizes, setMeasuredSizes, setSelection, setFlows,
   }, scheduleRecord);
 
+  // Duplicate a single node: copy all fields, place 30px below-right, assign new id.
+  const handleDuplicateNode = useCallback((nodeId: string) => {
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node) return;
+    const newId = createElementId();
+    setNodes((prev) => [...prev, { ...node, id: newId, x: node.x + 30, y: node.y + 30 }]);
+    setSelection({ type: "node", id: newId });
+    scheduleRecord("Duplicate node");
+  }, [nodesRef, setNodes, setSelection, scheduleRecord]);
+
+  // Apply a full colour scheme to a node (fill + border + text).
+  const handleQuickInspectorColorChange = useCallback(
+    (nodeId: string, fill: string, border: string, text: string) => {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === nodeId
+            ? { ...n, bgColor: fill, borderColor: border, textColor: text }
+            : n,
+        ),
+      );
+      scheduleRecord("Change node colour");
+    },
+    [setNodes, scheduleRecord],
+  );
+
+  // Trigger inline label editing for a node from the Quick Inspector.
+  const handleQuickInspectorLabelEdit = useCallback(
+    (nodeId: string) => {
+      const node = nodesRef.current.find((n) => n.id === nodeId);
+      if (!node) return;
+      setEditingLabel({ type: "node", id: nodeId });
+      setEditingLabelValue(node.label);
+      editingLabelBeforeRef.current = node.label;
+    },
+    [nodesRef, setEditingLabel, setEditingLabelValue, editingLabelBeforeRef],
+  );
+
+  // Delete a node from the Quick Inspector toolbar.
+  const handleQuickInspectorDelete = useCallback((nodeId: string) => {
+    const pending = deleteSelection({ type: "node", id: nodeId });
+    if (pending) setPendingDeletion(pending);
+  }, [deleteSelection, setPendingDeletion]);
+
   // Flow-related callbacks
   const flowCounter = useRef(0);
   const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
@@ -775,6 +861,7 @@ export default function DiagramView({
     handleCreateFlow, handleUndo, handleRedo,
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
     readOnly, onToggleReadOnly: toggleReadOnly,
+    onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
   });
 
   // Drag-end watchers for history recording
@@ -1196,6 +1283,7 @@ export default function DiagramView({
               handleNodeDoubleClick={handleNodeDoubleClick}
               handleNodeDragStart={handleNodeDragStart}
               handleRotationDragStart={handleRotationDragStart}
+              onEdgeHandleDrag={startEdgeHandleDrag}
               setNodes={setNodes}
               scheduleRecord={scheduleRecord}
               getNodeDimensions={getNodeDimensions}
@@ -1356,6 +1444,38 @@ export default function DiagramView({
         </>}
 
       </div>
+
+      {/* Canvas Quick Inspector — floats in viewport space above the selected node */}
+      {(() => {
+        if (readOnly) return null;
+        if (selection?.type !== "node") return null;
+        if (draggingId || isMultiDrag || draggingLayerId || draggingEndpoint || creatingLine) return null;
+        const selectedNode = nodes.find((n) => n.id === selection.id);
+        if (!selectedNode) return null;
+        const dims = getNodeDimensions(selectedNode);
+        // node.x/y is the node centre; convert to top-left for nodeBounds
+        const nodeBounds = {
+          x: selectedNode.x - dims.w / 2,
+          y: selectedNode.y - dims.h / 2,
+          w: dims.w,
+          h: dims.h,
+        };
+        return (
+          <QuickInspector
+            key={selectedNode.id}
+            nodeId={selectedNode.id}
+            nodeBounds={nodeBounds}
+            canvasToViewport={canvasToViewport}
+            readOnly={readOnly}
+            currentColor={selectedNode.bgColor ?? "#ffffff"}
+            onColorChange={handleQuickInspectorColorChange}
+            onDelete={handleQuickInspectorDelete}
+            onDuplicate={handleDuplicateNode}
+            onStartConnect={startEdgeHandleDrag}
+            onLabelEdit={handleQuickInspectorLabelEdit}
+          />
+        );
+      })()}
 
       <DiagramOverlays
         activeFile={activeFile}

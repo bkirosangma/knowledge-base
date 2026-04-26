@@ -327,6 +327,10 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.17-07** ✅ **Context menu suppressed or read-only variant.** — e2e/diagramReadOnly.spec.ts
 - **DIAG-3.17-08** ✅ **Properties panel inputs disabled.** — e2e/diagramReadOnly.spec.ts
 - **DIAG-3.17-09** ✅ **Navigation (click → select) still works.** — e2e/diagramReadOnly.spec.ts
+- **DIAG-3.17-10** 🧪 **E key toggles from read to edit mode (and back).** — e2e/readModeEscape.spec.ts
+- **DIAG-3.17-11** 🚫 **E key does not fire when focus is in contenteditable / input.** — E key input guard is unit-tested in hook; no e2e fixture for focused diagram text input
+- **DIAG-3.17-12** 🧪 **First keystroke in read mode shows toast "Press E to edit".** — e2e/readModeEscape.spec.ts
+- **DIAG-3.17-13** 🧪 **Newly created diagram file opens in edit mode.** — e2e/readModeEscape.spec.ts
 
 ## 3.18 Document Integration
 
@@ -384,3 +388,32 @@ Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base
 | DIAG-3.21-03 | ✅ | Conflict detection when diagram is dirty and disk changed — sets `conflictSnapshot`, does not modify history or apply snapshot |
 | DIAG-3.21-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk snapshot — records history, moves saved point, applies snapshot |
 | DIAG-3.21-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |
+
+## 3.22 Persistent Edge Handles + Drag-to-Connect
+`hooks/useDragToConnect.ts`, `components/DiagramNodeLayer.tsx`, `hooks/useLineDrag.ts`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.22-01 | 🧪 | Dragging from an edge handle to another node creates a connection — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-02 | 🧪 | Edge handles appear when a node is selected (not in read mode) — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-03 | 🧪 | Edge handles do not appear in read mode — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-04 | ❌ | Dropping on empty canvas opens AnchorPopupMenu at drop point |
+| DIAG-3.22-05 | ❌ | No self-connection created when dragging handle back onto its own node |
+
+## 3.23 Canvas Quick Inspector
+`components/QuickInspector.tsx`, wired in `DiagramView.tsx`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.23-01 | 🧪 | Quick Inspector appears when a single node is selected — e2e/quickInspector.spec.ts |
+| DIAG-3.23-02 | 🧪 | Quick Inspector is hidden in read mode — e2e/quickInspector.spec.ts |
+| DIAG-3.23-03 | 🧪 | Clicking delete in Quick Inspector removes the node — e2e/quickInspector.spec.ts |
+| DIAG-3.23-04 | 🧪 | Clicking a colour swatch changes the node colour — e2e/quickInspector.spec.ts |
+| DIAG-3.23-05 | ❌ | Quick Inspector hidden when no node is selected |
+| DIAG-3.23-06 | ❌ | Quick Inspector hidden when multiple nodes are selected |
+| DIAG-3.23-07 | ❌ | Quick Inspector hidden while node is being dragged |
+| DIAG-3.23-08 | ❌ | Connect button mousedown starts drag-to-connect from east edge |
+| DIAG-3.23-09 | ❌ | Duplicate button adds a copy of the node offset by 30 px |
+| DIAG-3.23-10 | ❌ | Label button triggers inline label editing |
+| DIAG-3.23-11 | ❌ | "Other…" swatch opens native colour picker |
+| DIAG-3.23-12 | ❌ | Colour popover closes when clicking outside |
