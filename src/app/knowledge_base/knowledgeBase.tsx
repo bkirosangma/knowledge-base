@@ -596,7 +596,7 @@ function KnowledgeBaseInner() {
   // ─── Vault initialization ───
   useEffect(() => {
     const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle || fileExplorer.tree.length === 0) return;
+    if (!rootHandle) return;
     (async () => {
       const vaultRepo = createVaultConfigRepository(rootHandle);
       try {
