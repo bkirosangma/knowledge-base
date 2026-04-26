@@ -124,10 +124,12 @@ export function useLinkIndex() {
       loaded = null;
     }
     if (loaded) {
+      linkIndexRef.current = loaded;
       setLinkIndex(loaded);
       return loaded;
     }
     const fresh = emptyIndex();
+    linkIndexRef.current = fresh;
     setLinkIndex(fresh);
     return fresh;
   }, []);
