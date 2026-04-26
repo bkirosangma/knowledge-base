@@ -8,7 +8,6 @@ import ReadingTOC from "./ReadingTOC";
 import ReadingProgress from "./ReadingProgress";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../../shared/components/PaneHeader";
-import PaneTitle from "../../../shared/components/PaneTitle";
 import { useRegisterCommands } from "../../../shared/context/CommandRegistry";
 
 interface MarkdownPaneProps {
@@ -143,6 +142,12 @@ export default function MarkdownPane({
         readOnly={readOnly}
         onToggleReadOnly={onToggleReadOnly ?? (() => {})}
         readingTimeMinutes={readingTimeMinutes}
+        title={title}
+        isDirty={isDirty}
+        hasActiveFile={!!filePath}
+        onSave={onSave}
+        onDiscard={onDiscard}
+        hideTitleControls={hideToolbar}
       >
         {backlinks.length > 0 && (
           <button
@@ -158,18 +163,6 @@ export default function MarkdownPane({
           when readOnly so the scroll listener doesn't run in edit mode. */}
       {readOnly && (
         <ReadingProgress scrollContainerRef={editorContainerRef} resetKey={filePath} />
-      )}
-
-      {/* Title row — derived H1 (read-only) + save / discard.  Hidden in
-          Focus Mode so only breadcrumb + content remain. */}
-      {!hideToolbar && (
-        <PaneTitle
-          title={title}
-          isDirty={isDirty}
-          hasActiveFile={!!filePath}
-          onSave={onSave}
-          onDiscard={onDiscard}
-        />
       )}
 
       {/* Backlinks dropdown */}

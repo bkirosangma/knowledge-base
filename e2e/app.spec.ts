@@ -84,9 +84,10 @@ test('Open Folder button is a real clickable control', async ({ page }) => {
 })
 
 test('top-level Header renders only the Split toggle before any file is open', async ({ page }) => {
-  // Title editing + Save/Discard moved into each pane's `PaneTitle` on
-  // 2026-04-19, so the shell header no longer shows an "Untitled" fallback
-  // input before a file is open. Only the Split toggle remains up top.
+  // Title editing + Save/Discard moved into each pane's `PaneHeader` row
+  // (folded from PaneTitle on 2026-04-26 / SHELL-1.12), so the shell header
+  // no longer shows an "Untitled" fallback input before a file is open.
+  // Only the ⌘K trigger and Split toggle remain up top.
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
   await expect(page.locator('input[value="Untitled"]')).toHaveCount(0)

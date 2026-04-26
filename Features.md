@@ -21,9 +21,10 @@ Top-level chrome that hosts every other feature.
 
 ### 1.2 Header
 `src/app/knowledge_base/shared/components/Header.tsx`
-- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Only cross-pane chrome left at the top level — title editing, dirty dot, Save, and Discard relocated to each pane's `PaneTitle` row on 2026-04-19.
+- ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Title editing, dirty dot, Save, and Discard live inside each pane's `PaneHeader` row (folded from the old `PaneTitle` strip on 2026-04-26 / SHELL-1.12).
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
-- ✅ **⌘K trigger chip** — centered search-commands button in the header flex gap; clicking it opens the Command Palette. 220px wide, muted placeholder text + `⌘K` badge.
+- ✅ **⌘K trigger chip** — centered search-commands button in the header (3-column grid keeps it centred regardless of side content); clicking it opens the Command Palette. 220 px wide, muted placeholder text + `⌘K` badge.
+- ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty.
 
 ### 1.11 Command Registry & Palette
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
@@ -55,8 +56,7 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **FileWatcherContext** (`shared/context/FileWatcherContext.tsx`) — 5s polling interval with named subscriber registry; `refresh()` fires all subscribers immediately; pauses when tab is hidden.
 
 ### 1.6 Pane Content Chrome
-- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — breadcrumb path, Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), right-side action slot.
-- ✅ **PaneTitle** (`shared/components/PaneTitle.tsx`) — title row between the breadcrumb and the toolbar. Shows the diagram's editable title (click-to-edit, Enter/Escape commit/cancel) for diagram panes; shows the debounced first H1 of the markdown (read-only, 250 ms) for document panes. Hosts the dirty dot + Save + Discard buttons on the right of each pane's title.
+- ✅ **PaneHeader** (`shared/components/PaneHeader.tsx`) — single chrome strip per pane combining: breadcrumb path, inline title (`<h1>` that turns into an `<input>` on click for diagram panes; static `<h1>` reflecting the debounced first H1 for document panes), dirty dot + Save / Discard buttons (when `onSave` / `onDiscard` are wired), Read-Mode lock toggle (amber/prominent pill with Lock icon in read mode; subtle slate "Edit" pill in edit mode; aria-label always "Enter/Exit Read Mode"), reading-time pill (read mode only), right-side action slot. `hideTitleControls` prop dissolves the title input + Save/Discard while keeping breadcrumb + Read pill (used by Focus Mode). Phase 2 PR 2 (SHELL-1.12, 2026-04-26) folded the former `PaneTitle` row into this header so the per-pane chrome stack drops from 5 strips (Header / Breadcrumb / Title / Toolbar / Content) to 4 (Header / Breadcrumb-with-title / Toolbar / Content).
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
 - ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="alert"` banner with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). Wired into document and diagram panes by their respective file-watcher hooks.
 
@@ -394,7 +394,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.15 Focus Mode (⌘.)
 `knowledgeBase.tsx`, `features/document/DocumentView.tsx`, `features/document/components/MarkdownPane.tsx`
-- ✅ **Toggle Focus Mode** — shell-level `focusMode` boolean. When on: explorer container collapses to 0px width with its right border removed, the global `Footer` is unmounted, `MarkdownPane`'s editor toolbar + `PaneTitle` row are hidden, and `DocumentView` swaps the properties sidebar slot for `null`. Off restores the prior `explorerCollapsed` value via `focusRestoreRef`. Header bar at the top of `knowledgeBase.tsx` stays visible by design — only document chrome dissolves.
+- ✅ **Toggle Focus Mode** — shell-level `focusMode` boolean. When on: explorer container collapses to 0px width with its right border removed, the global `Footer` is unmounted, `MarkdownPane`'s editor toolbar is hidden, `PaneHeader`'s title input + Save / Discard dissolve via `hideTitleControls` (breadcrumb + Read pill stay), and `DocumentView` swaps the properties sidebar slot for `null`. Off restores the prior `explorerCollapsed` value via `focusRestoreRef`. Header bar at the top of `knowledgeBase.tsx` stays visible by design — only document chrome dissolves.
 - ✅ **Keyboard shortcut + palette** — registered as `view.toggle-focus-mode` (group `View`, shortcut `⌘.`). A raw `keydown` handler in `knowledgeBase.tsx` mirrors `⌘K`/`⌘F`'s input/textarea/contenteditable guard so the shortcut never fires while typing.
 
 ---

@@ -33,6 +33,12 @@ export interface DocumentViewProps {
   /** Shell-level Focus Mode flag (⌘.). When on, MarkdownPane hides its
    *  toolbar/title row and DocumentView hides the properties sidebar. */
   focusMode?: boolean;
+  /**
+   * Notify the shell when this document's dirty state flips, so the global
+   * "N unsaved" indicator in `Header` can include open documents alongside
+   * diagram drafts. (SHELL-1.12, 2026-04-26.)
+   */
+  onDirtyChange?: (filePath: string, dirty: boolean) => void;
 }
 
 export default function DocumentView({
@@ -44,6 +50,7 @@ export default function DocumentView({
   onNavigateLink,
   onCreateDocument,
   focusMode = false,
+  onDirtyChange,
 }: DocumentViewProps) {
   const {
     content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
@@ -75,9 +82,10 @@ export default function DocumentView({
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   // Debounced H1 / first-line derivation. `content` changes on every
-  // keystroke; re-rendering PaneTitle that often is wasteful, and the user
-  // doesn't need instant title sync — 250 ms settles nicely once they pause.
-  // File-name fallback keeps the pane header populated before the first H1.
+  // keystroke; re-rendering the PaneHeader title that often is wasteful, and
+  // the user doesn't need instant title sync — 250 ms settles nicely once
+  // they pause. File-name fallback keeps the pane header populated before
+  // the first H1.
   const fileBase = filePath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
   const [derivedTitle, setDerivedTitle] = useState(() => getFirstHeading(content) || fileBase);
   useEffect(() => {
@@ -209,6 +217,19 @@ export default function DocumentView({
     onDocBridgeRef.current?.(fullBridge);
     return () => onDocBridgeRef.current?.(null);
   }, [bridge, handleSave]); // handleSave stable; bridge changes only on file switch
+
+  // Publish per-pane dirty state up to the shell so the global dirty-stack
+  // indicator in `Header` reflects unsaved documents (not just diagram drafts).
+  // SHELL-1.12, 2026-04-26.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => { onDirtyChangeRef.current = onDirtyChange; }, [onDirtyChange]);
+  useEffect(() => {
+    if (!filePath) return;
+    onDirtyChangeRef.current?.(filePath, dirty);
+    // On unmount or file switch, clear the dirty flag for the previous path
+    // so the indicator doesn't include a path that no longer has an open pane.
+    return () => { onDirtyChangeRef.current?.(filePath, false); };
+  }, [filePath, dirty]);
 
   // History-first discard: restore saved snapshot from history; fall back to
   // disk only if history has no saved state (e.g. freshly opened file).

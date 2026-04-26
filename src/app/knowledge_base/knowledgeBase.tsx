@@ -86,6 +86,36 @@ function KnowledgeBaseInner() {
   const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
   const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
 
+  // ─── Open-document dirty tracker ───
+  // DiagramView already pushes dirty file paths into `fileExplorer.dirtyFiles`
+  // via `useDrafts.markDirty`; documents track dirty state locally inside
+  // `useDocumentContent`. This shell-level Set bridges the document side so
+  // the global dirty-stack indicator in `Header` reflects every unsaved file
+  // across panes (SHELL-1.12, 2026-04-26).
+  const [docDirtyFiles, setDocDirtyFiles] = useState<Set<string>>(() => new Set());
+  const handleDocDirtyChange = useCallback((filePath: string, dirty: boolean) => {
+    setDocDirtyFiles((prev) => {
+      const has = prev.has(filePath);
+      if (dirty && !has) {
+        const next = new Set(prev);
+        next.add(filePath);
+        return next;
+      }
+      if (!dirty && has) {
+        const next = new Set(prev);
+        next.delete(filePath);
+        return next;
+      }
+      return prev;
+    });
+  }, []);
+  // Combine diagram drafts + open-document dirty state for the Header badge.
+  const headerDirtyFiles = React.useMemo(() => {
+    const out = new Set<string>(fileExplorer.dirtyFiles);
+    for (const p of docDirtyFiles) out.add(p);
+    return out;
+  }, [fileExplorer.dirtyFiles, docDirtyFiles]);
+
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
@@ -117,9 +147,10 @@ function KnowledgeBaseInner() {
   }, []);
 
   // Derived state from bridge (with safe defaults). Title / isDirty now live
-  // in each pane's `PaneTitle` row and don't need lifting to the shell —
-  // only the confirm-popover stays here because it's shell chrome that
-  // overlays the whole viewport.
+  // in each pane's `PaneHeader` row (folded from `PaneTitle` in SHELL-1.12,
+  // 2026-04-26) and don't need lifting to the shell — only the confirm-
+  // popover stays here because it's shell chrome that overlays the whole
+  // viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
   // Fallback confirm state for file/folder deletion when no DiagramView is open.
@@ -585,6 +616,7 @@ function KnowledgeBaseInner() {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
         }}
+        onDirtyChange={handleDocDirtyChange}
         linkManager={linkManager}
         tree={fileExplorer.tree}
         onNavigateLink={handleNavigateWikiLink}
@@ -600,7 +632,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleDocDirtyChange]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -618,6 +650,7 @@ function KnowledgeBaseInner() {
     <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
       <Header
         isSplit={panes.isSplit}
+        dirtyFiles={headerDirtyFiles}
         onToggleSplit={() => {
           if (panes.isSplit) {
             panes.exitSplit();

@@ -2,10 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import Header from './Header'
 
-// Covers SHELL-1.2-18/19 (split toggle). Title editing, dirty dot, Save, and
-// Discard moved into `PaneTitle` when the shell header was stripped — see
-// PaneTitle.test.tsx for SHELL-1.2-02..13 coverage. Back-link (1.2-01) is
-// deferred to Playwright.
+// Covers SHELL-1.2-18/19 (split toggle) + SHELL-1.12 dirty-stack indicator
+// (Phase 2 PR 2). Title editing, dirty dot, Save, and Discard moved into
+// each pane's `PaneHeader` row when the shell header was stripped — see
+// PaneHeader.test.tsx for SHELL-1.2-02..13 coverage.
 
 describe('Header — split view toggle', () => {
   it('split toggle is not rendered when onToggleSplit is omitted', () => {
@@ -28,5 +28,37 @@ describe('Header — split view toggle', () => {
     render(<Header onToggleSplit={onToggleSplit} />)
     fireEvent.click(screen.getByTitle('Split view'))
     expect(onToggleSplit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Header — dirty-stack indicator', () => {
+  it('SHELL-1.12-04: shows "1 unsaved" when one file is dirty', () => {
+    render(<Header dirtyFiles={new Set(['notes/draft.md'])} />)
+    const badge = screen.getByTestId('dirty-stack-indicator')
+    expect(badge).toBeTruthy()
+    expect(badge.textContent).toContain('1 unsaved')
+  })
+
+  it('shows count for multiple dirty files', () => {
+    render(<Header dirtyFiles={new Set(['a.md', 'b.md', 'c.md'])} />)
+    expect(screen.getByTestId('dirty-stack-indicator').textContent).toContain('3 unsaved')
+  })
+
+  it('SHELL-1.12-05: hidden when no files are dirty', () => {
+    render(<Header dirtyFiles={new Set()} />)
+    expect(screen.queryByTestId('dirty-stack-indicator')).toBeNull()
+  })
+
+  it('hidden when dirtyFiles prop is omitted', () => {
+    render(<Header />)
+    expect(screen.queryByTestId('dirty-stack-indicator')).toBeNull()
+  })
+
+  it('tooltip lists every dirty file path', () => {
+    render(<Header dirtyFiles={new Set(['a.md', 'b.md'])} />)
+    const badge = screen.getByTestId('dirty-stack-indicator')
+    const title = badge.getAttribute('title') ?? ''
+    expect(title).toContain('a.md')
+    expect(title).toContain('b.md')
   })
 })

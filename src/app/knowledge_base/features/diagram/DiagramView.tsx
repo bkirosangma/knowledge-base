@@ -58,7 +58,6 @@ import { useSyncRef } from "../../shared/hooks/useSyncRef";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useDragEndRecorder } from "./hooks/useDragEndRecorder";
 import PaneHeader from "../../shared/components/PaneHeader";
-import PaneTitle from "../../shared/components/PaneTitle";
 import type { DocumentMeta } from "../document/types";
 import { useFileActions } from "../../shared/hooks/useFileActions";
 import { useFileExplorer } from "../../shared/hooks/useFileExplorer";
@@ -1058,15 +1057,11 @@ export default function DiagramView({
     <div className="flex-1 flex flex-col min-h-0 h-full">
       {activeFile && (
         <>
-          {/* Breadcrumb row */}
+          {/* Breadcrumb + title row (folded together SHELL-1.12) */}
           <PaneHeader
             filePath={activeFile}
             readOnly={readOnly}
             onToggleReadOnly={toggleReadOnly}
-          />
-
-          {/* Title row — editable diagram title + save / discard */}
-          <PaneTitle
             title={title}
             onTitleChange={(v) => { setTitle(v); scheduleRecord("Edit title"); }}
             isDirty={isDirty}
