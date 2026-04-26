@@ -98,8 +98,10 @@ export default function GraphifyCanvas({
     let pinchActive = false;
     let pinchStartDist = 0;
     let pinchStartZoom = 1;
-    let lastMidX = 0;
-    let lastMidY = 0;
+    // Graph-space anchor under the initial pinch midpoint — kept fixed on screen
+    // as zoom and pan evolve, giving the natural "zoom to fingers" feel.
+    let anchorGx = 0;
+    let anchorGy = 0;
 
     function touchDist(a: Touch, b: Touch) {
       const dx = a.clientX - b.clientX;
@@ -108,37 +110,40 @@ export default function GraphifyCanvas({
     }
 
     function onTouchStart(e: TouchEvent) {
-      if (e.touches.length < 2) return;
+      if (!el || e.touches.length < 2) return;
       e.preventDefault();
+      const graph = graphRef.current;
       const [a, b] = [e.touches[0], e.touches[1]];
       pinchStartDist = touchDist(a, b);
-      pinchStartZoom = graphRef.current?.zoom() ?? 1;
-      lastMidX = (a.clientX + b.clientX) / 2;
-      lastMidY = (a.clientY + b.clientY) / 2;
+      pinchStartZoom = graph?.zoom() ?? 1;
+      const rect = el.getBoundingClientRect();
+      const sx = (a.clientX + b.clientX) / 2 - rect.left;
+      const sy = (a.clientY + b.clientY) / 2 - rect.top;
+      const g = graph?.screen2GraphCoords(sx, sy) ?? { x: 0, y: 0 };
+      anchorGx = g.x;
+      anchorGy = g.y;
       pinchActive = true;
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (!pinchActive || e.touches.length < 2) return;
+      if (!el || !pinchActive || e.touches.length < 2) return;
       e.preventDefault();
       const graph = graphRef.current;
       if (!graph) return;
 
       const [a, b] = [e.touches[0], e.touches[1]];
       const newDist = touchDist(a, b);
-      const midX = (a.clientX + b.clientX) / 2;
-      const midY = (a.clientY + b.clientY) / 2;
+      const rect = el.getBoundingClientRect();
+      const sx = (a.clientX + b.clientX) / 2 - rect.left;
+      const sy = (a.clientY + b.clientY) / 2 - rect.top;
 
-      // Zoom: ratio of current distance to start distance, applied to start zoom.
-      if (pinchStartDist > 0) graph.zoom(pinchStartZoom * (newDist / pinchStartDist), 0);
+      const z2 = Math.max(0.1, Math.min(10, pinchStartZoom * (newDist / pinchStartDist)));
+      graph.zoom(z2, 0);
 
-      // Pan: screen-pixel delta converted to graph units via current zoom.
-      const z = graph.zoom();
-      const { x: cx, y: cy } = graph.centerAt();
-      graph.centerAt(cx - (midX - lastMidX) / z, cy - (midY - lastMidY) / z, 0);
-
-      lastMidX = midX;
-      lastMidY = midY;
+      // Keep anchor graph point fixed at the current finger midpoint on screen.
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      graph.centerAt(anchorGx - (sx - w / 2) / z2, anchorGy - (sy - h / 2) / z2, 0);
     }
 
     function onTouchEnd(e: TouchEvent) {
@@ -171,16 +176,24 @@ export default function GraphifyCanvas({
       e.preventDefault();
       e.stopPropagation(); // prevent d3-zoom from also reacting
       const graph = graphRef.current;
-      if (!graph) return;
+      if (!el || !graph) return;
 
       const lineScale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 200 : 1;
       const dx = e.deltaX * lineScale;
       const dy = e.deltaY * lineScale;
 
       if (e.ctrlKey) {
-        // Pinch on trackpad, or Ctrl+scroll → smooth zoom, no snap.
-        const z: number = graph.zoom();
-        graph.zoom(Math.max(0.1, Math.min(10, z * Math.pow(2, -dy * 0.02))), 0);
+        // Pinch on trackpad, or Ctrl+scroll → zoom towards cursor, no snap.
+        const z1: number = graph.zoom();
+        const z2 = Math.max(0.1, Math.min(10, z1 * Math.pow(2, -dy * 0.02)));
+        const rect = el.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const { x: gx, y: gy } = graph.screen2GraphCoords(sx, sy);
+        graph.zoom(z2, 0);
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        graph.centerAt(gx - (sx - w / 2) / z2, gy - (sy - h / 2) / z2, 0);
       } else {
         // Two-finger scroll (trackpad) or mouse wheel → pan.
         const z: number = graph.zoom();
