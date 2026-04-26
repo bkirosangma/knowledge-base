@@ -232,7 +232,10 @@ export default function MarkdownEditor({
       // Recompute reading meta on every doc transaction. ProseMirror has
       // already committed to the DOM by the time onUpdate fires, so the
       // rendered headings/word count are accurate without a microtask hop.
-      if (onReadingMetaChangeRef.current) {
+      // Gated to read mode — the TOC and reading-time pill only render in
+      // read mode, and walking every heading + stamping IDs on each
+      // keystroke is pure waste while the user is typing.
+      if (readOnly && onReadingMetaChangeRef.current) {
         const dom = ed.view.dom as HTMLElement;
         onReadingMetaChangeRef.current(extractReadingMeta(dom));
       }
@@ -353,14 +356,16 @@ export default function MarkdownEditor({
   // Emit reading meta whenever the editor mounts or external content changes
   // land — covers initial render and file switches (where onUpdate doesn't
   // fire because Tiptap's setContent is invoked with `emitUpdate: false`).
+  // Gated to read mode for the same reason as the onUpdate path: only the
+  // read-mode chrome consumes meta, so skip the DOM walk in edit mode.
   useEffect(() => {
-    if (!editor || !onReadingMetaChangeRef.current) return;
+    if (!editor || !readOnly || !onReadingMetaChangeRef.current) return;
     queueMicrotask(() => {
       if (editor.isDestroyed) return;
       const dom = editor.view.dom as HTMLElement;
       onReadingMetaChangeRef.current?.(extractReadingMeta(dom));
     });
-  }, [editor, content]);
+  }, [editor, content, readOnly]);
 
   // Read mode always shows rich text; raw mode is only honored when editable.
   const showRaw = isRawMode && !readOnly;

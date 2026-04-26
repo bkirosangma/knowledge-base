@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { ReadingMeta } from "./MarkdownEditor";
 
 const MIN_VIEWPORT_WIDTH = 1100;
@@ -35,12 +35,6 @@ export default function ReadingTOC({
   const [viewportWide, setViewportWide] = useState(() =>
     typeof window === "undefined" ? false : window.innerWidth >= MIN_VIEWPORT_WIDTH,
   );
-  // Hold a stable ref to the latest headings so the IntersectionObserver
-  // callback doesn't capture a stale array between document switches.
-  const headingsRef = useRef(headings);
-  useEffect(() => {
-    headingsRef.current = headings;
-  }, [headings]);
 
   // Track viewport width — the rail is for desktop reading layouts only.
   useEffect(() => {
@@ -97,9 +91,16 @@ export default function ReadingTOC({
     const target = root.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null;
     if (!target) return;
     // smooth-scroll the editor scroll container so the heading sits at the
-    // top with a small breathing margin.
+    // top with a small breathing margin. Honor prefers-reduced-motion so
+    // motion-sensitive readers don't get an unwanted animation.
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const targetTop = target.offsetTop - 16;
-    root.scrollTo({ top: targetTop, behavior: "smooth" });
+    root.scrollTo({
+      top: targetTop,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
     setActiveId(id);
   };
 

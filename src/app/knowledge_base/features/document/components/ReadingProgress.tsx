@@ -55,6 +55,7 @@ export default function ReadingProgress({
       data-testid="reading-progress"
       className="flex-shrink-0 h-0.5 bg-slate-100 relative overflow-hidden"
       role="progressbar"
+      aria-label="Reading progress"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(progress * 100)}

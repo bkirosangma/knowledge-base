@@ -62,6 +62,7 @@ export default function PaneHeader({
           data-testid="reading-time-pill"
           className="text-xs text-slate-500"
           title="Estimated reading time"
+          aria-label={`Estimated reading time: ${readingTimeMinutes} minutes`}
         >
           {readingTimeMinutes} min read
         </span>
