@@ -17,8 +17,9 @@ import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import GraphView from "./features/graph/GraphView";
+import GraphifyView from "./features/graph/GraphifyView";
 import { collectAllPaths } from "./features/graph/hooks/useGraphData";
-import { ToolbarProvider, GRAPH_SENTINEL } from "./shell/ToolbarContext";
+import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
@@ -463,7 +464,7 @@ function KnowledgeBaseInner() {
   // entry users can click. (Phase 3 PR 2.)
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
-    if (path && path !== GRAPH_SENTINEL) addToRecents(path);
+    if (path && path !== GRAPH_SENTINEL && path !== GRAPHIFY_SENTINEL) addToRecents(path);
   }, [panes.activeEntry?.filePath, addToRecents]);
 
   // ─── "Go to file…" command in palette ───
@@ -562,7 +563,7 @@ function KnowledgeBaseInner() {
       // won't be in `allPaths`, so we accept it explicitly. Other panes
       // still validate against the tree to avoid restoring deleted files.
       const isValidEntry = (e: PaneEntry | null): boolean =>
-        !!e && (e.fileType === "graph" || allPaths.has(e.filePath));
+        !!e && (e.fileType === "graph" || e.fileType === "graphify" || allPaths.has(e.filePath));
       const validLeft = isValidEntry(savedLayout.leftPane) ? savedLayout.leftPane : null;
       const validRight = isValidEntry(savedLayout.rightPane) ? savedLayout.rightPane : null;
 
@@ -644,6 +645,19 @@ function KnowledgeBaseInner() {
     }
   }, [panesOpenFile]);
 
+  const handleToggleGraphify = useCallback(() => {
+    const p = panesRef.current;
+    const leftIsGraphify  = p.leftPane?.fileType  === "graphify";
+    const rightIsGraphify = p.rightPane?.fileType === "graphify";
+    if (leftIsGraphify || rightIsGraphify) {
+      const side = leftIsGraphify ? "left" : "right";
+      p.setFocusedSide(side);
+      p.closeFocusedPane();
+    } else {
+      panesOpenFile(GRAPHIFY_SENTINEL, "graphify");
+    }
+  }, [panesOpenFile]);
+
   // Click-from-graph: open the file in the OPPOSITE pane so the graph
   // never gets replaced by the click. Three sub-cases:
   //   (a) Single pane = graph → split: graph stays left, file opens right.
@@ -693,6 +707,15 @@ function KnowledgeBaseInner() {
   }], [handleToggleGraph]);
   useRegisterCommands(openGraphCommands);
 
+  const openGraphifyCommands = useMemo(() => [{
+    id: "view.open-graphify",
+    title: "Toggle Knowledge Graph",
+    group: "View",
+    shortcut: "⌘⌃G",
+    run: handleToggleGraphify,
+  }], [handleToggleGraphify]);
+  useRegisterCommands(openGraphifyCommands);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "g" || e.key === "G")) {
@@ -709,8 +732,33 @@ function KnowledgeBaseInner() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleToggleGraph]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && e.ctrlKey && !e.shiftKey && (e.key === "g" || e.key === "G")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        handleToggleGraphify();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleToggleGraphify]);
+
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
+    if (entry.fileType === "graphify") {
+      return (
+        <GraphifyView
+          focused={focused}
+          dirHandleRef={fileExplorer.dirHandleRef}
+          onSelectNode={handleSelectFromGraph}
+        />
+      );
+    }
     if (entry.fileType === "graph") {
       return (
         <GraphView
@@ -718,7 +766,6 @@ function KnowledgeBaseInner() {
           tree={fileExplorer.tree}
           linkIndex={linkManager.linkIndex}
           onSelectNode={handleSelectFromGraph}
-          dirHandleRef={fileExplorer.dirHandleRef}
           onRefresh={async () => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
@@ -843,14 +890,13 @@ function KnowledgeBaseInner() {
           onToggleTheme={themeCtx.toggleTheme}
           dirtyCount={headerDirtyFiles.size}
           activeFilePath={
-            panes.activeEntry && panes.activeEntry.fileType !== "graph"
+            panes.activeEntry && panes.activeEntry.fileType !== "graph" && panes.activeEntry.fileType !== "graphify"
               ? panes.activeEntry.filePath
               : null
           }
           readPane={mobileReadPane}
           linkIndex={linkManager.linkIndex}
           onSelectFromGraph={handleSelectFromGraph}
-          dirHandleRef={fileExplorer.dirHandleRef}
           directoryName={fileExplorer.directoryName}
           tree={fileExplorer.tree}
           leftPaneFile={panes.leftPane?.filePath ?? null}
