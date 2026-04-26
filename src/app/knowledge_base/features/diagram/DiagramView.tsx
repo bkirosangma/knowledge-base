@@ -48,6 +48,8 @@ import { useLabelEditing } from "./hooks/useLabelEditing";
 import { useAnchorConnections } from "./hooks/useAnchorConnections";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
+import { useTouchCanvas } from "./hooks/useTouchCanvas";
+import { useViewport } from "../../shared/hooks/useViewport";
 import { detectContextMenuTarget } from "./utils/geometry";
 import { useFooterContext } from "../../shell/FooterContext";
 import { getConditionDimensions } from "./utils/conditionGeometry";
@@ -281,6 +283,24 @@ export default function DiagramView({
   // Sync title -> titleInputValue on external changes (file load, undo)
   useEffect(() => { setTitleInputValue(title); }, [title]);
   useEffect(() => { registerSetIsZooming(setIsZooming); }, [registerSetIsZooming]);
+
+  // ─── Touch canvas (Phase 3 PR 3 / DIAG-3.24) ─────────────────────────
+  // Mobile + read-only only. Edit mode keeps the existing mouse handlers
+  // unchanged so authoring on a tablet with a stylus still works as
+  // before. Long-press on a node selects it so the Properties panel
+  // shows backlinks; pinch + two-finger pan ride on the existing zoom /
+  // scroll machinery.
+  const { isMobile } = useViewport();
+  const handleTouchLongPress = useCallback((nodeId: string) => {
+    setSelection({ type: "node", id: nodeId });
+  }, []);
+  useTouchCanvas({
+    canvasRef,
+    zoomRef,
+    setZoomTo,
+    enabled: readOnly && isMobile,
+    onLongPress: handleTouchLongPress,
+  });
 
   // Fire pending record after render so all state is settled
   useEffect(() => {
@@ -1153,7 +1173,7 @@ export default function DiagramView({
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
+        className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { if (e.button === 0 && selection?.type === 'flow') setSelection(null); handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}

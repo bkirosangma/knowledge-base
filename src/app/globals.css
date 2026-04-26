@@ -556,3 +556,24 @@ body {
 .kb-table-toolbar button[data-tooltip]:disabled:focus-visible::before {
   display: none;
 }
+
+/* ── Mobile shell (Phase 3 PR 3 / SHELL-1.14) ────────────────────────── */
+@media (max-width: 900px) {
+  /* Stop iOS Safari from overscroll-bouncing the whole page when the
+   * Files / Read scroll area hits its top or bottom — the bottom-tab
+   * nav must stay anchored. */
+  html, body {
+    overscroll-behavior: none;
+  }
+
+  /* The diagram canvas viewport (DiagramView's outer scrolling div) is
+   * tagged with `kb-diagram-viewport`. In read-only mobile mode the
+   * touch hook owns gestures, so the browser must not also scroll or
+   * pinch-zoom the canvas. `touch-action: none` cedes ALL gesture
+   * handling to JS — we re-introduce one-finger document scroll inside
+   * the hook by NOT calling preventDefault on single-touch moves. */
+  .kb-diagram-viewport {
+    touch-action: none;
+  }
+}
+

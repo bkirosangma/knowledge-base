@@ -37,8 +37,24 @@ Top-level chrome that hosts every other feature.
 - ⚙️ **`vaultConfig.theme` schema field** — optional `"light" | "dark"` in `VaultConfig`; absent on first-mount means "use OS pref". `updateVaultConfig(rootHandle, patch)` does an atomic read-merge-write through `FileSystemError`-classified paths (single dir + file handle acquisition mirrors `updateVaultLastOpened` so concurrent patches can't interleave and drop one update); `VaultConfigRepository.update(patch)` exposes it.
 - ⚙️ **Dark-mode token coverage (PR 1 scope)** — Phase 3 PR 1 ships token surface chrome (shell, header/footer) AND key visited surfaces: `ExplorerPanel` (Recents header, file rows, context menu), `TreeNodeRow` (every tree row + hover-button icons), and the `DiagramView` toolbar (`features/diagram/DiagramView.tsx` lines ~1073-1140 + `features/diagram/utils/toolbarClass.ts` for the Live/Labels pill helper). Active-row `bg-blue-50` is re-bound to a translucent accent fill via a `[data-theme="dark"] .bg-blue-50` rule in `globals.css` so existing call-sites flip without per-component changes. Remaining components — Properties panel, full diagram canvas internals (nodes / edges / minimap / region chrome), condition popovers — migrate progressively in future PRs.
 
-### 1.14 A11y Sweep (Phase 3 PR 1)
+### 1.13.1 A11y Sweep (Phase 3 PR 1)
 - ✅ **Icon-only button labels** — `ExplorerHeader` (More actions, New Diagram/Document/Folder, Refresh, Sort), `ExplorerPanel` (Explorer collapse, Clear search), `TreeNodeRow.HoverBtn` (rename / delete / dup), `MarkdownToolbar.TBtn` shared helper (mirrors `title` into `aria-label` + `aria-pressed`), `DiagramView` toolbar (Live, Labels, Minimap, Zoom in/out/reset wrapped in a `role="group" aria-label="Zoom controls"`), and `Footer` Reset App now expose accessible names. Buttons with visible text content (filter pills, WYSIWYG/Raw mode toggle) keep the text as the accessible name and only add `aria-pressed` for state.
+
+### 1.14 Mobile Shell (Phase 3 PR 3)
+`src/app/knowledge_base/shell/MobileShell.tsx`, `shell/BottomNav.tsx`, `shared/hooks/useViewport.ts`
+- ⚙️ **`useViewport` hook** — SSR-safe viewport detector. Returns `{ isMobile: false }` on the server / first paint; an effect reads `window.matchMedia("(max-width: 900px)")` after mount and tracks subsequent breakpoint flips with cleanup on unmount. The 900 px breakpoint is exported as `MOBILE_BREAKPOINT_PX` for ad-hoc media-query references.
+- ✅ **MobileShell layout** — replaces the desktop split-pane shell when `isMobile` is true. Composition: thin Header strip (file name + dirty pill + ⌘K trigger + theme toggle) + active tab content + `BottomNav`. Active tab state lives inside MobileShell; defaults to "files" when no file is open, otherwise "read".
+- ✅ **Tab content routing** — Files tab renders `<ExplorerPanel>` full-screen (opening a file flips active tab to "read"); Read tab renders the focused pane via the host's `renderPane` (or an empty state with a "Pick a file" CTA when nothing is open); Graph tab renders `<GraphView>` with the same vault tree + link index. Clicking a node in Graph also flips to "read".
+- ✅ **`BottomNav` component** — fixed-bottom 3-tab grid (Files / Read / Graph) using FolderOpen / BookOpen / Network icons. Each tab is ≥44 px tall, exposes `aria-label` + `aria-pressed`, and has a stable `data-testid="bottom-nav-{tab}"` for tests. Active tab uses `text-accent`; inactive uses `text-mute`.
+- ✅ **Mobile responsive CSS** — `@media (max-width: 900px)` block in `globals.css` adds `overscroll-behavior: none` to html/body (kills iOS Safari's bounce so the bottom nav stays anchored) and `touch-action: none` on `.kb-diagram-viewport` (cedes gesture handling to `useTouchCanvas`).
+
+### 1.15 PWA — Manifest, Service Worker, Offline Cache (Phase 3 PR 3)
+`public/manifest.json`, `public/sw.js`, `public/icon.svg`, `shell/ServiceWorkerRegister.tsx`, `shared/hooks/useOfflineCache.ts`
+- ✅ **Web app manifest** — `public/manifest.json` declares name "Knowledge Base", short_name "KB", display "standalone", theme_color `#047857` (emerald-700, matching `--accent`), and references `/icon.svg` for any size. SVG icon is Lighthouse-acceptable so we avoid shipping per-resolution PNGs.
+- ✅ **Manifest reference in layout** — `src/app/layout.tsx` `metadata.manifest = "/manifest.json"`. Next 16 requires `themeColor` on the `viewport` export (not `metadata`), so we expose both: `metadata` carries the manifest + icons, `viewport` carries `themeColor`.
+- ⚙️ **Service worker (`/sw.js`)** — hand-rolled (next-pwa is not Next-16 compatible). Pre-caches manifest + icon on install; serves `/__kb-cache/*` from the `kb-files-v1` cache (vault-content cache populated by `useOfflineCache`); falls back network-first → cache for everything else. Activate hook drops old static caches but preserves the file cache.
+- ⚙️ **`ServiceWorkerRegister` component** — renders inside `KnowledgeBaseInner`. Calls `navigator.serviceWorker.register("/sw.js")` only when `process.env.NODE_ENV === "production"` so dev mode / Turbopack HMR isn't intercepted.
+- ⚙️ **`useOfflineCache` hook** — polls the last 10 paths from `localStorage["kb-recents"]` (re-read each tick — closure does NOT capture, see PR-3 review notes), reads each via `DocumentRepository` / `DiagramRepository`, and writes to the `kb-files-v1` Cache Storage bucket keyed by `/__kb-cache/<path>`. Triggers: initial mount, `visibilitychange → hidden`, 30 s heartbeat while visible. Best-effort — read or write errors are swallowed.
 
 ### 1.11 Command Registry & Palette
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
@@ -296,6 +312,14 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 ### 3.21 Diagram File Watcher
 `features/diagram/hooks/useDiagramFileWatcher.ts`
 - ⚙️ **`useDiagramFileWatcher`** — subscribes to the `"content:diagram"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the diagram is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the diagram is dirty, sets `conflictSnapshot` so `DiagramView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`. Exposes `conflictSnapshot`, `handleReloadFromDisk`, and `handleKeepEdits`. Wired into `DiagramView` via `ConflictBanner`.
+
+### 3.24 Touch Canvas (Mobile Read-Only) (Phase 3 PR 3)
+`features/diagram/hooks/useTouchCanvas.ts`, mounted inside `DiagramView.tsx` when `readOnly && isMobile`.
+- ✅ **Two-finger pan + pinch-zoom** — two-finger touchmove translates `canvasRef.scrollLeft`/`scrollTop` by the midpoint delta and scales zoom via `setZoomTo(pinchStartZoom × distanceRatio)`. Bounds and snapping are inherited from `useZoom`.
+- ✅ **Single-tap node selection** — tap inside ≤200 ms and ≤8 px movement dispatches a synthetic `MouseEvent("click")` on the touched element so the existing node-selection handlers fire. The hook walks ancestors looking for `data-testid="node-{id}"` to identify the touched node.
+- ✅ **Long-press → backlinks** — 500 ms hold without movement >8 px on a node element fires `onLongPress(nodeId)`. The DiagramView wires this to `setSelection({ type: "node", id })` so the Properties panel surfaces backlinks.
+- ✅ **Single-finger non-action** — single-finger touchmove is NOT preventDefault'd, so the browser is free to scroll documents naturally; one-finger panning is intentionally NOT supported on the diagram canvas.
+- ⚙️ **Read-only / mobile guard** — the hook is a no-op when `enabled` is false; DiagramView passes `readOnly && isMobile` so edit mode keeps existing mouse handlers untouched and desktop never picks up the touch listeners.
 
 ---
 

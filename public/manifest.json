@@ -1,0 +1,17 @@
+{
+  "name": "Knowledge Base",
+  "short_name": "KB",
+  "description": "Local-first knowledge base with diagrams and documents",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#047857",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -35,6 +35,10 @@ import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 import { useTheme } from "./shared/hooks/useTheme";
+import { useViewport } from "./shared/hooks/useViewport";
+import { useOfflineCache } from "./shared/hooks/useOfflineCache";
+import MobileShell from "./shell/MobileShell";
+import ServiceWorkerRegister from "./shell/ServiceWorkerRegister";
 
 /**
  * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
@@ -61,6 +65,10 @@ function KnowledgeBaseInner() {
   const fileExplorer = useFileExplorer();
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
+  // Phase 3 PR 3 — viewport detection drives mobile shell branching.
+  const { isMobile } = useViewport();
+  // Phase 3 PR 3 — offline cache for last 10 recents (best-effort).
+  useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
@@ -741,7 +749,12 @@ function KnowledgeBaseInner() {
         focused={focused}
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
-        focusMode={focusMode}
+        // On mobile, force focus-mode treatment so the markdown toolbar
+        // and Properties panel collapse — Phase 3 PR 3 §5 (reader-first
+        // mobile chrome).  The explorer/footer chrome focus-mode would
+        // also strip is already absent in MobileShell, so re-using the
+        // existing `focusMode` flag is the cleanest path.
+        focusMode={focusMode || isMobile}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
@@ -762,7 +775,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleLeftDocDirty, handleRightDocDirty]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -775,10 +788,95 @@ function KnowledgeBaseInner() {
     </div>
   );
 
+  // ─── Mobile read pane content ───
+  // When the viewport collapses to MobileShell, the "Read" tab needs to
+  // display whatever the focused pane would normally show. We reuse the
+  // same renderPane that the desktop PaneManager uses; the diagram's
+  // touch hook activates because `isMobile && readOnly` is true on
+  // mobile boot (read-only is the default for both file types). Graph
+  // is handled inside MobileShell directly.
+  const mobileReadPane = panes.activeEntry && panes.activeEntry.fileType !== "graph"
+    ? renderPane(panes.activeEntry, true, panes.focusedSide)
+    : null;
+
   return (
     <RepositoryProvider rootHandle={fileExplorer.rootHandle}>
     <ThemedShell>
     {(themeCtx) => (
+    <>
+    <ServiceWorkerRegister />
+    {isMobile ? (
+      <div
+        data-testid="knowledge-base"
+        data-theme={themeCtx.theme}
+        className="w-full h-screen overflow-hidden"
+      >
+        <MobileShell
+          theme={themeCtx.theme}
+          onToggleTheme={themeCtx.toggleTheme}
+          dirtyCount={headerDirtyFiles.size}
+          activeFilePath={
+            panes.activeEntry && panes.activeEntry.fileType !== "graph"
+              ? panes.activeEntry.filePath
+              : null
+          }
+          readPane={mobileReadPane}
+          linkIndex={linkManager.linkIndex}
+          onSelectFromGraph={handleSelectFromGraph}
+          directoryName={fileExplorer.directoryName}
+          tree={fileExplorer.tree}
+          leftPaneFile={panes.leftPane?.filePath ?? null}
+          rightPaneFile={panes.rightPane?.filePath ?? null}
+          dirtyFiles={fileExplorer.dirtyFiles}
+          onOpenFolder={fileExplorer.openFolder}
+          onSelectFile={handleSelectFile}
+          onCreateFile={async (parentPath) => {
+            const result = await fileExplorer.createFile(parentPath);
+            if (result) handleSelectFile(result.path);
+            return result?.path ?? null;
+          }}
+          onCreateDocument={async (parentPath) => {
+            const resultPath = await fileExplorer.createDocument(parentPath);
+            if (resultPath) handleSelectFile(resultPath);
+            return resultPath;
+          }}
+          onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
+          onDeleteFile={handleDeleteFileWithLinks}
+          onDeleteFolder={(path, event) => {
+            if (diagramBridgeRef.current) {
+              diagramBridgeRef.current.handleDeleteFolder(path, event);
+            } else {
+              setShellConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
+            }
+          }}
+          onRenameFile={handleRenameFileWithLinks}
+          onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
+          onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
+          onMoveItem={handleMoveItemWithLinks}
+          isLoading={fileExplorer.isLoading}
+          onRefresh={watcherRefresh}
+          sortField={sortPrefs.field}
+          sortDirection={sortPrefs.direction}
+          sortGrouping={sortPrefs.grouping}
+          onSortChange={handleSortChange}
+          explorerFilter={explorerFilter}
+          onFilterChange={setExplorerFilter}
+          onSelectDocument={handleOpenDocument}
+          recentFiles={recentFiles}
+          searchInputRef={explorerSearchRef}
+        />
+        {/* Hidden fallback input for browsers without File System Access API */}
+        <input
+          ref={fileExplorer.inputRef}
+          type="file"
+          /* @ts-expect-error webkitdirectory is non-standard */
+          webkitdirectory=""
+          className="hidden"
+          onChange={(e) => fileExplorer.handleFallbackInput(e.target.files)}
+        />
+        <CommandPalette />
+      </div>
+    ) : (
     <div
       data-testid="knowledge-base"
       data-theme={themeCtx.theme}
@@ -940,6 +1038,8 @@ function KnowledgeBaseInner() {
         />
       )}
     </div>
+    )}
+    </>
     )}
     </ThemedShell>
     </RepositoryProvider>
