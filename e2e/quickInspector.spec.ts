@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { installMockFS } from './fixtures/fsMock'
 import { seedWithNode } from './helpers/diagramSeeds'
 
-// Covers DIAG-3.19-01, DIAG-3.19-02, DIAG-3.19-03, DIAG-3.19-04
+// Covers DIAG-3.23-01, DIAG-3.23-02, DIAG-3.23-03, DIAG-3.23-04
 
 async function setupFs(page: Page, seed: Record<string, string>) {
   await page.addInitScript(installMockFS)
@@ -31,7 +31,7 @@ async function openDiagram(page: Page) {
 }
 
 test.describe('Canvas Quick Inspector', () => {
-  test('DIAG-3.19-01: Quick Inspector appears when a single node is selected', async ({ page }) => {
+  test('DIAG-3.23-01: Quick Inspector appears when a single node is selected', async ({ page }) => {
     await setupFs(page, seedWithNode())
     await openDiagram(page)
 
@@ -49,7 +49,7 @@ test.describe('Canvas Quick Inspector', () => {
     await expect(page.locator('[data-testid="quick-inspector"]')).not.toBeVisible()
   })
 
-  test('DIAG-3.19-02: Quick Inspector is hidden in read mode', async ({ page }) => {
+  test('DIAG-3.23-02: Quick Inspector is hidden in read mode', async ({ page }) => {
     await setupFs(page, seedWithNode())
     await openDiagram(page)
 
@@ -65,7 +65,7 @@ test.describe('Canvas Quick Inspector', () => {
     await expect(page.locator('[data-testid="quick-inspector"]')).not.toBeVisible()
   })
 
-  test('DIAG-3.19-03: Clicking delete in Quick Inspector removes the node', async ({ page }) => {
+  test('DIAG-3.23-03: Clicking delete in Quick Inspector removes the node', async ({ page }) => {
     await setupFs(page, seedWithNode())
     await openDiagram(page)
 
@@ -86,7 +86,7 @@ test.describe('Canvas Quick Inspector', () => {
     await expect(page.locator('[data-testid="quick-inspector"]')).not.toBeVisible()
   })
 
-  test('DIAG-3.19-04: Clicking a colour swatch changes the node colour', async ({ page }) => {
+  test('DIAG-3.23-04: Clicking a colour swatch changes the node colour', async ({ page }) => {
     await setupFs(page, seedWithNode())
     await openDiagram(page)
 

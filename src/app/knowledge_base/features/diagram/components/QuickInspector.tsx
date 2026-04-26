@@ -79,7 +79,8 @@ export default function QuickInspector({
 
   const handleNativeColorChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      // When using "Other…" just update fill; border/text stay as-is.
+      // When using "Other…" apply the custom colour as both fill and border;
+      // text defaults to the darkest slate to stay readable on any hue.
       onColorChange(nodeId, e.target.value, e.target.value, "#1e293b");
     },
     [nodeId, onColorChange],
