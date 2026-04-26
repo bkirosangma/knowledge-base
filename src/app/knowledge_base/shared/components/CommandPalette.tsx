@@ -112,7 +112,7 @@ export default function CommandPalette() {
   return (
     // Backdrop
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      className="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh]"
       style={{ backgroundColor: "rgba(15, 23, 42, 0.45)" }} /* TODO: tokenize */
       onMouseDown={(e) => {
         // Close when clicking the backdrop, not the panel.
