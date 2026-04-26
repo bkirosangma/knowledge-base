@@ -70,6 +70,8 @@ export default function GraphifyCanvas({
   onBackgroundClick,
 }: GraphifyCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const graphRef = useRef<any>(null);
   const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   useEffect(() => {
@@ -84,6 +86,78 @@ export default function GraphifyCanvas({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // ── Pinch-to-zoom + two-finger pan ───────────────────────────────────────
+  // Intercept in capture phase so d3-zoom's bubble-phase handlers never fire
+  // for multi-touch gestures.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let pinchActive = false;
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+    let lastMidX = 0;
+    let lastMidY = 0;
+
+    function touchDist(a: Touch, b: Touch) {
+      const dx = a.clientX - b.clientX;
+      const dy = a.clientY - b.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length < 2) return;
+      e.preventDefault();
+      const [a, b] = [e.touches[0], e.touches[1]];
+      pinchStartDist = touchDist(a, b);
+      pinchStartZoom = graphRef.current?.zoom() ?? 1;
+      lastMidX = (a.clientX + b.clientX) / 2;
+      lastMidY = (a.clientY + b.clientY) / 2;
+      pinchActive = true;
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!pinchActive || e.touches.length < 2) return;
+      e.preventDefault();
+      const graph = graphRef.current;
+      if (!graph) return;
+
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const newDist = touchDist(a, b);
+      const midX = (a.clientX + b.clientX) / 2;
+      const midY = (a.clientY + b.clientY) / 2;
+
+      // Zoom: ratio of current distance to start distance, applied to start zoom.
+      if (pinchStartDist > 0) graph.zoom(pinchStartZoom * (newDist / pinchStartDist), 0);
+
+      // Pan: screen-pixel delta converted to graph units via current zoom.
+      const z = graph.zoom();
+      const { x: cx, y: cy } = graph.centerAt();
+      graph.centerAt(cx - (midX - lastMidX) / z, cy - (midY - lastMidY) / z, 0);
+
+      lastMidX = midX;
+      lastMidY = midY;
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length < 2) pinchActive = false;
+    }
+
+    const opts = { capture: true, passive: false } as const;
+    const optsPassive = { capture: true } as const;
+    el.addEventListener("touchstart", onTouchStart, opts);
+    el.addEventListener("touchmove", onTouchMove, opts);
+    el.addEventListener("touchend", onTouchEnd, optsPassive);
+    el.addEventListener("touchcancel", onTouchEnd, optsPassive);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, opts);
+      el.removeEventListener("touchmove", onTouchMove, opts);
+      el.removeEventListener("touchend", onTouchEnd, optsPassive);
+      el.removeEventListener("touchcancel", onTouchEnd, optsPassive);
+    };
   }, []);
 
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
@@ -201,6 +275,7 @@ export default function GraphifyCanvas({
     >
       {size.w > 0 && size.h > 0 && (
         <ForceGraph2D
+          ref={graphRef}
           width={size.w}
           height={size.h}
           graphData={graphData}
