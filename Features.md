@@ -186,6 +186,9 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Flow-break check on reconnect** — simulates new topology and warns if it breaks a flow.
 - ✅ **Segment drag** — reshape the path by dragging segments / waypoints; commits to history.
 - ✅ **Anchor popup menu** — hover on a node shows anchors for connect/edit.
+- ✅ **Persistent edge handles** — when a node is selected (and not in read-only mode), four blue 8 px dots appear at the N/E/S/W edge midpoints. `components/DiagramNodeLayer.tsx` (`EdgeHandles`), `hooks/useDragToConnect.ts`.
+  - `data-testid="edge-handle-{nodeId}-{n|e|s|w}"` for testability.
+- ✅ **Drag-to-connect from edge handle** — mousedown on an edge handle starts a dashed blue preview line (`isDashed` flag in `CreatingLine`); dropping on a node creates a connection; dropping on empty canvas opens the existing `AnchorPopupMenu` radial menu at the drop point (`onEmptyDrop` callback in `useLineDrag`). `hooks/useDragToConnect.ts`, `hooks/useLineDrag.ts`.
 
 ### 3.10 Flows (Named Connection Sequences)
 `utils/flowUtils.ts`, `components/FlowBreakWarningModal.tsx`, `components/FlowDots.tsx`, `properties/FlowProperties.tsx`, `hooks/useFlowManagement.ts`

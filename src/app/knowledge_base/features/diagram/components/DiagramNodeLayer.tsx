@@ -7,6 +7,7 @@ import { getAnchors, type AnchorId } from "../utils/anchors";
 import { getConditionAnchors, getConditionDimensions } from "../utils/conditionGeometry";
 import { isItemSelected } from "../utils/selectionUtils";
 import type { NodeData, Connection, Selection } from "../types";
+import type { EdgeHandleDirection } from "../hooks/useDragToConnect";
 
 interface DragDelta { dx: number; dy: number }
 interface DragPos { x: number; y: number }
@@ -63,6 +64,7 @@ export interface DiagramNodeLayerProps {
   handleNodeDragStart: (...args: any[]) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handleRotationDragStart: (...args: any[]) => void;
+  onEdgeHandleDrag?: (nodeId: string, direction: EdgeHandleDirection, e: React.MouseEvent) => void;
   setNodes: React.Dispatch<React.SetStateAction<NodeData[]>>;
   scheduleRecord: (description: string) => void;
 
@@ -71,6 +73,55 @@ export interface DiagramNodeLayerProps {
   hasDocuments: (entityType: string, entityId: string) => boolean;
   getDocumentsForEntity: (entityType: string, entityId: string) => { filename: string }[];
   onOpenDocument: (path: string) => void;
+}
+
+/** The four persistent edge-handle dots shown on a selected, non-read-only node. */
+function EdgeHandles({
+  nodeId,
+  x,
+  y,
+  w,
+  h,
+  onMouseDown,
+}: {
+  nodeId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  onMouseDown: (nodeId: string, dir: EdgeHandleDirection, e: React.MouseEvent) => void;
+}) {
+  const handles: { dir: EdgeHandleDirection; cx: number; cy: number }[] = [
+    { dir: "n", cx: x,         cy: y - h / 2 },
+    { dir: "e", cx: x + w / 2, cy: y         },
+    { dir: "s", cx: x,         cy: y + h / 2 },
+    { dir: "w", cx: x - w / 2, cy: y         },
+  ];
+  return (
+    <>
+      {handles.map(({ dir, cx, cy }) => (
+        <div
+          key={dir}
+          data-testid={`edge-handle-${nodeId}-${dir}`}
+          style={{
+            position: "absolute",
+            left: cx,
+            top: cy,
+            transform: "translate(-50%, -50%)",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "#3b82f6",
+            border: "2px solid white",
+            cursor: "crosshair",
+            zIndex: 20,
+            pointerEvents: "auto",
+          }}
+          onMouseDown={(e) => onMouseDown(nodeId, dir, e)}
+        />
+      ))}
+    </>
+  );
 }
 
 /**
@@ -108,6 +159,7 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     handleNodeDoubleClick,
     handleNodeDragStart,
     handleRotationDragStart,
+    onEdgeHandleDrag,
     setNodes,
     scheduleRecord,
     getNodeDimensions,
@@ -180,6 +232,12 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           flowRole: flowEntry?.role,
         };
 
+        const showEdgeHandles =
+          !readOnly &&
+          !isThisDragged &&
+          onEdgeHandleDrag != null &&
+          isItemSelected(selection, 'node', node.id);
+
         if (isCondition) {
           const condDims = getConditionDimensions(node.conditionSize, node.conditionOutCount);
           return (
@@ -242,6 +300,16 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                 documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
                 onDocNavigate={onOpenDocument}
               />
+              {showEdgeHandles && (
+                <EdgeHandles
+                  nodeId={node.id}
+                  x={visualX}
+                  y={visualY}
+                  w={condDims.w}
+                  h={condDims.h}
+                  onMouseDown={onEdgeHandleDrag}
+                />
+              )}
             </React.Fragment>
           );
         }
@@ -267,6 +335,16 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
               documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
               onDocNavigate={onOpenDocument}
             />
+            {showEdgeHandles && (
+              <EdgeHandles
+                nodeId={node.id}
+                x={visualX}
+                y={visualY}
+                w={dims.w}
+                h={dims.h}
+                onMouseDown={onEdgeHandleDrag}
+              />
+            )}
           </React.Fragment>
         );
       })}

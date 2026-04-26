@@ -37,6 +37,7 @@ import { useSegmentDrag } from "./hooks/useSegmentDrag";
 import { computeLayout, type ArrangeAlgorithm } from "./utils/autoArrange";
 import { createLayerId } from "./utils/idFactory";
 import { useLineDrag } from "./hooks/useLineDrag";
+import { useDragToConnect } from "./hooks/useDragToConnect";
 import { type ContextMenuTarget } from "./components/ContextMenu";
 import { useContextMenuActions } from "./hooks/useContextMenuActions";
 import { useZoom } from "./hooks/useZoom";
@@ -373,7 +374,13 @@ export default function DiagramView({
     isBlocked: readOnly || !!draggingEndpoint,
     onAnchorClick,
     onConnectedAnchorDrag: handleConnectedAnchorDrag,
+    onEmptyDrop: (fromNodeId, fromAnchorId, _canvasX, _canvasY, clientX, clientY) => {
+      if (readOnly) return;
+      setAnchorPopup({ clientX, clientY, nodeId: fromNodeId, anchorId: fromAnchorId, edge: getAnchorEdge(fromAnchorId) });
+    },
   });
+
+  const { startEdgeHandleDrag } = useDragToConnect({ readOnly, handleAnchorDragStart });
 
   const { draggingId, elementDragPos, elementDragRawPos, handleDragStart,
     isMultiDrag, multiDragIds, multiDragDelta, multiDragRawDelta,
@@ -1205,6 +1212,7 @@ export default function DiagramView({
               handleNodeDoubleClick={handleNodeDoubleClick}
               handleNodeDragStart={handleNodeDragStart}
               handleRotationDragStart={handleRotationDragStart}
+              onEdgeHandleDrag={startEdgeHandleDrag}
               setNodes={setNodes}
               scheduleRecord={scheduleRecord}
               getNodeDimensions={getNodeDimensions}

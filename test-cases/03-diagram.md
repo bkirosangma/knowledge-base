@@ -388,3 +388,14 @@ Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base
 | DIAG-3.21-03 | ✅ | Conflict detection when diagram is dirty and disk changed — sets `conflictSnapshot`, does not modify history or apply snapshot |
 | DIAG-3.21-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk snapshot — records history, moves saved point, applies snapshot |
 | DIAG-3.21-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |
+
+## 3.22 Persistent Edge Handles + Drag-to-Connect
+`hooks/useDragToConnect.ts`, `components/DiagramNodeLayer.tsx`, `hooks/useLineDrag.ts`
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.22-01 | 🧪 | Dragging from an edge handle to another node creates a connection — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-02 | 🧪 | Edge handles appear when a node is selected (not in read mode) — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-03 | 🧪 | Edge handles do not appear in read mode — e2e/dragToConnect.spec.ts |
+| DIAG-3.22-04 | ❌ | Dropping on empty canvas opens AnchorPopupMenu at drop point |
+| DIAG-3.22-05 | ❌ | No self-connection created when dragging handle back onto its own node |

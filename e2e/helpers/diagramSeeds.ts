@@ -30,6 +30,19 @@ export function seedWithNode(opts: { label?: string } = {}): Record<string, stri
   }
 }
 
+export function seedWithTwoNodes(): Record<string, string> {
+  return {
+    'diagram.json': JSON.stringify({
+      ...baseDiagram,
+      nodes: [
+        { id: 'n1', label: 'Alpha', icon: 'Box', x: 150, y: 200, w: 160, layer: '' },
+        { id: 'n2', label: 'Beta',  icon: 'Box', x: 450, y: 200, w: 160, layer: '' },
+      ],
+      connections: [],
+    }),
+  }
+}
+
 export function seedWithNodeAndLayer(): Record<string, string> {
   return {
     'diagram.json': JSON.stringify({
