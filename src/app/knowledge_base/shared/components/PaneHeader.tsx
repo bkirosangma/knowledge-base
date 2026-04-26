@@ -10,6 +10,10 @@ interface PaneHeaderProps {
   readOnly: boolean;
   /** Toggle Read Mode on/off. */
   onToggleReadOnly: () => void;
+  /** Estimated reading time in minutes. When provided AND `readOnly` is
+   *  true, a small pill renders next to the Read button. Hidden in edit
+   *  mode so the chrome stays calm while the user is writing. */
+  readingTimeMinutes?: number;
   /** Extra actions rendered to the right of the Read Mode button. */
   children?: React.ReactNode;
 }
@@ -18,6 +22,7 @@ export default function PaneHeader({
   filePath,
   readOnly,
   onToggleReadOnly,
+  readingTimeMinutes,
   children,
 }: PaneHeaderProps) {
   const pathParts = filePath.split("/");
@@ -51,6 +56,16 @@ export default function PaneHeader({
         {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
         <span>{readOnly ? "Read" : "Edit"}</span>
       </button>
+
+      {readOnly && readingTimeMinutes != null && readingTimeMinutes > 0 && (
+        <span
+          data-testid="reading-time-pill"
+          className="text-xs text-slate-500"
+          title="Estimated reading time"
+        >
+          {readingTimeMinutes} min read
+        </span>
+      )}
 
       {children}
     </div>

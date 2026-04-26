@@ -384,6 +384,19 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 `features/document/hooks/useDocumentFileWatcher.ts`
 - ⚙️ **`useDocumentFileWatcher`** — subscribes to the `"content:doc"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the document is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the document is dirty, exposes `conflictContent` so `DocumentView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`.
 
+### 4.14 Editorial Read Mode
+`features/document/components/MarkdownPane.tsx`, `features/document/components/MarkdownEditor.tsx`, `features/document/components/ReadingTOC.tsx`, `features/document/components/ReadingProgress.tsx`, `shared/components/PaneHeader.tsx`, `src/app/globals.css`
+- ✅ **Editorial typography in read mode** — when `readOnly` is true, the `<EditorContent>` wrapper gains the `editorial` class. CSS in `globals.css` (`.markdown-editor.editorial .ProseMirror …`) switches the surface to a serif stack (`Source Serif 4` → `Charter` → `Georgia`), 18px / 1.7 line-height, `max-width: 70ch` centred. Headings scale to 32 / 26 / 21 px; blockquotes become italic pull-quotes (4px accent border); links use emerald-700; code blocks expose `data-language` as a small uppercase kicker via `::before`. Edit-mode CSS is untouched.
+- ✅ **Reading-time pill** — `PaneHeader` renders a small `<X> min read` pill next to the Read button when `readOnly` is true and reading meta is non-empty. Estimate = `Math.max(1, Math.round(wordCount / 200))`. Word count is derived from `editor.view.dom.textContent` in `MarkdownEditor` and lifted to `MarkdownPane` via `onReadingMetaChange`.
+- ✅ **Sticky right-rail TOC** — `ReadingTOC.tsx` renders a 224px right-rail nav populated with H1/H2/H3 entries (indented 0/16/32 px). Visibility gated on `readOnly && tocOpen && headings.length >= 3 && viewport >= 1100px`. Each entry click smooth-scrolls the editor scroll container. An `IntersectionObserver` provides scrollspy — the closest-to-top heading is highlighted in `text-amber-700`. Heading IDs are stamped onto live DOM nodes by `extractReadingMeta` in `MarkdownEditor` and re-extracted on every Tiptap `onUpdate`.
+- ✅ **Reading progress bar** — `ReadingProgress.tsx` is a 2px amber-600 bar mounted just below `PaneHeader` in read mode only. Reads `scrollTop / (scrollHeight − clientHeight)` of the editor scroll container via passive scroll + ResizeObserver. Resets to 0% on `filePath` change.
+- ✅ **Toggle TOC (⌘⇧O)** — registered in the command palette as `document.toggle-toc` with a `when: () => readOnly` guard so it only appears in read mode. A direct `keydown` handler in `MarkdownPane` provides the shortcut, with the standard input/textarea/contenteditable bypass.
+
+### 4.15 Focus Mode (⌘.)
+`knowledgeBase.tsx`, `features/document/DocumentView.tsx`, `features/document/components/MarkdownPane.tsx`
+- ✅ **Toggle Focus Mode** — shell-level `focusMode` boolean. When on: explorer container collapses to 0px width with its right border removed, the global `Footer` is unmounted, `MarkdownPane`'s editor toolbar + `PaneTitle` row are hidden, and `DocumentView` swaps the properties sidebar slot for `null`. Off restores the prior `explorerCollapsed` value via `focusRestoreRef`. Header bar at the top of `knowledgeBase.tsx` stays visible by design — only document chrome dissolves.
+- ✅ **Keyboard shortcut + palette** — registered as `view.toggle-focus-mode` (group `View`, shortcut `⌘.`). A raw `keydown` handler in `knowledgeBase.tsx` mirrors `⌘K`/`⌘F`'s input/textarea/contenteditable guard so the shortcut never fires while typing.
+
 ---
 
 ## 5. Cross-Cutting Link & Graph Layer

@@ -99,8 +99,11 @@ test.describe('Command Palette', () => {
     await page.getByTestId('command-palette-trigger').click()
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
 
-    // Filter to the toggle-read-only command
-    await page.getByPlaceholder('Search commands…').fill('Toggle')
+    // Filter to the toggle-read-only command.  Use a query specific enough
+    // to land on Toggle Read / Edit Mode as the active item — bare "Toggle"
+    // also matches Toggle Focus Mode (registered earlier from the shell)
+    // so the active row would be the View command instead.
+    await page.getByPlaceholder('Search commands…').fill('Toggle Read')
     await expect(page.getByText('Toggle Read / Edit Mode').first()).toBeVisible({ timeout: 3000 })
 
     // Execute with Enter

@@ -24,6 +24,18 @@ import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
 
+/** Aggregate editorial metadata derived from the rendered Tiptap DOM —
+ *  pushed up to MarkdownPane so the read-mode chrome (TOC, progress bar,
+ *  reading-time pill) can react to content changes without owning a second
+ *  parser. Recomputed inside MarkdownEditor on `onUpdate` and on initial
+ *  content sync. */
+export interface ReadingMeta {
+  /** Word count of the rendered text — drives the reading-time pill. */
+  wordCount: number;
+  /** H1/H2/H3 entries in document order. */
+  headings: Array<{ id: string; level: 1 | 2 | 3; text: string }>;
+}
+
 interface MarkdownEditorProps {
   content: string;
   onChange?: (markdown: string) => void;
@@ -46,6 +58,17 @@ interface MarkdownEditorProps {
   /** Increment to force-apply `content` to the editor even when focused.
    *  Used by undo/redo to bypass the isFocused guard in the content-sync effect. */
   historyToken?: number;
+  /** When true, hide the formatting toolbar even in edit mode. Used by Focus
+   *  Mode (⌘.) so only the document content remains visible. */
+  hideToolbar?: boolean;
+  /** Called whenever the rendered text changes — surfaces word count + the
+   *  ordered list of H1/H2/H3 IDs/text so `MarkdownPane` can render the TOC
+   *  rail and reading-time pill without re-parsing markdown. */
+  onReadingMetaChange?: (meta: ReadingMeta) => void;
+  /** Imperative ref to the scrollable editor container. The reading
+   *  progress bar reads its scrollTop / scrollHeight; the TOC scrolls it
+   *  to a heading on click. */
+  editorContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 
@@ -62,6 +85,50 @@ const RawAwareTaskItem = TaskItem.extend({
   content: "(paragraph | rawBlock) block*",
 });
 
+/** Slugify a heading's text for use as an `id` anchor. Matches the
+ *  conventional GitHub-style slug closely enough for in-document links —
+ *  lowercase, spaces → hyphens, drop punctuation. Two collisions in one
+ *  doc get a `-2`, `-3`, ... suffix; the caller (`extractReadingMeta`)
+ *  supplies the seen-slug counter. */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Reading-time + TOC source-of-truth. Reads directly from the rendered DOM
+ *  rather than re-parsing markdown so the headings always match what the
+ *  user sees and the IDs stick on the live nodes for click-to-scroll. */
+function extractReadingMeta(root: HTMLElement): ReadingMeta {
+  const text = root.textContent ?? "";
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  const headingNodes = root.querySelectorAll("h1, h2, h3");
+  const headings: ReadingMeta["headings"] = [];
+  const seen = new Map<string, number>();
+  headingNodes.forEach((node) => {
+    const el = node as HTMLElement;
+    const heading = el.textContent?.trim() ?? "";
+    if (!heading) return;
+    const tag = el.tagName.toLowerCase();
+    const level = (tag === "h1" ? 1 : tag === "h2" ? 2 : 3) as 1 | 2 | 3;
+    let id = slugify(heading);
+    if (!id) id = `heading-${headings.length + 1}`;
+    const collisions = seen.get(id) ?? 0;
+    if (collisions > 0) id = `${id}-${collisions + 1}`;
+    seen.set(id, collisions + 1);
+    // Stamp the ID onto the live node so ReadingTOC can scroll-to-element
+    // by id without re-querying.
+    if (el.id !== id) el.id = id;
+    headings.push({ id, level, text: heading });
+  });
+
+  return { wordCount, headings };
+}
+
 
 export default function MarkdownEditor({
   content,
@@ -76,6 +143,9 @@ export default function MarkdownEditor({
   rightSidebar,
   onBlockChange,
   historyToken,
+  hideToolbar = false,
+  onReadingMetaChange,
+  editorContainerRef: editorContainerRefProp,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -83,8 +153,17 @@ export default function MarkdownEditor({
   const rawSwapRef = useRef(false);
   // Ref to the scrollable wrapper around <EditorContent>. Passed to the
   // floating table toolbar so it can position itself in the same scroll
-  // context as the table it anchors to.
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  // context as the table it anchors to. May also be supplied externally
+  // (read-mode chrome — progress bar, TOC scrollspy — needs to read the
+  // same scroll container).
+  const localEditorContainerRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = editorContainerRefProp ?? localEditorContainerRef;
+  // Stable ref for the reading-meta callback so the onUpdate closure doesn't
+  // need to be re-bound when MarkdownPane re-renders.
+  const onReadingMetaChangeRef = useRef(onReadingMetaChange);
+  useEffect(() => {
+    onReadingMetaChangeRef.current = onReadingMetaChange;
+  }, [onReadingMetaChange]);
   // Debounce handle for the heavy htmlToMarkdown + onChange round-trip that
   // fires on every keystroke. See docs/perf-analysis-2026-04-15.md #1.
   const pendingChangeRef = useRef<number | null>(null);
@@ -149,6 +228,13 @@ export default function MarkdownEditor({
       if (rawSwapRef.current) {
         rawSwapRef.current = false;
         return;
+      }
+      // Recompute reading meta on every doc transaction. ProseMirror has
+      // already committed to the DOM by the time onUpdate fires, so the
+      // rendered headings/word count are accurate without a microtask hop.
+      if (onReadingMetaChangeRef.current) {
+        const dom = ed.view.dom as HTMLElement;
+        onReadingMetaChangeRef.current(extractReadingMeta(dom));
       }
       if (!isRawMode) {
         // Debounce the serialize-plus-notify trip. `htmlToMarkdown` re-parses
@@ -264,6 +350,18 @@ export default function MarkdownEditor({
     });
   }, [editor, readOnly]);
 
+  // Emit reading meta whenever the editor mounts or external content changes
+  // land — covers initial render and file switches (where onUpdate doesn't
+  // fire because Tiptap's setContent is invoked with `emitUpdate: false`).
+  useEffect(() => {
+    if (!editor || !onReadingMetaChangeRef.current) return;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      const dom = editor.view.dom as HTMLElement;
+      onReadingMetaChangeRef.current?.(extractReadingMeta(dom));
+    });
+  }, [editor, content]);
+
   // Read mode always shows rich text; raw mode is only honored when editable.
   const showRaw = isRawMode && !readOnly;
 
@@ -372,8 +470,8 @@ export default function MarkdownEditor({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Toolbar (hidden in read-only mode) ── */}
-      {!readOnly && (
+      {/* ── Toolbar (hidden in read-only mode and in Focus Mode) ── */}
+      {!readOnly && !hideToolbar && (
         <MarkdownToolbar
           editor={editor}
           isRawMode={isRawMode}
@@ -396,10 +494,18 @@ export default function MarkdownEditor({
             />
           ) : (
             <>
-              <EditorContent
-                editor={editor}
-                className="markdown-editor h-full overflow-auto"
-              />
+              {/* Wrap EditorContent in a div that owns the dynamic class
+                  list.  Tiptap's EditorContent caches its className at
+                  mount in v3, so toggling `editorial` directly on it
+                  doesn't repaint when readOnly flips.  A wrapper div is
+                  cheap, ProseMirror still sits one level inside, and the
+                  selector `.markdown-editor.editorial .ProseMirror` still
+                  matches on toggle. */}
+              <div
+                className={`markdown-editor h-full overflow-auto${readOnly ? " editorial" : ""}`}
+              >
+                <EditorContent editor={editor} className="h-full" />
+              </div>
               <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
             </>
           )}

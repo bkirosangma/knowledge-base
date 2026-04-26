@@ -3,9 +3,13 @@
 import React from "react";
 import { FileText } from "lucide-react";
 import MarkdownEditor from "./MarkdownEditor";
+import type { ReadingMeta } from "./MarkdownEditor";
+import ReadingTOC from "./ReadingTOC";
+import ReadingProgress from "./ReadingProgress";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../../shared/components/PaneHeader";
 import PaneTitle from "../../../shared/components/PaneTitle";
+import { useRegisterCommands } from "../../../shared/context/CommandRegistry";
 
 interface MarkdownPaneProps {
   filePath: string | null;           // currently open document path
@@ -33,6 +37,8 @@ interface MarkdownPaneProps {
   readOnly?: boolean;
   /** Called when the user clicks the read-only toggle in the pane header. */
   onToggleReadOnly?: () => void;
+  /** When true, hide the editor toolbar (Focus Mode is on). */
+  hideToolbar?: boolean;
 }
 
 export default function MarkdownPane({
@@ -55,8 +61,67 @@ export default function MarkdownPane({
   historyToken,
   readOnly = false,
   onToggleReadOnly,
+  hideToolbar = false,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = React.useState(false);
+  // Reading meta (word count + headings) is owned here so PaneHeader can
+  // render the reading-time pill and ReadingTOC can list anchors without
+  // re-parsing markdown.  Reset on file switch so a stale TOC never paints
+  // before the new doc's onUpdate fires.
+  const [readingMeta, setReadingMeta] = React.useState<ReadingMeta>({
+    wordCount: 0,
+    headings: [],
+  });
+  React.useEffect(() => {
+    setReadingMeta({ wordCount: 0, headings: [] });
+  }, [filePath]);
+  // Whether the user has dismissed the TOC via ⌘⇧O.  Stored per-pane (not
+  // per-file) so toggling once stays sticky as the user reads through
+  // multiple docs.  Default-on in read mode.
+  const [tocOpen, setTocOpen] = React.useState(true);
+
+  // Shared ref to the editor's scroll container — read by ReadingProgress
+  // (scrollTop / scrollHeight) and ReadingTOC (querySelector + scrollTo).
+  const editorContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Reading-time estimate: 200 wpm.  `Math.max(1, …)` keeps a non-empty doc
+  // from showing "0 min read".
+  const readingTimeMinutes = readingMeta.wordCount > 0
+    ? Math.max(1, Math.round(readingMeta.wordCount / 200))
+    : 0;
+
+  // ⌘⇧O — toggle TOC visibility.  Registered as a palette command so the
+  // shortcut, palette label, and behaviour stay in lock-step.  The runtime
+  // guard hides it in edit mode where the TOC has nothing to toggle.
+  const tocCommands = React.useMemo(() => [{
+    id: "document.toggle-toc",
+    title: "Toggle Table of Contents",
+    group: "Document",
+    shortcut: "⌘⇧O",
+    when: () => readOnly,
+    run: () => setTocOpen((v) => !v),
+  }], [readOnly]);
+  useRegisterCommands(tocCommands);
+
+  // Direct keyboard shortcut for ⌘⇧O — the palette registration above
+  // documents the binding for users, but the actual key handler lives
+  // here so it works without opening the palette first.
+  React.useEffect(() => {
+    if (!readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "O" || e.key === "o")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
+          // Don't fire the toggle while the user is typing in a real input.
+          return;
+        }
+        e.preventDefault();
+        setTocOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [readOnly]);
 
   if (!filePath) {
     return (
@@ -77,6 +142,7 @@ export default function MarkdownPane({
         filePath={filePath}
         readOnly={readOnly}
         onToggleReadOnly={onToggleReadOnly ?? (() => {})}
+        readingTimeMinutes={readingTimeMinutes}
       >
         {backlinks.length > 0 && (
           <button
@@ -88,14 +154,23 @@ export default function MarkdownPane({
         )}
       </PaneHeader>
 
-      {/* Title row — derived H1 (read-only) + save / discard */}
-      <PaneTitle
-        title={title}
-        isDirty={isDirty}
-        hasActiveFile={!!filePath}
-        onSave={onSave}
-        onDiscard={onDiscard}
-      />
+      {/* Reading progress bar — read mode only.  Mounted (not just hidden)
+          when readOnly so the scroll listener doesn't run in edit mode. */}
+      {readOnly && (
+        <ReadingProgress scrollContainerRef={editorContainerRef} resetKey={filePath} />
+      )}
+
+      {/* Title row — derived H1 (read-only) + save / discard.  Hidden in
+          Focus Mode so only breadcrumb + content remain. */}
+      {!hideToolbar && (
+        <PaneTitle
+          title={title}
+          isDirty={isDirty}
+          hasActiveFile={!!filePath}
+          onSave={onSave}
+          onDiscard={onDiscard}
+        />
+      )}
 
       {/* Backlinks dropdown */}
       {showBacklinks && backlinks.length > 0 && (
@@ -113,7 +188,11 @@ export default function MarkdownPane({
         </div>
       )}
 
-      {/* Editor */}
+      {/* Editor — TOC rail is mounted as the editor's `rightSidebar` slot
+          (read mode only) so it lives in the same horizontal flex row as
+          the editor and the existing properties sidebar.  Mounted only
+          when readOnly + tocOpen so it never participates in edit-mode
+          layout or listeners. */}
       <div className="flex-1 min-h-0">
         <MarkdownEditor
           content={content}
@@ -127,7 +206,20 @@ export default function MarkdownPane({
           tree={tree}
           currentDocDir={filePath.split("/").slice(0, -1).join("/")}
           readOnly={readOnly}
-          rightSidebar={rightSidebar}
+          hideToolbar={hideToolbar}
+          editorContainerRef={editorContainerRef}
+          onReadingMetaChange={setReadingMeta}
+          rightSidebar={
+            <>
+              {readOnly && tocOpen && (
+                <ReadingTOC
+                  headings={readingMeta.headings}
+                  scrollContainerRef={editorContainerRef}
+                />
+              )}
+              {rightSidebar}
+            </>
+          }
         />
       </div>
     </div>

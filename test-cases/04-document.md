@@ -323,3 +323,13 @@
 | DOC-4.15-03 | ✅ | Conflict detection when file is dirty and disk changed — sets `conflictContent`, does not modify history or reset editor |
 | DOC-4.15-04 | ✅ | `handleReloadFromDisk` clears conflict and applies disk content — records history, moves saved point, resets editor |
 | DOC-4.15-05 | ✅ | `handleKeepEdits` dismisses the conflict banner and suppresses re-prompting for the same disk checksum via `dismissedChecksumRef` |
+
+## 4.16 Editorial Read Mode
+
+> Spec drafted with IDs DOC-4.13-XX but renumbered to 4.16 to avoid colliding with the existing Pane Header Title section. Mirrors §4.14 + §4.15 of [Features.md](../Features.md). Driven by `MarkdownPane`, `MarkdownEditor`, `ReadingTOC`, `ReadingProgress`, `PaneHeader`, and `globals.css` (`.markdown-editor.editorial`).
+
+- **DOC-4.16-01** 🧪 **Read mode applies serif editorial typography** — entering read mode adds the `editorial` class to the editor wrapper and the computed `font-family` on `.ProseMirror` resolves to one of the editorial stack members (Source Serif / Charter / Georgia / generic serif). _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-02** 🧪 **Reading-time pill appears in read mode, hidden in edit mode** — `data-testid="reading-time-pill"` is absent in edit mode and renders `"<N> min read"` (200 wpm estimate) in read mode. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-03** 🧪 **TOC rail appears for documents with three or more headings** — at viewport 1280×800 the `data-testid="reading-toc"` rail is visible and lists the document's H1/H2/H3 entries. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-04** 🧪 **⌘⇧O toggles TOC visibility** — pressing the shortcut while focus is outside the editor unmounts the TOC; pressing again restores it. _(e2e: `editorialReadMode.spec.ts`)_
+- **DOC-4.16-05** 🧪 **⌘. toggles Focus Mode** — explorer container width collapses to 0 on the first press and is restored on the second. _(e2e: `editorialReadMode.spec.ts`)_

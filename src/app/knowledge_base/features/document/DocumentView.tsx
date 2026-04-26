@@ -30,6 +30,9 @@ export interface DocumentViewProps {
   tree: TreeNode[];
   onNavigateLink: (path: string) => void;
   onCreateDocument: (path: string) => void;
+  /** Shell-level Focus Mode flag (⌘.). When on, MarkdownPane hides its
+   *  toolbar/title row and DocumentView hides the properties sidebar. */
+  focusMode?: boolean;
 }
 
 export default function DocumentView({
@@ -40,6 +43,7 @@ export default function DocumentView({
   tree,
   onNavigateLink,
   onCreateDocument,
+  focusMode = false,
 }: DocumentViewProps) {
   const {
     content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
@@ -286,18 +290,21 @@ export default function DocumentView({
           onNavigateBacklink={onNavigateLink}
           readOnly={readOnly}
           onToggleReadOnly={toggleReadOnly}
+          hideToolbar={focusMode}
           rightSidebar={
-            <DocumentProperties
-              filePath={filePath}
-              content={content}
-              outbound={outboundLinks}
-              backlinks={backlinks}
-              onNavigateLink={(path) => onNavigateLink?.(path)}
-              collapsed={propertiesCollapsed}
-              onToggleCollapse={toggleProperties}
-              history={historyBridge}
-              readOnly={readOnly}
-            />
+            focusMode ? null : (
+              <DocumentProperties
+                filePath={filePath}
+                content={content}
+                outbound={outboundLinks}
+                backlinks={backlinks}
+                onNavigateLink={(path) => onNavigateLink?.(path)}
+                collapsed={propertiesCollapsed}
+                onToggleCollapse={toggleProperties}
+                history={historyBridge}
+                readOnly={readOnly}
+              />
+            )
           }
         />
       </div>

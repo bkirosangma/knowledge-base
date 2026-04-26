@@ -90,6 +90,14 @@ function KnowledgeBaseInner() {
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
 
+  // ─── Focus Mode (⌘.) ───
+  // Hides explorer + properties + footer + editor toolbar so only the
+  // document content + breadcrumb remain.  Saves the prior collapse state
+  // so toggling off restores whatever the user had before — never just
+  // "explorer back open" by default.
+  const [focusMode, setFocusMode] = useState(false);
+  const focusRestoreRef = useRef<{ explorer: boolean; properties: boolean } | null>(null);
+
   // ─── Recent files + search ref ───
   const { recentFiles, addToRecents } = useRecentFiles();
   const explorerSearchRef = useRef<HTMLInputElement | null>(null);
@@ -409,6 +417,56 @@ function KnowledgeBaseInner() {
   }], [explorerCollapsed]);
   useRegisterCommands(goToFileCommands);
 
+  // ─── Focus Mode toggle (⌘.) — palette + raw key handler ───
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode((prev) => {
+      const next = !prev;
+      if (next) {
+        // Entering — capture current chrome state so we can restore it.
+        focusRestoreRef.current = {
+          explorer: explorerCollapsed,
+          properties: false, // properties state lives in DocumentView; we
+                             // can't read it here, so on exit we just leave
+                             // DocumentView's local state alone.
+        };
+        setExplorerCollapsed(true);
+      } else {
+        // Exiting — restore explorer to whatever the user had.
+        const prior = focusRestoreRef.current;
+        if (prior) setExplorerCollapsed(prior.explorer);
+        focusRestoreRef.current = null;
+      }
+      return next;
+    });
+  }, [explorerCollapsed]);
+
+  const focusModeCommands = useMemo(() => [{
+    id: "view.toggle-focus-mode",
+    title: "Toggle Focus Mode",
+    group: "View",
+    shortcut: "⌘.",
+    run: toggleFocusMode,
+  }], [toggleFocusMode]);
+  useRegisterCommands(focusModeCommands);
+
+  // Raw ⌘. handler — guards against firing while typing in inputs/contenteditable
+  // exactly like the existing ⌘K and ⌘F handlers above.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        toggleFocusMode();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleFocusMode]);
+
   // ─── Restore pane layout (or fall back to single pending file) on directory load ───
   useEffect(() => {
     if (layoutRestoredRef.current || fileExplorer.tree.length === 0) return;
@@ -522,6 +580,7 @@ function KnowledgeBaseInner() {
         focused={focused}
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
+        focusMode={focusMode}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
@@ -541,7 +600,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -585,10 +644,13 @@ function KnowledgeBaseInner() {
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Explorer */}
+        {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
+            36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
           className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
-          style={{ width: explorerCollapsed ? 36 : 260 }}
+          style={{ width: focusMode ? 0 : explorerCollapsed ? 36 : 260, borderRightWidth: focusMode ? 0 : 1 }}
+          data-testid="explorer-container"
+          aria-hidden={focusMode}
         >
           <ExplorerPanel
             collapsed={explorerCollapsed}
@@ -649,8 +711,10 @@ function KnowledgeBaseInner() {
         />
       </div>
 
-      {/* Global footer — reads info from the focused pane */}
-      <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />
+      {/* Global footer — reads info from the focused pane.  Unmounted in
+          Focus Mode so the document content fills the full vertical
+          space. */}
+      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
       <CommandPalette />
