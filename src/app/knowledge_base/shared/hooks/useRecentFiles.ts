@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const RECENTS_KEY = "kb-recents";
 const MAX_RECENTS = 10;
@@ -24,7 +24,13 @@ function saveRecents(recents: string[]): void {
 }
 
 export function useRecentFiles() {
-  const [recentFiles, setRecentFiles] = useState<string[]>(() => loadRecents());
+  // Start with empty array on server to avoid SSR/client hydration mismatch.
+  // localStorage is only available client-side, so we hydrate after mount.
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    setRecentFiles(loadRecents());
+  }, []);
 
   const addToRecents = useCallback((path: string) => {
     setRecentFiles((prev) => {

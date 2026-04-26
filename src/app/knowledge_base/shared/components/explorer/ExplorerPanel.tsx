@@ -142,6 +142,12 @@ export default function ExplorerPanel({
     return paths;
   }, [tree]);
 
+  // Filter out stale recents (paths that no longer exist after rename/delete)
+  const validRecentFiles = useMemo(
+    () => recentFiles.filter((p) => allFilePaths.includes(p)),
+    [recentFiles, allFilePaths]
+  );
+
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
     const q = searchQuery.trim().toLowerCase();
@@ -455,7 +461,7 @@ export default function ExplorerPanel({
                 }}
               >
                 {/* Recents group — hidden when empty, shown above tree */}
-                {!searchResults && recentFiles.length > 0 && (
+                {!searchResults && validRecentFiles.length > 0 && (
                   <div className="border-b border-slate-100">
                     <button
                       className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-50 transition-colors"
@@ -469,7 +475,7 @@ export default function ExplorerPanel({
                     </button>
                     {!recentsCollapsed && (
                       <div className="pb-1">
-                        {recentFiles.map((path) => {
+                        {validRecentFiles.map((path) => {
                           const name = path.split("/").pop() ?? path;
                           const isActive = leftPaneFile === path || rightPaneFile === path;
                           return (
