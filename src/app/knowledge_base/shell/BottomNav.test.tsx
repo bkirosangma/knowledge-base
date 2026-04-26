@@ -12,11 +12,11 @@ describe('BottomNav', () => {
     expect(screen.getByTestId('bottom-nav-graph')).toBeInTheDocument()
   })
 
-  it('SHELL-1.14-10: active tab has aria-pressed="true"; others "false"', () => {
+  it('SHELL-1.14-10: active tab has aria-selected="true"; others "false"', () => {
     render(<BottomNav active="read" onChange={() => {}} />)
-    expect(screen.getByTestId('bottom-nav-files')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('bottom-nav-read')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('bottom-nav-graph')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('bottom-nav-files')).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByTestId('bottom-nav-read')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('bottom-nav-graph')).toHaveAttribute('aria-selected', 'false')
   })
 
   it('SHELL-1.14-11: clicking a tab fires onChange with that tab id', () => {

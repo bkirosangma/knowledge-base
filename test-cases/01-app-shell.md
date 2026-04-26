@@ -182,7 +182,7 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 > 2026-04-26 — viewport-aware shell. Below the 900 px breakpoint the desktop split-pane layout is replaced by `MobileShell` (thin Header + active tab content + BottomNav with Files / Read / Graph). `useViewport` returns `{ isMobile }` (SSR-safe — defaults to `false` so first paint matches server output, then `useEffect` reads `matchMedia`). Touch canvas (DIAG-3.24) and PWA (SHELL-1.15) are companion features.
 
 - **SHELL-1.14-01** 🧪 **At 390×844 viewport, MobileShell renders (BottomNav visible)** — setting an iPhone-class viewport before page load → `[data-testid="mobile-shell"]` mounts and `[data-testid="bottom-nav"]` shows all three tabs. _(e2e: `e2e/mobileLayout.spec.ts`)_
-- **SHELL-1.14-02** 🧪 **Files tab → tap a file → switches to Read tab and shows content** — opening a `.md` from the explorer flips `bottom-nav-read`'s `aria-pressed` to `true` and renders the editor inside `mobile-tab-read`. _(e2e: `e2e/mobileLayout.spec.ts`)_
+- **SHELL-1.14-02** 🧪 **Files tab → tap a file → switches to Read tab and shows content** — opening a `.md` from the explorer flips `bottom-nav-read`'s `aria-selected` to `true` and renders the editor inside `mobile-tab-read`. _(e2e: `e2e/mobileLayout.spec.ts`)_
 - **SHELL-1.14-03** 🧪 **Bottom nav Graph tab opens GraphView** — tapping `bottom-nav-graph` swaps the visible tab to `mobile-tab-graph` containing `[data-testid="graph-view"]`. _(e2e: `e2e/mobileLayout.spec.ts`)_
 - **SHELL-1.14-04** 🧪 **Above 900px viewport, MobileShell does NOT render** — at 1280 × 720 (Playwright default) the mobile shell stays unmounted; the desktop Split toggle is still visible. _(e2e: `e2e/mobileLayout.spec.ts`)_
 - **SHELL-1.14-05** ✅ **`useViewport` SSR-safe — initial state is `{ isMobile: false }`** — without a `matchMedia` mock the hook returns the desktop default; mounting on the client doesn't crash. _(unit: `useViewport.test.ts`)_
@@ -190,7 +190,7 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.14-07** ✅ **`useViewport` listener flips `isMobile` on media-query change** — firing the registered listener with `matches: true` updates state to `true`, then back to `false`. _(unit: `useViewport.test.ts`)_
 - **SHELL-1.14-08** ✅ **`useViewport` cleans up listener on unmount** — after `unmount()` the registered listener is removed. _(unit: `useViewport.test.ts`)_
 - **SHELL-1.14-09** ✅ **BottomNav renders 3 tabs with stable testids** — `bottom-nav-files`, `bottom-nav-read`, `bottom-nav-graph`. _(unit: `BottomNav.test.tsx`)_
-- **SHELL-1.14-10** ✅ **BottomNav active tab has `aria-pressed="true"`; others `"false"`** — switching the `active` prop swaps which tab carries the active attribute. _(unit: `BottomNav.test.tsx`)_
+- **SHELL-1.14-10** ✅ **BottomNav active tab has `aria-selected="true"`; others `"false"`** — switching the `active` prop swaps which tab carries the active attribute. _(unit: `BottomNav.test.tsx`)_
 - **SHELL-1.14-11** ✅ **BottomNav clicking a tab fires `onChange(id)`** — the tap target reports the canonical tab id back to the host. _(unit: `BottomNav.test.tsx`)_
 
 ## 1.15 PWA — Manifest, Service Worker, Offline Cache (Phase 3 PR 3)

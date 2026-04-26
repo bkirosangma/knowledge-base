@@ -26,7 +26,7 @@ const TABS: readonly TabSpec[] = [
 /**
  * Fixed-bottom 3-tab nav for the mobile shell. Each tab is a 44 px tall
  * tap target so the row is at-spec for touch ergonomics. Active state
- * uses `text-accent`; inactive uses `text-mute`. `aria-pressed` reflects
+ * uses `text-accent`; inactive uses `text-mute`. `aria-selected` reflects
  * the active tab so screen readers announce state.
  *
  * Phase 3 PR 3 (SHELL-1.14, 2026-04-26).
@@ -46,11 +46,7 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
             key={id}
             type="button"
             role="tab"
-            // role="tab" canonically pairs with `aria-selected`; we also
-            // mirror it as `aria-pressed` so existing test selectors
-            // (Headers, theme toggle pattern) keep working.
             aria-selected={isActive}
-            aria-pressed={isActive}
             aria-label={ariaLabel}
             data-testid={`bottom-nav-${id}`}
             onClick={() => onChange(id)}

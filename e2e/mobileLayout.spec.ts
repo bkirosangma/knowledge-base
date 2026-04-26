@@ -65,7 +65,7 @@ test.describe('Mobile Shell (SHELL-1.14)', () => {
 
     // Read tab now active and showing the doc content.
     await expect(page.getByTestId('mobile-tab-read')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByTestId('bottom-nav-read')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('bottom-nav-read')).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator('.ProseMirror').first()).toBeVisible()
   })
 
