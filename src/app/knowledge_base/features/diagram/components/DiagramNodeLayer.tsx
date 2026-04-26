@@ -235,6 +235,7 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
         const showEdgeHandles =
           !readOnly &&
           !isThisDragged &&
+          !isCondition &&
           onEdgeHandleDrag != null &&
           isItemSelected(selection, 'node', node.id);
 
@@ -300,16 +301,6 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                 documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
                 onDocNavigate={onOpenDocument}
               />
-              {showEdgeHandles && (
-                <EdgeHandles
-                  nodeId={node.id}
-                  x={visualX}
-                  y={visualY}
-                  w={condDims.w}
-                  h={condDims.h}
-                  onMouseDown={onEdgeHandleDrag}
-                />
-              )}
             </React.Fragment>
           );
         }
