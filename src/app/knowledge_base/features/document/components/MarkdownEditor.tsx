@@ -636,12 +636,19 @@ export default function MarkdownEditor({
                   cheap, ProseMirror still sits one level inside, and the
                   selector `.markdown-editor.editorial .ProseMirror` still
                   matches on toggle. */}
+              {/* Single scroll context: the outer `editorContainerRef` div
+                  owns the scrollbar (used by ReadingProgress + the TOC
+                  scrollspy + the inline Backlinks rail). The inner
+                  `markdown-editor` div is `h-full` so empty space below
+                  short content still hits ProseMirror; the rail is
+                  appended after EditorContent so it scrolls with the
+                  document. */}
               <div
-                className={`markdown-editor h-full overflow-auto${readOnly ? " editorial" : ""}`}
+                className={`markdown-editor h-full${readOnly ? " editorial" : ""}`}
               >
                 <EditorContent editor={editor} className="h-full" />
+                {belowContent}
               </div>
-              {belowContent}
               <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
             </>
           )}
