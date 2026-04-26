@@ -34,6 +34,25 @@ import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 
+/**
+ * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
+ * or the same Set when the operation is a no-op. Exported for unit tests.
+ *
+ * Used by per-pane dirty publishers in `KnowledgeBaseInner` (SHELL-1.12).
+ * Each pane gets its own Set so the same file open in both panes is tracked
+ * as two distinct publishers — preventing the right pane's mount from
+ * clearing a path the left pane still owns.
+ */
+export function updateDirtySet(prev: Set<string>, path: string, dirty: boolean): Set<string> {
+  const has = prev.has(path);
+  if (dirty && has) return prev;
+  if (!dirty && !has) return prev;
+  const next = new Set(prev);
+  if (dirty) next.add(path);
+  else next.delete(path);
+  return next;
+}
+
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
   const { reportError } = useShellErrors();
@@ -89,32 +108,33 @@ function KnowledgeBaseInner() {
   // ─── Open-document dirty tracker ───
   // DiagramView already pushes dirty file paths into `fileExplorer.dirtyFiles`
   // via `useDrafts.markDirty`; documents track dirty state locally inside
-  // `useDocumentContent`. This shell-level Set bridges the document side so
+  // `useDocumentContent`. This shell-level state bridges the document side so
   // the global dirty-stack indicator in `Header` reflects every unsaved file
   // across panes (SHELL-1.12, 2026-04-26).
-  const [docDirtyFiles, setDocDirtyFiles] = useState<Set<string>>(() => new Set());
-  const handleDocDirtyChange = useCallback((filePath: string, dirty: boolean) => {
-    setDocDirtyFiles((prev) => {
-      const has = prev.has(filePath);
-      if (dirty && !has) {
-        const next = new Set(prev);
-        next.add(filePath);
-        return next;
-      }
-      if (!dirty && has) {
-        const next = new Set(prev);
-        next.delete(filePath);
-        return next;
-      }
-      return prev;
-    });
+  //
+  // Per-pane publishers (SHELL-1.12, race-condition fix): each pane is its
+  // own publisher, keyed by side. The previous single Set<string> keyed only
+  // by filePath caused a race when the same file was open in both panes —
+  // the right pane's mount effect would fire `onDirtyChange(path, false)` and
+  // clear a path the left pane still owned. Splitting state by side keeps
+  // each pane's publish/cleanup scoped to itself; the Header takes the union.
+  const [leftDocDirty, setLeftDocDirty] = useState<Set<string>>(() => new Set());
+  const [rightDocDirty, setRightDocDirty] = useState<Set<string>>(() => new Set());
+  const handleLeftDocDirty = useCallback((filePath: string, dirty: boolean) => {
+    setLeftDocDirty((prev) => updateDirtySet(prev, filePath, dirty));
   }, []);
-  // Combine diagram drafts + open-document dirty state for the Header badge.
+  const handleRightDocDirty = useCallback((filePath: string, dirty: boolean) => {
+    setRightDocDirty((prev) => updateDirtySet(prev, filePath, dirty));
+  }, []);
+  // Combine diagram drafts + per-pane document dirty state for the Header badge.
+  // Same file open in both panes deduplicates to one entry — the badge counts
+  // distinct unsaved paths globally.
   const headerDirtyFiles = React.useMemo(() => {
     const out = new Set<string>(fileExplorer.dirtyFiles);
-    for (const p of docDirtyFiles) out.add(p);
+    for (const p of leftDocDirty) out.add(p);
+    for (const p of rightDocDirty) out.add(p);
     return out;
-  }, [fileExplorer.dirtyFiles, docDirtyFiles]);
+  }, [fileExplorer.dirtyFiles, leftDocDirty, rightDocDirty]);
 
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
@@ -616,7 +636,7 @@ function KnowledgeBaseInner() {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
         }}
-        onDirtyChange={handleDocDirtyChange}
+        onDirtyChange={side === "left" ? handleLeftDocDirty : handleRightDocDirty}
         linkManager={linkManager}
         tree={fileExplorer.tree}
         onNavigateLink={handleNavigateWikiLink}
@@ -632,7 +652,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleDocDirtyChange]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleLeftDocDirty, handleRightDocDirty]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
