@@ -367,15 +367,17 @@ export default function ExplorerPanel({
       {/* Toggle header */}
       <button
         onClick={onToggleCollapse}
-        className="flex items-center gap-2 px-2.5 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-2 px-2.5 py-3 border-b border-line hover:bg-surface-2 transition-colors"
+        aria-label={collapsed ? "Expand Explorer" : "Collapse Explorer"}
+        aria-expanded={!collapsed}
       >
         {collapsed ? (
-          <ChevronRight size={16} className="text-slate-500" />
+          <ChevronRight size={16} className="text-mute" />
         ) : (
-          <ChevronLeft size={16} className="text-slate-500" />
+          <ChevronLeft size={16} className="text-mute" />
         )}
         {!collapsed && (
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">
             Explorer
           </span>
         )}
@@ -386,8 +388,8 @@ export default function ExplorerPanel({
         <div className="flex-1 flex flex-col min-h-0">
           {!directoryName ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-              <FolderOpen size={48} className="text-slate-300" />
-              <p className="text-sm text-slate-500 text-center">No folder open</p>
+              <FolderOpen size={48} className="text-mute opacity-60" />
+              <p className="text-sm text-mute text-center">No folder open</p>
               <button
                 onClick={onOpenFolder}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -426,7 +428,7 @@ export default function ExplorerPanel({
               />
 
               {/* Search input */}
-              <div className="px-2 py-1.5 border-b border-slate-100">
+              <div className="px-2 py-1.5 border-b border-line">
                 <div className="relative flex items-center">
                   <input
                     ref={resolvedSearchRef}
@@ -435,12 +437,13 @@ export default function ExplorerPanel({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search files… ⌘F"
-                    className="w-full pl-2 pr-7 py-1 text-xs bg-slate-100 rounded border border-transparent focus:border-blue-400 focus:bg-white outline-none text-slate-700 placeholder-slate-400 transition-colors"
+                    aria-label="Search files"
+                    className="w-full pl-2 pr-7 py-1 text-xs bg-surface-2 rounded border border-transparent focus:border-blue-400 focus:bg-surface outline-none text-ink-2 placeholder-mute transition-colors"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="absolute right-1.5 text-mute hover:text-ink-2 transition-colors"
                       aria-label="Clear search"
                     >
                       <X size={12} />

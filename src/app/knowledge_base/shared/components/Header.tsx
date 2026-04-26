@@ -1,6 +1,7 @@
 import React from "react";
-import { Columns2 } from "lucide-react";
+import { Columns2, Moon, Sun } from "lucide-react";
 import { useCommandRegistry } from "../context/CommandRegistry";
+import type { Theme } from "../hooks/useTheme";
 
 interface HeaderProps {
   /** Whether split mode is on. */
@@ -14,18 +15,30 @@ interface HeaderProps {
    * after PaneTitle was folded into the breadcrumb row.
    */
   dirtyFiles?: ReadonlySet<string> | string[];
+  /**
+   * Current theme — drives the sun/moon icon and `aria-pressed`. Phase 3
+   * PR 1 (2026-04-26).
+   */
+  theme?: Theme;
+  /**
+   * Click handler for the sun/moon button. Hidden when undefined (e.g.
+   * unit tests rendering Header without theme wiring).
+   */
+  onToggleTheme?: () => void;
 }
 
 /**
  * Top-level app header. Title editing, dirty dot, Save, and Discard live in
  * each pane's `PaneHeader` (folded from the old `PaneTitle` row in SHELL-1.12).
  * This bar now hosts cross-pane chrome only: the global dirty-stack indicator,
- * the ⌘K command-palette trigger, and the Split toggle.
+ * the ⌘K command-palette trigger, the theme toggle, and the Split toggle.
  */
 export default function Header({
   isSplit = false,
   onToggleSplit,
   dirtyFiles,
+  theme,
+  onToggleTheme,
 }: HeaderProps) {
   const { setOpen } = useCommandRegistry();
 
@@ -36,7 +49,7 @@ export default function Header({
   const dirtyCount = dirtyList.length;
 
   return (
-    <div className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-white border-b border-slate-200 z-20">
+    <div className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-surface border-b border-line z-20">
       {/* Left column — dirty-stack indicator (right-aligned next to chip) */}
       <div className="flex items-center justify-end">
         {dirtyCount > 0 && (
@@ -54,26 +67,42 @@ export default function Header({
       {/* Centre column — ⌘K trigger chip */}
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-3 px-3 py-1 w-[220px] rounded-lg border border-slate-200 bg-slate-50 text-slate-400 hover:bg-white hover:border-slate-300 hover:text-slate-500 transition-all text-xs"
+        className="flex items-center gap-3 px-3 py-1 w-[220px] rounded-lg border border-line bg-surface-2 text-mute hover:bg-surface hover:text-ink-2 transition-all text-xs"
         title="Open command palette (⌘K)"
         aria-label="Search commands"
         data-testid="command-palette-trigger"
       >
         <span className="flex-1 text-left">Search commands…</span>
-        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-400 leading-none">
+        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-line bg-surface text-mute leading-none">
           ⌘K
         </kbd>
       </button>
 
-      {/* Right column — Split toggle */}
-      <div className="flex items-center justify-start">
+      {/* Right column — theme toggle + split toggle */}
+      <div className="flex items-center justify-start gap-1.5">
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-mute hover:bg-surface-2 hover:text-ink-2 transition-colors"
+            title={theme === "dark" ? "Switch to light theme (⌘⇧L)" : "Switch to dark theme (⌘⇧L)"}
+            aria-label="Toggle theme"
+            aria-pressed={theme === "dark"}
+            data-testid="theme-toggle"
+          >
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+        )}
         {onToggleSplit && (
           <button
             onClick={onToggleSplit}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-              isSplit ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-slate-50 text-slate-500 hover:text-slate-700 border-slate-100"
+              isSplit
+                ? "bg-surface shadow-sm text-blue-600 border-line"
+                : "bg-surface-2 text-mute hover:text-ink-2 border-line"
             }`}
             title={isSplit ? "Exit split view" : "Split view"}
+            aria-label={isSplit ? "Exit split view" : "Enter split view"}
+            aria-pressed={isSplit}
           >
             <Columns2 size={13} />
             <span className="hidden xl:inline">Split</span>

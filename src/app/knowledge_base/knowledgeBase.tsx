@@ -33,6 +33,7 @@ import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
+import { useTheme } from "./shared/hooks/useTheme";
 
 /**
  * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
@@ -500,6 +501,15 @@ function KnowledgeBaseInner() {
   }], [toggleFocusMode]);
   useRegisterCommands(focusModeCommands);
 
+  // ─── Theme (Phase 3 PR 1) ──────────────────────────────────────────────
+  // `useTheme` needs RepositoryContext to persist the user's choice into
+  // `vaultConfig.theme` and to read it back on first mount. We wrap the
+  // rendered shell in a `ThemedShell` child component (defined below)
+  // that lives INSIDE the `RepositoryProvider` and exposes `theme` +
+  // `toggleTheme` as props to the JSX subtree. The palette command + the
+  // ⌘⇧L global handler also live in `ThemedShell` so they fire against
+  // the same hook instance the data-theme attribute reads from.
+
   // Raw ⌘. handler — guards against firing while typing in inputs/contenteditable
   // exactly like the existing ⌘K and ⌘F handlers above.
   useEffect(() => {
@@ -656,21 +666,29 @@ function KnowledgeBaseInner() {
 
   // ─── Empty state when no file is open ───
   const emptyState = (
-    <div className="flex-1 flex items-center justify-center bg-[#e8ecf0]">
-      <div className="flex flex-col items-center gap-3 text-slate-400">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
+    <div className="flex-1 flex items-center justify-center bg-surface-2">
+      <div className="flex flex-col items-center gap-3 text-mute">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-mute opacity-60"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
         <p className="text-sm font-medium">No file open</p>
-        <p className="text-xs text-slate-400">Open a file from the explorer to start editing</p>
+        <p className="text-xs text-mute">Open a file from the explorer to start editing</p>
       </div>
     </div>
   );
 
   return (
     <RepositoryProvider rootHandle={fileExplorer.rootHandle}>
-    <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
+    <ThemedShell>
+    {(themeCtx) => (
+    <div
+      data-testid="knowledge-base"
+      data-theme={themeCtx.theme}
+      className="w-full h-screen bg-surface-2 font-sans flex flex-col overflow-hidden relative"
+    >
       <Header
         isSplit={panes.isSplit}
         dirtyFiles={headerDirtyFiles}
+        theme={themeCtx.theme}
+        onToggleTheme={themeCtx.toggleTheme}
         onToggleSplit={() => {
           if (panes.isSplit) {
             panes.exitSplit();
@@ -700,7 +718,7 @@ function KnowledgeBaseInner() {
         {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
             36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
-          className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
+          className="flex-shrink-0 bg-surface border-r border-line flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: focusMode ? 0 : explorerCollapsed ? 36 : 260, borderRightWidth: focusMode ? 0 : 1 }}
           data-testid="explorer-container"
           aria-hidden={focusMode}
@@ -822,8 +840,57 @@ function KnowledgeBaseInner() {
         />
       )}
     </div>
+    )}
+    </ThemedShell>
     </RepositoryProvider>
   );
+}
+
+/**
+ * Render-prop wrapper that mounts `useTheme` *inside* `RepositoryProvider`,
+ * registers the palette command + ⌘⇧L global keyboard handler, and exposes
+ * `{ theme, toggleTheme }` to the child render function. Lifting these into
+ * a dedicated component is the only way `useTheme.setTheme` can persist
+ * the user's choice into `vaultConfig.theme` — the hook reads
+ * `useContext(RepositoryContext)`, which is null at the level of
+ * `KnowledgeBaseInner` because that component declares `RepositoryProvider`
+ * itself. (Phase 3 PR 1, 2026-04-26.)
+ */
+function ThemedShell({
+  children,
+}: {
+  children: (api: { theme: "light" | "dark"; toggleTheme: () => void }) => React.ReactNode;
+}) {
+  const { theme, toggleTheme } = useTheme();
+
+  const themeCommands = useMemo(() => [{
+    id: "view.toggle-theme",
+    title: "Toggle Light / Dark Theme",
+    group: "View",
+    shortcut: "⌘⇧L",
+    run: toggleTheme,
+  }], [toggleTheme]);
+  useRegisterCommands(themeCommands);
+
+  // Raw ⌘⇧L handler — same input/contenteditable guard pattern as the
+  // existing ⌘., ⌘K, ⌘F handlers.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        toggleTheme();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleTheme]);
+
+  return <>{children({ theme, toggleTheme })}</>;
 }
 
 export default function KnowledgeBase() {

@@ -48,6 +48,9 @@ export interface VaultConfigRepository {
   read(): Promise<VaultConfig>;
   /** Stamp `lastOpened = now` on the existing config. Throws on failure. */
   touchLastOpened(): Promise<void>;
+  /** Read-merge-write a partial patch (e.g. `{ theme: "dark" }`). Returns
+   *  the new full config. Throws if the file is absent or write fails. */
+  update(patch: Partial<VaultConfig>): Promise<VaultConfig>;
   /** Pure type-guard: does this look like a valid vault config? */
   isVault(config: VaultConfig | null): boolean;
 }

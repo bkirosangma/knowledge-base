@@ -25,6 +25,19 @@ Top-level chrome that hosts every other feature.
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
 - ✅ **⌘K trigger chip** — centered search-commands button in the header (3-column grid keeps it centred regardless of side content); clicking it opens the Command Palette. 220 px wide, muted placeholder text + `⌘K` badge.
 - ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty.
+- ✅ **Theme toggle** — sun/moon icon button right of the ⌘K chip (32 × 32, `aria-label="Toggle theme"`, `aria-pressed={theme === "dark"}`, `data-testid="theme-toggle"`). Clicking flips light/dark; persists via `vaultConfig.theme`. Phase 3 PR 1 (SHELL-1.13, 2026-04-26).
+
+### 1.13 Theme & Design Tokens (Phase 3 PR 1)
+`src/app/globals.css`, `src/app/knowledge_base/shared/hooks/useTheme.ts`
+- ✅ **CSS token layer** — `:root` defines surface / ink / accent / status / focus tokens for the light theme; `[data-theme="dark"]` re-binds the same names to a dark slate + emerald palette. `@theme inline { --color-…: var(--…); }` exposes the tokens as Tailwind utilities (`text-ink`, `bg-surface`, `border-line`, etc.) that flip automatically when the root attribute changes. Locked type scale (`--text-xs..4xl`) overrides Tailwind defaults so font sizes can't drift across the app.
+- ⚙️ **`useTheme` hook** (`shared/hooks/useTheme.ts`) — owns the resolved theme + setter. Tolerates a missing `RepositoryProvider` (pre-folder-pick) by falling back to OS `prefers-color-scheme`. After the vault repo mounts, `useEffect` reads `vaultConfig.theme`; if absent, OS pref wins. `setTheme` writes `{ theme }` via the new `vaultConfigRepo.update` patch helper.
+- ✅ **`data-theme` attribute on shell root** — `KnowledgeBaseInner` renders the `<div data-testid="knowledge-base">` inside a `ThemedShell` render-prop wrapper that lives below `RepositoryProvider`, so `useTheme` runs inside the repository context and can read/write vault config without lifting providers.
+- ✅ **`view.toggle-theme` palette command + ⌘⇧L global handler** — registered via `useRegisterCommands` inside `ThemedShell`; the raw keydown listener applies the same input/contenteditable guard used by ⌘K, ⌘., and ⌘F. Group: View. Title: "Toggle Light / Dark Theme".
+- ✅ **Visible focus ring** — global `*:focus-visible { box-shadow: 0 0 0 2px var(--focus); }` rule in `globals.css`. The ring colour follows the active theme (`--focus` re-binds in dark mode).
+- ⚙️ **`vaultConfig.theme` schema field** — optional `"light" | "dark"` in `VaultConfig`; absent on first-mount means "use OS pref". `updateVaultConfig(rootHandle, patch)` does an atomic read-merge-write through `FileSystemError`-classified paths; `VaultConfigRepository.update(patch)` exposes it.
+
+### 1.14 A11y Sweep (Phase 3 PR 1)
+- ✅ **Icon-only button labels** — `ExplorerHeader` (More actions, New Diagram/Document/Folder, Refresh, Sort), `ExplorerPanel` (Explorer collapse, Clear search), `TreeNodeRow.HoverBtn` (rename / delete / dup), `MarkdownToolbar.TBtn` shared helper (mirrors `title` into `aria-label` + `aria-pressed`), `DiagramView` toolbar (Live, Labels, Minimap, Zoom in/out/reset wrapped in a `role="group" aria-label="Zoom controls"`), and `Footer` Reset App now expose accessible names. Buttons with visible text content (filter pills, WYSIWYG/Raw mode toggle) keep the text as the accessible name and only add `aria-pressed` for state.
 
 ### 1.11 Command Registry & Palette
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`

@@ -44,6 +44,13 @@ export interface VaultConfig {
   name: string;
   created: string;
   lastOpened: string;
+  /**
+   * Persisted theme preference. Optional — when missing, the app falls
+   * back to the OS-level `prefers-color-scheme` query at startup. Set by
+   * `useTheme.setTheme` when the user explicitly toggles. Phase 3 PR 1
+   * (2026-04-26).
+   */
+  theme?: "light" | "dark";
 }
 
 export type ExplorerFilter = 'all' | 'diagrams' | 'documents';

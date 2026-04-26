@@ -21,10 +21,12 @@ export function TBtn({
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       disabled={disabled}
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       className={`p-1.5 rounded transition-colors ${
         active
           ? "bg-blue-100 text-blue-700"
-          : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          : "text-mute hover:bg-surface-2 hover:text-ink-2"
       } ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
     >
       {children}
@@ -34,5 +36,5 @@ export function TBtn({
 
 /** Vertical separator between toolbar button groups. */
 export function Sep() {
-  return <div className="w-px h-5 bg-slate-200 mx-0.5" />;
+  return <div className="w-px h-5 bg-line mx-0.5" />;
 }

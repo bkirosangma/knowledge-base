@@ -416,7 +416,7 @@ describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
     const tree = [folder('alpha', 'alpha', [])]
     const { container } = renderPanel({ tree, directoryName: 'my-vault' })
     fireEvent.click(screen.getAllByText('alpha')[0])
-    const breadcrumb = container.querySelector('.text-slate-400.font-normal')
+    const breadcrumb = container.querySelector('.text-mute.font-normal')
     expect(breadcrumb?.textContent).toContain('my-vault /')
   })
 })

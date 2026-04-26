@@ -70,6 +70,39 @@ export async function readVaultConfig(
   return parsed;
 }
 
+/**
+ * Read the persisted vault config, merge `patch` over the top, and write
+ * it back atomically. Throws `FileSystemError` on read/write failure or
+ * when the file is absent (no silent no-op — partial updates assume a
+ * config already exists). Used by `useTheme` to persist theme choice
+ * (Phase 3 PR 1, 2026-04-26).
+ */
+export async function updateVaultConfig(
+  rootHandle: FileSystemDirectoryHandle,
+  patch: Partial<VaultConfig>,
+): Promise<VaultConfig> {
+  let current: VaultConfig;
+  try {
+    const configDir = await rootHandle.getDirectoryHandle(CONFIG_DIR);
+    const fileHandle = await configDir.getFileHandle(CONFIG_FILE);
+    const file = await fileHandle.getFile();
+    current = JSON.parse(await file.text()) as VaultConfig;
+  } catch (e) {
+    throw classifyError(e);
+  }
+  const next: VaultConfig = { ...current, ...patch };
+  try {
+    const configDir = await rootHandle.getDirectoryHandle(CONFIG_DIR);
+    const fileHandle = await configDir.getFileHandle(CONFIG_FILE);
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(next, null, 2));
+    await writable.close();
+  } catch (e) {
+    throw classifyError(e);
+  }
+  return next;
+}
+
 export async function updateVaultLastOpened(
   rootHandle: FileSystemDirectoryHandle,
 ): Promise<void> {

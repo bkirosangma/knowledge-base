@@ -60,7 +60,7 @@ test.describe('Shell collapse — PaneTitle folded into PaneHeader (SHELL-1.12)'
     // element with the PaneHeader's identifying class set.
     const breadcrumbSegment = page.locator('span', { hasText: 'arch.json' }).first()
     const titleHeading = page.getByTestId('pane-title')
-    const sharedAncestor = page.locator('div.border-b.border-slate-200').filter({
+    const sharedAncestor = page.locator('div.border-b.border-line').filter({
       has: breadcrumbSegment,
     }).filter({ has: titleHeading })
     await expect(sharedAncestor.first()).toBeVisible()

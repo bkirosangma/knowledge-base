@@ -1073,11 +1073,23 @@ export default function DiagramView({
           {/* Diagram toolbar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">
             <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
-              <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
+              <button
+                onClick={() => setIsLive(l => !l)}
+                className={toggleClass(isLive)}
+                title="Toggle live data flow animation"
+                aria-label="Toggle live data flow animation"
+                aria-pressed={isLive}
+              >
                 <Activity size={13} />
                 <span className="hidden xl:inline">Live</span>
               </button>
-              <button onClick={() => setShowLabels(l => !l)} className={toggleClass(showLabels)} title="Toggle data line labels">
+              <button
+                onClick={() => setShowLabels(l => !l)}
+                className={toggleClass(showLabels)}
+                title="Toggle data line labels"
+                aria-label="Toggle data line labels"
+                aria-pressed={showLabels}
+              >
                 <Tag size={13} />
                 <span className="hidden xl:inline">Labels</span>
               </button>
@@ -1088,23 +1100,36 @@ export default function DiagramView({
                 showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
               }`}
               title="Toggle minimap"
+              aria-label="Toggle minimap"
+              aria-pressed={showMinimap}
             >
               <MapIcon size={13} />
               <span className="hidden xl:inline">Minimap</span>
             </button>
 
-            <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100">
-              <button onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom out">&minus;</button>
+            <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100" role="group" aria-label="Zoom controls">
+              <button
+                onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))}
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all"
+                title="Zoom out"
+                aria-label="Zoom out"
+              >&minus;</button>
               <button
                 onClick={() => setZoomTo(1)}
                 className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
                   Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
                 }`}
                 title="Reset zoom to 100%"
+                aria-label="Reset zoom to 100%"
               >
                 {Math.round(zoom * 100)}%
               </button>
-              <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
+              <button
+                onClick={() => setZoomTo(Math.min(3, zoom + 0.25))}
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all"
+                title="Zoom in"
+                aria-label="Zoom in"
+              >+</button>
             </div>
 
             {!readOnly && (

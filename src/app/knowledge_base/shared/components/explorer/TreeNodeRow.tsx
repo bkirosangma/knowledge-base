@@ -77,6 +77,7 @@ function HoverBtn({
     <button
       className="p-0.5 rounded hover:bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
       title={title}
+      aria-label={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onMouseDown={(e) => e.stopPropagation()}
     >
