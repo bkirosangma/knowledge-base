@@ -16,7 +16,8 @@ import DiagramView from "./features/diagram/DiagramView";
 import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
-import { ToolbarProvider } from "./shell/ToolbarContext";
+import GraphView from "./features/graph/GraphView";
+import { ToolbarProvider, GRAPH_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
@@ -448,9 +449,12 @@ function KnowledgeBaseInner() {
   }, [explorerCollapsed]);
 
   // ─── Track recents when active file changes ───
+  // Skip the GRAPH_SENTINEL — the virtual graph pane has no on-disk file,
+  // so pushing "__graph__" into Recents would render an unresolvable
+  // entry users can click. (Phase 3 PR 2.)
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
-    if (path) addToRecents(path);
+    if (path && path !== GRAPH_SENTINEL) addToRecents(path);
   }, [panes.activeEntry?.filePath, addToRecents]);
 
   // ─── "Go to file…" command in palette ───
@@ -545,10 +549,13 @@ function KnowledgeBaseInner() {
       };
       walk(fileExplorer.tree);
 
-      const validLeft = savedLayout.leftPane && allPaths.has(savedLayout.leftPane.filePath)
-        ? savedLayout.leftPane : null;
-      const validRight = savedLayout.rightPane && allPaths.has(savedLayout.rightPane.filePath)
-        ? savedLayout.rightPane : null;
+      // The graph pane has no on-disk file — the GRAPH_SENTINEL filePath
+      // won't be in `allPaths`, so we accept it explicitly. Other panes
+      // still validate against the tree to avoid restoring deleted files.
+      const isValidEntry = (e: PaneEntry | null): boolean =>
+        !!e && (e.fileType === "graph" || allPaths.has(e.filePath));
+      const validLeft = isValidEntry(savedLayout.leftPane) ? savedLayout.leftPane : null;
+      const validRight = isValidEntry(savedLayout.rightPane) ? savedLayout.rightPane : null;
 
       if (validLeft || validRight) {
         panes.restoreLayout(validLeft, validRight, savedLayout.focusedSide);
@@ -601,8 +608,101 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
+  // ─── Graph pane: open-graph + open-from-graph helpers ───
+  // Opening the graph from the palette: replace the focused pane with the
+  // virtual graph entry. (Same as `panes.openFile` for any other type —
+  // the sentinel just signals "no on-disk file".)
+  // Pin the openFile callback identity (it's already a useCallback inside
+  // usePaneManager, but `panes` itself is a fresh object every render —
+  // so depending on `panes` here would cause `handleOpenGraph` to flip
+  // identity each render, which would re-register the palette command
+  // every render and feedback-loop through `useRegisterCommands` ➜
+  // setVersion ➜ re-render. Pinning the individual callbacks gives us
+  // a stable identity for the cmd registration.
+  const panesOpenFile = panes.openFile;
+  const panesEnterSplit = panes.enterSplit;
+  const panesSetFocusedSide = panes.setFocusedSide;
+  const handleOpenGraph = useCallback(() => {
+    panesOpenFile(GRAPH_SENTINEL, "graph");
+  }, [panesOpenFile]);
+
+  // Click-from-graph: open the file in the OPPOSITE pane so the graph
+  // never gets replaced by the click. Three sub-cases:
+  //   (a) Single pane = graph → split: graph stays left, file opens right.
+  //   (b) Split with graph on focused side → flip focus to other side, then
+  //       openFile (which targets the focused pane).
+  //   (c) Split with graph on the unfocused side → openFile on the
+  //       currently focused (non-graph) side, no flip needed.
+  // Reads pane state via refs at call time to keep this callback identity
+  // stable across renders (otherwise GraphView's `onSelectNode` prop would
+  // flip every keystroke and the canvas would re-mount).
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
+  const handleSelectFromGraph = useCallback((path: string) => {
+    const p = panesRef.current;
+    const fileType: "document" | "diagram" = path.endsWith(".json") ? "diagram" : "document";
+    if (!p.isSplit) {
+      // Case (a): keep graph on the left, open target on the right.
+      panesEnterSplit(path, fileType);
+      return;
+    }
+    const focusedIsGraph = p.focusedSide === "left"
+      ? p.leftPane?.fileType === "graph"
+      : p.rightPane?.fileType === "graph";
+    if (focusedIsGraph) {
+      // Case (b): flip focus to non-graph side first, then open.
+      panesSetFocusedSide(p.focusedSide === "left" ? "right" : "left");
+      // openFile targets the (newly) focused side via state-after-flip;
+      // the next tick is fine because openFile is itself a state setter.
+      setTimeout(() => panesOpenFile(path, fileType), 0);
+      return;
+    }
+    // Case (c): focused pane is already non-graph — straight open.
+    panesOpenFile(path, fileType);
+  }, [panesEnterSplit, panesSetFocusedSide, panesOpenFile]);
+
+  // Register the "Open Graph View" command + ⌘⇧G global handler.
+  // ⌘⇧G (instead of ⌘G) avoids colliding with the diagram editor's
+  // existing Ctrl+G shortcut that creates a flow from a multi-line
+  // selection (DIAG-3.14-05). Both shortcuts coexist cleanly because
+  // the modifier set is distinct.
+  const openGraphCommands = useMemo(() => [{
+    id: "view.open-graph",
+    title: "Open Graph View",
+    group: "View",
+    shortcut: "⌘⇧G",
+    run: handleOpenGraph,
+  }], [handleOpenGraph]);
+  useRegisterCommands(openGraphCommands);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "g" || e.key === "G")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        handleOpenGraph();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleOpenGraph]);
+
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
+    if (entry.fileType === "graph") {
+      return (
+        <GraphView
+          focused={focused}
+          tree={fileExplorer.tree}
+          linkIndex={linkManager.linkIndex}
+          onSelectNode={handleSelectFromGraph}
+        />
+      );
+    }
     if (entry.fileType === "diagram") {
       return (
         <DiagramView

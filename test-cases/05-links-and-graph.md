@@ -57,3 +57,19 @@
 - **LINK-5.5-04** ✅ **Create uses relative path from current doc** — `[[notes/x]]` in `area/intro.md` → `area/notes/x.md`. (Covered by DOC-4.8-04 `resolveWikiLinkPath` in `wikiLinkParser.test.ts`.)
 - **LINK-5.5-05** ✅ **Create appends `.md` if absent** — `[[x]]` → `x.md`. (Covered by DOC-4.8-08 in `wikiLinkParser.test.ts`.)
 - **LINK-5.5-06** ❌ **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. (Requires real editor + scroll.)
+
+## 5.6 Vault Graph View (Phase 3 PR 2)
+
+> Mirrors §5.4 of [Features.md](../Features.md). Driven by `features/graph/GraphView.tsx`, `components/GraphCanvas.tsx`, `components/GraphFilters.tsx`, `hooks/useGraphData.ts`. Uses `react-force-graph-2d` lazy-loaded via `next/dynamic`.
+
+- **GRAPH-5.4-01** 🧪 **Open Graph View via palette mounts the graph pane** — palette command `view.open-graph` (⌘⇧G) replaces the focused pane with the `__graph__` virtual entry; `[data-testid="graph-view"]` becomes visible and the pane header reads "Vault graph". _(e2e: `graphView.spec.ts`)_
+- **GRAPH-5.4-02** 🧪 **Node click opens the file in the OTHER pane** — clicking a node in the accessible debug list while the graph is the only pane enters split view with the target on the right; the graph stays mounted. _(e2e: `graphView.spec.ts`)_
+- **GRAPH-5.4-03** 🧪 **Orphans-only filter hides connected nodes** — toggling `[data-testid="graph-filter-orphans"]` removes connected nodes from the debug list; orphan-only files remain. _(e2e: `graphView.spec.ts`)_
+- **GRAPH-5.4-04** ✅ **`buildGraphData` enumerates every .md / .json file in the tree** — orphan diagrams (no incoming links) appear as nodes too; edges come from the link index alone. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-05** ✅ **Edges are deduplicated per (source, target)** — both `outboundLinks` and `sectionLinks` to the same target collapse to one edge. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-06** ✅ **Cached layout merges into nodes** — `vaultConfig.graph.layout[id] = {x,y}` flows into the built node's `x` / `y` so the simulation starts from cached positions. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-07** ✅ **`applyFilters` drops edges whose endpoints are filtered out** — file-type / folder filters propagate to edge set. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-08** ✅ **`listTopFolders` returns sorted distinct folders, root first** — drives the folder-filter rail. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-09** 🚫 **Canvas paints emerald-700 for `.md`, slate-500 for `.json`** — JSDOM doesn't render canvas; visual verification is manual. Token re-read on theme flip is wired through the `useTheme()` value memoized in `GraphCanvas`.
+- **GRAPH-5.4-10** 🚫 **`onEngineStop` debounces layout writes 500 ms** — debounce timer in canvas code; observable only against a live simulation.
+- **GRAPH-5.4-11** 🚫 **Pane-layout restore tolerates the `__graph__` sentinel** — the validator special-cases `fileType === "graph"`; covered by visual verification (open graph, reload, graph reappears).

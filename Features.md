@@ -46,6 +46,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Command Palette** — modal overlay triggered by `⌘K` (global keydown guard skips inputs/textareas/contenteditable). Full-screen semi-transparent backdrop, centered 560px panel, rounded-lg shadow-xl. Search input autofocused on open. Results grouped by `group` with muted uppercase headers. Each row: title left, shortcut badge right. Keyboard nav: ↑/↓ move active row, Enter executes + closes, Escape closes. Case-insensitive substring filter. Commands hidden when their `when()` guard returns false. Backdrop click closes.
 - ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
 - ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
+- ✅ **Registered shell commands** — `view.open-graph` ("Open Graph View", `⌘⇧G`) registered in `KnowledgeBaseInner`; opens the virtual graph pane (replaces the focused pane with the `__graph__` sentinel). Phase 3 PR 2 (2026-04-26).
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
@@ -439,6 +440,24 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 ### 5.3 Wiki-Link-Aware File Ops
 - ✅ **Rename propagation** — renaming `foo.md` rewrites `[[foo]]` references in every other document and updates the link index.
 - ✅ **Delete propagation** — deleting a document removes it from the backlink index.
+
+### 5.4 Vault Graph View (Phase 3 PR 2)
+`features/graph/GraphView.tsx`, `components/GraphCanvas.tsx`, `components/GraphFilters.tsx`, `hooks/useGraphData.ts`
+- ✅ **Virtual graph pane** — `PaneType` extended to `"diagram" | "document" | "graph"`; the graph pane uses the sentinel filePath `"__graph__"` (no on-disk file). Opened via `view.open-graph` palette command or ⌘⇧G global shortcut.
+- ✅ **Force-directed layout** — `react-force-graph-2d`, lazy-loaded via `next/dynamic({ ssr: false })` so the dependency stays out of document/diagram bundles.
+- ✅ **Nodes** — every `.md` and `.json` file in the vault tree (orphans included). Color: emerald-700 (`var(--accent)`) for documents, slate-500 (`var(--mute)`) for diagrams. Tokens re-read on theme flips so dark mode keeps the right contrast.
+- ✅ **Edges** — wiki-link references derived from `linkIndex.documents[*].outboundLinks + sectionLinks`, deduplicated per (source, target) pair. Color: `var(--line)`.
+- ✅ **Node click → opens in opposite pane** — graph stays mounted (single pane → split with target on right; split with graph focused → flip focus then open). Replacement of the graph by the click is never possible.
+- ✅ **Filters** — `GraphFilters` left rail (folder multi-select, file-type checkboxes, orphans-only toggle).
+- ✅ **Layout cache** — `vaultConfig.graph.layout` (Record<filePath, {x,y}>) persists post-simulation positions. `onEngineStop` debounces (500 ms) before write; cached layout merges into nodes on next mount.
+- ✅ **Layout-restore tolerance** — `__graph__` sentinel bypasses the tree-validity check in pane-layout restore so the graph survives reloads.
+- ✅ **Accessible debug list** — hidden `<ul data-testid="graph-debug-list">` mirrors visible nodes; gives Playwright a clickable surface and screen-readers a fallback list.
+
+### 5.5 Unlinked Mentions (Phase 3 PR 2)
+`features/document/components/UnlinkedMentions.tsx`, `features/document/utils/unlinkedMentions.ts`
+- ✅ **Detector** — tokenizes the document body (after stripping `[[...]]` blocks), matches tokens (length ≥ 4, lowercase) against vault basenames, excludes a stoplist of common English words and the doc's own basename. Caps at 50 hits. Sorted by count desc then alphabetical.
+- ✅ **Properties-panel section** — mounts in `DocumentProperties` below Backlinks; lists token, count, target basename, and a per-row "Convert all" button.
+- ✅ **Convert all** — `convertMention` mask-and-replaces the markdown body (case-insensitive, word-boundary, skips occurrences already inside `[[...]]`); routed through `updateContent + history.onContentChange + bumpToken` so dirty + save + undo plumbing all fire normally.
 
 ---
 

@@ -351,3 +351,20 @@
 - **DOC-4.18-01** 🧪 **Document with backlinks shows BacklinksRail at bottom** — opening a target document whose link index already has backlinks renders `[data-testid="backlinks-rail"]` below the editor with header text "Backlinks · N reference(s)", the source filename, and a context snippet sliced from around the source's `[[currentFile]]` occurrence. _(e2e: `backlinksRail.spec.ts`)_
 - **DOC-4.18-02** 🧪 **BacklinksRail is hidden when 0 backlinks** — opening a document with no backlinks renders zero `[data-testid="backlinks-rail"]` elements; the rail is unmounted, not just visually empty. _(e2e: `backlinksRail.spec.ts`)_
 - **DOC-4.18-03** 🧪 **Clicking a backlink entry opens the source file** — clicking `[data-testid="backlinks-rail-entry"]` calls the existing `onNavigateBacklink` handler so the source document loads in the editor. _(e2e: `backlinksRail.spec.ts`)_
+
+## 4.19 Unlinked Mentions (Phase 3 PR 2)
+
+> Surfaces tokens in the document body matching another vault file's basename but not yet wrapped in `[[...]]`. Per-row "Convert all" wraps every occurrence. Driven by `features/document/components/UnlinkedMentions.tsx`, `features/document/utils/unlinkedMentions.ts`, mounted in `DocumentProperties.tsx`. Mirrors §5.5 of [Features.md](../Features.md).
+
+- **DOC-4.19-01** 🧪 **Doc with unlinked basename surfaces it in the section** — opening a doc whose body mentions another vault filename in plain text renders `[data-testid="unlinked-mentions"]` with a row whose `data-token` matches the basename. _(e2e: `unlinkedMentions.spec.ts`)_
+- **DOC-4.19-02** 🧪 **Convert all wraps the text in `[[...]]` and marks dirty** — clicking the per-row convert button replaces every unlinked occurrence with `[[basename]]`, flips the dirty dot on the pane header, and refreshes the section so the converted token disappears. _(e2e: `unlinkedMentions.spec.ts`)_
+- **DOC-4.19-03** ✅ **Detector excludes tokens already inside `[[...]]`** — `stripWikiLinks` removes link blocks before tokenizing. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-04** ✅ **Detector excludes the document's own basename** — self-references suppressed. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-05** ✅ **Common-word stoplist filters obvious noise** — `this`, `that`, `with`, etc. never appear. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-06** ✅ **Length floor at 4 chars** — 3-char tokens are skipped. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-07** ✅ **Hits sorted by count desc, then alphabetical** — predictable list ordering. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-08** ✅ **Hits capped at 50 (configurable)** — extremely common words don't dominate the list. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-09** ✅ **`convertMention` skips occurrences inside `[[...]]`** — mask-and-restore preserves existing links untouched. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-10** ✅ **`convertMention` respects word boundaries** — `Service` does not match inside `Services`. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-11** ✅ **Detection + conversion are case-insensitive** — `service` matches `Service.md` and the converted link uses the canonical basename casing. (Covered by `unlinkedMentions.test.ts`.)
+- **DOC-4.19-12** ✅ **Diagram (.json) basenames included** — token "Diagram" can resolve to `Diagram.json`. (Covered by `unlinkedMentions.test.ts`.)

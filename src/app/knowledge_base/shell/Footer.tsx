@@ -1,8 +1,8 @@
 "use client";
 
-import { FileText, LayoutGrid } from "lucide-react";
+import { FileText, LayoutGrid, Network } from "lucide-react";
 import { useFooterContext } from "./FooterContext";
-import { useToolbarContext } from "./ToolbarContext";
+import { useToolbarContext, GRAPH_SENTINEL } from "./ToolbarContext";
 import type { PaneEntry } from "./PaneManager";
 
 interface FooterProps {
@@ -15,8 +15,15 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
   const { focusedPane } = useToolbarContext();
 
   const info = focusedPane === "right" ? rightInfo : leftInfo;
-  const filename = focusedEntry?.filePath.split("/").pop() ?? null;
-  const FileIcon = focusedEntry?.fileType === "document" ? FileText : LayoutGrid;
+  const isGraph = focusedEntry?.fileType === "graph" || focusedEntry?.filePath === GRAPH_SENTINEL;
+  const filename = isGraph
+    ? "Vault graph"
+    : focusedEntry?.filePath.split("/").pop() ?? null;
+  const FileIcon = isGraph
+    ? Network
+    : focusedEntry?.fileType === "document"
+    ? FileText
+    : LayoutGrid;
   const sideLabel = isSplit ? (focusedPane === "right" ? "Right" : "Left") : null;
 
   return (

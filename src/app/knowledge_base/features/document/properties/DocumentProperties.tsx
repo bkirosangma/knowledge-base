@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Hash, Clock, Link2, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import HistoryPanel from "../../../shared/components/HistoryPanel";
 import type { HistoryEntry } from "../../../shared/utils/historyPersistence";
+import UnlinkedMentions from "../components/UnlinkedMentions";
 
 interface HistoryPanelBridge {
   entries: HistoryEntry<unknown>[];
@@ -28,6 +29,14 @@ interface DocumentPropertiesProps {
   onToggleCollapse?: () => void;
   history?: HistoryPanelBridge | null;
   readOnly?: boolean;
+  /** All vault file paths — drives the unlinked-mentions detector. */
+  allFilePaths?: string[];
+  /**
+   * Replace the document body. Wired upstream to `updateContent +
+   * history.onContentChange` so the dirty / save / undo plumbing fires.
+   * When omitted, "Convert all" buttons hide.
+   */
+  onConvertMention?: (newContent: string) => void;
 }
 
 export default function DocumentProperties({
@@ -40,6 +49,8 @@ export default function DocumentProperties({
   onToggleCollapse,
   history,
   readOnly,
+  allFilePaths,
+  onConvertMention,
 }: DocumentPropertiesProps) {
   const stats = useMemo(() => {
     if (!content) return { words: 0, chars: 0, readingTime: "0 min" };
@@ -147,7 +158,7 @@ export default function DocumentProperties({
         </div>
 
         {/* Backlinks */}
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 border-b border-slate-100">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
             Backlinks ({backlinks.length})
           </div>
@@ -168,6 +179,20 @@ export default function DocumentProperties({
             <div className="text-xs text-slate-400">No backlinks</div>
           )}
         </div>
+
+        {/* Unlinked mentions — surfaces tokens matching other vault filenames
+            but not yet wrapped in [[...]]. Per-row "Convert all" wraps every
+            occurrence; mutates the doc through onConvertMention so the
+            shell's dirty + save + undo plumbing all fire normally. */}
+        {allFilePaths && allFilePaths.length > 0 && (
+          <UnlinkedMentions
+            content={content}
+            allFilePaths={allFilePaths}
+            currentPath={filePath}
+            onConvert={onConvertMention}
+            readOnly={readOnly}
+          />
+        )}
       </div>
       {history && (
         <HistoryPanel
