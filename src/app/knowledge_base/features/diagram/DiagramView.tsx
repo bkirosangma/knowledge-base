@@ -685,6 +685,12 @@ export default function DiagramView({
     [nodesRef, setEditingLabel, setEditingLabelValue, editingLabelBeforeRef],
   );
 
+  // Delete a node from the Quick Inspector toolbar.
+  const handleQuickInspectorDelete = useCallback((nodeId: string) => {
+    const pending = deleteSelection({ type: "node", id: nodeId });
+    if (pending) setPendingDeletion(pending);
+  }, [deleteSelection, setPendingDeletion]);
+
   // Flow-related callbacks
   const flowCounter = useRef(0);
   const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
@@ -1463,10 +1469,7 @@ export default function DiagramView({
             readOnly={readOnly}
             currentColor={selectedNode.bgColor ?? "#ffffff"}
             onColorChange={handleQuickInspectorColorChange}
-            onDelete={(id) => {
-              const pending = deleteSelection({ type: "node", id });
-              if (pending) setPendingDeletion(pending);
-            }}
+            onDelete={handleQuickInspectorDelete}
             onDuplicate={handleDuplicateNode}
             onStartConnect={startEdgeHandleDrag}
             onLabelEdit={handleQuickInspectorLabelEdit}

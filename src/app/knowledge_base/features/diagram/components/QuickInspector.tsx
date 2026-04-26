@@ -78,10 +78,10 @@ export default function QuickInspector({
   );
 
   const handleNativeColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (value: string) => {
       // When using "Other…" apply the custom colour as both fill and border;
       // text defaults to the darkest slate to stay readable on any hue.
-      onColorChange(nodeId, e.target.value, e.target.value, "#1e293b");
+      onColorChange(nodeId, value, value, "#1e293b");
     },
     [nodeId, onColorChange],
   );
@@ -108,6 +108,9 @@ export default function QuickInspector({
         <button
           ref={colorButtonRef}
           title="Change colour"
+          aria-label="Change color"
+          aria-haspopup="true"
+          aria-expanded={showColorPopover}
           className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors relative"
           onClick={() => setShowColorPopover((v) => !v)}
         >
@@ -122,6 +125,7 @@ export default function QuickInspector({
         {/* Label edit button */}
         <button
           title="Edit label"
+          aria-label="Edit label"
           className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
           onClick={() => onLabelEdit(nodeId)}
         >
@@ -134,6 +138,7 @@ export default function QuickInspector({
         {/* Connect button — mousedown, not click, to start drag immediately */}
         <button
           title="Connect"
+          aria-label="Connect to another node"
           className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
           onMouseDown={(e) => onStartConnect(nodeId, "e", e)}
         >
@@ -146,6 +151,7 @@ export default function QuickInspector({
         {/* Duplicate button */}
         <button
           title="Duplicate"
+          aria-label="Duplicate node"
           className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
           onClick={() => onDuplicate(nodeId)}
         >
@@ -155,6 +161,7 @@ export default function QuickInspector({
         {/* Delete button */}
         <button
           title="Delete"
+          aria-label="Delete node"
           className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 transition-colors"
           onClick={() => onDelete(nodeId)}
         >
@@ -183,6 +190,7 @@ export default function QuickInspector({
                 <button
                   key={scheme.name}
                   title={scheme.name}
+                  aria-label={scheme.name}
                   className={`w-8 h-8 rounded-md border-2 cursor-pointer transition-all ${
                     isActive
                       ? "ring-2 ring-blue-400 ring-offset-1 border-white"
@@ -197,6 +205,7 @@ export default function QuickInspector({
 
           {/* "Other…" — triggers native color picker */}
           <button
+            aria-label="Pick custom color"
             className="w-full text-[11px] text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded px-1.5 py-1 transition-colors border border-dashed border-slate-300 cursor-pointer flex items-center justify-center gap-1"
             onClick={() => nativeColorRef.current?.click()}
           >
@@ -204,9 +213,10 @@ export default function QuickInspector({
             <input
               ref={nativeColorRef}
               type="color"
-              defaultValue={currentColor}
+              value={currentColor}
               className="sr-only"
-              onChange={handleNativeColorChange}
+              onChange={() => {}} // suppress React warning for controlled input
+              onBlur={(e) => handleNativeColorChange(e.target.value)}
             />
           </button>
         </div>
