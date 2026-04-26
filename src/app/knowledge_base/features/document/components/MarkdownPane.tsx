@@ -6,6 +6,7 @@ import MarkdownEditor from "./MarkdownEditor";
 import type { ReadingMeta } from "./MarkdownEditor";
 import ReadingTOC from "./ReadingTOC";
 import ReadingProgress from "./ReadingProgress";
+import BacklinksRail from "./BacklinksRail";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../../shared/components/PaneHeader";
 import { useRegisterCommands } from "../../../shared/context/CommandRegistry";
@@ -29,6 +30,10 @@ interface MarkdownPaneProps {
   tree?: TreeNode[];
   backlinks?: { sourcePath: string; section?: string }[];
   onNavigateBacklink?: (sourcePath: string) => void;
+  /** Lookup function returning the backlink count for any vault-relative
+   *  path. Used by the wiki-link hover card to show "N backlinks" for the
+   *  link target — not just the currently open document. */
+  getBacklinkCount?: (resolvedPath: string) => number;
   rightSidebar?: React.ReactNode;
   onBlockChange?: (content: string) => void;
   historyToken?: number;
@@ -55,6 +60,7 @@ export default function MarkdownPane({
   tree,
   backlinks = [],
   onNavigateBacklink,
+  getBacklinkCount,
   rightSidebar,
   onBlockChange,
   historyToken,
@@ -202,6 +208,14 @@ export default function MarkdownPane({
           hideToolbar={hideToolbar}
           editorContainerRef={editorContainerRef}
           onReadingMetaChange={setReadingMeta}
+          getBacklinkCount={getBacklinkCount}
+          belowContent={
+            <BacklinksRail
+              filePath={filePath}
+              backlinks={backlinks}
+              onNavigate={onNavigateBacklink}
+            />
+          }
           rightSidebar={
             <>
               {readOnly && tocOpen && (

@@ -15,7 +15,7 @@ import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Image } from "@tiptap/extension-image";
 import { getMarkRange } from "@tiptap/core";
-import { WikiLink } from "../extensions/wikiLink";
+import { WikiLink, type WikiLinkHoverPayload } from "../extensions/wikiLink";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import { MarkdownReveal, RawBlock } from "../extensions/markdownReveal";
 import { CodeBlockWithCopy } from "../extensions/codeBlockCopy";
@@ -23,6 +23,7 @@ import { htmlToMarkdown, markdownToHtml } from "../extensions/markdownSerializer
 import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
+import WikiLinkHoverCard from "./WikiLinkHoverCard";
 
 /** Aggregate editorial metadata derived from the rendered Tiptap DOM —
  *  pushed up to MarkdownPane so the read-mode chrome (TOC, progress bar,
@@ -69,6 +70,14 @@ interface MarkdownEditorProps {
    *  progress bar reads its scrollTop / scrollHeight; the TOC scrolls it
    *  to a heading on click. */
   editorContainerRef?: React.RefObject<HTMLDivElement | null>;
+  /** Optional content rendered *inside* the editor scroll container, after
+   *  the EditorContent. Used by the inline Backlinks rail (DOC-4.18) so
+   *  it scrolls with the document instead of being a fixed footer. */
+  belowContent?: React.ReactNode;
+  /** Lookup function returning the live backlink count for a target path.
+   *  Used by the wiki-link hover card (DOC-4.17) so it can show "N
+   *  backlinks" without re-running the index. */
+  getBacklinkCount?: (resolvedPath: string) => number;
 }
 
 
@@ -146,6 +155,8 @@ export default function MarkdownEditor({
   hideToolbar = false,
   onReadingMetaChange,
   editorContainerRef: editorContainerRefProp,
+  belowContent,
+  getBacklinkCount,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -178,6 +189,123 @@ export default function MarkdownEditor({
     onBlockChangeRef.current = onBlockChange;
   }, [onBlockChange]);
   const prevBlockStartRef = useRef(-1);
+
+  // ── Wiki-link hover preview (DOC-4.17) ────────────────────────────────
+  // Single global card managed here, shown 200ms after a wiki-link's
+  // mouseenter and dismissed when the mouse leaves both the link and the
+  // card. Broken links never open the card (resolvedPath is null).
+  const [hoverCard, setHoverCard] = useState<{ rect: DOMRect; resolvedPath: string } | null>(null);
+  // setTimeout handle for the 200ms delay; cleared on rapid mouseleave / re-enter.
+  const hoverTimerRef = useRef<number | null>(null);
+  // Tracks whether the cursor is currently over the link OR the card. Either
+  // one being true keeps the card alive; both being false (after a 60ms
+  // overshoot tolerance) dismisses.
+  const onLinkRef = useRef(false);
+  const onCardRef = useRef(false);
+  const dismissTimerRef = useRef<number | null>(null);
+  const getBacklinkCountRef = useRef(getBacklinkCount);
+  useEffect(() => { getBacklinkCountRef.current = getBacklinkCount; }, [getBacklinkCount]);
+
+  const cancelHoverOpen = useCallback(() => {
+    if (hoverTimerRef.current != null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+  const cancelDismiss = useCallback(() => {
+    if (dismissTimerRef.current != null) {
+      window.clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+  }, []);
+  const scheduleDismiss = useCallback(() => {
+    cancelDismiss();
+    dismissTimerRef.current = window.setTimeout(() => {
+      dismissTimerRef.current = null;
+      if (!onLinkRef.current && !onCardRef.current) {
+        setHoverCard(null);
+      }
+    }, 60);
+  }, [cancelDismiss]);
+
+  const handleWikiHover = useCallback((payload: WikiLinkHoverPayload) => {
+    onLinkRef.current = true;
+    cancelDismiss();
+    // Broken link → never open. Same path as currently shown → no-op.
+    if (!payload.resolvedPath) {
+      cancelHoverOpen();
+      return;
+    }
+    cancelHoverOpen();
+    const resolvedPath = payload.resolvedPath;
+    const rect = payload.rect;
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHoverCard({ rect, resolvedPath });
+    }, 200);
+  }, [cancelDismiss, cancelHoverOpen]);
+
+  const handleWikiHoverEnd = useCallback(() => {
+    onLinkRef.current = false;
+    cancelHoverOpen();
+    scheduleDismiss();
+  }, [cancelHoverOpen, scheduleDismiss]);
+
+  const handleCardEnter = useCallback(() => {
+    onCardRef.current = true;
+    cancelDismiss();
+  }, [cancelDismiss]);
+  const handleCardLeave = useCallback(() => {
+    onCardRef.current = false;
+    scheduleDismiss();
+  }, [scheduleDismiss]);
+
+  // Stable refs for the hover callbacks — extension options are mutated
+  // imperatively elsewhere (existingDocPaths etc.) and we follow the same
+  // shape here so the closure read by the nodeView is always current.
+  const handleWikiHoverRef = useRef(handleWikiHover);
+  const handleWikiHoverEndRef = useRef(handleWikiHoverEnd);
+  useEffect(() => { handleWikiHoverRef.current = handleWikiHover; }, [handleWikiHover]);
+  useEffect(() => { handleWikiHoverEndRef.current = handleWikiHoverEnd; }, [handleWikiHoverEnd]);
+
+  // Cleanup pending timers on unmount.
+  useEffect(() => () => {
+    cancelHoverOpen();
+    cancelDismiss();
+  }, [cancelHoverOpen, cancelDismiss]);
+
+  // Dismiss the hover card whenever the document content changes externally
+  // (file switch, undo/redo, conflict reload). The DOMRect captured at
+  // hover time becomes stale once the doc swaps; clearing it here keeps
+  // the card from pointing at a now-removed link.
+  useEffect(() => {
+    onLinkRef.current = false;
+    onCardRef.current = false;
+    cancelHoverOpen();
+    cancelDismiss();
+    setHoverCard(null);
+  }, [content, cancelHoverOpen, cancelDismiss]);
+
+  // Close the hover card on scroll — re-anchoring is more complex than this
+  // PR needs, and the card going stale on scroll is the user-expected
+  // dismissal pattern for transient hovers.
+  useEffect(() => {
+    if (!hoverCard) return;
+    const close = () => {
+      onLinkRef.current = false;
+      onCardRef.current = false;
+      cancelHoverOpen();
+      cancelDismiss();
+      setHoverCard(null);
+    };
+    const container = editorContainerRef.current;
+    container?.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    return () => {
+      container?.removeEventListener("scroll", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [hoverCard, cancelHoverOpen, cancelDismiss, editorContainerRef]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -218,6 +346,8 @@ export default function MarkdownEditor({
         allDocPaths,
         tree,
         currentDocDir,
+        onHover: (p) => handleWikiHoverRef.current(p),
+        onHoverEnd: () => handleWikiHoverEndRef.current(),
       }),
       RawBlock,
       MarkdownReveal,
@@ -511,6 +641,7 @@ export default function MarkdownEditor({
               >
                 <EditorContent editor={editor} className="h-full" />
               </div>
+              {belowContent}
               <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
             </>
           )}
@@ -522,6 +653,19 @@ export default function MarkdownEditor({
           selection isn't inside a link mark or when the editor is read-only. */}
       {editor && !showRaw && (
         <LinkEditorPopover editor={editor} allDocPaths={allDocPaths} tree={tree} currentDocDir={currentDocDir} />
+      )}
+
+      {/* Wiki-link hover preview card (DOC-4.17). Single global instance,
+          shown 200ms after a link's mouseenter and dismissed when the
+          mouse leaves both the link and the card. */}
+      {hoverCard && (
+        <WikiLinkHoverCard
+          anchor={hoverCard.rect}
+          resolvedPath={hoverCard.resolvedPath}
+          backlinkCount={getBacklinkCountRef.current?.(hoverCard.resolvedPath) ?? 0}
+          onMouseEnter={handleCardEnter}
+          onMouseLeave={handleCardLeave}
+        />
       )}
     </div>
   );

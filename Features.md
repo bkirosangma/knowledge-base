@@ -305,7 +305,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ### 4.3 Custom Extensions
 `features/document/extensions/`
-- ✅ **WikiLink** (`wikiLink.tsx`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type.
+- ✅ **WikiLink** (`wikiLink.tsx`) — atomic `[[path#section|display]]` inline node. Blue pill when resolved, red when not found; doc vs diagram icon per target type. Live nodeView mirrors `data-wiki-link` / `data-wiki-section` attributes onto the DOM (matching the parsed-HTML output) so e2e tests + delegated listeners can target wiki-links by selector. Emits `onHover` / `onHoverEnd` for the hover-preview state machine in §4.16.
 - ✅ **WikiLink autocomplete** — typing `[[` opens a **folder-at-a-time picker** (`FolderPicker.tsx`) starting at the current document's directory; click a subfolder to drill in, back arrow to go up, click a file to insert. Typing any character after `[[` switches to the existing flat substring-filtered list (arrow-key navigation, Enter selects).
 - ✅ **FolderPicker** (`components/FolderPicker.tsx`) — reusable folder-browser component; shows one directory level at a time with up-navigation. Used by both the `[[` suggestion popup and the Link Editor Popover browse button.
 - ✅ **WikiLink inline edit** — selecting the node lets single keys append to the display text; Backspace/Delete trim; Escape reverts.
@@ -396,6 +396,21 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 `knowledgeBase.tsx`, `features/document/DocumentView.tsx`, `features/document/components/MarkdownPane.tsx`
 - ✅ **Toggle Focus Mode** — shell-level `focusMode` boolean. When on: explorer container collapses to 0px width with its right border removed, the global `Footer` is unmounted, `MarkdownPane`'s editor toolbar is hidden, `PaneHeader`'s title input + Save / Discard dissolve via `hideTitleControls` (breadcrumb + Read pill stay), and `DocumentView` swaps the properties sidebar slot for `null`. Off restores the prior `explorerCollapsed` value via `focusRestoreRef`. Header bar at the top of `knowledgeBase.tsx` stays visible by design — only document chrome dissolves.
 - ✅ **Keyboard shortcut + palette** — registered as `view.toggle-focus-mode` (group `View`, shortcut `⌘.`). A raw `keydown` handler in `knowledgeBase.tsx` mirrors `⌘K`/`⌘F`'s input/textarea/contenteditable guard so the shortcut never fires while typing.
+
+### 4.16 Wiki-Link Hover Preview
+`features/document/components/WikiLinkHoverCard.tsx`, `features/document/extensions/wikiLink.tsx`, `features/document/components/MarkdownEditor.tsx`
+- ✅ **Hover preview card** — hovering a `[[wiki-link]]` for 200 ms opens a 300 px floating card anchored below the link via `getBoundingClientRect()`. Card shows the target's first heading (or filename), a ~200-character plain-text excerpt, and a footer with backlink count + file size. White background, `rounded-lg` + `shadow-lg` + `border-slate-200`, rendered via `createPortal` to `document.body`.
+- ✅ **Hover state machine** — `WikiLinkOptions.onHover` / `onHoverEnd` callbacks fired by the nodeView's `mouseenter` / `mouseleave` listeners; the host (`MarkdownEditor`) owns the 200 ms `setTimeout` open delay and a 60 ms overshoot tolerance before dismissing. Rapid hops between links cancel the prior pending timer; the card stays open while the cursor is over either the link or the card.
+- ✅ **Broken-link suppression** — the nodeView resolves the target via the existing multi-candidate path resolution and passes `resolvedPath: null` for unresolved links so the hover state machine never opens the card. Red unresolved pills remain interactive (click-to-create) but do not preview.
+- ✅ **Scroll dismissal** — any `scroll` event on the editor scroll container or the window force-closes the card. Re-anchoring on scroll is intentionally not implemented — the simpler dismiss-on-scroll is the user-expected pattern for transient hover UI.
+
+### 4.17 Inline Backlinks Rail
+`features/document/components/BacklinksRail.tsx`, `features/document/components/MarkdownPane.tsx`, `features/document/components/MarkdownEditor.tsx`
+- ✅ **Inline rail** — a `<section data-testid="backlinks-rail">` rendered in the editor scroll container below `<EditorContent>` (via the new `belowContent` slot on `MarkdownEditor`), so it scrolls with the document instead of being fixed chrome. Visible in both read and edit modes — it is treated as content, not pane chrome.
+- ✅ **Header** — "Backlinks · N references" in `text-slate-500` uppercase tracking-wider; the rail is hidden entirely when there are zero backlinks.
+- ✅ **Context snippets** — each entry shows the source filename + a 2-line `line-clamp-2` plain-text snippet sliced ±80 chars around the first `[[currentFile]]` occurrence in the source markdown (resolved via `resolveWikiLinkPath` against the source's directory). Source is fetched on demand through `useRepositories().document.read()` with `readOrNull`; un-readable sources fall back to a "(source unavailable)" placeholder.
+- ✅ **Click to navigate** — entries call the existing `onNavigateBacklink` handler; clicking opens the source document in the same pane.
+- ✅ **Properties-panel backlinks coexist** — the existing `DocumentProperties` backlinks list is intentionally retained in this PR; a future cleanup removes the duplicate.
 
 ---
 

@@ -333,3 +333,20 @@
 - **DOC-4.16-03** 🧪 **TOC rail appears for documents with three or more headings** — at viewport 1280×800 the `data-testid="reading-toc"` rail is visible and lists the document's H1/H2/H3 entries. _(e2e: `editorialReadMode.spec.ts`)_
 - **DOC-4.16-04** 🧪 **⌘⇧O toggles TOC visibility** — pressing the shortcut while focus is outside the editor unmounts the TOC; pressing again restores it. _(e2e: `editorialReadMode.spec.ts`)_
 - **DOC-4.16-05** 🧪 **⌘. toggles Focus Mode** — explorer container width collapses to 0 on the first press and is restored on the second. _(e2e: `editorialReadMode.spec.ts`)_
+
+## 4.17 Wiki-Link Hover Preview
+
+> Hovering a `[[wiki-link]]` opens a floating preview card after a 200 ms dwell, anchored below the link. Driven by `features/document/components/WikiLinkHoverCard.tsx`, the `onHover` / `onHoverEnd` callbacks on `WikiLinkOptions`, and the hover state machine in `MarkdownEditor.tsx`. Mirrors §4.16 of [Features.md](../Features.md).
+
+- **DOC-4.17-01** 🧪 **Hovering a wiki-link for ≥200 ms shows the hover card** — the link's `mouseenter` schedules a 200 ms `setTimeout` that opens a portal-rendered card with `data-testid="wiki-link-hover-card"`. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-02** 🧪 **Card displays the target's first heading or filename** — body shows the H1 from the target document (falling back to the basename when the body has no H1), a ~200-char plain-text excerpt, and a footer line with backlink count + file size. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-03** 🧪 **Card disappears when mouse leaves both link and card** — moving the cursor away from both the link and the card region dismisses the card after a small overshoot tolerance; the test moves the mouse to (0, 0) and asserts the card unmounts. _(e2e: `wikiLinkHover.spec.ts`)_
+- **DOC-4.17-04** 🧪 **Broken link (missing target) does NOT show the hover card** — hovering a `[[…]]` whose resolved candidates aren't in `existingDocPaths` leaves the card unrendered even after the 200 ms delay; the unresolved red pill stays interactive (click-to-create) but never previews. _(e2e: `wikiLinkHover.spec.ts`)_
+
+## 4.18 Inline Backlinks Rail
+
+> A "Backlinks · N references" section rendered at the bottom of the document body (inside the editor scroll container) listing every doc that references the current file with a 2-line context snippet. Driven by `features/document/components/BacklinksRail.tsx` and the new `belowContent` slot on `MarkdownEditor.tsx`. Mirrors §4.17 of [Features.md](../Features.md).
+
+- **DOC-4.18-01** 🧪 **Document with backlinks shows BacklinksRail at bottom** — opening a target document whose link index already has backlinks renders `[data-testid="backlinks-rail"]` below the editor with header text "Backlinks · N reference(s)", the source filename, and a context snippet sliced from around the source's `[[currentFile]]` occurrence. _(e2e: `backlinksRail.spec.ts`)_
+- **DOC-4.18-02** 🧪 **BacklinksRail is hidden when 0 backlinks** — opening a document with no backlinks renders zero `[data-testid="backlinks-rail"]` elements; the rail is unmounted, not just visually empty. _(e2e: `backlinksRail.spec.ts`)_
+- **DOC-4.18-03** 🧪 **Clicking a backlink entry opens the source file** — clicking `[data-testid="backlinks-rail-entry"]` calls the existing `onNavigateBacklink` handler so the source document loads in the editor. _(e2e: `backlinksRail.spec.ts`)_

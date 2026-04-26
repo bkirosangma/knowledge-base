@@ -151,6 +151,16 @@ export default function DocumentView({
     return linkManager.getBacklinksFor(filePath);
   }, [filePath, linkManager]);
 
+  // Lookup function for the wiki-link hover card — returns the backlink count
+  // for *any* target path (not just the currently open file). Re-bound when
+  // the link index reference changes so wiki-link inserts/edits in the
+  // current doc surface in the next hover.
+  const getBacklinkCount = React.useCallback(
+    (resolvedPath: string) =>
+      linkManager.linkIndex.backlinks[resolvedPath]?.linkedFrom.length ?? 0,
+    [linkManager.linkIndex],
+  );
+
   // Get outbound links for the current document
   const outboundLinks = React.useMemo(() => {
     if (!filePath) return null;
@@ -309,6 +319,7 @@ export default function DocumentView({
           tree={tree}
           backlinks={backlinks}
           onNavigateBacklink={onNavigateLink}
+          getBacklinkCount={getBacklinkCount}
           readOnly={readOnly}
           onToggleReadOnly={toggleReadOnly}
           hideToolbar={focusMode}
