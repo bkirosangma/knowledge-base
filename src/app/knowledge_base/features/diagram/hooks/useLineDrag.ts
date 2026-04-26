@@ -30,7 +30,7 @@ export interface CreatingLine {
     x: number;
     y: number;
   } | null;
-  /** When true, render the preview line dashed (used by edge-handle drag). */
+  /** When true, an empty-canvas drop opens the AnchorPopupMenu instead of cancelling (used by edge-handle drag). */
   isDashed?: boolean;
 }
 
@@ -57,6 +57,8 @@ export function useLineDrag({
   const connectionsRef = useRef(connections);
   connectionsRef.current = connections;
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isBlockedRef = useRef(isBlocked);
+  isBlockedRef.current = isBlocked;
   const anchorClickRef = useRef(onAnchorClick);
   anchorClickRef.current = onAnchorClick;
   const connectedDragRef = useRef(onConnectedAnchorDrag);
@@ -65,7 +67,7 @@ export function useLineDrag({
   onEmptyDropRef.current = onEmptyDrop;
 
   const handleAnchorDragStart = useCallback(
-    (nodeId: string, anchorId: AnchorId, e: React.MouseEvent, opts?: { isDashed?: boolean; skipConnectedCheck?: boolean }) => {
+    (nodeId: string, anchorId: AnchorId, e: React.MouseEvent, opts?: { isDashed?: boolean; skipConnectedCheck?: boolean; immediateStart?: boolean }) => {
       if (isBlocked) return;
 
       const node = nodes.find((n) => n.id === nodeId);
@@ -80,10 +82,7 @@ export function useLineDrag({
       const downY = e.clientY;
       const downTime = Date.now();
 
-      // Delay drag initiation by 150ms to avoid accidental drags
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      holdTimer.current = setTimeout(() => {
-        holdTimer.current = null;
+      const startDrag = () => {
         // Check if this anchor has an existing connection — if so, trigger endpoint drag
         // (skip this check for edge handles which always create new connections)
         const connAsFrom = opts?.skipConnectedCheck ? undefined : connectionsRef.current.find((c) => c.from === nodeId && c.fromAnchor === anchorId);
@@ -104,7 +103,19 @@ export function useLineDrag({
             isDashed: opts?.isDashed,
           });
         }
-      }, 150);
+      };
+
+      if (opts?.immediateStart) {
+        // Edge handles are persistent grab targets — start drag immediately without delay
+        startDrag();
+      } else {
+        // Delay drag initiation by 150ms to avoid accidental drags on anchor dots
+        if (holdTimer.current) clearTimeout(holdTimer.current);
+        holdTimer.current = setTimeout(() => {
+          holdTimer.current = null;
+          startDrag();
+        }, 150);
+      }
 
       // Cancel if mouse released before timer fires — detect click vs drag
       const cancelOnUp = (upEvent: MouseEvent) => {
@@ -167,6 +178,12 @@ export function useLineDrag({
     const handleMouseUp = (e: MouseEvent) => {
       const cur = creatingLineRef.current;
       if (!cur) return;
+
+      // Guard against readOnly flipping mid-drag
+      if (isBlockedRef.current) {
+        setCreatingLine(null);
+        return;
+      }
 
       if (cur.snappedAnchor && cur.snappedAnchor.nodeId !== cur.fromNodeId) {
         const fromNode = nodesRef.current.find((n) => n.id === cur.fromNodeId);

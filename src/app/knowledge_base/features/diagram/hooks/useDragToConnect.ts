@@ -17,7 +17,7 @@ interface UseDragToConnectOptions {
     nodeId: string,
     anchorId: AnchorId,
     e: React.MouseEvent,
-    opts?: { isDashed?: boolean; skipConnectedCheck?: boolean },
+    opts?: { isDashed?: boolean; skipConnectedCheck?: boolean; immediateStart?: boolean },
   ) => void;
 }
 
@@ -28,9 +28,13 @@ interface UseDragToConnectOptions {
  *
  * `startEdgeHandleDrag` should be called from the `onMouseDown` of each
  * rendered edge handle.  It delegates to `handleAnchorDragStart` with:
- *   - `isDashed: true`  — so the preview line renders dashed
+ *   - `isDashed: true`  — signals that an empty-canvas drop should open the
+ *     AnchorPopupMenu (regular anchor drags cancel on empty drop; edge-handle
+ *     drags open the radial menu)
  *   - `skipConnectedCheck: true` — edge handles always create a new connection
  *     even if a connection already uses that anchor
+ *   - `immediateStart: true` — edge handles are persistent grab targets so the
+ *     drag starts without the 150ms hold delay used for anchor dots
  */
 export function useDragToConnect({ readOnly, handleAnchorDragStart }: UseDragToConnectOptions) {
   const startEdgeHandleDrag = useCallback(
@@ -39,7 +43,7 @@ export function useDragToConnect({ readOnly, handleAnchorDragStart }: UseDragToC
       e.stopPropagation();
       e.preventDefault();
       const anchorId = DIRECTION_TO_ANCHOR[direction];
-      handleAnchorDragStart(nodeId, anchorId, e, { isDashed: true, skipConnectedCheck: true });
+      handleAnchorDragStart(nodeId, anchorId, e, { isDashed: true, skipConnectedCheck: true, immediateStart: true });
     },
     [readOnly, handleAnchorDragStart],
   );
