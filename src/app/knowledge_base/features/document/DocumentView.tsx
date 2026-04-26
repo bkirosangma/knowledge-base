@@ -340,6 +340,15 @@ export default function DocumentView({
                 onToggleCollapse={toggleProperties}
                 history={historyBridge}
                 readOnly={readOnly}
+                allFilePaths={allDocPaths}
+                onConvertMention={(next) => {
+                  // updateContent flips dirty + the history hook records a
+                  // debounced entry; bumpToken forces the editor to re-render
+                  // the new markdown immediately (same pattern as undo/redo).
+                  updateContent(next);
+                  history.onContentChange(next);
+                  bumpToken();
+                }}
               />
             )
           }

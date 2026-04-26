@@ -25,6 +25,36 @@ Top-level chrome that hosts every other feature.
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
 - ✅ **⌘K trigger chip** — centered search-commands button in the header (3-column grid keeps it centred regardless of side content); clicking it opens the Command Palette. 220 px wide, muted placeholder text + `⌘K` badge.
 - ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty.
+- ✅ **Theme toggle** — sun/moon icon button right of the ⌘K chip (32 × 32, `aria-label="Toggle theme"`, `aria-pressed={theme === "dark"}`, `data-testid="theme-toggle"`). Clicking flips light/dark; persists via `vaultConfig.theme`. Phase 3 PR 1 (SHELL-1.13, 2026-04-26).
+
+### 1.13 Theme & Design Tokens (Phase 3 PR 1)
+`src/app/globals.css`, `src/app/knowledge_base/shared/hooks/useTheme.ts`
+- ✅ **CSS token layer** — `:root` defines surface / ink / accent / status / focus tokens for the light theme; `[data-theme="dark"]` re-binds the same names to a dark slate + emerald palette. `@theme inline { --color-…: var(--…); }` exposes the tokens as Tailwind utilities (`text-ink`, `bg-surface`, `border-line`, etc.) that flip automatically when the root attribute changes. Locked type scale (`--text-xs..4xl`) overrides Tailwind defaults so font sizes can't drift across the app.
+- ⚙️ **`useTheme` hook** (`shared/hooks/useTheme.ts`) — owns the resolved theme + setter. Tolerates a missing `RepositoryProvider` (pre-folder-pick) by falling back to OS `prefers-color-scheme`. After the vault repo mounts, `useEffect` reads `vaultConfig.theme`; if absent, OS pref wins. `setTheme` writes `{ theme }` via the new `vaultConfigRepo.update` patch helper.
+- ✅ **`data-theme` attribute on shell root** — `KnowledgeBaseInner` renders the `<div data-testid="knowledge-base">` inside a `ThemedShell` render-prop wrapper that lives below `RepositoryProvider`, so `useTheme` runs inside the repository context and can read/write vault config without lifting providers.
+- ✅ **`view.toggle-theme` palette command + ⌘⇧L global handler** — registered via `useRegisterCommands` inside `ThemedShell`; the raw keydown listener applies the same input/contenteditable guard used by ⌘K, ⌘., and ⌘F. Group: View. Title: "Toggle Light / Dark Theme".
+- ✅ **Visible focus ring** — global `*:focus-visible { box-shadow: 0 0 0 2px var(--focus); }` rule in `globals.css`. The ring colour follows the active theme (`--focus` re-binds in dark mode).
+- ⚙️ **`vaultConfig.theme` schema field** — optional `"light" | "dark"` in `VaultConfig`; absent on first-mount means "use OS pref". `updateVaultConfig(rootHandle, patch)` does an atomic read-merge-write through `FileSystemError`-classified paths (single dir + file handle acquisition mirrors `updateVaultLastOpened` so concurrent patches can't interleave and drop one update); `VaultConfigRepository.update(patch)` exposes it.
+- ⚙️ **Dark-mode token coverage (PR 1 scope)** — Phase 3 PR 1 ships token surface chrome (shell, header/footer) AND key visited surfaces: `ExplorerPanel` (Recents header, file rows, context menu), `TreeNodeRow` (every tree row + hover-button icons), and the `DiagramView` toolbar (`features/diagram/DiagramView.tsx` lines ~1073-1140 + `features/diagram/utils/toolbarClass.ts` for the Live/Labels pill helper). Active-row `bg-blue-50` is re-bound to a translucent accent fill via a `[data-theme="dark"] .bg-blue-50` rule in `globals.css` so existing call-sites flip without per-component changes. Remaining components — Properties panel, full diagram canvas internals (nodes / edges / minimap / region chrome), condition popovers — migrate progressively in future PRs.
+
+### 1.13.1 A11y Sweep (Phase 3 PR 1)
+- ✅ **Icon-only button labels** — `ExplorerHeader` (More actions, New Diagram/Document/Folder, Refresh, Sort), `ExplorerPanel` (Explorer collapse, Clear search), `TreeNodeRow.HoverBtn` (rename / delete / dup), `MarkdownToolbar.TBtn` shared helper (mirrors `title` into `aria-label` + `aria-pressed`), `DiagramView` toolbar (Live, Labels, Minimap, Zoom in/out/reset wrapped in a `role="group" aria-label="Zoom controls"`), and `Footer` Reset App now expose accessible names. Buttons with visible text content (filter pills, WYSIWYG/Raw mode toggle) keep the text as the accessible name and only add `aria-pressed` for state.
+
+### 1.14 Mobile Shell (Phase 3 PR 3)
+`src/app/knowledge_base/shell/MobileShell.tsx`, `shell/BottomNav.tsx`, `shared/hooks/useViewport.ts`
+- ⚙️ **`useViewport` hook** — SSR-safe viewport detector. Returns `{ isMobile: false }` on the server / first paint; an effect reads `window.matchMedia("(max-width: 900px)")` after mount and tracks subsequent breakpoint flips with cleanup on unmount. The 900 px breakpoint is exported as `MOBILE_BREAKPOINT_PX` for ad-hoc media-query references.
+- ✅ **MobileShell layout** — replaces the desktop split-pane shell when `isMobile` is true. Composition: thin Header strip (file name + dirty pill + ⌘K trigger + theme toggle) + active tab content + `BottomNav`. Active tab state lives inside MobileShell; defaults to "files" when no file is open, otherwise "read".
+- ✅ **Tab content routing** — Files tab renders `<ExplorerPanel>` full-screen (opening a file flips active tab to "read"); Read tab renders the focused pane via the host's `renderPane` (or an empty state with a "Pick a file" CTA when nothing is open); Graph tab renders `<GraphView>` with the same vault tree + link index. Clicking a node in Graph also flips to "read".
+- ✅ **`BottomNav` component** — fixed-bottom 3-tab grid (Files / Read / Graph) using FolderOpen / BookOpen / Network icons. Each tab is ≥44 px tall, exposes `aria-label` + `aria-pressed`, and has a stable `data-testid="bottom-nav-{tab}"` for tests. Active tab uses `text-accent`; inactive uses `text-mute`.
+- ✅ **Mobile responsive CSS** — `@media (max-width: 900px)` block in `globals.css` adds `overscroll-behavior: none` to html/body (kills iOS Safari's bounce so the bottom nav stays anchored) and `touch-action: none` on `.kb-diagram-viewport` (cedes gesture handling to `useTouchCanvas`).
+
+### 1.15 PWA — Manifest, Service Worker, Offline Cache (Phase 3 PR 3)
+`public/manifest.json`, `public/sw.js`, `public/icon.svg`, `shell/ServiceWorkerRegister.tsx`, `shared/hooks/useOfflineCache.ts`
+- ✅ **Web app manifest** — `public/manifest.json` declares name "Knowledge Base", short_name "KB", display "standalone", theme_color `#047857` (emerald-700, matching `--accent`), and references `/icon.svg` for any size. SVG icon is Lighthouse-acceptable so we avoid shipping per-resolution PNGs.
+- ✅ **Manifest reference in layout** — `src/app/layout.tsx` `metadata.manifest = "/manifest.json"`. Next 16 requires `themeColor` on the `viewport` export (not `metadata`), so we expose both: `metadata` carries the manifest + icons, `viewport` carries `themeColor`.
+- ⚙️ **Service worker (`/sw.js`)** — hand-rolled (next-pwa is not Next-16 compatible). Pre-caches manifest + icon on install; serves `/__kb-cache/*` from the `kb-files-v1` cache (vault-content cache populated by `useOfflineCache`); falls back network-first → cache for everything else. Activate hook drops old static caches but preserves the file cache.
+- ⚙️ **`ServiceWorkerRegister` component** — renders inside `KnowledgeBaseInner`. Calls `navigator.serviceWorker.register("/sw.js")` only when `process.env.NODE_ENV === "production"` so dev mode / Turbopack HMR isn't intercepted.
+- ⚙️ **`useOfflineCache` hook** — polls the last 10 paths from `localStorage["kb-recents"]` (re-read each tick — closure does NOT capture, see PR-3 review notes), reads each via `DocumentRepository` / `DiagramRepository`, and writes to the `kb-files-v1` Cache Storage bucket keyed by `/__kb-cache/<path>`. Triggers: initial mount, `visibilitychange → hidden`, 30 s heartbeat while visible. Best-effort — read or write errors are swallowed.
 
 ### 1.11 Command Registry & Palette
 `src/app/knowledge_base/shared/context/CommandRegistry.tsx`, `shared/components/CommandPalette.tsx`
@@ -32,6 +62,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Command Palette** — modal overlay triggered by `⌘K` (global keydown guard skips inputs/textareas/contenteditable). Full-screen semi-transparent backdrop, centered 560px panel, rounded-lg shadow-xl. Search input autofocused on open. Results grouped by `group` with muted uppercase headers. Each row: title left, shortcut badge right. Keyboard nav: ↑/↓ move active row, Enter executes + closes, Escape closes. Case-insensitive substring filter. Commands hidden when their `when()` guard returns false. Backdrop click closes.
 - ✅ **Registered diagram commands** — `diagram.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) and `diagram.delete-selected` ("Delete Selected", `⌫`, gated on `selectionRef.current != null`) registered via `useRegisterCommands` inside `useKeyboardShortcuts` (diagram hook). Auto-unregistered when the diagram pane unmounts.
 - ✅ **Registered document commands** — `document.toggle-read-only` ("Toggle Read / Edit Mode", `E / ⌘⇧R`) registered inside `useDocumentKeyboardShortcuts`. Auto-unregistered when the document pane unmounts.
+- ✅ **Registered shell commands** — `view.open-graph` ("Open Graph View", `⌘⇧G`) registered in `KnowledgeBaseInner`; opens the virtual graph pane (replaces the focused pane with the `__graph__` sentinel). Phase 3 PR 2 (2026-04-26).
 
 ### 1.3 Footer
 `src/app/knowledge_base/shell/Footer.tsx`
@@ -282,6 +313,14 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 `features/diagram/hooks/useDiagramFileWatcher.ts`
 - ⚙️ **`useDiagramFileWatcher`** — subscribes to the `"content:diagram"` polling tick; compares `diskChecksumRef` to the current on-disk checksum every 5 s. If the file changed and the diagram is clean, silently reloads (records a "Reloaded from disk" history entry, moves the saved point, shows a toast). If the file changed and the diagram is dirty, sets `conflictSnapshot` so `DiagramView` can show a `ConflictBanner`; `handleKeepEdits` suppresses re-prompting for the same disk version via `dismissedChecksumRef`. Exposes `conflictSnapshot`, `handleReloadFromDisk`, and `handleKeepEdits`. Wired into `DiagramView` via `ConflictBanner`.
 
+### 3.24 Touch Canvas (Mobile Read-Only) (Phase 3 PR 3)
+`features/diagram/hooks/useTouchCanvas.ts`, mounted inside `DiagramView.tsx` when `readOnly && isMobile`.
+- ✅ **Two-finger pan + pinch-zoom** — two-finger touchmove translates `canvasRef.scrollLeft`/`scrollTop` by the midpoint delta and scales zoom via `setZoomTo(pinchStartZoom × distanceRatio)`. Bounds and snapping are inherited from `useZoom`.
+- ✅ **Single-tap node selection** — tap inside ≤200 ms and ≤8 px movement dispatches a synthetic `MouseEvent("click")` on the touched element so the existing node-selection handlers fire. The hook walks ancestors looking for `data-testid="node-{id}"` to identify the touched node.
+- ✅ **Long-press → backlinks** — 500 ms hold without movement >8 px on a node element fires `onLongPress(nodeId)`. The DiagramView wires this to `setSelection({ type: "node", id })` so the Properties panel surfaces backlinks.
+- ✅ **Single-finger non-action** — single-finger touchmove is NOT preventDefault'd, so the browser is free to scroll documents naturally; one-finger panning is intentionally NOT supported on the diagram canvas.
+- ⚙️ **Read-only / mobile guard** — the hook is a no-op when `enabled` is false; DiagramView passes `readOnly && isMobile` so edit mode keeps existing mouse handlers untouched and desktop never picks up the touch listeners.
+
 ---
 
 ## 4. Document Editor
@@ -425,6 +464,24 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 ### 5.3 Wiki-Link-Aware File Ops
 - ✅ **Rename propagation** — renaming `foo.md` rewrites `[[foo]]` references in every other document and updates the link index.
 - ✅ **Delete propagation** — deleting a document removes it from the backlink index.
+
+### 5.4 Vault Graph View (Phase 3 PR 2)
+`features/graph/GraphView.tsx`, `components/GraphCanvas.tsx`, `components/GraphFilters.tsx`, `hooks/useGraphData.ts`
+- ✅ **Virtual graph pane** — `PaneType` extended to `"diagram" | "document" | "graph"`; the graph pane uses the sentinel filePath `"__graph__"` (no on-disk file). Opened via `view.open-graph` palette command or ⌘⇧G global shortcut.
+- ✅ **Force-directed layout** — `react-force-graph-2d`, lazy-loaded via `next/dynamic({ ssr: false })` so the dependency stays out of document/diagram bundles.
+- ✅ **Nodes** — every `.md` and `.json` file in the vault tree (orphans included). Color: emerald-700 (`var(--accent)`) for documents, slate-500 (`var(--mute)`) for diagrams. Tokens re-read on theme flips so dark mode keeps the right contrast.
+- ✅ **Edges** — wiki-link references derived from `linkIndex.documents[*].outboundLinks + sectionLinks`, deduplicated per (source, target) pair. Color: `var(--line)`.
+- ✅ **Node click → opens in opposite pane** — graph stays mounted (single pane → split with target on right; split with graph focused → flip focus then open). Replacement of the graph by the click is never possible.
+- ✅ **Filters** — `GraphFilters` left rail (folder multi-select, file-type checkboxes, orphans-only toggle).
+- ✅ **Layout cache** — `vaultConfig.graph.layout` (Record<filePath, {x,y}>) persists post-simulation positions. `onEngineStop` debounces (500 ms) before write; cached layout merges into nodes on next mount.
+- ✅ **Layout-restore tolerance** — `__graph__` sentinel bypasses the tree-validity check in pane-layout restore so the graph survives reloads.
+- ✅ **Accessible debug list** — hidden `<ul data-testid="graph-debug-list">` mirrors visible nodes; gives Playwright a clickable surface and screen-readers a fallback list.
+
+### 5.5 Unlinked Mentions (Phase 3 PR 2)
+`features/document/components/UnlinkedMentions.tsx`, `features/document/utils/unlinkedMentions.ts`
+- ✅ **Detector** — tokenizes the document body (after stripping `[[...]]` blocks), matches tokens (length ≥ 4, lowercase) against vault basenames, excludes a stoplist of common English words and the doc's own basename. Caps at 50 hits. Sorted by count desc then alphabetical.
+- ✅ **Properties-panel section** — mounts in `DocumentProperties` below Backlinks; lists token, count, target basename, and a per-row "Convert all" button.
+- ✅ **Convert all** — `convertMention` mask-and-replaces the markdown body (case-insensitive, word-boundary, skips occurrences already inside `[[...]]`); routed through `updateContent + history.onContentChange + bumpToken` so dirty + save + undo plumbing all fire normally.
 
 ---
 

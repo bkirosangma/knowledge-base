@@ -284,7 +284,7 @@ const PANE_LAYOUT_KEY = "knowledge-base-pane-layout";
 
 interface SavedPaneEntry {
   filePath: string;
-  fileType: "diagram" | "document";
+  fileType: "diagram" | "document" | "graph";
 }
 
 interface SavedPaneLayout {

@@ -417,3 +417,22 @@ Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base
 | DIAG-3.23-10 | ❌ | Label button triggers inline label editing |
 | DIAG-3.23-11 | ❌ | "Other…" swatch opens native colour picker |
 | DIAG-3.23-12 | ❌ | Colour popover closes when clicking outside |
+
+## 3.24 Touch Canvas (Mobile Read-Only) (Phase 3 PR 3)
+
+`features/diagram/hooks/useTouchCanvas.ts`, mounted inside `DiagramView.tsx` when `readOnly && isMobile`.
+
+> 2026-04-26 — touch-only gestures for the diagram canvas in mobile read-only mode. Single-finger touchmove is NOT intercepted (browser is free to scroll), two-finger touchmove drives pan + pinch-zoom, single tap synthesises a click for node selection, long-press selects the node so the Properties panel surfaces backlinks. Edit mode is untouched — desktop mouse handlers continue to work.
+
+| ID | Status | Scenario |
+|----|--------|----------|
+| DIAG-3.24-01 | 🚫 | Two-finger pinch on diagram canvas changes zoom — Playwright synthetic touch dispatch is too flaky for two-finger gestures; covered by `useTouchCanvas.test.ts` DIAG-3.24-08 instead. |
+| DIAG-3.24-02 | 🚫 | Tap on a node selects it — same Playwright touch flakiness; covered by `useTouchCanvas.test.ts` DIAG-3.24-04 (tap → click synthesis). |
+| DIAG-3.24-03 | ✅ | `enabled=false` → hook is a no-op (single tap does NOT fire click) — read-only/mobile guard. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-04 | ✅ | Single tap (≤200 ms, ≤8 px movement) dispatches synthetic click on the touched element so existing node-selection handlers fire. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-05 | ✅ | Tap with movement >8 px is suppressed — no synthetic click fires. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-06 | ✅ | Long-press (500 ms hold) on a `data-testid="node-{id}"` element fires `onLongPress(id)`. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-07 | ✅ | Movement before 500 ms cancels the pending long-press timer. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-08 | ✅ | Two-finger pinch — distance ratio drives `setZoomTo(pinchStartZoom * scale)`. _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-09 | ✅ | Two-finger pan — midpoint delta inverts onto `scrollLeft`/`scrollTop` (fingers move right ⇒ scrollLeft decreases). _(unit: `useTouchCanvas.test.ts`)_ |
+| DIAG-3.24-10 | ✅ | Cleanup removes touch listeners on unmount — post-unmount touchstart/end is ignored. _(unit: `useTouchCanvas.test.ts`)_ |

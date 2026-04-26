@@ -48,6 +48,8 @@ import { useLabelEditing } from "./hooks/useLabelEditing";
 import { useAnchorConnections } from "./hooks/useAnchorConnections";
 import { useCanvasInteraction } from "./hooks/useCanvasInteraction";
 import { useCanvasEffects } from "./hooks/useCanvasEffects";
+import { useTouchCanvas } from "./hooks/useTouchCanvas";
+import { useViewport } from "../../shared/hooks/useViewport";
 import { detectContextMenuTarget } from "./utils/geometry";
 import { useFooterContext } from "../../shell/FooterContext";
 import { getConditionDimensions } from "./utils/conditionGeometry";
@@ -281,6 +283,24 @@ export default function DiagramView({
   // Sync title -> titleInputValue on external changes (file load, undo)
   useEffect(() => { setTitleInputValue(title); }, [title]);
   useEffect(() => { registerSetIsZooming(setIsZooming); }, [registerSetIsZooming]);
+
+  // ─── Touch canvas (Phase 3 PR 3 / DIAG-3.24) ─────────────────────────
+  // Mobile + read-only only. Edit mode keeps the existing mouse handlers
+  // unchanged so authoring on a tablet with a stylus still works as
+  // before. Long-press on a node selects it so the Properties panel
+  // shows backlinks; pinch + two-finger pan ride on the existing zoom /
+  // scroll machinery.
+  const { isMobile } = useViewport();
+  const handleTouchLongPress = useCallback((nodeId: string) => {
+    setSelection({ type: "node", id: nodeId });
+  }, []);
+  useTouchCanvas({
+    canvasRef,
+    zoomRef,
+    setZoomTo,
+    enabled: readOnly && isMobile,
+    onLongPress: handleTouchLongPress,
+  });
 
   // Fire pending record after render so all state is settled
   useEffect(() => {
@@ -1071,13 +1091,25 @@ export default function DiagramView({
           />
 
           {/* Diagram toolbar */}
-          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-slate-50 border-b border-slate-200 z-10">
-            <div className="flex items-center gap-0.5 bg-white rounded-lg p-0.5 border border-slate-100">
-              <button onClick={() => setIsLive(l => !l)} className={toggleClass(isLive)} title="Toggle live data flow animation">
+          <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-surface-2 border-b border-line z-10">
+            <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-line">
+              <button
+                onClick={() => setIsLive(l => !l)}
+                className={toggleClass(isLive)}
+                title="Toggle live data flow animation"
+                aria-label="Toggle live data flow animation"
+                aria-pressed={isLive}
+              >
                 <Activity size={13} />
                 <span className="hidden xl:inline">Live</span>
               </button>
-              <button onClick={() => setShowLabels(l => !l)} className={toggleClass(showLabels)} title="Toggle data line labels">
+              <button
+                onClick={() => setShowLabels(l => !l)}
+                className={toggleClass(showLabels)}
+                title="Toggle data line labels"
+                aria-label="Toggle data line labels"
+                aria-pressed={showLabels}
+              >
                 <Tag size={13} />
                 <span className="hidden xl:inline">Labels</span>
               </button>
@@ -1085,31 +1117,44 @@ export default function DiagramView({
             <button
               onClick={() => setShowMinimap(m => !m)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-                showMinimap ? "bg-white shadow-sm text-blue-600 border-slate-200" : "bg-white text-slate-500 hover:text-slate-700 border-slate-100"
+                showMinimap ? "bg-surface shadow-sm text-accent border-line" : "bg-surface text-mute hover:text-ink-2 border-line"
               }`}
               title="Toggle minimap"
+              aria-label="Toggle minimap"
+              aria-pressed={showMinimap}
             >
               <MapIcon size={13} />
               <span className="hidden xl:inline">Minimap</span>
             </button>
 
-            <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-100">
-              <button onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom out">&minus;</button>
+            <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-line" role="group" aria-label="Zoom controls">
+              <button
+                onClick={() => setZoomTo(Math.max(0.1, zoom - 0.25))}
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-mute hover:text-ink-2 hover:bg-surface-2 transition-all"
+                title="Zoom out"
+                aria-label="Zoom out"
+              >&minus;</button>
               <button
                 onClick={() => setZoomTo(1)}
                 className={`px-2 py-1 rounded-md text-xs font-semibold transition-all ${
-                  Math.abs(zoom - 1) < 0.01 ? "text-blue-600 bg-white shadow-sm border border-slate-200" : "text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent"
+                  Math.abs(zoom - 1) < 0.01 ? "text-accent bg-surface shadow-sm border border-line" : "text-ink-2 hover:text-accent hover:bg-surface border border-transparent"
                 }`}
                 title="Reset zoom to 100%"
+                aria-label="Reset zoom to 100%"
               >
                 {Math.round(zoom * 100)}%
               </button>
-              <button onClick={() => setZoomTo(Math.min(3, zoom + 0.25))} className="px-1.5 py-1 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all" title="Zoom in">+</button>
+              <button
+                onClick={() => setZoomTo(Math.min(3, zoom + 0.25))}
+                className="px-1.5 py-1 rounded-md text-xs font-bold text-mute hover:text-ink-2 hover:bg-surface-2 transition-all"
+                title="Zoom in"
+                aria-label="Zoom in"
+              >+</button>
             </div>
 
             {!readOnly && (
               <>
-                <div className="h-5 w-px bg-slate-200" />
+                <div className="h-5 w-px bg-line" />
                 <AutoArrangeDropdown onSelect={handleAutoArrange} />
               </>
             )}
@@ -1128,7 +1173,7 @@ export default function DiagramView({
       {/* Canvas viewport */}
       <div
         ref={canvasRef}
-        className={`flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
+        className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
         style={{ scrollbarWidth: 'none' }}
         onMouseDown={(e) => { if (e.button === 0 && selection?.type === 'flow') setSelection(null); handleCanvasMouseDown(e); }}
         onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}

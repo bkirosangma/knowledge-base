@@ -75,8 +75,9 @@ function HoverBtn({
 }) {
   return (
     <button
-      className="p-0.5 rounded hover:bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
+      className="p-0.5 rounded hover:bg-line opacity-0 group-hover:opacity-100 transition-opacity"
       title={title}
+      aria-label={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -137,8 +138,8 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
         <div
           data-tree-node
           className={`group flex items-center gap-1 py-1 cursor-pointer text-xs select-none ${
-            isDragOver ? "bg-blue-50 text-slate-700 outline outline-1 outline-blue-300 outline-dashed" :
-            isSelected ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+            isDragOver ? "bg-blue-50 text-ink-2 outline outline-1 outline-blue-300 outline-dashed" :
+            isSelected ? "bg-blue-50 text-accent" : "text-ink-2 hover:bg-surface-2"
           }`}
           style={{ paddingLeft: indent + 8 }}
           onClick={() => { toggleFolder(node.path); onSelectFolder(node.path); }}
@@ -156,9 +157,9 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
           onDrop={(e) => handleDrop(e, node.path)}
         >
           {isExpanded ? (
-            <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
+            <ChevronDown size={14} className="text-mute flex-shrink-0" />
           ) : (
-            <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
+            <ChevronRight size={14} className="text-mute flex-shrink-0" />
           )}
           <Folder size={16} className="text-amber-500 flex-shrink-0" />
           {isEditing ? (
@@ -179,16 +180,16 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
               <span className="truncate flex-1">{node.name}</span>
               <div className="ml-auto flex items-center gap-0.5 pr-1">
                 <HoverBtn onClick={() => handleCreateFile(node.path)} title="New Diagram">
-                  <FilePlus size={13} className="text-slate-400 hover:text-slate-600" />
+                  <FilePlus size={13} className="text-mute hover:text-ink-2" />
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateDocument(node.path)} title="New Document">
-                  <FileText size={13} className="text-slate-400 hover:text-slate-600" />
+                  <FileText size={13} className="text-mute hover:text-ink-2" />
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateFolder(node.path)} title="New Folder">
-                  <FolderPlus size={13} className="text-slate-400 hover:text-slate-600" />
+                  <FolderPlus size={13} className="text-mute hover:text-ink-2" />
                 </HoverBtn>
                 <HoverBtn onClick={() => startRename(node.path, node.name, "folder")} title="Rename">
-                  <Pencil size={13} className="text-slate-400 hover:text-slate-600" />
+                  <Pencil size={13} className="text-mute hover:text-ink-2" />
                 </HoverBtn>
               </div>
             </>
@@ -231,12 +232,12 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
           data-tree-node
           className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
             leftPaneFile === node.path && rightPaneFile === node.path
-              ? "bg-gradient-to-r from-blue-50 to-green-50 text-blue-600"
+              ? "bg-gradient-to-r from-blue-50 to-green-50 text-accent"
               : leftPaneFile === node.path
-                ? "bg-blue-50 text-blue-600"
+                ? "bg-blue-50 text-accent"
                 : rightPaneFile === node.path
                   ? "bg-green-50 text-green-600"
-                  : "text-slate-700 hover:bg-slate-50"
+                  : "text-ink-2 hover:bg-surface-2"
           } ${dirty ? "font-semibold" : ""}`}
           style={{ paddingLeft: indent + 22 }}
           onClick={() => {
@@ -261,10 +262,10 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
           <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
           <div className="ml-auto flex items-center gap-0.5 pr-1">
             <HoverBtn onClick={() => startRename(node.path, node.name, "file")} title="Rename">
-              <Pencil size={13} className="text-slate-400 hover:text-slate-600" />
+              <Pencil size={13} className="text-mute hover:text-ink-2" />
             </HoverBtn>
             <HoverBtn onClick={() => onDuplicateFile(node.path)} title="Duplicate">
-              <Copy size={13} className="text-slate-400 hover:text-slate-600" />
+              <Copy size={13} className="text-mute hover:text-ink-2" />
             </HoverBtn>
           </div>
         </div>

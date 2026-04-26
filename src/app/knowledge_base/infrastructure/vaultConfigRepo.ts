@@ -7,6 +7,7 @@ import type { VaultConfigRepository } from "../domain/repositories";
 import {
   initVault,
   readVaultConfig,
+  updateVaultConfig,
   updateVaultLastOpened,
   isVaultDirectory,
 } from "../features/document/utils/vaultConfig";
@@ -18,6 +19,7 @@ export function createVaultConfigRepository(
     init: (vaultName) => initVault(rootHandle, vaultName),
     read: () => readVaultConfig(rootHandle),
     touchLastOpened: () => updateVaultLastOpened(rootHandle),
+    update: (patch) => updateVaultConfig(rootHandle, patch),
     isVault: (config) => isVaultDirectory(config),
   };
 }

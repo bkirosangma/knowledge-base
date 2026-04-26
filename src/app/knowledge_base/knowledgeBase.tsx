@@ -16,7 +16,8 @@ import DiagramView from "./features/diagram/DiagramView";
 import type { DiagramBridge } from "./features/diagram/DiagramView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
-import { ToolbarProvider } from "./shell/ToolbarContext";
+import GraphView from "./features/graph/GraphView";
+import { ToolbarProvider, GRAPH_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
@@ -33,6 +34,11 @@ import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
+import { useTheme } from "./shared/hooks/useTheme";
+import { useViewport } from "./shared/hooks/useViewport";
+import { useOfflineCache } from "./shared/hooks/useOfflineCache";
+import MobileShell from "./shell/MobileShell";
+import ServiceWorkerRegister from "./shell/ServiceWorkerRegister";
 
 /**
  * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
@@ -59,6 +65,10 @@ function KnowledgeBaseInner() {
   const fileExplorer = useFileExplorer();
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
+  // Phase 3 PR 3 — viewport detection drives mobile shell branching.
+  const { isMobile } = useViewport();
+  // Phase 3 PR 3 — offline cache for last 10 recents (best-effort).
+  useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
@@ -447,9 +457,12 @@ function KnowledgeBaseInner() {
   }, [explorerCollapsed]);
 
   // ─── Track recents when active file changes ───
+  // Skip the GRAPH_SENTINEL — the virtual graph pane has no on-disk file,
+  // so pushing "__graph__" into Recents would render an unresolvable
+  // entry users can click. (Phase 3 PR 2.)
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
-    if (path) addToRecents(path);
+    if (path && path !== GRAPH_SENTINEL) addToRecents(path);
   }, [panes.activeEntry?.filePath, addToRecents]);
 
   // ─── "Go to file…" command in palette ───
@@ -500,6 +513,15 @@ function KnowledgeBaseInner() {
   }], [toggleFocusMode]);
   useRegisterCommands(focusModeCommands);
 
+  // ─── Theme (Phase 3 PR 1) ──────────────────────────────────────────────
+  // `useTheme` needs RepositoryContext to persist the user's choice into
+  // `vaultConfig.theme` and to read it back on first mount. We wrap the
+  // rendered shell in a `ThemedShell` child component (defined below)
+  // that lives INSIDE the `RepositoryProvider` and exposes `theme` +
+  // `toggleTheme` as props to the JSX subtree. The palette command + the
+  // ⌘⇧L global handler also live in `ThemedShell` so they fire against
+  // the same hook instance the data-theme attribute reads from.
+
   // Raw ⌘. handler — guards against firing while typing in inputs/contenteditable
   // exactly like the existing ⌘K and ⌘F handlers above.
   useEffect(() => {
@@ -535,10 +557,13 @@ function KnowledgeBaseInner() {
       };
       walk(fileExplorer.tree);
 
-      const validLeft = savedLayout.leftPane && allPaths.has(savedLayout.leftPane.filePath)
-        ? savedLayout.leftPane : null;
-      const validRight = savedLayout.rightPane && allPaths.has(savedLayout.rightPane.filePath)
-        ? savedLayout.rightPane : null;
+      // The graph pane has no on-disk file — the GRAPH_SENTINEL filePath
+      // won't be in `allPaths`, so we accept it explicitly. Other panes
+      // still validate against the tree to avoid restoring deleted files.
+      const isValidEntry = (e: PaneEntry | null): boolean =>
+        !!e && (e.fileType === "graph" || allPaths.has(e.filePath));
+      const validLeft = isValidEntry(savedLayout.leftPane) ? savedLayout.leftPane : null;
+      const validRight = isValidEntry(savedLayout.rightPane) ? savedLayout.rightPane : null;
 
       if (validLeft || validRight) {
         panes.restoreLayout(validLeft, validRight, savedLayout.focusedSide);
@@ -591,8 +616,101 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
+  // ─── Graph pane: open-graph + open-from-graph helpers ───
+  // Opening the graph from the palette: replace the focused pane with the
+  // virtual graph entry. (Same as `panes.openFile` for any other type —
+  // the sentinel just signals "no on-disk file".)
+  // Pin the openFile callback identity (it's already a useCallback inside
+  // usePaneManager, but `panes` itself is a fresh object every render —
+  // so depending on `panes` here would cause `handleOpenGraph` to flip
+  // identity each render, which would re-register the palette command
+  // every render and feedback-loop through `useRegisterCommands` ➜
+  // setVersion ➜ re-render. Pinning the individual callbacks gives us
+  // a stable identity for the cmd registration.
+  const panesOpenFile = panes.openFile;
+  const panesEnterSplit = panes.enterSplit;
+  const panesSetFocusedSide = panes.setFocusedSide;
+  const handleOpenGraph = useCallback(() => {
+    panesOpenFile(GRAPH_SENTINEL, "graph");
+  }, [panesOpenFile]);
+
+  // Click-from-graph: open the file in the OPPOSITE pane so the graph
+  // never gets replaced by the click. Three sub-cases:
+  //   (a) Single pane = graph → split: graph stays left, file opens right.
+  //   (b) Split with graph on focused side → flip focus to other side, then
+  //       openFile (which targets the focused pane).
+  //   (c) Split with graph on the unfocused side → openFile on the
+  //       currently focused (non-graph) side, no flip needed.
+  // Reads pane state via refs at call time to keep this callback identity
+  // stable across renders (otherwise GraphView's `onSelectNode` prop would
+  // flip every keystroke and the canvas would re-mount).
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
+  const handleSelectFromGraph = useCallback((path: string) => {
+    const p = panesRef.current;
+    const fileType: "document" | "diagram" = path.endsWith(".json") ? "diagram" : "document";
+    if (!p.isSplit) {
+      // Case (a): keep graph on the left, open target on the right.
+      panesEnterSplit(path, fileType);
+      return;
+    }
+    const focusedIsGraph = p.focusedSide === "left"
+      ? p.leftPane?.fileType === "graph"
+      : p.rightPane?.fileType === "graph";
+    if (focusedIsGraph) {
+      // Case (b): flip focus to non-graph side first, then open.
+      panesSetFocusedSide(p.focusedSide === "left" ? "right" : "left");
+      // openFile targets the (newly) focused side via state-after-flip;
+      // the next tick is fine because openFile is itself a state setter.
+      setTimeout(() => panesOpenFile(path, fileType), 0);
+      return;
+    }
+    // Case (c): focused pane is already non-graph — straight open.
+    panesOpenFile(path, fileType);
+  }, [panesEnterSplit, panesSetFocusedSide, panesOpenFile]);
+
+  // Register the "Open Graph View" command + ⌘⇧G global handler.
+  // ⌘⇧G (instead of ⌘G) avoids colliding with the diagram editor's
+  // existing Ctrl+G shortcut that creates a flow from a multi-line
+  // selection (DIAG-3.14-05). Both shortcuts coexist cleanly because
+  // the modifier set is distinct.
+  const openGraphCommands = useMemo(() => [{
+    id: "view.open-graph",
+    title: "Open Graph View",
+    group: "View",
+    shortcut: "⌘⇧G",
+    run: handleOpenGraph,
+  }], [handleOpenGraph]);
+  useRegisterCommands(openGraphCommands);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "g" || e.key === "G")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        handleOpenGraph();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleOpenGraph]);
+
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
+    if (entry.fileType === "graph") {
+      return (
+        <GraphView
+          focused={focused}
+          tree={fileExplorer.tree}
+          linkIndex={linkManager.linkIndex}
+          onSelectNode={handleSelectFromGraph}
+        />
+      );
+    }
     if (entry.fileType === "diagram") {
       return (
         <DiagramView
@@ -631,7 +749,12 @@ function KnowledgeBaseInner() {
         focused={focused}
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
-        focusMode={focusMode}
+        // On mobile, force focus-mode treatment so the markdown toolbar
+        // and Properties panel collapse — Phase 3 PR 3 §5 (reader-first
+        // mobile chrome).  The explorer/footer chrome focus-mode would
+        // also strip is already absent in MobileShell, so re-using the
+        // existing `focusMode` flag is the cleanest path.
+        focusMode={focusMode || isMobile}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
           else rightDocBridgeRef.current = bridge;
@@ -652,25 +775,118 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, handleLeftDocDirty, handleRightDocDirty]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
-    <div className="flex-1 flex items-center justify-center bg-[#e8ecf0]">
-      <div className="flex flex-col items-center gap-3 text-slate-400">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
+    <div className="flex-1 flex items-center justify-center bg-surface-2">
+      <div className="flex flex-col items-center gap-3 text-mute">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-mute opacity-60"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
         <p className="text-sm font-medium">No file open</p>
-        <p className="text-xs text-slate-400">Open a file from the explorer to start editing</p>
+        <p className="text-xs text-mute">Open a file from the explorer to start editing</p>
       </div>
     </div>
   );
 
+  // ─── Mobile read pane content ───
+  // When the viewport collapses to MobileShell, the "Read" tab needs to
+  // display whatever the focused pane would normally show. We reuse the
+  // same renderPane that the desktop PaneManager uses; the diagram's
+  // touch hook activates because `isMobile && readOnly` is true on
+  // mobile boot (read-only is the default for both file types). Graph
+  // is handled inside MobileShell directly.
+  const mobileReadPane = panes.activeEntry && panes.activeEntry.fileType !== "graph"
+    ? renderPane(panes.activeEntry, true, panes.focusedSide)
+    : null;
+
   return (
     <RepositoryProvider rootHandle={fileExplorer.rootHandle}>
-    <div data-testid="knowledge-base" className="w-full h-screen bg-[#f4f7f9] font-sans flex flex-col overflow-hidden relative">
+    <ThemedShell>
+    {(themeCtx) => (
+    <>
+    <ServiceWorkerRegister />
+    {isMobile ? (
+      <div
+        data-testid="knowledge-base"
+        data-theme={themeCtx.theme}
+        className="w-full h-screen overflow-hidden"
+      >
+        <MobileShell
+          theme={themeCtx.theme}
+          onToggleTheme={themeCtx.toggleTheme}
+          dirtyCount={headerDirtyFiles.size}
+          activeFilePath={
+            panes.activeEntry && panes.activeEntry.fileType !== "graph"
+              ? panes.activeEntry.filePath
+              : null
+          }
+          readPane={mobileReadPane}
+          linkIndex={linkManager.linkIndex}
+          onSelectFromGraph={handleSelectFromGraph}
+          directoryName={fileExplorer.directoryName}
+          tree={fileExplorer.tree}
+          leftPaneFile={panes.leftPane?.filePath ?? null}
+          rightPaneFile={panes.rightPane?.filePath ?? null}
+          dirtyFiles={fileExplorer.dirtyFiles}
+          onOpenFolder={fileExplorer.openFolder}
+          onSelectFile={handleSelectFile}
+          onCreateFile={async (parentPath) => {
+            const result = await fileExplorer.createFile(parentPath);
+            if (result) handleSelectFile(result.path);
+            return result?.path ?? null;
+          }}
+          onCreateDocument={async (parentPath) => {
+            const resultPath = await fileExplorer.createDocument(parentPath);
+            if (resultPath) handleSelectFile(resultPath);
+            return resultPath;
+          }}
+          onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
+          onDeleteFile={handleDeleteFileWithLinks}
+          onDeleteFolder={(path, event) => {
+            if (diagramBridgeRef.current) {
+              diagramBridgeRef.current.handleDeleteFolder(path, event);
+            } else {
+              setShellConfirmAction({ type: "delete-folder", path, x: event.clientX, y: event.clientY });
+            }
+          }}
+          onRenameFile={handleRenameFileWithLinks}
+          onRenameFolder={(oldPath, newName) => diagramBridgeRef.current?.handleRenameFolder(oldPath, newName)}
+          onDuplicateFile={(path) => diagramBridgeRef.current?.handleDuplicateFile(path)}
+          onMoveItem={handleMoveItemWithLinks}
+          isLoading={fileExplorer.isLoading}
+          onRefresh={watcherRefresh}
+          sortField={sortPrefs.field}
+          sortDirection={sortPrefs.direction}
+          sortGrouping={sortPrefs.grouping}
+          onSortChange={handleSortChange}
+          explorerFilter={explorerFilter}
+          onFilterChange={setExplorerFilter}
+          onSelectDocument={handleOpenDocument}
+          recentFiles={recentFiles}
+          searchInputRef={explorerSearchRef}
+        />
+        {/* Hidden fallback input for browsers without File System Access API */}
+        <input
+          ref={fileExplorer.inputRef}
+          type="file"
+          /* @ts-expect-error webkitdirectory is non-standard */
+          webkitdirectory=""
+          className="hidden"
+          onChange={(e) => fileExplorer.handleFallbackInput(e.target.files)}
+        />
+        <CommandPalette />
+      </div>
+    ) : (
+    <div
+      data-testid="knowledge-base"
+      data-theme={themeCtx.theme}
+      className="w-full h-screen bg-surface-2 font-sans flex flex-col overflow-hidden relative"
+    >
       <Header
         isSplit={panes.isSplit}
         dirtyFiles={headerDirtyFiles}
+        theme={themeCtx.theme}
+        onToggleTheme={themeCtx.toggleTheme}
         onToggleSplit={() => {
           if (panes.isSplit) {
             panes.exitSplit();
@@ -700,7 +916,7 @@ function KnowledgeBaseInner() {
         {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
             36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
-          className="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col transition-[width] duration-200 overflow-hidden"
+          className="flex-shrink-0 bg-surface border-r border-line flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: focusMode ? 0 : explorerCollapsed ? 36 : 260, borderRightWidth: focusMode ? 0 : 1 }}
           data-testid="explorer-container"
           aria-hidden={focusMode}
@@ -822,8 +1038,59 @@ function KnowledgeBaseInner() {
         />
       )}
     </div>
+    )}
+    </>
+    )}
+    </ThemedShell>
     </RepositoryProvider>
   );
+}
+
+/**
+ * Render-prop wrapper that mounts `useTheme` *inside* `RepositoryProvider`,
+ * registers the palette command + ⌘⇧L global keyboard handler, and exposes
+ * `{ theme, toggleTheme }` to the child render function. Lifting these into
+ * a dedicated component is the only way `useTheme.setTheme` can persist
+ * the user's choice into `vaultConfig.theme` — the hook reads
+ * `useContext(RepositoryContext)`, which is null at the level of
+ * `KnowledgeBaseInner` because that component declares `RepositoryProvider`
+ * itself. (Phase 3 PR 1, 2026-04-26.)
+ */
+function ThemedShell({
+  children,
+}: {
+  children: (api: { theme: "light" | "dark"; toggleTheme: () => void }) => React.ReactNode;
+}) {
+  const { theme, toggleTheme } = useTheme();
+
+  const themeCommands = useMemo(() => [{
+    id: "view.toggle-theme",
+    title: "Toggle Light / Dark Theme",
+    group: "View",
+    shortcut: "⌘⇧L",
+    run: toggleTheme,
+  }], [toggleTheme]);
+  useRegisterCommands(themeCommands);
+
+  // Raw ⌘⇧L handler — same input/contenteditable guard pattern as the
+  // existing ⌘., ⌘K, ⌘F handlers.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        toggleTheme();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleTheme]);
+
+  return <>{children({ theme, toggleTheme })}</>;
 }
 
 export default function KnowledgeBase() {

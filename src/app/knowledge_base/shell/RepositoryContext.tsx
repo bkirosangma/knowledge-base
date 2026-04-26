@@ -34,7 +34,7 @@ const EMPTY_REPOS: Repositories = {
   vaultConfig: null,
 };
 
-const RepositoryContext = createContext<Repositories | null>(null);
+export const RepositoryContext = createContext<Repositories | null>(null);
 
 /**
  * Mount beneath `useFileExplorer()`'s consumer in `knowledgeBase.tsx`. The

@@ -68,12 +68,12 @@ export default function PaneHeader({
   const [titleDraft, setTitleDraft] = useState(title ?? "");
 
   return (
-    <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
-      <div className="flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
+    <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
+      <div className="flex items-center gap-1 text-xs text-mute flex-shrink-0">
         {pathParts.map((part, i) => (
           <React.Fragment key={i}>
             {i > 0 && <ChevronRight size={10} />}
-            <span className={i === pathParts.length - 1 ? "text-slate-700 font-medium" : ""}>
+            <span className={i === pathParts.length - 1 ? "text-ink-2 font-medium" : ""}>
               {part}
             </span>
           </React.Fragment>
@@ -82,7 +82,7 @@ export default function PaneHeader({
 
       {showTitleSection && (
         <>
-          <span className="text-slate-300 select-none" aria-hidden="true">·</span>
+          <span className="text-mute select-none" aria-hidden="true">·</span>
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {editable && isEditingTitle ? (
               <input
@@ -102,7 +102,7 @@ export default function PaneHeader({
                     setIsEditingTitle(false);
                   }
                 }}
-                className="text-sm font-semibold text-slate-900 outline-none border-b border-blue-500 bg-transparent min-w-0 flex-1 px-1 -mx-1"
+                className="text-sm font-semibold text-ink outline-none border-b border-blue-500 bg-transparent min-w-0 flex-1 px-1 -mx-1"
                 data-testid="pane-title-input"
               />
             ) : (
@@ -111,8 +111,8 @@ export default function PaneHeader({
                   setTitleDraft(title ?? "");
                   setIsEditingTitle(true);
                 } : undefined}
-                className={`text-sm font-semibold text-slate-900 truncate min-w-0 ${
-                  editable ? "cursor-text hover:bg-slate-50 rounded px-1 -mx-1" : ""
+                className={`text-sm font-semibold text-ink truncate min-w-0 ${
+                  editable ? "cursor-text hover:bg-surface-2 rounded px-1 -mx-1" : ""
                 }`}
                 data-testid="pane-title"
               >
@@ -133,9 +133,10 @@ export default function PaneHeader({
               onClick={onDiscard}
               disabled={!hasActiveFile || !isDirty}
               className={`p-1 rounded-md transition-colors flex-shrink-0 ${
-                hasActiveFile && isDirty ? "text-slate-500 hover:bg-slate-100 hover:text-slate-700" : "text-slate-300 cursor-not-allowed"
+                hasActiveFile && isDirty ? "text-mute hover:bg-surface-2 hover:text-ink-2" : "text-mute opacity-40 cursor-not-allowed"
               }`}
               title="Discard changes"
+              aria-label="Discard changes"
             >
               <RotateCcw size={13} />
             </button>
@@ -145,7 +146,7 @@ export default function PaneHeader({
               onClick={onSave}
               disabled={!hasActiveFile || !isDirty}
               className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition-colors flex-shrink-0 ${
-                hasActiveFile && isDirty ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                hasActiveFile && isDirty ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-surface-2 text-mute cursor-not-allowed"
               }`}
               title="Save (⌘S)"
             >
@@ -163,7 +164,7 @@ export default function PaneHeader({
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border flex-shrink-0 ${
           readOnly
             ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
-            : "bg-slate-100 text-slate-600 hover:text-slate-700 border-slate-200"
+            : "bg-surface-2 text-ink-2 hover:text-ink border-line"
         }`}
         title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
         aria-pressed={readOnly}
@@ -176,7 +177,7 @@ export default function PaneHeader({
       {readOnly && readingTimeMinutes != null && readingTimeMinutes > 0 && (
         <span
           data-testid="reading-time-pill"
-          className="text-xs text-slate-500 flex-shrink-0"
+          className="text-xs text-mute flex-shrink-0"
           title="Estimated reading time"
           aria-label={`Estimated reading time: ${readingTimeMinutes} minutes`}
         >

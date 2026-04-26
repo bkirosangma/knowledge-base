@@ -398,7 +398,10 @@ describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
     const tree = [folder('alpha', 'alpha', [])]
     const { container } = renderPanel({ tree })
     fireEvent.click(screen.getAllByText('alpha')[0])
-    const selectedRow = container.querySelector('.bg-blue-50.text-blue-700')
+    // Phase 3 PR 1: active text colour migrated from `text-blue-700` to the
+    // tokenised `text-accent`; the `bg-blue-50` background is re-bound for
+    // dark mode via globals.css so the selector remains stable.
+    const selectedRow = container.querySelector('.bg-blue-50.text-accent')
     expect(selectedRow).not.toBeNull()
     expect(selectedRow!.textContent).toContain('alpha')
   })
@@ -416,7 +419,7 @@ describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
     const tree = [folder('alpha', 'alpha', [])]
     const { container } = renderPanel({ tree, directoryName: 'my-vault' })
     fireEvent.click(screen.getAllByText('alpha')[0])
-    const breadcrumb = container.querySelector('.text-slate-400.font-normal')
+    const breadcrumb = container.querySelector('.text-mute.font-normal')
     expect(breadcrumb?.textContent).toContain('my-vault /')
   })
 })

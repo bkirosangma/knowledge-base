@@ -163,3 +163,43 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.12-06** ✅ **`hideTitleControls` dissolves title input + Save/Discard (Focus Mode)** — `PaneHeader` with `hideTitleControls` skips the title section entirely; breadcrumb, Read pill, and reading-time pill still render. _(unit: `PaneHeader.test.tsx`)_
 - **SHELL-1.12-07** ✅ **Header dirty-stack badge tooltip lists every dirty file** — the badge's `title` attribute concatenates every path in `dirtyFiles`; rendered with `bg-amber-50 text-amber-700 border border-amber-200` styling. _(unit: `Header.test.tsx`)_
 - **SHELL-1.12-08** ✅ **Per-pane dirty publishers prevent split-view race** — when the same `.md` is open in BOTH panes and only the LEFT pane is dirty, the global dirty-stack indicator still reports the file as unsaved. The right pane's mount (which fires `onDirtyChange(path, false)`) and unmount cleanup must not clear a path the left pane still owns. The shell tracks `leftDocDirty` and `rightDocDirty` as separate `Set<string>` publishers and unions them for the Header badge. _(unit: `knowledgeBase.dirty.test.tsx` — split-pane has no e2e harness; covered by Vitest unit test exercising the publish/cleanup contract)_
+
+## 1.13 Theme & Design Tokens (Phase 3 PR 1)
+
+> 2026-04-26 — token layer + dark theme + locked type scale + a11y sweep. Tokens live in `globals.css` (`:root` + `[data-theme="dark"]`); `@theme inline` exposes them as Tailwind utilities so dark-mode flips propagate via `var(--…)`. Theme persists to `vaultConfig.theme`. `useTheme` hook in `shared/hooks/useTheme.ts`; sun/moon button + ⌘⇧L bind in `Header.tsx` and `knowledgeBase.tsx#ThemedShell`.
+
+- **SHELL-1.13-01** 🧪 **⌘⇧L toggles theme; root gains `data-theme="dark"`** — pressing `⌘⇧L` (or `Ctrl+Shift+L`) outside an input/contenteditable flips the `data-theme` attribute on the knowledge-base root between `"light"` and `"dark"`. _(e2e: `e2e/themeToggle.spec.ts`)_
+- **SHELL-1.13-02** 🧪 **Sun/moon icon click toggles theme** — clicking `data-testid="theme-toggle"` flips the same attribute, updates `aria-pressed` to mirror the new state, and swaps Sun/Moon icons. _(e2e: `e2e/themeToggle.spec.ts`)_
+- **SHELL-1.13-03** 🧪 **First mount reads theme from vault config** — pre-seeding `.archdesigner/config.json` with `{ theme: "dark" }` and opening the folder applies dark on first mount before any user action. (Read half of the toggle→reload→re-read round-trip; the write half is covered by `vaultConfig.test.ts`.) _(e2e: `e2e/themeToggle.spec.ts`)_
+- **SHELL-1.13-04** 🧪 **Dark mode applies dark surface via tokenised utility** — the shell root uses `bg-surface-2`; in light its computed `background-color` is `rgb(248, 250, 252)` (token `#f8fafc`), in dark it becomes `rgb(30, 41, 59)` (`#1e293b`). Asserts both that `[data-theme="dark"]` cascades and that `@theme inline` produced a working `var()`-based utility. _(e2e: `e2e/themeToggle.spec.ts`)_
+- **SHELL-1.13-05** ❌ **`prefers-color-scheme` precedence** — with no `theme` in vault config and OS dark pref, the app defaults to dark on first mount. _(no e2e harness for OS pref toggling — covered manually + by hook contract)_
+- **SHELL-1.13-06** ❌ **Visible focus ring on keyboard nav** — Tab-focusing a button shows a 2px ring using `var(--focus)`. Mouse clicks do NOT trigger the ring (`:focus-visible` only). _(visual; not yet automated)_
+- **SHELL-1.13-07** ❌ **Locked type scale resolves through tokens** — `text-base` is `15px`, `text-lg` is `17px`, etc. Asserting computed font-size on a benchmark element with `text-base` confirms the override.
+- **SHELL-1.13-08** ❌ **`vaultConfigRepo.update` patches a single field** — calling `repo.update({ theme: "dark" })` reads the existing config, merges the patch, writes it back; existing `name` / `version` / `created` are preserved.
+
+## 1.14 Mobile Shell & Bottom Nav (Phase 3 PR 3)
+
+> 2026-04-26 — viewport-aware shell. Below the 900 px breakpoint the desktop split-pane layout is replaced by `MobileShell` (thin Header + active tab content + BottomNav with Files / Read / Graph). `useViewport` returns `{ isMobile }` (SSR-safe — defaults to `false` so first paint matches server output, then `useEffect` reads `matchMedia`). Touch canvas (DIAG-3.24) and PWA (SHELL-1.15) are companion features.
+
+- **SHELL-1.14-01** 🧪 **At 390×844 viewport, MobileShell renders (BottomNav visible)** — setting an iPhone-class viewport before page load → `[data-testid="mobile-shell"]` mounts and `[data-testid="bottom-nav"]` shows all three tabs. _(e2e: `e2e/mobileLayout.spec.ts`)_
+- **SHELL-1.14-02** 🧪 **Files tab → tap a file → switches to Read tab and shows content** — opening a `.md` from the explorer flips `bottom-nav-read`'s `aria-selected` to `true` and renders the editor inside `mobile-tab-read`. _(e2e: `e2e/mobileLayout.spec.ts`)_
+- **SHELL-1.14-03** 🧪 **Bottom nav Graph tab opens GraphView** — tapping `bottom-nav-graph` swaps the visible tab to `mobile-tab-graph` containing `[data-testid="graph-view"]`. _(e2e: `e2e/mobileLayout.spec.ts`)_
+- **SHELL-1.14-04** 🧪 **Above 900px viewport, MobileShell does NOT render** — at 1280 × 720 (Playwright default) the mobile shell stays unmounted; the desktop Split toggle is still visible. _(e2e: `e2e/mobileLayout.spec.ts`)_
+- **SHELL-1.14-05** ✅ **`useViewport` SSR-safe — initial state is `{ isMobile: false }`** — without a `matchMedia` mock the hook returns the desktop default; mounting on the client doesn't crash. _(unit: `useViewport.test.ts`)_
+- **SHELL-1.14-06** ✅ **`useViewport` reads `matchMedia(max-width: 900px)` on mount** — the hook calls `window.matchMedia` exactly once with the canonical query and reflects `.matches`. _(unit: `useViewport.test.ts`)_
+- **SHELL-1.14-07** ✅ **`useViewport` listener flips `isMobile` on media-query change** — firing the registered listener with `matches: true` updates state to `true`, then back to `false`. _(unit: `useViewport.test.ts`)_
+- **SHELL-1.14-08** ✅ **`useViewport` cleans up listener on unmount** — after `unmount()` the registered listener is removed. _(unit: `useViewport.test.ts`)_
+- **SHELL-1.14-09** ✅ **BottomNav renders 3 tabs with stable testids** — `bottom-nav-files`, `bottom-nav-read`, `bottom-nav-graph`. _(unit: `BottomNav.test.tsx`)_
+- **SHELL-1.14-10** ✅ **BottomNav active tab has `aria-selected="true"`; others `"false"`** — switching the `active` prop swaps which tab carries the active attribute. _(unit: `BottomNav.test.tsx`)_
+- **SHELL-1.14-11** ✅ **BottomNav clicking a tab fires `onChange(id)`** — the tap target reports the canonical tab id back to the host. _(unit: `BottomNav.test.tsx`)_
+
+## 1.15 PWA — Manifest, Service Worker, Offline Cache (Phase 3 PR 3)
+
+> 2026-04-26 — `public/manifest.json` + `public/sw.js` (hand-rolled, not next-pwa — incompatible with Next 16). `ServiceWorkerRegister` mounts inside `KnowledgeBaseInner` and only registers in production. `useOfflineCache` writes the last 10 recents into the `kb-files-v1` Cache Storage bucket on visibilitychange/heartbeat; the SW serves them back on `/__kb-cache/*` fetches.
+
+- **SHELL-1.15-01** ❌ **Manifest serves at `/manifest.json`** — a GET to `/manifest.json` returns the JSON document (Lighthouse-crawlable). Manual / Lighthouse audit; not Playwright-friendly.
+- **SHELL-1.15-02** ❌ **Layout references manifest via `metadata.manifest`** — `<head>` includes `<link rel="manifest" href="/manifest.json">` from the `app/layout.tsx` `metadata` export.
+- **SHELL-1.15-03** ❌ **`themeColor` lives in viewport export (Next 16)** — moved out of `metadata` to satisfy Next 16's metadata classifier; `npm run build` is silent.
+- **SHELL-1.15-04** ❌ **Service worker registered in production** — `ServiceWorkerRegister` calls `navigator.serviceWorker.register("/sw.js")` only when `NODE_ENV === "production"`. Dev mode is a no-op so HMR / Turbopack chunks aren't intercepted.
+- **SHELL-1.15-05** ❌ **`useOfflineCache` opens `kb-files-v1` cache** — first run after directory pick writes recents into the bucket; `caches.has('kb-files-v1')` is true. Manual DevTools verification — automation requires a service-worker test harness.
+- **SHELL-1.15-06** ❌ **`useOfflineCache` reads recents at execution time** — closure does NOT capture the recents value at hook-mount; subsequent `localStorage` writes are honoured by the next refresh. Behaviour locked by `loadRecentsFromStorage()` call inside the timer/visibilitychange handlers.

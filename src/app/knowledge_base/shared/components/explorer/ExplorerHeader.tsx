@@ -11,7 +11,7 @@ import type { SortField, SortDirection, SortGrouping } from "./ExplorerPanel";
 import type { ContextMenuState } from "./TreeNodeRow";
 
 const sortBtnClass =
-  "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-slate-700 hover:bg-slate-100";
+  "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-ink-2 hover:bg-surface-2";
 
 export interface ExplorerHeaderProps {
   directoryName: string;
@@ -83,7 +83,7 @@ export default function ExplorerHeader({
     <>
       {/* Directory header — also a drop target for moving to root */}
       <div
-        className={`flex flex-col px-3 pt-2 pb-1 border-b border-slate-100 relative ${
+        className={`flex flex-col px-3 pt-2 pb-1 border-b border-line relative ${
           dragOverPath === "" ? "bg-blue-50 outline outline-1 outline-blue-300 outline-dashed" : ""
         }`}
         onContextMenu={(e) => {
@@ -98,17 +98,20 @@ export default function ExplorerHeader({
         {/* Row 1 — folder name + 3-dot menu */}
         <div className="flex items-center gap-1.5 min-w-0">
           <Folder size={16} className="text-amber-500 flex-shrink-0" />
-          <span className="text-xs font-semibold text-slate-700 truncate flex-1">
+          <span className="text-xs font-semibold text-ink-2 truncate flex-1">
             {selectedFolderPath
-              ? <><span className="text-slate-400 font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
+              ? <><span className="text-mute font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
               : directoryName}
           </span>
           <button
             onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
-            className="p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+            className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
             title="More actions"
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={dotMenuOpen}
           >
-            <EllipsisVertical size={14} className="text-slate-500" />
+            <EllipsisVertical size={14} className="text-mute" />
           </button>
         </div>
 
@@ -116,38 +119,42 @@ export default function ExplorerHeader({
         <div className="flex items-center gap-0.5 mt-1">
           <button
             onClick={() => handleCreateFile(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            className="p-1 hover:bg-surface-2 rounded transition-colors"
             title={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            aria-label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
           >
-            <FilePlus size={14} className="text-slate-500" />
+            <FilePlus size={14} className="text-mute" />
           </button>
           <button
             onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            className="p-1 hover:bg-surface-2 rounded transition-colors"
             title={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            aria-label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
           >
-            <FileText size={14} className="text-slate-500" />
+            <FileText size={14} className="text-mute" />
           </button>
           <button
             onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            className="p-1 hover:bg-surface-2 rounded transition-colors"
             title={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            aria-label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
           >
-            <FolderPlus size={14} className="text-slate-500" />
+            <FolderPlus size={14} className="text-mute" />
           </button>
           <button
             onClick={onRefresh}
-            className="p-1 hover:bg-slate-100 rounded transition-colors"
+            className="p-1 hover:bg-surface-2 rounded transition-colors"
             title="Refresh"
+            aria-label="Refresh explorer"
           >
-            <RefreshCw size={14} className={`text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw size={14} className={`text-mute ${isLoading ? "animate-spin" : ""}`} />
           </button>
 
           {/* 3-dot dropdown menu */}
           {dotMenuOpen && (
             <div
               ref={dotMenuRef}
-              className="absolute right-1 top-full mt-1 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px]"
+              className="absolute right-1 top-full mt-1 z-[9999] bg-surface rounded-lg shadow-lg border border-line py-1 min-w-[150px]"
             >
             <div
               className="relative"
@@ -158,23 +165,28 @@ export default function ExplorerHeader({
                 className={`${sortBtnClass} justify-between`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => setSortSubMenuOpen((v) => !v)}
+                aria-label="Sort options"
+                aria-haspopup="menu"
+                aria-expanded={sortSubMenuOpen}
               >
                 <span>Sort</span>
-                <ChevronRight size={13} className="text-slate-400" />
+                <ChevronRight size={13} className="text-mute" />
               </button>
 
               {/* Sort submenu */}
               {sortSubMenuOpen && (
                 <div
-                  className="absolute left-full top-0 ml-0.5 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[180px]"
+                  className="absolute left-full top-0 ml-0.5 z-[9999] bg-surface rounded-lg shadow-lg border border-line py-1 min-w-[180px]"
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Sort by</div>
+                  <div className="px-3 py-1 text-[11px] font-semibold text-mute uppercase tracking-wider">Sort by</div>
                   {([["name", "Name"], ["created", "Created Date"], ["modified", "Modified Date"]] as [SortField, string][]).map(([field, label]) => (
                     <button
                       key={field}
-                      className={`${sortBtnClass} justify-between ${sortField === field ? "bg-slate-50 font-medium" : ""}`}
+                      className={`${sortBtnClass} justify-between ${sortField === field ? "bg-surface-2 font-medium" : ""}`}
                       onClick={() => handleSortFieldClick(field)}
+                      aria-label={`Sort by ${label}`}
+                      aria-pressed={sortField === field}
                     >
                       <span>{label}</span>
                       {sortField === field && (
@@ -184,12 +196,14 @@ export default function ExplorerHeader({
                       )}
                     </button>
                   ))}
-                  <div className="border-t border-slate-100 my-1" />
+                  <div className="border-t border-line my-1" />
                   {([["folders-first", "Folders First"], ["files-first", "Files First"], ["mixed", "Mixed"]] as [SortGrouping, string][]).map(([grouping, label]) => (
                     <button
                       key={grouping}
                       className={`${sortBtnClass} justify-between`}
                       onClick={() => handleGroupingClick(grouping)}
+                      aria-label={`Group: ${label}`}
+                      aria-pressed={sortGrouping === grouping}
                     >
                       <span>{label}</span>
                       {sortGrouping === grouping && <Check size={13} className="text-blue-500" />}
@@ -205,14 +219,19 @@ export default function ExplorerHeader({
 
       {/* Filter toggles */}
       {onFilterChange && (
-        <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-slate-100">
+        <div
+          className="flex items-center gap-0.5 px-3 py-1.5 border-b border-line"
+          role="group"
+          aria-label="Filter explorer items"
+        >
           {(["all", "diagrams", "documents"] as ExplorerFilter[]).map(f => (
             <button
               key={f}
               onClick={() => onFilterChange(f)}
               className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                explorerFilter === f ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100"
+                explorerFilter === f ? "bg-blue-100 text-blue-700" : "text-mute hover:bg-surface-2"
               }`}
+              aria-pressed={explorerFilter === f}
             >
               {f === "all" ? "All" : f === "diagrams" ? "Diagrams" : "Documents"}
             </button>

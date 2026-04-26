@@ -124,7 +124,7 @@ export default function CommandPalette() {
     >
       {/* Panel */}
       <div
-        className="w-full max-w-[560px] mx-4 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden"
+        className="w-full max-w-[560px] mx-4 bg-surface rounded-lg shadow-xl border border-line overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Screen-reader live region — announces result count on each filter change */}
@@ -137,7 +137,7 @@ export default function CommandPalette() {
         </div>
 
         {/* Search input */}
-        <div className="border-b border-slate-100 px-4 py-3">
+        <div className="border-b border-line px-4 py-3">
           <input
             ref={inputRef}
             type="text"
@@ -145,7 +145,7 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full text-sm text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+            className="w-full text-sm text-ink-2 placeholder-mute outline-none bg-transparent"
             aria-label="Search commands"
             aria-autocomplete="list"
             aria-controls="cmd-listbox"
@@ -161,7 +161,7 @@ export default function CommandPalette() {
           className="max-h-[360px] overflow-y-auto py-1 list-none m-0 p-0"
         >
           {flatList.length === 0 ? (
-            <li className="px-4 py-6 text-center text-sm text-slate-400" role="presentation">
+            <li className="px-4 py-6 text-center text-sm text-mute" role="presentation">
               No matching commands
             </li>
           ) : (
@@ -172,7 +172,7 @@ export default function CommandPalette() {
                   {/* Group header — decorative, hidden from AT since the group aria-label suffices */}
                   <div
                     aria-hidden="true"
-                    className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 select-none"
+                    className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-mute select-none"
                   >
                     {group}
                   </div>
@@ -188,7 +188,7 @@ export default function CommandPalette() {
                         className={`flex items-center gap-3 px-4 py-2 cursor-pointer select-none transition-colors ${
                           isActive
                             ? "bg-blue-50 text-blue-700"
-                            : "text-slate-700 hover:bg-slate-50"
+                            : "text-ink-2 hover:bg-surface-2"
                         }`}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onMouseDown={(e) => {
@@ -199,7 +199,7 @@ export default function CommandPalette() {
                         <span className="flex-1 text-sm">{cmd.title}</span>
                         {cmd.shortcut && (
                           <kbd
-                            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-400"
+                            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-line bg-surface-2 text-mute"
                           >
                             {cmd.shortcut}
                           </kbd>

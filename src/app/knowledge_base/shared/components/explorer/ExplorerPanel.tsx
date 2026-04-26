@@ -367,15 +367,17 @@ export default function ExplorerPanel({
       {/* Toggle header */}
       <button
         onClick={onToggleCollapse}
-        className="flex items-center gap-2 px-2.5 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-2 px-2.5 py-3 border-b border-line hover:bg-surface-2 transition-colors"
+        aria-label={collapsed ? "Expand Explorer" : "Collapse Explorer"}
+        aria-expanded={!collapsed}
       >
         {collapsed ? (
-          <ChevronRight size={16} className="text-slate-500" />
+          <ChevronRight size={16} className="text-mute" />
         ) : (
-          <ChevronLeft size={16} className="text-slate-500" />
+          <ChevronLeft size={16} className="text-mute" />
         )}
         {!collapsed && (
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">
             Explorer
           </span>
         )}
@@ -386,8 +388,8 @@ export default function ExplorerPanel({
         <div className="flex-1 flex flex-col min-h-0">
           {!directoryName ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-              <FolderOpen size={48} className="text-slate-300" />
-              <p className="text-sm text-slate-500 text-center">No folder open</p>
+              <FolderOpen size={48} className="text-mute opacity-60" />
+              <p className="text-sm text-mute text-center">No folder open</p>
               <button
                 onClick={onOpenFolder}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -426,7 +428,7 @@ export default function ExplorerPanel({
               />
 
               {/* Search input */}
-              <div className="px-2 py-1.5 border-b border-slate-100">
+              <div className="px-2 py-1.5 border-b border-line">
                 <div className="relative flex items-center">
                   <input
                     ref={resolvedSearchRef}
@@ -435,12 +437,13 @@ export default function ExplorerPanel({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search files… ⌘F"
-                    className="w-full pl-2 pr-7 py-1 text-xs bg-slate-100 rounded border border-transparent focus:border-blue-400 focus:bg-white outline-none text-slate-700 placeholder-slate-400 transition-colors"
+                    aria-label="Search files"
+                    className="w-full pl-2 pr-7 py-1 text-xs bg-surface-2 rounded border border-transparent focus:border-blue-400 focus:bg-surface outline-none text-ink-2 placeholder-mute transition-colors"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="absolute right-1.5 text-mute hover:text-ink-2 transition-colors"
                       aria-label="Clear search"
                     >
                       <X size={12} />
@@ -462,9 +465,9 @@ export default function ExplorerPanel({
               >
                 {/* Recents group — hidden when empty, shown above tree */}
                 {!searchResults && validRecentFiles.length > 0 && (
-                  <div className="border-b border-slate-100">
+                  <div className="border-b border-line">
                     <button
-                      className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                      className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-mute uppercase tracking-wider hover:bg-surface-2 transition-colors"
                       onClick={() => setRecentsCollapsed((c) => !c)}
                     >
                       <ChevronDown
@@ -481,7 +484,7 @@ export default function ExplorerPanel({
                           return (
                             <button
                               key={path}
-                              className={`flex items-center w-full px-3 py-0.5 text-xs text-left truncate hover:bg-slate-50 transition-colors ${isActive ? "text-blue-600 font-medium" : "text-slate-600"}`}
+                              className={`flex items-center w-full px-3 py-0.5 text-xs text-left truncate hover:bg-surface-2 transition-colors ${isActive ? "text-accent font-medium" : "text-ink-2"}`}
                               title={path}
                               onClick={() => onSelectFile(path)}
                             >
@@ -496,7 +499,7 @@ export default function ExplorerPanel({
 
                 {/* Unsaved group — always visible when non-empty */}
                 {!searchResults && dirtyFilesArray.length > 0 && (
-                  <div className="border-b border-slate-100">
+                  <div className="border-b border-line">
                     <div className="flex items-center gap-1 w-full px-2 py-1 text-[11px] font-semibold text-amber-600 uppercase tracking-wider">
                       Unsaved changes
                     </div>
@@ -523,7 +526,7 @@ export default function ExplorerPanel({
                 {searchResults !== null ? (
                   <div className="py-1" data-testid="explorer-search-results">
                     {searchResults.length === 0 ? (
-                      <div className="px-3 py-4 text-xs text-slate-400 text-center">No files match</div>
+                      <div className="px-3 py-4 text-xs text-mute text-center">No files match</div>
                     ) : (
                       searchResults.map((path) => {
                         const name = path.split("/").pop() ?? path;
@@ -531,11 +534,11 @@ export default function ExplorerPanel({
                         return (
                           <button
                             key={path}
-                            className={`flex flex-col w-full px-3 py-1 text-left hover:bg-slate-50 transition-colors ${isActive ? "bg-blue-50" : ""}`}
+                            className={`flex flex-col w-full px-3 py-1 text-left hover:bg-surface-2 transition-colors ${isActive ? "bg-blue-50" : ""}`}
                             onClick={() => onSelectFile(path)}
                           >
-                            <span className={`text-xs font-medium truncate ${isActive ? "text-blue-600" : "text-slate-700"}`}>{name}</span>
-                            <span className="text-[10px] text-slate-400 truncate">{path}</span>
+                            <span className={`text-xs font-medium truncate ${isActive ? "text-accent" : "text-ink-2"}`}>{name}</span>
+                            <span className="text-[10px] text-mute truncate">{path}</span>
                           </button>
                         );
                       })
@@ -544,9 +547,9 @@ export default function ExplorerPanel({
                 ) : (
                   <div className="py-1" data-testid="explorer-tree">
                     {isLoading ? (
-                      <div className="px-3 py-4 text-xs text-slate-400 text-center">Scanning...</div>
+                      <div className="px-3 py-4 text-xs text-mute text-center">Scanning...</div>
                     ) : tree.length === 0 ? (
-                      <div className="px-3 py-4 text-xs text-slate-400 text-center">Empty folder</div>
+                      <div className="px-3 py-4 text-xs text-mute text-center">Empty folder</div>
                     ) : (
                       filteredTree.map((node) => renderNode(node, 0))
                     )}
@@ -562,7 +565,7 @@ export default function ExplorerPanel({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="fixed z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[170px]"
+          className="fixed z-[9999] bg-surface rounded-lg shadow-lg border border-line py-1 min-w-[170px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {contextMenu.type === "folder" && (
@@ -573,39 +576,39 @@ export default function ExplorerPanel({
                 onMouseLeave={() => setNewSubMenuOpen(false)}
               >
                 <button
-                  className={`${btnClass} justify-between text-slate-700 hover:bg-slate-100`}
+                  className={`${btnClass} justify-between text-ink-2 hover:bg-surface-2`}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <span className="flex items-center gap-2.5">
-                    <FilePlus size={15} className="text-slate-500" />
+                    <FilePlus size={15} className="text-mute" />
                     New
                   </span>
-                  <ChevronRight size={13} className="text-slate-400" />
+                  <ChevronRight size={13} className="text-mute" />
                 </button>
                 {newSubMenuOpen && (
                   <div
-                    className="absolute left-full top-0 ml-0.5 z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[160px]"
+                    className="absolute left-full top-0 ml-0.5 z-[9999] bg-surface rounded-lg shadow-lg border border-line py-1 min-w-[160px]"
                     onMouseDown={(e) => e.stopPropagation()}
                   >
                     <button
-                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                       onClick={() => { handleCreateFile(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
                     >
-                      <FilePlus size={15} className="text-slate-500" />
+                      <FilePlus size={15} className="text-mute" />
                       Diagram
                     </button>
                     <button
-                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                       onClick={() => { handleCreateDocument(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
                     >
-                      <FileText size={15} className="text-slate-500" />
+                      <FileText size={15} className="text-mute" />
                       Document
                     </button>
                     <button
-                      className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                      className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                       onClick={() => { handleCreateFolder(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
                     >
-                      <FolderPlus size={15} className="text-slate-500" />
+                      <FolderPlus size={15} className="text-mute" />
                       Folder
                     </button>
                   </div>
@@ -613,41 +616,41 @@ export default function ExplorerPanel({
               </div>
               {contextMenu.path && (
                 <>
-                  <div className="border-t border-slate-100 my-1" />
+                  <div className="border-t border-line my-1" />
                   <button
-                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={() => startRename(contextMenu.path, contextMenu.name, "folder")}
                   >
-                    <Pencil size={15} className="text-slate-500" />
+                    <Pencil size={15} className="text-mute" />
                     Rename
                   </button>
-                  <div className="border-t border-slate-100 my-1" />
+                  <div className="border-t border-line my-1" />
                   <button
-                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={() => { navigator.clipboard.writeText(contextMenu.name); setContextMenu(null); }}
                   >
-                    <Clipboard size={15} className="text-slate-500" />
+                    <Clipboard size={15} className="text-mute" />
                     Copy Name
                   </button>
                   <button
-                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={() => { navigator.clipboard.writeText(contextMenu.path); setContextMenu(null); }}
                   >
-                    <FileSymlink size={15} className="text-slate-500" />
+                    <FileSymlink size={15} className="text-mute" />
                     Copy Relative Path
                   </button>
                   <button
-                    className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                    className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={() => { navigator.clipboard.writeText(directoryName ? directoryName + "/" + contextMenu.path : contextMenu.path); setContextMenu(null); }}
                   >
-                    <FolderSymlink size={15} className="text-slate-500" />
+                    <FolderSymlink size={15} className="text-mute" />
                     Copy Path
                   </button>
-                  <div className="border-t border-slate-100 my-1" />
+                  <div className="border-t border-line my-1" />
                   <button
                     className={`${btnClass} text-red-600 hover:bg-red-50`}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -663,47 +666,47 @@ export default function ExplorerPanel({
           {contextMenu.type === "file" && (
             <>
               <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => startRename(contextMenu.path, contextMenu.name, "file")}
               >
-                <Pencil size={15} className="text-slate-500" />
+                <Pencil size={15} className="text-mute" />
                 Rename
               </button>
               <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => { onDuplicateFile(contextMenu.path); setContextMenu(null); }}
               >
-                <Copy size={15} className="text-slate-500" />
+                <Copy size={15} className="text-mute" />
                 Duplicate
               </button>
-              <div className="border-t border-slate-100 my-1" />
+              <div className="border-t border-line my-1" />
               <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => { navigator.clipboard.writeText(contextMenu.name); setContextMenu(null); }}
               >
-                <Clipboard size={15} className="text-slate-500" />
+                <Clipboard size={15} className="text-mute" />
                 Copy Name
               </button>
               <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => { navigator.clipboard.writeText(contextMenu.path); setContextMenu(null); }}
               >
-                <FileSymlink size={15} className="text-slate-500" />
+                <FileSymlink size={15} className="text-mute" />
                 Copy Relative Path
               </button>
               <button
-                className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+                className={`${btnClass} text-ink-2 hover:bg-surface-2`}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => { navigator.clipboard.writeText(directoryName ? directoryName + "/" + contextMenu.path : contextMenu.path); setContextMenu(null); }}
               >
-                <FolderSymlink size={15} className="text-slate-500" />
+                <FolderSymlink size={15} className="text-mute" />
                 Copy Path
               </button>
-              <div className="border-t border-slate-100 my-1" />
+              <div className="border-t border-line my-1" />
               <button
                 className={`${btnClass} text-red-600 hover:bg-red-50`}
                 onMouseDown={(e) => e.stopPropagation()}

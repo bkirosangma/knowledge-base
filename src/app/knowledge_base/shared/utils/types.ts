@@ -44,6 +44,22 @@ export interface VaultConfig {
   name: string;
   created: string;
   lastOpened: string;
+  /**
+   * Persisted theme preference. Optional — when missing, the app falls
+   * back to the OS-level `prefers-color-scheme` query at startup. Set by
+   * `useTheme.setTheme` when the user explicitly toggles. Phase 3 PR 1
+   * (2026-04-26).
+   */
+  theme?: "light" | "dark";
+  /**
+   * Cached graph view state — persists node layout positions across
+   * sessions so re-opening the graph view doesn't re-simulate the
+   * force-directed layout from scratch. Written by `GraphCanvas` on
+   * `onEngineStop` (debounced 500 ms). Phase 3 PR 2 (2026-04-26).
+   */
+  graph?: {
+    layout?: Record<string, { x: number; y: number }>;
+  };
 }
 
 export type ExplorerFilter = 'all' | 'diagrams' | 'documents';

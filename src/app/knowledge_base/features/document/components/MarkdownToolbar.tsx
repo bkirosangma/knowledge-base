@@ -58,18 +58,20 @@ export default function MarkdownToolbar({
     rawBQ !== null ? rawBQ : !!editor?.isActive("blockquote");
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1 border-b border-slate-200 bg-slate-50 flex-wrap">
+    <div className="flex items-center gap-0.5 px-2 py-1 border-b border-line bg-surface-2 flex-wrap">
       {/* Mode toggle */}
-      <div className="flex items-center gap-1 mr-1 text-xs">
+      <div className="flex items-center gap-1 mr-1 text-xs" role="group" aria-label="Editor mode">
         <button
           onClick={onToggleRawMode}
-          className={`px-2 py-1 rounded ${!isRawMode ? "bg-white shadow-sm font-medium text-slate-800" : "text-slate-400 hover:text-slate-600"}`}
+          className={`px-2 py-1 rounded ${!isRawMode ? "bg-surface shadow-sm font-medium text-ink-2" : "text-mute hover:text-ink-2"}`}
+          aria-pressed={!isRawMode}
         >
           WYSIWYG
         </button>
         <button
           onClick={onToggleRawMode}
-          className={`px-2 py-1 rounded ${isRawMode ? "bg-white shadow-sm font-medium text-slate-800" : "text-slate-400 hover:text-slate-600"}`}
+          className={`px-2 py-1 rounded ${isRawMode ? "bg-surface shadow-sm font-medium text-ink-2" : "text-mute hover:text-ink-2"}`}
+          aria-pressed={isRawMode}
         >
           Raw
         </button>
