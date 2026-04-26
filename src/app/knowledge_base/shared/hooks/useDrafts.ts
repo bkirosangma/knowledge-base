@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { listDrafts, clearDraft } from "../utils/persistence";
 
 /**
@@ -21,7 +21,13 @@ export function useDrafts(): {
   /** Add/remove a path from the dirty set without touching localStorage. */
   markDirty: (filePath: string, dirty: boolean) => void;
 } {
-  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(() => listDrafts());
+  // Start empty so server and first client render agree, then hydrate
+  // from localStorage in an effect to avoid SSR hydration mismatches.
+  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(() => new Set<string>());
+
+  useEffect(() => {
+    setDirtyFiles(listDrafts());
+  }, []);
 
   const refreshDrafts = useCallback(() => {
     setDirtyFiles(listDrafts());
