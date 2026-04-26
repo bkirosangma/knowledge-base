@@ -139,6 +139,11 @@ export function useLinkIndex() {
     const repo = createLinkIndexRepository(rootHandle);
     const updated = { ...index, updatedAt: new Date().toISOString() };
     await repo.save(updated);
+    // Update the ref immediately after the disk write so any callback that
+    // fires before React re-renders (e.g. onAfterDiagramSaved triggered by
+    // a concurrent diagram load) reads the freshly-saved index rather than
+    // stale pre-save state and overwrites the disk with fewer documents.
+    linkIndexRef.current = updated;
     setLinkIndex(updated);
   }, []);
 
