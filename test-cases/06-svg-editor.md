@@ -43,3 +43,4 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-10 | Switching activeFile flushes pending writes to the previous path before loading the new file (unit) | ✅ |
 | SVG-6.4-11 | Window blur flushes pending writes (unit) | ✅ |
 | SVG-6.4-12 | flush() on a clean editor is a no-op (unit) | ✅ |
+| SVG-6.4-13 | Drawing on the canvas persists to disk through the repo seam (e2e) | ✅ |
