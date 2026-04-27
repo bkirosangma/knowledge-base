@@ -114,6 +114,20 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
+  // Capture pointer on pathedit pointerdown so mouseleave can't fire a
+  // synthetic mouseup that kills a handle drag mid-operation.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (canvasRef.current?.getCurrentMode?.() === "pathedit") {
+        try { container.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      }
+    };
+    container.addEventListener("pointerdown", onPointerDown);
+    return () => container.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
   // Close context menu on any click outside it
   useEffect(() => {
     if (!menu) return;
