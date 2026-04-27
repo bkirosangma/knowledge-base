@@ -62,7 +62,12 @@ export default function SVGEditorView({
         readOnly={isReadOnly}
         onToggleReadOnly={() => {
           const next = !isReadOnly;
-          if (next) canvasRef.current?.clearSelection();
+          if (next) {
+            // Exit any path-node editing state before clearing selection
+            canvasRef.current?.setMode("select");
+            setActiveTool("select");
+            canvasRef.current?.clearSelection();
+          }
           setIsReadOnly(next);
         }}
         title={title}
