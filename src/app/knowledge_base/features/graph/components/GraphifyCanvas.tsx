@@ -140,10 +140,10 @@ export default function GraphifyCanvas({
       const z2 = Math.max(0.1, Math.min(10, pinchStartZoom * (newDist / pinchStartDist)));
       graph.zoom(z2, 0);
 
-      // Keep anchor graph point fixed at the current finger midpoint on screen.
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      graph.centerAt(anchorGx - (sx - w / 2) / z2, anchorGy - (sy - h / 2) / z2, 0);
+      // Where did the anchor land after zoom? Correct center to put it at finger midpoint.
+      const { x: ax, y: ay } = graph.graph2ScreenCoords(anchorGx, anchorGy);
+      const { x: cx, y: cy } = graph.centerAt();
+      graph.centerAt(cx + (ax - sx) / z2, cy + (ay - sy) / z2, 0);
     }
 
     function onTouchEnd(e: TouchEvent) {
@@ -189,11 +189,13 @@ export default function GraphifyCanvas({
         const rect = el.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
+        // Snapshot anchor before zoom, then measure where it lands after.
+        // Correcting with that delta avoids any canvas-dimension math.
         const { x: gx, y: gy } = graph.screen2GraphCoords(sx, sy);
         graph.zoom(z2, 0);
-        const w = el.clientWidth;
-        const h = el.clientHeight;
-        graph.centerAt(gx - (sx - w / 2) / z2, gy - (sy - h / 2) / z2, 0);
+        const { x: ax, y: ay } = graph.graph2ScreenCoords(gx, gy);
+        const { x: cx, y: cy } = graph.centerAt();
+        graph.centerAt(cx + (ax - sx) / z2, cy + (ay - sy) / z2, 0);
       } else {
         // Two-finger scroll (trackpad) or mouse wheel → pan.
         const z: number = graph.zoom();
