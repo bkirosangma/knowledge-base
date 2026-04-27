@@ -230,6 +230,54 @@ describe('FS-2.3-35: duplicateFile', () => {
   })
 })
 
+// ── createDocument (SVG-1.1-xx) ─────────────────────────────────────────────
+
+describe('SVG-1.1-xx: createSVG', () => {
+  it('returns null when no directory handle is open', async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper })
+    let got: unknown = 'sentinel'
+    await act(async () => { got = await result.current.createSVG('') })
+    expect(got).toBeNull()
+  })
+
+  it('creates untitled.svg at root with minimal SVG content', async () => {
+    const root = new MockDir('vault')
+    const result = await setupWithRoot(root)
+
+    let out: string | null = null
+    await act(async () => { out = await result.current.createSVG('') })
+
+    expect(out).toBe('untitled.svg')
+    expect(root.files.has('untitled.svg')).toBe(true)
+    const file = root.files.get('untitled.svg') as MockFileHandle
+    const content = await file.getFile().then((f) => f.text())
+    expect(content).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>')
+  })
+
+  it('creates inside a subdirectory when parentPath is given', async () => {
+    const root = new MockDir('vault')
+    root.dirs.set('diagrams', new MockDir('diagrams'))
+    const result = await setupWithRoot(root)
+
+    let out: string | null = null
+    await act(async () => { out = await result.current.createSVG('diagrams') })
+
+    expect(out).toBe('diagrams/untitled.svg')
+    expect(root.dirs.get('diagrams')!.files.has('untitled.svg')).toBe(true)
+  })
+
+  it('generates untitled-1.svg when untitled.svg exists', async () => {
+    const root = new MockDir('vault')
+    root.files.set('untitled.svg', new MockFileHandle('untitled.svg', new MockFile('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>')))
+    const result = await setupWithRoot(root)
+
+    let out: string | null = null
+    await act(async () => { out = await result.current.createSVG('') })
+
+    expect(out).toBe('untitled-1.svg')
+  })
+})
+
 // ── moveItem (FS-2.3-36/37) ──────────────────────────────────────────────────
 
 describe('FS-2.3-36/37: moveItem', () => {
