@@ -58,6 +58,67 @@
 - **LINK-5.5-05** ✅ **Create appends `.md` if absent** — `[[x]]` → `x.md`. (Covered by DOC-4.8-08 in `wikiLinkParser.test.ts`.)
 - **LINK-5.5-06** ❌ **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. (Requires real editor + scroll.)
 
+## 5.5 Graphify Knowledge Graph View
+
+> Mirrors §5.5 of [Features.md](../Features.md). Canvas is lazy-loaded (`next/dynamic`, `ssr: false`); File System Access required for vault open. Most visual / physics cases are 🚫 (JSDOM cannot render canvas).
+
+### Data loading
+
+- **GPHY-5.5-01** ✅ **`useRawGraphify` loads `graph.json` and reports `"loaded"` status** — hook reads `graphify-out/graph.json` from the vault `FileSystemDirectoryHandle`; status transitions `idle → loading → loaded`. _(Covered by `useRawGraphify.test.ts` or integration.)_
+- **GPHY-5.5-02** ✅ **`"missing"` status when `graphify-out/` directory absent** — `DOMException NotFoundError` → status `"missing"`. _(Unit: `useRawGraphify` mock FS.)_
+- **GPHY-5.5-03** ✅ **Community names read from `GRAPH_REPORT.md` when present** — `### Community {id} - "{name}"` pattern parsed; names override node-derived fallbacks.
+- **GPHY-5.5-04** ✅ **Community colors use golden-angle hue spacing** — `index × 137.508°` gives perceptually distinct hues even for many communities.
+- **GPHY-5.5-05** ✅ **`nodeDegreeMap` counts in + out edges for each node ID** — degree drives node size (hub nodes rendered larger).
+- **GPHY-5.5-06** ✅ **Theme switch re-derives community and node colors instantly** — `useRawGraphify(dirHandle, theme)` recomputes `nodeColorMap` and `communities` via `useMemo([rawCommunities, isDark])` without reloading the vault.
+- **GPHY-5.5-07** ✅ **`nodeSourceMap` built from `source_file` fields** — used for "open in other pane" navigation.
+
+### Physics & forces
+
+- **GPHY-5.5-08** 🚫 **Obsidian-style physics applied on mount** — `createGravityForce`, `d3Force("charge")`, `d3Force("link")` all configured from `DEFAULT_PHYSICS` before first tick; requires live canvas.
+- **GPHY-5.5-09** 🚫 **Per-node gravity prevents disconnected cluster drift** — two unlinked clusters remain near origin after dragging one node; observable only in live simulation.
+- **GPHY-5.5-10** 🚫 **Hyperedge polygon force nudges members toward regular polygon** — N-node hyperedge members converge to equal-sided shape; observable only in live simulation.
+- **GPHY-5.5-11** 🚫 **Physics sliders re-heat simulation in real time** — dragging a slider calls `d3ReheatSimulation()`; observable only in live canvas.
+- **GPHY-5.5-12** 🚫 **Physics settings persist to `vaultConfig.graphifyPhysics` and restore on re-open** — requires real vault write + reload.
+
+### Sidebar — node info, communities, hyperedges
+
+- **GPHY-5.5-13** ✅ **Node click populates sidebar node info** — `selectedNode` state set; label, source file link, community badge, and neighbor list rendered.
+- **GPHY-5.5-14** ✅ **Community badge in node info highlights community nodes** — clicking the badge sets `highlightedCommunity`; `visibleNodeIds` narrows to that community.
+- **GPHY-5.5-15** ✅ **Community row in legend highlights on click, pans to centroid** — clicking a community row sets `highlightedCommunity`; canvas pans to the average position of community nodes.
+- **GPHY-5.5-16** ✅ **Hyperedge row in sidebar highlights and pans to centroid** — clicking a hyperedge row sets `highlightedHyperedge`; canvas pans to the average position of hyperedge nodes.
+- **GPHY-5.5-17** ✅ **Community and hyperedge selection are mutually exclusive** — selecting one nulls the other.
+- **GPHY-5.5-18** ✅ **Source file link in node info opens file in other pane** — `onSelectNode(filePath)` fired; graph pane stays mounted.
+
+### Canvas click interactions
+
+- **GPHY-5.5-19** 🚫 **Hull click selects hyperedge** — ray-casting point-in-polygon on padded convex hull detects click inside hull; `highlightedHyperedge` set. Requires live canvas coordinates.
+- **GPHY-5.5-20** 🚫 **Background click deselects node even when inside a hull** — `onBackgroundClick()` always fires after hull test loop (break, not return). Requires live canvas.
+- **GPHY-5.5-21** 🚫 **Hull drawn as padded dashed polygon around member nodes** — `convexHull` + `padHull(12px)` rendered in `onRenderFramePost`; color theme-aware. Requires canvas.
+
+### Toolbar — search & filter
+
+- **GPHY-5.5-22** ✅ **Search input filters node list to matching labels/source_file** — `searchResults` capped at 20; empty string shows no results.
+- **GPHY-5.5-23** ✅ **Search results dropdown overlays canvas without shifting layout** — dropdown is `absolute` within its `relative` wrapper; no canvas or sidebar movement.
+- **GPHY-5.5-24** ✅ **Escape clears search and node highlight** — `keydown` listener fires `setSearch(""); setHighlightedNode(null)`.
+- **GPHY-5.5-25** ✅ **Filter panel opens below the Filter button** — dropdown is `absolute top-full right-0` anchored to a `relative` wrapper around the button.
+- **GPHY-5.5-26** ✅ **Filter panel shows a collapsible file tree** — `buildFileTree(filePaths)` produces `TreeNode` hierarchy; folders expand/collapse with `ChevronRight`.
+- **GPHY-5.5-27** ✅ **Tree search shows flat filtered list of folders and files** — non-empty `treeSearch` replaces tree view with `filteredFlatItems`.
+- **GPHY-5.5-28** ✅ **Include + neighbors mode keeps matched nodes and their direct link neighbors** — `filteredNodeIds` expands matched set with both in-direction and out-direction link endpoints.
+- **GPHY-5.5-29** ✅ **Exclude mode hides matched nodes** — `filteredNodeIds` is the complement of `matchedIds` within `data.nodes`.
+- **GPHY-5.5-30** ✅ **Folder selection matches all files under that folder path** — prefix check `sf === f || sf.startsWith(f + "/")`.
+- **GPHY-5.5-31** ✅ **Active filter count badge shown on Filter button** — `filterFiles.size > 0` renders the count as a number badge.
+- **GPHY-5.5-32** ✅ **Clear filter resets selection** — clicking "Clear filter" sets `filterFiles` to empty Set; all nodes visible.
+- **GPHY-5.5-33** ✅ **Filter and community/hyperedge highlight compose via intersection** — when both `filteredNodeIds` and `highlightIds` are non-null, `visibleNodeIds` is their intersection.
+
+### Theme
+
+- **GPHY-5.5-34** 🚫 **Dark theme: slate-900 canvas, HSL 68% lightness node colors, dark-glass overlays** — visual; requires live canvas.
+- **GPHY-5.5-35** 🚫 **Light theme: slate-100 canvas, HSL 40% lightness node colors, frosted-white overlays** — visual; requires live canvas.
+- **GPHY-5.5-36** ✅ **Theme toggle re-derives colors without vault reload** — `isDark` change triggers `useMemo` for `communities` and `nodeColorMap`; no `useEffect` re-run on the data-loading path.
+- **GPHY-5.5-37** ✅ **`MutationObserver` on `[data-theme]` propagates global toggle to canvas** — `GraphifyView` does not call `useTheme()` (which has isolated per-instance state); instead observes the DOM attribute updated by `knowledgeBase.tsx` on every toggle.
+
+---
+
 ## 5.6 Vault Graph View (Phase 3 PR 2)
 
 > Mirrors §5.4 of [Features.md](../Features.md). Driven by `features/graph/GraphView.tsx`, `components/GraphCanvas.tsx`, `components/GraphFilters.tsx`, `hooks/useGraphData.ts`. Uses `react-force-graph-2d` lazy-loaded via `next/dynamic`.
