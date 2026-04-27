@@ -254,6 +254,58 @@ export function listDrafts(): Set<string> {
   return result;
 }
 
+/* ── Document drafts (KB-002) ──
+ *
+ * Documents store a `{ kind: "document", content, savedAt }` payload under
+ * the same `DRAFT_PREFIX` so `listDrafts()` aggregates both kinds into the
+ * dirty-set the explorer marker reads. Diagram drafts pre-date the `kind`
+ * tag so they have no `kind` field; loaders discriminate on shape.
+ *
+ * `clearDraft` and `hasDraft` work for both kinds because they're
+ * path-keyed; only `saveDocumentDraft` / `loadDocumentDraft` are doc-shape
+ * aware.
+ */
+
+interface DocumentDraft {
+  kind: "document";
+  content: string;
+  savedAt: number;
+}
+
+export function saveDocumentDraft(filePath: string, content: string): void {
+  if (typeof window === "undefined") return;
+  const payload: DocumentDraft = { kind: "document", content, savedAt: Date.now() };
+  try {
+    localStorage.setItem(scopedKey(DRAFT_PREFIX) + filePath, JSON.stringify(payload));
+  } catch (e) {
+    // Match diagram saveDraft: classify + re-throw so the caller can
+    // surface quota/permission failures via the shell banner instead of
+    // silently losing the user's work.
+    throw classifyError(e);
+  }
+}
+
+export function loadDocumentDraft(
+  filePath: string,
+): { content: string; savedAt: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(scopedKey(DRAFT_PREFIX) + filePath);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DocumentDraft>;
+    if (
+      parsed.kind !== "document" ||
+      typeof parsed.content !== "string" ||
+      typeof parsed.savedAt !== "number"
+    ) {
+      return null;
+    }
+    return { content: parsed.content, savedAt: parsed.savedAt };
+  } catch {
+    return null;
+  }
+}
+
 /* ── Per-file viewport helpers ── */
 
 const VIEWPORT_PREFIX = "knowledge-base-viewport";

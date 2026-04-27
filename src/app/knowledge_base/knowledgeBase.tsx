@@ -164,6 +164,24 @@ function KnowledgeBaseInner() {
     return out;
   }, [fileExplorer.dirtyFiles, leftDocDirty, rightDocDirty]);
 
+  // KB-002 — global beforeunload guard. Trigger the browser's native
+  // "leave site?" dialog whenever any open file (document or diagram) has
+  // unsaved edits. The autosave-draft path persists the work to
+  // localStorage in parallel, so even if the user dismisses the dialog and
+  // closes the tab, edits survive across reload.
+  const headerDirtyCount = headerDirtyFiles.size;
+  useEffect(() => {
+    if (headerDirtyCount === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore the message but honour preventDefault +
+      // a non-empty returnValue.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [headerDirtyCount]);
+
   // ─── Explorer UI state ───
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");

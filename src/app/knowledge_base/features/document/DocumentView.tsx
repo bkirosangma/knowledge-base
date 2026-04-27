@@ -12,6 +12,7 @@ import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
 import { useDocumentFileWatcher } from "./hooks/useDocumentFileWatcher";
 import ConflictBanner from "../../shared/components/ConflictBanner";
+import DraftRestoreBanner from "./components/DraftRestoreBanner";
 import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
 import { useToast } from "../../shell/ToastContext";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
@@ -55,6 +56,7 @@ export default function DocumentView({
   const {
     content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
     diskChecksumRef, getContentFromDisk, updateDiskChecksum,
+    pendingDraft, dismissDraftBanner,
   } = useDocumentContent(filePath);
   const history = useDocumentHistory();
   const { conflictContent, handleReloadFromDisk, handleKeepEdits } = useDocumentFileWatcher({
@@ -305,6 +307,13 @@ export default function DocumentView({
           <ConflictBanner
             onReload={handleReloadFromDisk}
             onKeep={handleKeepEdits}
+          />
+        )}
+        {pendingDraft && (
+          <DraftRestoreBanner
+            savedAt={pendingDraft.savedAt}
+            onDiscard={discard}
+            onKeep={dismissDraftBanner}
           />
         )}
         <MarkdownPane
