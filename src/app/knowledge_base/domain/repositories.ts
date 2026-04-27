@@ -69,6 +69,24 @@ export interface DocumentRepository {
 }
 
 /**
+ * Abstraction over the `.attachments/` folder. Writes arbitrary binary
+ * content addressed by a content hash; skips write when the file already
+ * exists (hash dedup). Every method throws `FileSystemError` on failure.
+ */
+export interface AttachmentRepository {
+  /** Write `bytes` to `.attachments/<filename>`. No-op if the file already
+   *  exists (hash dedup). Throws `FileSystemError` on any FS failure. */
+  write(filename: string, bytes: ArrayBuffer): Promise<void>;
+  /** Return true if `.attachments/<filename>` already exists. */
+  exists(filename: string): Promise<boolean>;
+  /** Read `.attachments/<filename>` as a Blob. Used by the editor's image
+   *  NodeView to resolve canonical `.attachments/...` srcs to blob URLs at
+   *  render time (the relative path is unfetchable from the page origin).
+   *  Throws `FileSystemError` on any FS failure. */
+  read(filename: string): Promise<Blob>;
+}
+
+/**
  * Abstraction over a diagram file (`.json`). Reads + writes the structured
  * `DiagramData` shape; the repo handles (de)serialisation so callers work in
  * the domain type, not raw JSON.

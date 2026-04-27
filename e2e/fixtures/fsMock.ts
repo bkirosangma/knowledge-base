@@ -25,6 +25,8 @@ declare global {
       seed: (files: Record<string, string>) => void
       read: (path: string) => string | undefined
       reset: () => void
+      /** Make the next `createWritable().close()` throw a permission error. */
+      failNextWrite: () => void
     }
   }
 }
@@ -100,18 +102,13 @@ export function installMockFS() {
       name,
 
       async getFile(): Promise<File> {
-        const blob = new Blob([body.content], { type: 'text/plain' })
-        const file = {
-          name,
-          size: body.content.length,
+        // Return a real File so it is a structural Blob (necessary for
+        // `URL.createObjectURL` consumers like the editor's image
+        // NodeView). The real FSA also returns a `File` here.
+        return new File([body.content], name, {
           type: 'text/plain',
           lastModified: Date.now(),
-          text: async () => body.content,
-          arrayBuffer: async () => await blob.arrayBuffer(),
-          slice: () => blob.slice(),
-          stream: () => blob.stream(),
-        }
-        return file as unknown as File
+        })
       },
 
       async createWritable(): Promise<FileSystemWritableFileStream> {
@@ -130,6 +127,12 @@ export function installMockFS() {
             }
           },
           async close() {
+            if (failWrite) {
+              failWrite = false
+              const err = new Error('NotAllowedError: permission denied')
+              err.name = 'NotAllowedError'
+              throw err
+            }
             body.content = pending
           },
           async abort() { /* no-op */ },
@@ -141,6 +144,8 @@ export function installMockFS() {
     }
     return handle as unknown as FileSystemFileHandle
   }
+
+  let failWrite = false
 
   let rootStore: Dir = new Map()
 
@@ -199,5 +204,6 @@ export function installMockFS() {
     seed,
     read,
     reset,
+    failNextWrite: () => { failWrite = true },
   }
 }

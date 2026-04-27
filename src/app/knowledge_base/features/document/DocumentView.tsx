@@ -15,6 +15,8 @@ import ConflictBanner from "../../shared/components/ConflictBanner";
 import DraftRestoreBanner from "./components/DraftRestoreBanner";
 import { useReadOnlyState } from "../../shared/hooks/useReadOnlyState";
 import { useToast } from "../../shell/ToastContext";
+import { useShellErrors } from "../../shell/ShellErrorContext";
+import { useRepositories } from "../../shell/RepositoryContext";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
 
@@ -75,6 +77,11 @@ export default function DocumentView({
   const bumpToken = () => setHistoryToken((t) => t + 1);
   const { readOnly, toggleReadOnly } = useReadOnlyState(filePath, "document-read-only");
   const { showToast } = useToast();
+  const { reportError } = useShellErrors();
+  const { attachment: attachmentRepo } = useRepositories();
+  const handleImageError = useCallback((err: unknown) => {
+    reportError(err, "Image upload");
+  }, [reportError]);
   const hasShownReadModeToast = useRef(false);
   const handleFirstKeystrokeInReadMode = useCallback(() => {
     if (hasShownReadModeToast.current) return;
@@ -337,6 +344,8 @@ export default function DocumentView({
           readOnly={readOnly}
           onToggleReadOnly={toggleReadOnly}
           hideToolbar={focusMode}
+          attachmentRepo={attachmentRepo}
+          onImageError={handleImageError}
           rightSidebar={
             focusMode ? null : (
               <DocumentProperties

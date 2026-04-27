@@ -232,6 +232,7 @@ describe('DOC-4.11-17..19: discard()', () => {
 describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
   function renderWithStub(filePath: string | null, repo: Partial<Repositories['document']> | null) {
     const stub: Repositories = {
+      attachment: null,
       diagram: null,
       document: repo as Repositories['document'],
       linkIndex: null,
@@ -314,6 +315,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       .mockResolvedValueOnce('good')
       .mockRejectedValueOnce(new FileSystemError('permission', 'denied'))
     const stub: Repositories = {
+      attachment: null,
       diagram: null,
       document: { read, write: vi.fn(async () => {}) },
       linkIndex: null,
@@ -359,6 +361,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
   it('DOC-4.11-16 (regression): save-previous-on-switch failure is reported (not silent)', async () => {
     const reportError = vi.fn()
     const stub: Repositories = {
+      attachment: null,
       diagram: null,
       document: {
         read: vi.fn().mockResolvedValue('orig'),
@@ -408,6 +411,7 @@ describe('useDocumentContent — loadedPath field', () => {
   it('loadedPath remains null after a failed load', async () => {
     const read = vi.fn(async () => { throw new Error('not found') })
     const stub: Repositories = {
+      attachment: null,
       diagram: null,
       document: { read, write: vi.fn(async () => {}) },
       linkIndex: null,

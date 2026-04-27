@@ -4,11 +4,13 @@ import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 
 import type {
+  AttachmentRepository,
   DiagramRepository,
   DocumentRepository,
   LinkIndexRepository,
   VaultConfigRepository,
 } from "../domain/repositories";
+import { createAttachmentRepository } from "../infrastructure/attachmentRepo";
 import { createDiagramRepository } from "../infrastructure/diagramRepo";
 import { createDocumentRepository } from "../infrastructure/documentRepo";
 import { createLinkIndexRepository } from "../infrastructure/linkIndexRepo";
@@ -21,6 +23,7 @@ import { createVaultConfigRepository } from "../infrastructure/vaultConfigRepo";
  * of every previous inline `createXRepository(rootHandle)` callsite.
  */
 export interface Repositories {
+  attachment: AttachmentRepository | null;
   diagram: DiagramRepository | null;
   document: DocumentRepository | null;
   linkIndex: LinkIndexRepository | null;
@@ -28,6 +31,7 @@ export interface Repositories {
 }
 
 const EMPTY_REPOS: Repositories = {
+  attachment: null,
   diagram: null,
   document: null,
   linkIndex: null,
@@ -57,6 +61,7 @@ export function RepositoryProvider({
   const value = useMemo<Repositories>(() => {
     if (!rootHandle) return EMPTY_REPOS;
     return {
+      attachment: createAttachmentRepository(rootHandle),
       diagram: createDiagramRepository(rootHandle),
       document: createDocumentRepository(rootHandle),
       linkIndex: createLinkIndexRepository(rootHandle),
