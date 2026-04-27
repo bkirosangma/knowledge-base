@@ -13,8 +13,14 @@ const mockGetZoom = vi.fn().mockReturnValue(1);
 const mockBind = vi.fn();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MockSvgCanvas = vi.fn(function (this: any) {
-  // Must use a regular function (not arrow) so `new` receives the return value
+const MockSvgCanvas = vi.fn(function (this: any, container: HTMLElement) {
+  // Must use a regular function (not arrow) so `new` receives the return value.
+  // Inject a stand-in `#svgcontent` SVG element so the production
+  // MutationObserver fallback (KB-005a) has something to attach to.
+  // The real library does this during init.
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'svgcontent';
+  container.appendChild(svg);
   Object.assign(this, {
     getSvgString: mockGetSvgString,
     setSvgString: mockSetSvgString,
@@ -79,5 +85,41 @@ describe('SVGCanvas', () => {
     expect(boundCallback).toBeDefined();
     boundCallback?.();
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('SVG-6.4-17: MutationObserver fallback fires onChanged on shape-attribute mutations (move-shape gap)', async () => {
+    const onChanged = vi.fn();
+    const ref = createRef<SVGCanvasHandle>();
+    await act(async () => {
+      render(<SVGCanvas ref={ref} onChanged={onChanged} />);
+    });
+    // Simulate the user dragging an existing rect — `@svgedit/svgcanvas`
+    // 7.x omits a `changed` call for select-mode mouseup translates
+    // (event.js:646), so the only signal we have is the DOM mutation.
+    const svgcontent = document.getElementById('svgcontent')!
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    svgcontent.appendChild(rect)
+    await new Promise((r) => setTimeout(r, 0))
+    // Translate the rect.
+    rect.setAttribute('transform', 'translate(50 50)')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onChanged).toHaveBeenCalled()
+  });
+
+  it('SVG-6.4-18: MutationObserver is suppressed during programmatic setSvgString load', async () => {
+    const onChanged = vi.fn();
+    const ref = createRef<SVGCanvasHandle>();
+    await act(async () => {
+      render(<SVGCanvas ref={ref} onChanged={onChanged} />);
+    });
+    onChanged.mockClear();
+    // setSvgString sets the suppression flag, mutates the DOM, and clears
+    // the flag on the next macrotask. Observer mutations during that
+    // window must not look like user edits.
+    act(() => { ref.current?.setSvgString('<svg><rect/></svg>'); });
+    const svgcontent = document.getElementById('svgcontent')!
+    svgcontent.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'rect'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onChanged).not.toHaveBeenCalled()
   });
 });

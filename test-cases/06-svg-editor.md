@@ -44,3 +44,8 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-11 | Window blur flushes pending writes (unit) | ✅ |
 | SVG-6.4-12 | flush() on a clean editor is a no-op (unit) | ✅ |
 | SVG-6.4-13 | Drawing on the canvas persists to disk through the repo seam (e2e) | ✅ |
+| SVG-6.4-14 | pagehide flushes pending edit (tab-close path) (unit) | ✅ |
+| SVG-6.4-15 | visibilitychange to hidden flushes pending edit (unit) | ✅ |
+| SVG-6.4-16 | visibilitychange to visible does NOT flush (unit) | ✅ |
+| SVG-6.4-17 | MutationObserver fallback fires onChanged on shape-attribute mutations — closes the @svgedit/svgcanvas select-mode-translate gap (unit) | ✅ |
+| SVG-6.4-18 | MutationObserver is suppressed during programmatic setSvgString load (unit) | ✅ |

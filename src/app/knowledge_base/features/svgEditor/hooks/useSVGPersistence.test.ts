@@ -295,6 +295,67 @@ describe('useSVGPersistence', () => {
     expect(write).toHaveBeenCalledWith('drawing.svg', EDITED_SVG);
   });
 
+  it('SVG-6.4-14: pagehide flushes pending edit (tab close path)', async () => {
+    const canvas = makeCanvas();
+    const write = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () => useSVGPersistence('drawing.svg', makeRef<SVGCanvasHandle>(canvas)),
+      { wrapper: makeWrapper({ write }) },
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    canvas._content = EDITED_SVG;
+    act(() => { result.current.onChanged(); });
+    expect(write).not.toHaveBeenCalled();
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(write).toHaveBeenCalledWith('drawing.svg', EDITED_SVG);
+  });
+
+  it('SVG-6.4-15: visibilitychange to hidden flushes pending edit', async () => {
+    const canvas = makeCanvas();
+    const write = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () => useSVGPersistence('drawing.svg', makeRef<SVGCanvasHandle>(canvas)),
+      { wrapper: makeWrapper({ write }) },
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    canvas._content = EDITED_SVG;
+    act(() => { result.current.onChanged(); });
+    expect(write).not.toHaveBeenCalled();
+    await act(async () => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(write).toHaveBeenCalledWith('drawing.svg', EDITED_SVG);
+  });
+
+  it('SVG-6.4-16: visibilitychange to visible does NOT flush', async () => {
+    const canvas = makeCanvas();
+    const write = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () => useSVGPersistence('drawing.svg', makeRef<SVGCanvasHandle>(canvas)),
+      { wrapper: makeWrapper({ write }) },
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    canvas._content = EDITED_SVG;
+    act(() => { result.current.onChanged(); });
+    await act(async () => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(write).not.toHaveBeenCalled();
+  });
+
   it('SVG-6.4-12: explicit flush() on a clean editor is a no-op', async () => {
     const canvas = makeCanvas();
     const write = vi.fn().mockResolvedValue(undefined);

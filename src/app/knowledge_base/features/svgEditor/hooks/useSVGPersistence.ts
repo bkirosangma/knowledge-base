@@ -109,15 +109,35 @@ export function useSVGPersistence(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFile]);
 
-  // Window blur: flush any pending edit so a user tabbing away does not
-  // sit on un-persisted strokes. FSA writes are local and usually
-  // complete before the tab is fully backgrounded.
+  // Flush on every "user is leaving" signal. FSA writes are async and
+  // can't be made synchronous, so we maximise the wall-clock window the
+  // browser gives the kicked-off `createWritable.close()` to land:
+  //
+  //   - `window.blur`              — tab/app switch
+  //   - `visibilitychange`         — tab hidden (often fires earlier
+  //                                   than `pagehide` on tab close)
+  //   - `pagehide`                 — tab close, navigation away (also
+  //                                   covers BFCache eviction)
+  //
+  // Together they cover every realistic loss-of-focus path. Tab close
+  // remains best-effort because there is no synchronous FSA write API,
+  // but kicking off the write at `visibilitychange` gives it ~hundreds
+  // of milliseconds before the browser tears the renderer down.
   useEffect(() => {
-    const onBlur = () => {
+    const flushNow = () => {
       if (activeFile) flushPath(activeFile);
     };
-    window.addEventListener("blur", onBlur);
-    return () => window.removeEventListener("blur", onBlur);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushNow();
+    };
+    window.addEventListener("blur", flushNow);
+    window.addEventListener("pagehide", flushNow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("blur", flushNow);
+      window.removeEventListener("pagehide", flushNow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [activeFile, flushPath]);
 
   const onChanged = useCallback(() => {
