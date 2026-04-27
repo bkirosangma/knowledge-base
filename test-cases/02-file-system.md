@@ -102,6 +102,7 @@
 - **FS-2.3-52** ✅ **Create SVG with minimal content** — `createSVG` writes `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>` to the file. _(useFileExplorer.operations.test.tsx)_
 - **FS-2.3-53** ✅ **Create SVG in subdirectory** — when parentPath is given, SVG file is created inside that folder with correct path. _(useFileExplorer.operations.test.tsx)_
 - **FS-2.3-54** ✅ **Create SVG unique-name fallback** — when `untitled.svg` already exists, `createSVG` generates `untitled-1.svg`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-55** ✅ **"SVG" entry in folder context menu New submenu** — right-clicking a folder and clicking New → SVG calls `onCreateSVG` with the folder path. _(ExplorerPanel.test.tsx)_
 
 ## 2.4 Confirmation Popover
 

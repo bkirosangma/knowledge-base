@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, FolderOpen,
-  FilePlus, FolderPlus, FileText, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
+  FilePlus, FolderPlus, FileText, FileImage, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
   X, ChevronDown,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
@@ -29,6 +29,7 @@ interface ExplorerPanelProps {
   onSelectFile: (path: string) => void;
   onCreateFile: (parentPath: string) => Promise<string | null>;
   onCreateDocument: (parentPath: string) => Promise<string | null>;
+  onCreateSVG: (parentPath: string) => Promise<string | null>;
   onCreateFolder: (parentPath: string) => Promise<string | null>;
   onDeleteFile: (path: string, event: React.MouseEvent) => void;
   onDeleteFolder: (path: string, event: React.MouseEvent) => void;
@@ -64,6 +65,7 @@ export default function ExplorerPanel({
   onSelectFile,
   onCreateFile,
   onCreateDocument,
+  onCreateSVG,
   onCreateFolder,
   onDeleteFile,
   onDeleteFolder,
@@ -231,6 +233,16 @@ export default function ExplorerPanel({
     }
   }, [onCreateDocument]);
 
+  const handleCreateSVG = useCallback(async (parentPath: string = "") => {
+    if (parentPath) setExpandedFolders((prev) => new Set(prev).add(parentPath));
+    const resultPath = await onCreateSVG(parentPath);
+    if (resultPath) {
+      setEditingPath(resultPath);
+      setEditValue(resultPath.split("/").pop() || "untitled.svg");
+      setEditType("file");
+    }
+  }, [onCreateSVG]);
+
   const handleCreateFolder = useCallback(async (parentPath: string = "") => {
     if (parentPath) setExpandedFolders((prev) => new Set(prev).add(parentPath));
     const resultPath = await onCreateFolder(parentPath);
@@ -350,6 +362,7 @@ export default function ExplorerPanel({
       startRename={startRename}
       handleCreateFile={handleCreateFile}
       handleCreateDocument={handleCreateDocument}
+      handleCreateSVG={handleCreateSVG}
       handleCreateFolder={handleCreateFolder}
       handleDragStart={handleDragStart}
       handleDragOver={handleDragOver}
@@ -603,6 +616,13 @@ export default function ExplorerPanel({
                     >
                       <FileText size={15} className="text-mute" />
                       Document
+                    </button>
+                    <button
+                      className={`${btnClass} text-ink-2 hover:bg-surface-2`}
+                      onClick={() => { handleCreateSVG(contextMenu.path); setContextMenu(null); setNewSubMenuOpen(false); }}
+                    >
+                      <FileImage size={15} className="text-mute" />
+                      SVG
                     </button>
                     <button
                       className={`${btnClass} text-ink-2 hover:bg-surface-2`}
