@@ -97,6 +97,13 @@
 - **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright
 - **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
+### 2.3.h Create SVG Files
+- **FS-2.3-51** ✅ **Create SVG default name** — `createSVG("")` produces `untitled.svg` at root; `createSVG("sub")` produces `sub/untitled.svg`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-52** ✅ **Create SVG with minimal content** — `createSVG` writes `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>` to the file. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-53** ✅ **Create SVG in subdirectory** — when parentPath is given, SVG file is created inside that folder with correct path. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-54** ✅ **Create SVG unique-name fallback** — when `untitled.svg` already exists, `createSVG` generates `untitled-1.svg`. _(useFileExplorer.operations.test.tsx)_
+- **FS-2.3-55** ✅ **"SVG" entry in folder context menu New submenu** — right-clicking a folder and clicking New → SVG calls `onCreateSVG` with the folder path. _(ExplorerPanel.test.tsx)_
+
 ## 2.4 Confirmation Popover
 
 - **FS-2.4-01** ✅ **Mouse-anchored positioning** — `position: {x, y}` prop is applied as `left`/`top` inline styles on the root.

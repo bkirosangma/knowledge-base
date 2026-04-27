@@ -48,6 +48,7 @@ export interface MobileShellProps {
   onSelectFile: (path: string) => void;
   onCreateFile: (parentPath?: string) => Promise<string | null>;
   onCreateDocument: (parentPath?: string) => Promise<string | null>;
+  onCreateSVG: (parentPath: string) => Promise<string | null>;
   onCreateFolder: (parentPath?: string) => Promise<string | null>;
   onDeleteFile: (path: string, event: React.MouseEvent) => void;
   onDeleteFolder: (path: string, event: React.MouseEvent) => void;
@@ -249,6 +250,10 @@ export default function MobileShell(props: MobileShellProps) {
                 const path = await props.onCreateDocument(parentPath);
                 if (path) handleSelectFileFromExplorer(path);
                 return path;
+              }}
+              onCreateSVG={async (parentPath) => {
+                const resultPath = await props.onCreateSVG(parentPath);
+                return resultPath;
               }}
               onCreateFolder={props.onCreateFolder}
               onDeleteFile={props.onDeleteFile}

@@ -100,7 +100,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Open folder via File System Access API** — `showDirectoryPicker`; fallback to `<input webkitdirectory>` when API unavailable.
 - ✅ **Directory-handle persistence** — handle stored in IndexedDB (`knowledge-base` DB, `handles` store) keyed by 8-char scope ID so the vault survives reloads.
 - ⚙️ **Directory scoping** — all localStorage keys namespaced per folder via `scopedKey(base)` so multiple vaults do not collide.
-- ⚙️ **Tree scan** — recursive walk collecting `.json` (diagrams) and `.md` (documents); skips `.*.history.json` sidecars; returns sorted `TreeNode[]`.
+- ⚙️ **Tree scan** — recursive walk collecting `.json` (diagrams), `.md` (documents), and `.svg` (SVG drawings); skips `.*.history.json` sidecars; returns sorted `TreeNode[]`.
 
 ### 2.2 Vault Configuration
 `features/document/utils/vaultConfig.ts` — low-level FS helpers. Phase 3a (2026-04-18) wrapped these behind the `VaultConfigRepository` interface (`domain/repositories.ts`) with a File System Access API implementation at `infrastructure/vaultConfigRepo.ts`; the shell calls `createVaultConfigRepository(rootHandle).read/init/touchLastOpened` instead of the utility functions directly. The same phase introduced `LinkIndexRepository` + `infrastructure/linkIndexRepo.ts` (consumed by `useLinkIndex`). Phase 3b (2026-04-19) added `DocumentRepository` + `DiagramRepository` interfaces + impls (`infrastructure/documentRepo.ts`, `infrastructure/diagramRepo.ts`); `useDocumentContent` and `useDocuments` route `.md` I/O through the document repo. Phase 3c (2026-04-19) migrated `useFileExplorer`'s `selectFile` / `saveFile` / `createFile` / `discardFile` to `createDiagramRepository`, so every `.json` load + save in the primary code paths now goes through the abstraction. Phase 3d (2026-04-19) closed out the layer by consolidating the duplicated in-memory FS mock used across five test files into `shared/testUtils/fsMock.ts` (−152 lines net; `fileTree.test.ts` keeps its unified `children`-Map shape). Phase 3e (2026-04-19) shipped the previously-deferred `RepositoryContext` at `shell/RepositoryContext.tsx`: `RepositoryProvider` is mounted inside `KnowledgeBaseInner`'s return below the `useFileExplorer()` call and memoizes all four repos against a reactive `rootHandle` (state companion to `dirHandleRef`, added to `useDirectoryHandle`), plus a `StubRepositoryProvider` for tests. The layering rule is: consumers **below** the provider use `useRepositories()` (today: `useDocumentContent` routes every `.md` read/write through `repos.document`); consumers **at or above** the provider — `useFileExplorer` (handle owner), `useDocuments` / `useLinkIndex` (peers of the provider in the same component), and the vault-init `useEffect` in `knowledgeBase.tsx` — keep inline `createXRepository(rootHandle)` because React hooks' ordering prevents them from reading a context that is mounted in their own return JSX. The test-seam pay-off is realised in `useDocumentContent.test.ts`: three new seam cases exercise the hook against `StubRepositoryProvider` with pure `vi.fn()` repos, no `MockDir` tree involved.
@@ -115,8 +115,8 @@ Top-level chrome that hosts every other feature.
 - ✅ **Tree rendering** — nested folders with chevrons, file icons by type (JSON/diagram vs text/doc), highlight on currently-open file.
 - ✅ **Sorting** — three fields (name, created, modified), two directions (asc/desc), three groupings (folders-first, files-first, mixed); preferences persisted to localStorage; recursive on nested folders.
 - ✅ **Filtering** — "All / Diagrams / Documents" radio; only matching files visible.
-- ✅ **Right-click context menu** — Create, Rename, Delete, Duplicate, Move.
-- ✅ **Create file / folder** — dialog prompts; unique-name fallback (`untitled.json`, `untitled-1.json`, …); type routed by extension.
+- ✅ **Right-click context menu** — Create (file, document, folder, SVG), Rename, Delete, Duplicate, Move. Folder rows also show hover buttons for New File, New Document, New Folder, and New SVG.
+- ✅ **Create file / folder / SVG** — dialog prompts; unique-name fallback (`untitled.json`, `untitled-1.json`, `untitled.svg`, `untitled-1.svg`, …); type routed by extension. `useFileExplorer` exports `createFile`, `createDocument`, `createSVG`, and `createFolder`.
 - ✅ **Rename** — inline edit with trimmed validation; **wiki-link-aware** — updates `[[…]]` references in other documents and the link index.
 - ✅ **Delete** — confirmation popover; wiki-link-aware removal from the link index.
 - ✅ **Duplicate** — clones with a new unique name.
@@ -450,6 +450,17 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **Context snippets** — each entry shows the source filename + a 2-line `line-clamp-2` plain-text snippet sliced ±80 chars around the first `[[currentFile]]` occurrence in the source markdown (resolved via `resolveWikiLinkPath` against the source's directory). Source is fetched on demand through `useRepositories().document.read()` with `readOrNull`; un-readable sources fall back to a "(source unavailable)" placeholder.
 - ✅ **Click to navigate** — entries call the existing `onNavigateBacklink` handler; clicking opens the source document in the same pane.
 - ✅ **Properties-panel backlinks coexist** — the existing `DocumentProperties` backlinks list is intentionally retained in this PR; a future cleanup removes the duplicate.
+
+---
+
+## 4.18 SVG Editor
+`features/svgEditor/SVGEditorView.tsx`, `features/svgEditor/components/SVGCanvas.tsx`, `features/svgEditor/components/SVGToolbar.tsx`, `features/svgEditor/hooks/useSVGPersistence.ts`
+- ✅ **SVG editor pane** — `SVGEditorView` opens `.svg` files in a dedicated pane. Routing: clicking a `.svg` file in the explorer calls `panes.openFile(path, "svgEditor")`. Creating a new SVG via the explorer context menu or folder hover button creates the file and immediately opens the editor pane.
+- ✅ **Toolbar** — `SVGToolbar` renders six drawing-tool buttons (Select, Rectangle, Ellipse, Line, Path, Text), Undo/Redo, and Zoom In / Zoom Out / Fit. Active tool is highlighted.
+- ✅ **Canvas** — `SVGCanvas` mounts a `<div>` into which `@svgedit/svgcanvas` renders an SVG DOM tree; exposed via a `SVGCanvasHandle` ref with `setMode`, `undo`, `redo`, `zoomIn`, `zoomOut`, `zoomFit`, `getSvgString`, and `setSvgString`.
+- ✅ **Persistence** — `useSVGPersistence` reads the vault file on pane open, writes on Cmd+S (via `SVGEditorBridge.onSave`) and on a 1.5 s debounced auto-save triggered by canvas changes. Discard re-reads from disk and clears the dirty flag.
+- ✅ **Pane chrome** — `PaneHeader` shows the filename (without `.svg` extension) as title and Save/Discard buttons when `isDirty=true`.
+- ✅ **Shell bridge** — `SVGEditorBridge` (`{ isDirty, title, onSave, onDiscard }`) is pushed to `knowledgeBase.tsx` via `onSVGEditorBridge`; Cmd+S in the shell calls `svgEditorBridgeRef.current?.onSave()` when the active pane is `"svgEditor"`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 import React from "react";
 import {
-  Folder, FilePlus, FileText, FolderPlus, RefreshCw,
+  Folder, FolderOpen, FilePlus, FileText, FolderPlus, RefreshCw,
   EllipsisVertical, ChevronRight,
   ArrowUp, ArrowDown, Check,
 } from "lucide-react";
@@ -32,6 +32,8 @@ export interface ExplorerHeaderProps {
   sortSubMenuOpen: boolean;
   setSortSubMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   dotMenuRef: React.RefObject<HTMLDivElement | null>;
+
+  onOpenFolder?: () => void;
 
   // Callbacks
   setContextMenu: (m: ContextMenuState | null) => void;
@@ -78,6 +80,7 @@ export default function ExplorerHeader({
   handleDrop,
   handleSortFieldClick,
   handleGroupingClick,
+  onOpenFolder,
 }: ExplorerHeaderProps) {
   return (
     <>
@@ -103,6 +106,16 @@ export default function ExplorerHeader({
               ? <><span className="text-mute font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
               : directoryName}
           </span>
+          {onOpenFolder && (
+            <button
+              onClick={onOpenFolder}
+              className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
+              title="Open different folder"
+              aria-label="Open different folder"
+            >
+              <FolderOpen size={14} className="text-mute" />
+            </button>
+          )}
           <button
             onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
             className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"

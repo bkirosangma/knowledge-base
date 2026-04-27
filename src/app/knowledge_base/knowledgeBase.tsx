@@ -14,6 +14,7 @@ import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
 import type { DiagramBridge } from "./features/diagram/DiagramView";
+import SVGEditorView, { type SVGEditorBridge } from "./features/svgEditor/SVGEditorView";
 import DocumentView from "./features/document/DocumentView";
 import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import GraphView from "./features/graph/GraphView";
@@ -111,6 +112,12 @@ function KnowledgeBaseInner() {
   const handleDiagramBridge = useCallback((bridge: DiagramBridge) => {
     diagramBridgeRef.current = bridge;
     setDiagramBridge(bridge);
+  }, []);
+
+  // ─── SVG editor bridge ───
+  const svgEditorBridgeRef = useRef<SVGEditorBridge | null>(null);
+  const handleSVGEditorBridge = useCallback((bridge: SVGEditorBridge) => {
+    svgEditorBridgeRef.current = bridge;
   }, []);
 
   // ─── Document bridges: one per pane side ───
@@ -328,6 +335,8 @@ function KnowledgeBaseInner() {
   const handleSelectFile = useCallback((path: string) => {
     if (path.endsWith(".md")) {
       handleOpenDocument(path);
+    } else if (path.endsWith(".svg")) {
+      panes.openFile(path, "svgEditor");
     } else {
       panes.openFile(path, "diagram");
     }
@@ -392,6 +401,10 @@ function KnowledgeBaseInner() {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         const activeEntry = panes.activeEntry;
+        if (activeEntry?.fileType === "svgEditor") {
+          svgEditorBridgeRef.current?.onSave();
+          return;
+        }
         if (activeEntry?.fileType === "document") {
           const docBridge = panes.focusedSide === "right"
             ? rightDocBridgeRef.current : leftDocBridgeRef.current;
@@ -817,6 +830,17 @@ function KnowledgeBaseInner() {
         />
       );
     }
+    if (entry.fileType === "svgEditor") {
+      return (
+        <SVGEditorView
+          focused={focused}
+          side={side}
+          activeFile={entry.filePath}
+          fileExplorer={fileExplorer}
+          onSVGEditorBridge={handleSVGEditorBridge}
+        />
+      );
+    }
 
     return (
       <DocumentView
@@ -849,7 +873,7 @@ function KnowledgeBaseInner() {
         }}
       />
     );
-  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty, reportError]);
+  }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleSVGEditorBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty, reportError]);
 
   // ─── Empty state when no file is open ───
   const emptyState = (
@@ -924,6 +948,11 @@ function KnowledgeBaseInner() {
                 linkManager.updateDocumentLinks(rootHandle, resultPath, "").catch(() => {});
               }
             }
+            return resultPath;
+          }}
+          onCreateSVG={async (parentPath) => {
+            const resultPath = await fileExplorer.createSVG(parentPath);
+            if (resultPath) handleSelectFile(resultPath);
             return resultPath;
           }}
           onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
@@ -1024,6 +1053,11 @@ function KnowledgeBaseInner() {
             }}
             onCreateDocument={async (parentPath) => {
               const resultPath = await fileExplorer.createDocument(parentPath);
+              if (resultPath) handleSelectFile(resultPath);
+              return resultPath;
+            }}
+            onCreateSVG={async (parentPath) => {
+              const resultPath = await fileExplorer.createSVG(parentPath);
               if (resultPath) handleSelectFile(resultPath);
               return resultPath;
             }}

@@ -1,0 +1,93 @@
+diff --git a/node_modules/@svgedit/svgcanvas/core/event.js b/node_modules/@svgedit/svgcanvas/core/event.js
+index 75bc988..0ff9bb4 100644
+--- a/node_modules/@svgedit/svgcanvas/core/event.js
++++ b/node_modules/@svgedit/svgcanvas/core/event.js
+@@ -695,7 +695,10 @@ const mouseUpEvent = (evt) => {
+             // For groups, we always consolidate the transforms (recalculateDimensions returns null for groups)
+             const isGroup = elem.tagName === 'g' || elem.tagName === 'a'
+ 
+-            // If element has 2+ transforms, or is a group with a drag translate, consolidate
++            // For groups with 2+ transforms, or any group with a drag translate, consolidate
++            // to a single matrix (recalculateDimensions returns null for groups).
++            // Non-group elements fall through to recalculateDimensions even after
++            // consolidation — it handles the N===1 MATRIX case by baking into attributes.
+             if ((tlist.numberOfItems > 1 && hasDragTranslate) || (isGroup && hasDragTranslate)) {
+               const consolidatedMatrix = transformListToTransform(tlist).matrix
+ 
+@@ -709,12 +712,17 @@ const mouseUpEvent = (evt) => {
+               newTransform.setMatrix(consolidatedMatrix)
+               tlist.appendItem(newTransform)
+ 
+-              // Record the transform change for undo
+-              batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
+-              return
++              if (isGroup) {
++                // Groups: recalculateDimensions returns null; record the transform for undo
++                batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
++                return
++              }
++              // Non-groups: fall through to recalculateDimensions which handles the
++              // single MATRIX transform case, baking it into element coords (e.g. path d)
+             }
+ 
+-            // For non-group elements with simple transforms, try recalculateDimensions
++            // For non-group elements with simple transforms (or consolidated single matrix),
++            // try recalculateDimensions
+             const cmd = svgCanvas.recalculateDimensions(elem)
+             if (cmd) {
+               batchCmd.addSubCommand(cmd)
+diff --git a/node_modules/@svgedit/svgcanvas/core/path-method.js b/node_modules/@svgedit/svgcanvas/core/path-method.js
+index 9c42c60..d5faf6f 100644
+--- a/node_modules/@svgedit/svgcanvas/core/path-method.js
++++ b/node_modules/@svgedit/svgcanvas/core/path-method.js
+@@ -1130,9 +1130,13 @@ export class Path {
+   */
+   update () {
+     const { elem } = this
+-    if (getRotationAngle(elem)) {
+-      this.matrix = getMatrix(elem)
+-      this.imatrix = this.matrix.inverse()
++    // Always compute the full transform matrix so grips account for any
++    // transform on the path (translate, matrix, or rotation), not just rotation.
++    const m = getMatrix(elem)
++    const isIdentity = m && m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.e === 0 && m.f === 0
++    if (!isIdentity) {
++      this.matrix = m
++      this.imatrix = m.inverse()
+     } else {
+       this.matrix = null
+       this.imatrix = null
+diff --git a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
+index 4788dff..824f768 100644
+--- a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
++++ b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
+@@ -2527,7 +2527,8 @@ class nv {
+   */
+   update() {
+     const { elem: e } = this;
+-    return bA(e) ? (this.matrix = Jm(e), this.imatrix = this.matrix.inverse()) : (this.matrix = null, this.imatrix = null), this.eachSeg(function(t) {
++    const _m = Jm(e), _id = _m && _m.a === 1 && _m.b === 0 && _m.c === 0 && _m.d === 1 && _m.e === 0 && _m.f === 0;
++    return _id ? (this.matrix = null, this.imatrix = null) : (this.matrix = _m, this.imatrix = _m.inverse()), this.eachSeg(function(t) {
+       this.item = e.pathSegList.getItem(t), this.update();
+     }), this;
+   }
+@@ -5199,7 +5200,7 @@ const mU = (r) => {
+   );
+ }, yU = (r) => {
+   const { $id: e } = I;
+-  if (I.getCurrentMode() !== "select" && I.getStarted()) {
++  if (I.getCurrentMode() !== "select" && I.getCurrentMode() !== "pathedit" && I.getStarted()) {
+     const t = new MouseEvent("mouseup", {
+       bubbles: !0,
+       cancelable: !0,
+@@ -5261,8 +5262,8 @@ const mU = (r) => {
+               for (; S.numberOfItems > 0; )
+                 S.removeItem(0);
+               const R = I.getSvgRoot().createSVGTransform();
+-              R.setMatrix(_), S.appendItem(R), v.addSubCommand(new z1(b, { transform: B }));
+-              return;
++              R.setMatrix(_), S.appendItem(R);
++              if (Q) { v.addSubCommand(new z1(b, { transform: B })); return; }
+             }
+             const N = I.recalculateDimensions(b);
+             N ? v.addSubCommand(N) : (b.getAttribute("transform") || "") !== B && v.addSubCommand(new z1(b, { transform: B }));

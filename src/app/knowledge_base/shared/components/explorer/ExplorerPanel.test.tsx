@@ -22,6 +22,7 @@ function renderPanel(overrides: Partial<P> = {}) {
     onSelectFile: vi.fn(),
     onCreateFile: vi.fn(async () => null),
     onCreateDocument: vi.fn(async () => null),
+    onCreateSVG: vi.fn(async () => null),
     onCreateFolder: vi.fn(async () => null),
     onDeleteFile: vi.fn(),
     onDeleteFolder: vi.fn(),
@@ -391,6 +392,23 @@ describe('ExplorerPanel — sort variants (FS-2.3-09..15)', () => {
     expect(names[0]).toBe('new.json')
     expect(names[1]).toBe('old.json')
   })
+})
+
+describe('ExplorerPanel — SVG creation (FS-2.3-55)', () => {
+  it('FS-2.3-55: calls onCreateSVG when "SVG" is clicked in the New submenu', async () => {
+    const onCreateSVG = vi.fn().mockResolvedValue('untitled.svg');
+    renderPanel({
+      tree: [{ name: 'notes', path: 'notes', type: 'folder', children: [] }],
+      onCreateSVG,
+    });
+    const folderRow = screen.getByText('notes');
+    fireEvent.contextMenu(folderRow);
+    const newButton = screen.getByText('New');
+    fireEvent.mouseEnter(newButton.closest('div')!);
+    const svgButton = await screen.findByText('SVG');
+    fireEvent.click(svgButton);
+    expect(onCreateSVG).toHaveBeenCalledWith('notes');
+  });
 })
 
 describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {

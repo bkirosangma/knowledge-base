@@ -3,7 +3,7 @@
 import React from "react";
 import {
   ChevronDown, ChevronRight,
-  Folder, FileText, FileJson,
+  Folder, FileText, FileJson, FileImage,
   FilePlus, FolderPlus, Pencil, Copy,
 } from "lucide-react";
 import type { TreeNode } from "../../hooks/useFileExplorer";
@@ -52,6 +52,7 @@ export interface TreeNodeRowProps {
   startRename: (path: string, name: string, type: "file" | "folder") => void;
   handleCreateFile: (parentPath?: string) => void;
   handleCreateDocument: (parentPath?: string) => void;
+  handleCreateSVG: (parentPath?: string) => void;
   handleCreateFolder: (parentPath?: string) => void;
   handleDragStart: (e: React.DragEvent, path: string, type: "file" | "folder") => void;
   handleDragOver: (e: React.DragEvent, folderPath: string) => void;
@@ -115,6 +116,7 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     startRename,
     handleCreateFile,
     handleCreateDocument,
+    handleCreateSVG,
     handleCreateFolder,
     handleDragStart,
     handleDragOver,
@@ -184,6 +186,9 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateDocument(node.path)} title="New Document">
                   <FileText size={13} className="text-mute hover:text-ink-2" />
+                </HoverBtn>
+                <HoverBtn onClick={() => handleCreateSVG(node.path)} title="New SVG">
+                  <FileImage size={13} className="text-mute hover:text-ink-2" />
                 </HoverBtn>
                 <HoverBtn onClick={() => handleCreateFolder(node.path)} title="New Folder">
                   <FolderPlus size={13} className="text-mute hover:text-ink-2" />

@@ -264,6 +264,23 @@ export function useFileExplorer() {
     }
   }, [tree, rescan, reportError]);
 
+  /** Create a new SVG file with minimal content. Returns the path or null. */
+  const createSVG = useCallback(async (parentPath: string = ""): Promise<string | null> => {
+    if (!dirHandleRef.current) return null;
+    try {
+      const siblings = findChildren(tree, parentPath);
+      const fileName = uniqueName(siblings, "untitled", ".svg");
+      const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>`;
+      await writeTextFile(dirHandleRef.current, filePath, svgContent);
+      await rescan();
+      return filePath;
+    } catch (e) {
+      reportError(e, `Creating SVG in ${parentPath || "(root)"}`);
+      return null;
+    }
+  }, [tree, rescan, reportError]);
+
   /** Create a new folder with a default name. Returns the path or null. */
   const createFolder = useCallback(async (parentPath: string = ""): Promise<string | null> => {
     if (!dirHandleRef.current) return null;
@@ -590,6 +607,7 @@ export function useFileExplorer() {
     saveFile,
     createFile,
     createDocument,
+    createSVG,
     createFolder,
     deleteFile,
     deleteFolder,
