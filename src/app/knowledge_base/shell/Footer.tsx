@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { FileText, LayoutGrid, Network } from "lucide-react";
 import { useFooterContext } from "./FooterContext";
 import { useToolbarContext, GRAPH_SENTINEL } from "./ToolbarContext";
 import type { PaneEntry } from "./PaneManager";
+import ConfirmPopover from "../shared/components/explorer/ConfirmPopover";
 
 interface FooterProps {
   focusedEntry: PaneEntry | null;
@@ -13,6 +15,7 @@ interface FooterProps {
 export default function Footer({ focusedEntry, isSplit }: FooterProps) {
   const { leftInfo, rightInfo } = useFooterContext();
   const { focusedPane } = useToolbarContext();
+  const [resetConfirmPos, setResetConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
   const info = focusedPane === "right" ? rightInfo : leftInfo;
   const isGraph = focusedEntry?.fileType === "graph" || focusedEntry?.filePath === GRAPH_SENTINEL;
@@ -55,10 +58,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
             </>
           )}
           <button
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
+            onClick={(e) => setResetConfirmPos({ x: e.clientX, y: e.clientY })}
             className="text-[11px] text-red-400 hover:text-red-600 font-mono cursor-pointer transition-colors"
             aria-label="Reset app — clears local storage and reloads"
           >
@@ -66,6 +66,19 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
           </button>
         </div>
       </div>
+      {resetConfirmPos && (
+        <ConfirmPopover
+          message="Clear all local state? This removes drafts, recent vaults, and view preferences. Files on disk are not affected."
+          confirmLabel="Reset"
+          confirmColor="red"
+          position={resetConfirmPos}
+          onConfirm={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+          onCancel={() => setResetConfirmPos(null)}
+        />
+      )}
     </div>
   );
 }
