@@ -8,6 +8,7 @@ export interface SVGCanvasHandle {
   getSvgString: () => string;
   setSvgString: (svg: string) => void;
   setMode: (tool: SVGTool) => void;
+  clearSelection: () => void;
   undo: () => void;
   redo: () => void;
   zoomIn: () => void;
@@ -103,6 +104,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     getSvgString: () => canvasRef.current?.getSvgString() ?? "",
     setSvgString: (svg: string) => canvasRef.current?.setSvgString(svg),
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
+    clearSelection: () => canvasRef.current?.clearSelection(),
     undo: () => canvasRef.current?.undoMgr?.undo(),
     redo: () => canvasRef.current?.undoMgr?.redo(),
     zoomIn:  () => applyZoom(zoomRef.current * 1.2),

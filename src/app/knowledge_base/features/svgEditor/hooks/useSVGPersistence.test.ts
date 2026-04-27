@@ -25,6 +25,7 @@ function makeCanvas(svgContent = EMPTY_SVG): SVGCanvasHandle & { _content: strin
     setMode: vi.fn(),
     undo: vi.fn(),
     redo: vi.fn(),
+    clearSelection: vi.fn(),
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
     zoomFit: vi.fn(),

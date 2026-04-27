@@ -60,7 +60,11 @@ export default function SVGEditorView({
       <PaneHeader
         filePath={activeFile ?? ""}
         readOnly={isReadOnly}
-        onToggleReadOnly={() => setIsReadOnly(v => !v)}
+        onToggleReadOnly={() => {
+          const next = !isReadOnly;
+          if (next) canvasRef.current?.clearSelection();
+          setIsReadOnly(next);
+        }}
         title={title}
         isDirty={isDirty}
         hasActiveFile={activeFile !== null}
