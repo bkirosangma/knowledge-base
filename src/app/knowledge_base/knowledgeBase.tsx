@@ -3,6 +3,7 @@ import type { ExplorerFilter } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
+import UnsupportedBrowserCard from "./shared/components/UnsupportedBrowserCard";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
@@ -70,6 +71,14 @@ function KnowledgeBaseInner() {
   const linkManager = useLinkIndex();
   // Phase 3 PR 3 — viewport detection drives mobile shell branching.
   const { isMobile } = useViewport();
+  // KB-001 — File System Access API detection. Initial render assumes
+  // supported so the SSR/client first paint match; the effect below
+  // flips it on browsers that lack `showDirectoryPicker` (Firefox, Safari)
+  // and we render UnsupportedBrowserCard instead of the empty explorer.
+  const [isFsAccessSupported, setIsFsAccessSupported] = useState<boolean>(true);
+  useEffect(() => {
+    setIsFsAccessSupported("showDirectoryPicker" in window);
+  }, []);
   // Phase 3 PR 3 — offline cache for last 10 recents (best-effort).
   useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
   const panes = usePaneManager();
@@ -903,7 +912,15 @@ function KnowledgeBaseInner() {
     {(themeCtx) => (
     <>
     <ServiceWorkerRegister />
-    {isMobile ? (
+    {!isFsAccessSupported ? (
+      <div
+        data-testid="knowledge-base"
+        data-theme={themeCtx.theme}
+        className="w-full h-screen bg-surface-2 font-sans flex items-center justify-center p-8 overflow-hidden"
+      >
+        <UnsupportedBrowserCard />
+      </div>
+    ) : isMobile ? (
       <div
         data-testid="knowledge-base"
         data-theme={themeCtx.theme}
@@ -980,15 +997,6 @@ function KnowledgeBaseInner() {
           recentFiles={recentFiles}
           searchInputRef={explorerSearchRef}
         />
-        {/* Hidden fallback input for browsers without File System Access API */}
-        <input
-          ref={fileExplorer.inputRef}
-          type="file"
-          /* @ts-expect-error webkitdirectory is non-standard */
-          webkitdirectory=""
-          className="hidden"
-          onChange={(e) => fileExplorer.handleFallbackInput(e.target.files)}
-        />
         <CommandPalette />
       </div>
     ) : (
@@ -1014,16 +1022,6 @@ function KnowledgeBaseInner() {
             }
           }
         }}
-      />
-
-      {/* Hidden fallback input for browsers without File System Access API */}
-      <input
-        ref={fileExplorer.inputRef}
-        type="file"
-        /* @ts-expect-error webkitdirectory is non-standard */
-        webkitdirectory=""
-        className="hidden"
-        onChange={(e) => fileExplorer.handleFallbackInput(e.target.files)}
       />
 
       {/* Explorer + Viewport + Properties */}
