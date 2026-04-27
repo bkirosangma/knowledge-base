@@ -56,8 +56,18 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
+  // setZoom() only stores the value; updateCanvas() is what re-renders the viewport.
+  const applyZoom = (zoom: number) => {
+    const canvas = canvasRef.current;
+    const el = containerRef.current;
+    if (!canvas || !el) return;
+    const clamped = Math.max(0.1, Math.min(10, zoom));
+    canvas.setZoom(clamped);
+    canvas.updateCanvas(el.clientWidth, el.clientHeight);
+  };
+
   // Pinch-to-zoom (ctrlKey + wheel) and 2-finger scroll pan.
-  // Uses capture phase so we intercept before svgcanvas's own wheel listeners.
+  // Capture phase so we intercept before svgcanvas's own wheel listeners.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -66,10 +76,9 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       if (e.ctrlKey) {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const z = canvas.getZoom() ?? 1;
-        // deltaMode 0 = pixels (trackpad), 1 = lines — normalise to pixels
+        // deltaMode 0 = pixels (trackpad), 1 = lines
         const px = e.deltaMode === 0 ? e.deltaY : e.deltaY * 30;
-        canvas.setZoom(Math.max(0.1, Math.min(10, z * (1 - px * 0.004))));
+        applyZoom(canvas.getZoom() * (1 - px * 0.004));
       } else {
         el.scrollLeft += e.deltaX;
         el.scrollTop += e.deltaY;
@@ -77,6 +86,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
     el.addEventListener("wheel", onWheel, { passive: false, capture: true });
     return () => el.removeEventListener("wheel", onWheel, { capture: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -85,15 +95,16 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
     undo: () => canvasRef.current?.undoMgr?.undo(),
     redo: () => canvasRef.current?.undoMgr?.redo(),
-    zoomIn: () => {
-      const z = canvasRef.current?.getZoom() ?? 1;
-      canvasRef.current?.setZoom(z * 1.2);
+    zoomIn:  () => applyZoom((canvasRef.current?.getZoom() ?? 1) * 1.2),
+    zoomOut: () => applyZoom((canvasRef.current?.getZoom() ?? 1) / 1.2),
+    zoomFit: () => {
+      const canvas = canvasRef.current;
+      const el = containerRef.current;
+      if (!canvas || !el) return;
+      const cw = canvas.getContentW?.() ?? 800;
+      const ch = canvas.getContentH?.() ?? 600;
+      applyZoom(Math.min(el.clientWidth / cw, el.clientHeight / ch) * 0.9);
     },
-    zoomOut: () => {
-      const z = canvasRef.current?.getZoom() ?? 1;
-      canvasRef.current?.setZoom(z / 1.2);
-    },
-    zoomFit: () => canvasRef.current?.zoomChanged?.(window, "fit"),
   }));
 
   return (
