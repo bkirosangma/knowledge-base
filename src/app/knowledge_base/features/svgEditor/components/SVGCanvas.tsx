@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
+import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState, useCallback } from "react";
 
 export type SVGTool = "select" | "rect" | "ellipse" | "line" | "path" | "text";
 
@@ -9,6 +9,10 @@ export interface SVGCanvasHandle {
   setSvgString: (svg: string) => void;
   setMode: (tool: SVGTool) => void;
   clearSelection: () => void;
+  deleteSelected: () => void;
+  duplicateSelected: () => void;
+  copySelected: () => void;
+  paste: () => void;
   undo: () => void;
   redo: () => void;
   zoomIn: () => void;
@@ -24,17 +28,20 @@ interface SVGCanvasProps {
 const CANVAS_W = 800;
 const CANVAS_H = 600;
 
+const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘" : "Ctrl ";
+
 const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas(
   { onChanged, readOnly = false },
   ref,
 ) {
-  const wrapperRef  = useRef<HTMLDivElement>(null); // scroll viewport
-  const spacerRef   = useRef<HTMLDivElement>(null); // layout spacer sized to zoomed content
+  const wrapperRef   = useRef<HTMLDivElement>(null); // scroll viewport
+  const spacerRef    = useRef<HTMLDivElement>(null); // layout spacer sized to zoomed content
   const containerRef = useRef<HTMLDivElement>(null); // svgcanvas mount point
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const canvasRef = useRef<any>(null);
-  const zoomRef   = useRef(1);
+  const canvasRef  = useRef<any>(null);
+  const zoomRef    = useRef(1);
   const onChangedRef = useRef(onChanged);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     onChangedRef.current = onChanged;
@@ -79,9 +86,15 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
+  // Close context menu on any click outside it
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    document.addEventListener("click", close, { capture: true });
+    return () => document.removeEventListener("click", close, { capture: true });
+  }, [menu]);
+
   // Visual zoom via CSS transform — avoids updateCanvas() which clips content.
-  // getScreenCTM() on mouse events accounts for CSS transforms automatically,
-  // so SVG coordinate mapping stays correct without touching canvas.setZoom().
   const applyZoom = (zoom: number) => {
     const clamped = Math.max(0.1, Math.min(10, zoom));
     zoomRef.current = clamped;
@@ -96,7 +109,6 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   };
 
   // Pinch-to-zoom (ctrlKey + wheel) and 2-finger scroll pan.
-  // Capture phase fires before svgcanvas's own wheel listeners.
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -115,6 +127,30 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (readOnly) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if ((e.key === "Delete" || e.key === "Backspace") && !mod) {
+      e.preventDefault();
+      canvasRef.current?.deleteSelectedElements?.();
+    } else if (mod && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      canvasRef.current?.copySelectedElements?.();
+    } else if (mod && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      canvasRef.current?.pasteElements?.();
+    } else if (mod && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      e.stopPropagation(); // prevent browser bookmark shortcut
+      canvasRef.current?.cloneSelectedElements?.(10, 10);
+    }
+  }, [readOnly]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); // always suppress browser context menu inside editor
+    if (!readOnly) setMenu({ x: e.clientX, y: e.clientY });
+  }, [readOnly]);
+
   useImperativeHandle(ref, () => ({
     getSvgString: () => canvasRef.current?.getSvgString() ?? "",
     setSvgString: (svg: string) => {
@@ -123,6 +159,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     },
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
     clearSelection: () => canvasRef.current?.clearSelection(),
+    deleteSelected: () => canvasRef.current?.deleteSelectedElements?.(),
+    duplicateSelected: () => canvasRef.current?.cloneSelectedElements?.(10, 10),
+    copySelected: () => canvasRef.current?.copySelectedElements?.(),
+    paste: () => canvasRef.current?.pasteElements?.(),
     undo: () => canvasRef.current?.undoMgr?.undo(),
     redo: () => canvasRef.current?.undoMgr?.redo(),
     zoomIn:  () => applyZoom(zoomRef.current * 1.2),
@@ -134,19 +174,61 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     },
   }));
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasSel = () => (canvasRef.current?.getSelectedElements?.() ?? []).some((el: any) => el != null);
+  const hasClip = () => {
+    const id = canvasRef.current?.getClipboardID?.();
+    return id ? !!sessionStorage.getItem(id) : false;
+  };
+
+  const MENU_ITEMS = [
+    { label: "Copy",      shortcut: `${MOD}C`, disabled: !hasSel(), action: () => canvasRef.current?.copySelectedElements?.()       },
+    { label: "Paste",     shortcut: `${MOD}V`, disabled: !hasClip(), action: () => canvasRef.current?.pasteElements?.()              },
+    { label: "Duplicate", shortcut: `${MOD}D`, disabled: !hasSel(), action: () => canvasRef.current?.cloneSelectedElements?.(10, 10) },
+    null,
+    { label: "Delete",    shortcut: "Del",     disabled: !hasSel(), action: () => canvasRef.current?.deleteSelectedElements?.()      },
+  ] as const;
+
   return (
     <div
       ref={wrapperRef}
-      className="flex-1 w-full h-full overflow-auto bg-surface-2"
+      className="flex-1 w-full h-full overflow-auto bg-surface-2 outline-none"
+      tabIndex={0}
       data-testid="svg-canvas-container"
+      onKeyDown={handleKeyDown}
+      onContextMenu={handleContextMenu}
+      onMouseDown={() => wrapperRef.current?.focus()}
     >
       {/* Spacer sized to the zoomed canvas so the scroll container gets the right range */}
       <div ref={spacerRef} style={{ width: CANVAS_W, height: CANVAS_H, position: "relative" }}>
         <div ref={containerRef} style={{ position: "absolute", transformOrigin: "0 0" }} />
-        {/* Intercepts all pointer events in read mode — pointer-events:none on the container
-            div does not block its SVG children, so an overlay is the reliable solution. */}
+        {/* Overlay blocks all pointer events in read mode */}
         {readOnly && <div style={{ position: "absolute", inset: 0 }} />}
       </div>
+
+      {menu && (
+        <div
+          className="fixed z-50 rounded-lg shadow-lg border border-line py-1 min-w-40"
+          style={{ top: menu.y, left: menu.x, background: "var(--color-surface)" }}
+          onClick={e => e.stopPropagation()}
+        >
+          {MENU_ITEMS.map((item, i) =>
+            item === null ? (
+              <div key={i} className="h-px bg-line my-1" />
+            ) : (
+              <button
+                key={item.label}
+                disabled={item.disabled}
+                className="flex items-center justify-between w-full px-3 py-1 text-xs text-left disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
+                onClick={() => { item.action(); setMenu(null); }}
+              >
+                <span className="text-ink">{item.label}</span>
+                <span className="text-mute ml-8 font-mono">{item.shortcut}</span>
+              </button>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 });
