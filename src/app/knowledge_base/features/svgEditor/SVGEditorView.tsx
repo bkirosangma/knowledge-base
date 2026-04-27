@@ -55,21 +55,46 @@ export default function SVGEditorView({
     canvasRef.current?.setMode(tool);
   }, []);
 
+  const handleToggleReadOnly = useCallback(() => {
+    setIsReadOnly(prev => {
+      const next = !prev;
+      if (next) {
+        // Exit path-node editing and clear selection when entering read mode
+        canvasRef.current?.setMode("select");
+        setActiveTool("select");
+        canvasRef.current?.clearSelection();
+      }
+      return next;
+    });
+  }, []);
+
+  // E / ⌘⇧R: toggle read mode — same shortcuts as document and diagram panes
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const tag = (document.activeElement as HTMLElement)?.tagName;
+        const isEditing = tag === "INPUT" || tag === "TEXTAREA"
+          || !!(document.activeElement as HTMLElement)?.isContentEditable;
+        if (isEditing) return;
+        e.preventDefault();
+        handleToggleReadOnly();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        handleToggleReadOnly();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleToggleReadOnly]);
+
   return (
     <div className="flex flex-col h-full min-h-0 flex-1">
       <PaneHeader
         filePath={activeFile ?? ""}
         readOnly={isReadOnly}
-        onToggleReadOnly={() => {
-          const next = !isReadOnly;
-          if (next) {
-            // Exit any path-node editing state before clearing selection
-            canvasRef.current?.setMode("select");
-            setActiveTool("select");
-            canvasRef.current?.clearSelection();
-          }
-          setIsReadOnly(next);
-        }}
+        onToggleReadOnly={handleToggleReadOnly}
         title={title}
         isDirty={isDirty}
         hasActiveFile={activeFile !== null}
