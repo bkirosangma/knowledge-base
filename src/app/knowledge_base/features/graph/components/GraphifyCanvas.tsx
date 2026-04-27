@@ -5,27 +5,9 @@ import ForceGraph2D from "react-force-graph-2d";
 import { Settings } from "lucide-react";
 import type { RawGraphifyNode, RawGraphifyLink, RawGraphifyData, RawHyperedge } from "../hooks/useRawGraphify";
 import { edgeColor, RELATION_COLORS } from "../graphifyColors";
+import { DEFAULT_PHYSICS, PHYSICS_SLIDERS, type PhysicsConfig } from "../graphifyPhysics";
 
-export interface PhysicsConfig {
-  linkDistance: number;
-  linkStrength: number;
-  repelForce: number;
-  centerForce: number;
-}
-
-export const DEFAULT_PHYSICS: PhysicsConfig = {
-  linkDistance: 70,
-  linkStrength: 0.3,
-  repelForce: 400,
-  centerForce: 0.05,
-};
-
-const PHYSICS_SLIDERS = [
-  { key: "linkDistance" as const, label: "Link distance", min: 10,  max: 300,  step: 5    },
-  { key: "linkStrength" as const, label: "Link strength", min: 0,   max: 1,    step: 0.01 },
-  { key: "repelForce"   as const, label: "Repel force",   min: 0,   max: 1000, step: 10   },
-  { key: "centerForce"  as const, label: "Center force",  min: 0,   max: 1,    step: 0.01 },
-] satisfies { key: keyof PhysicsConfig; label: string; min: number; max: number; step: number }[];
+export type { PhysicsConfig };
 
 interface GraphifyCanvasProps {
   nodes: RawGraphifyNode[];

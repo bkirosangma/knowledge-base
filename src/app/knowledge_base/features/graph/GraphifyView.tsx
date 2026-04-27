@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { BrainCircuit } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
-import { DEFAULT_PHYSICS, type PhysicsConfig } from "./components/GraphifyCanvas";
+import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
 const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
