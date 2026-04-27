@@ -374,3 +374,14 @@
 - **DOC-4.19-10** ✅ **`convertMention` respects word boundaries** — `Service` does not match inside `Services`. (Covered by `unlinkedMentions.test.ts`.)
 - **DOC-4.19-11** ✅ **Detection + conversion are case-insensitive** — `service` matches `Service.md` and the converted link uses the canonical basename casing. (Covered by `unlinkedMentions.test.ts`.)
 - **DOC-4.19-12** ✅ **Diagram (.json) basenames included** — token "Diagram" can resolve to `Diagram.json`. (Covered by `unlinkedMentions.test.ts`.)
+
+## 4.20 Image Paste-to-Attachments
+
+> Pasting or dragging an image file into a document hashes it (SHA-256, 12 hex chars), writes it to `<vault>/.attachments/<hash>.<ext>` via `AttachmentRepository`, and inserts a markdown image tag at the cursor. Same image pasted twice produces one on-disk file (hash dedup). FS write errors surface via `ShellErrorContext`. `.attachments/` is hidden from the file-tree explorer (dot-folder convention). Driven by `features/document/extensions/imagePasteHandler.ts`, `infrastructure/attachmentRepo.ts`. Mirrors §4.2 / §4.3 of [Features.md](../Features.md).
+
+- **DOC-4.20-01** ❌ **Paste PNG inserts inline image within ~500 ms** — pasting an image/png clipboard item inserts `![](.attachments/<hash>.png)` at the cursor and the image renders inline in the editor. _(e2e: `documentImagePaste.spec.ts`)_
+- **DOC-4.20-02** ❌ **Pasted image file written to `.attachments/<hash>.<ext>` on disk** — after paste, `__kbMockFS.read('.attachments/<hash>.png')` returns the file bytes. _(e2e: `documentImagePaste.spec.ts`)_
+- **DOC-4.20-03** ❌ **Same image pasted twice → one file on disk (hash dedup)** — pasting the same PNG twice produces exactly one `.attachments/` entry; the second insert reuses the existing path. _(e2e: `documentImagePaste.spec.ts`)_
+- **DOC-4.20-04** ❌ **FS write error surfaces via ShellErrorContext, not silent fail** — when the mock FS rejects the next write, pasting triggers the ShellErrorContext error banner rather than silently failing or inserting a broken image. _(e2e: `documentImagePaste.spec.ts`)_
+- **DOC-4.20-05** ❌ **Drag-drop image onto editor → same behavior as paste** — dropping an image file triggers the same hash+write+insert flow as paste. _(e2e: `documentImagePaste.spec.ts`)_
+- **DOC-4.20-06** 🚫 **`.attachments/` hidden in explorer** — dot-folder convention in `fileTree.ts` already excludes any folder whose name starts with `.`; no extra logic needed. Verified by code review (no dedicated test).

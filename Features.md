@@ -336,7 +336,7 @@ Root: `src/app/knowledge_base/features/document/`. Top-level is `DocumentView.ts
 Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6, paragraphs, bullet / ordered / task lists, blockquotes, inline bold / italic / strike / code, horizontal rule, hard break. Plus:
 - ✅ **Tables** (`@tiptap/extension-table` + row / cell / header).
 - ✅ **Task lists** (`@tiptap/extension-task-list`, `task-item`).
-- ✅ **Images** (`@tiptap/extension-image`).
+- ✅ **Images** (`@tiptap/extension-image`). Paste or drag-drop an image → writes to `<vault>/.attachments/<sha256-12>.ext` via `AttachmentRepository` (SHA-256 hash dedup; skip if exists) → inserts `![](.attachments/<hash>.ext)` at cursor. FS write errors reported via `ShellErrorContext`. `.attachments/` hidden from explorer via the existing dot-folder filter in `fileTree.ts`.
 - ✅ **Links** (`@tiptap/extension-link`).
 - ✅ **Placeholder** (`@tiptap/extension-placeholder`).
 - ✅ **Code block with syntax highlighting** (`@tiptap/extension-code-block-lowlight` + `lowlight`).
@@ -350,6 +350,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **WikiLink inline edit** — selecting the node lets single keys append to the display text; Backspace/Delete trim; Escape reverts.
 - ✅ **Click behaviour** — in edit mode selects, in read mode navigates (creates the target if unresolved).
 - ✅ **Multi-candidate path resolution** — current-dir `.md` → current-dir `.json` → as-written → root-level `.md` / `.json`.
+- ✅ **ImagePasteHandler** (`imagePasteHandler.ts`) — ProseMirror plugin that intercepts paste and drop of `image/*` items. Hashes bytes via `crypto.subtle.digest('SHA-256')` (first 12 hex chars); writes to `.attachments/` via `AttachmentRepository`; inserts image node at cursor. Shows a small upload chip near the editor while write is in flight (files >100 KB). Errors thrown by the repo are forwarded to `ShellErrorContext` via the `onImageFile` callback.
 - ✅ **CodeBlockWithCopy** (`codeBlockCopy.tsx`) — code block with a hover "Copy" button; clipboard API with `execCommand` fallback.
 - ✅ **TableNoNest** (`tableNoNest.ts`) — blocks `insertTable` when the cursor is already inside a table (GFM cannot represent nested tables).
 - ✅ **MarkdownReveal** (`markdownReveal.ts`) — Typora-style live reveal. RawBlock node + decorations that wrap `**bold**`, `*italic*`, `~~strike~~`, `` `code` `` in `<strong>/<em>/<s>/<code>` as you type. Cursor entering a paragraph/heading/blockquote converts it to rawBlock; exiting re-parses via markdown-it. 64-entry LRU cache keyed on normalised markdown. Smart Enter (list-item splitting) and Backspace (merge with previous block's rightmost textblock).

@@ -25,6 +25,8 @@ declare global {
       seed: (files: Record<string, string>) => void
       read: (path: string) => string | undefined
       reset: () => void
+      /** Make the next `createWritable().close()` throw a permission error. */
+      failNextWrite: () => void
     }
   }
 }
@@ -130,6 +132,12 @@ export function installMockFS() {
             }
           },
           async close() {
+            if (failWrite) {
+              failWrite = false
+              const err = new Error('NotAllowedError: permission denied')
+              err.name = 'NotAllowedError'
+              throw err
+            }
             body.content = pending
           },
           async abort() { /* no-op */ },
@@ -141,6 +149,8 @@ export function installMockFS() {
     }
     return handle as unknown as FileSystemFileHandle
   }
+
+  let failWrite = false
 
   let rootStore: Dir = new Map()
 
@@ -199,5 +209,6 @@ export function installMockFS() {
     seed,
     read,
     reset,
+    failNextWrite: () => { failWrite = true },
   }
 }

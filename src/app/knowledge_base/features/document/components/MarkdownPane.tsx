@@ -43,6 +43,10 @@ interface MarkdownPaneProps {
   onToggleReadOnly?: () => void;
   /** When true, hide the editor toolbar (Focus Mode is on). */
   hideToolbar?: boolean;
+  /** Repository for writing pasted/dropped images. Absent while no vault is open. */
+  attachmentRepo?: import("../../../domain/repositories").AttachmentRepository | null;
+  /** Called when an image write fails. Parent should surface via ShellErrorContext. */
+  onImageError?: (err: unknown) => void;
 }
 
 export default function MarkdownPane({
@@ -67,6 +71,8 @@ export default function MarkdownPane({
   readOnly = false,
   onToggleReadOnly,
   hideToolbar = false,
+  attachmentRepo = null,
+  onImageError,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = React.useState(false);
   // Reading meta (word count + headings) is owned here so PaneHeader can
@@ -209,6 +215,8 @@ export default function MarkdownPane({
           editorContainerRef={editorContainerRef}
           onReadingMetaChange={setReadingMeta}
           getBacklinkCount={getBacklinkCount}
+          attachmentRepo={attachmentRepo}
+          onImageError={onImageError}
           belowContent={
             <BacklinksRail
               filePath={filePath}

@@ -24,6 +24,8 @@ import { LinkEditorPopover } from "./LinkEditorPopover";
 import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
 import WikiLinkHoverCard from "./WikiLinkHoverCard";
+import { createImagePasteExtension } from "../extensions/imagePasteHandler";
+import type { AttachmentRepository } from "../../../domain/repositories";
 
 /** Aggregate editorial metadata derived from the rendered Tiptap DOM —
  *  pushed up to MarkdownPane so the read-mode chrome (TOC, progress bar,
@@ -78,6 +80,12 @@ interface MarkdownEditorProps {
    *  Used by the wiki-link hover card (DOC-4.17) so it can show "N
    *  backlinks" without re-running the index. */
   getBacklinkCount?: (resolvedPath: string) => number;
+  /** Repository for writing pasted/dropped images to `.attachments/`. When
+   *  null the paste handler is a no-op (no vault open). */
+  attachmentRepo?: AttachmentRepository | null;
+  /** Called when a pasted/dropped image write fails. Parent should surface
+   *  the error via `ShellErrorContext`. */
+  onImageError?: (err: unknown) => void;
 }
 
 
@@ -157,10 +165,30 @@ export default function MarkdownEditor({
   editorContainerRef: editorContainerRefProp,
   belowContent,
   getBacklinkCount,
+  attachmentRepo = null,
+  onImageError,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
   const [, forceUpdate] = useState(0);
+  // Upload chips for in-flight image writes (files > 100 KB).
+  const [uploadingChips, setUploadingChips] = useState<Map<string, string>>(new Map());
+  const attachmentRepoRef = useRef(attachmentRepo);
+  const onImageErrorRef = useRef(onImageError);
+  useEffect(() => { attachmentRepoRef.current = attachmentRepo; }, [attachmentRepo]);
+  useEffect(() => { onImageErrorRef.current = onImageError; }, [onImageError]);
+  // Created once — reads repo/callbacks via stable refs so the editor never
+  // needs to be re-initialized when the vault opens or closes.
+  const imagePasteExtensionRef = useRef(
+    createImagePasteExtension({
+      get repo() { return attachmentRepoRef.current; },
+      onError: (err) => onImageErrorRef.current?.(err),
+      onUploadStart: (id, filename) =>
+        setUploadingChips((m) => new Map(m).set(id, filename)),
+      onUploadEnd: (id) =>
+        setUploadingChips((m) => { const n = new Map(m); n.delete(id); return n; }),
+    }),
+  );
   const rawSwapRef = useRef(false);
   // Ref to the scrollable wrapper around <EditorContent>. Passed to the
   // floating table toolbar so it can position itself in the same scroll
@@ -356,6 +384,7 @@ export default function MarkdownEditor({
       }),
       RawBlock,
       MarkdownReveal,
+      imagePasteExtensionRef.current,
     ],
     content: markdownToHtml(content),
     editable: !readOnly,
@@ -667,6 +696,18 @@ export default function MarkdownEditor({
                 <EditorContent editor={editor} className="h-full" />
                 {belowContent}
               </div>
+              {uploadingChips.size > 0 && (
+                <div className="absolute bottom-3 right-3 flex flex-col gap-1 z-10 pointer-events-none">
+                  {Array.from(uploadingChips.values()).map((name) => (
+                    <div
+                      key={name}
+                      className="text-[11px] font-mono px-2 py-1 rounded bg-surface/90 border border-line text-mute shadow"
+                    >
+                      Uploading {name}…
+                    </div>
+                  ))}
+                </div>
+              )}
               <TableFloatingToolbar editor={editor} containerRef={editorContainerRef} />
             </>
           )}
