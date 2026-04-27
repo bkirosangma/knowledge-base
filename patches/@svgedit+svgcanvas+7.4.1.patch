@@ -1,0 +1,38 @@
+diff --git a/node_modules/@svgedit/svgcanvas/core/event.js b/node_modules/@svgedit/svgcanvas/core/event.js
+index 75bc988..0ff9bb4 100644
+--- a/node_modules/@svgedit/svgcanvas/core/event.js
++++ b/node_modules/@svgedit/svgcanvas/core/event.js
+@@ -695,7 +695,10 @@ const mouseUpEvent = (evt) => {
+             // For groups, we always consolidate the transforms (recalculateDimensions returns null for groups)
+             const isGroup = elem.tagName === 'g' || elem.tagName === 'a'
+ 
+-            // If element has 2+ transforms, or is a group with a drag translate, consolidate
++            // For groups with 2+ transforms, or any group with a drag translate, consolidate
++            // to a single matrix (recalculateDimensions returns null for groups).
++            // Non-group elements fall through to recalculateDimensions even after
++            // consolidation — it handles the N===1 MATRIX case by baking into attributes.
+             if ((tlist.numberOfItems > 1 && hasDragTranslate) || (isGroup && hasDragTranslate)) {
+               const consolidatedMatrix = transformListToTransform(tlist).matrix
+ 
+@@ -709,12 +712,17 @@ const mouseUpEvent = (evt) => {
+               newTransform.setMatrix(consolidatedMatrix)
+               tlist.appendItem(newTransform)
+ 
+-              // Record the transform change for undo
+-              batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
+-              return
++              if (isGroup) {
++                // Groups: recalculateDimensions returns null; record the transform for undo
++                batchCmd.addSubCommand(new ChangeElementCommand(elem, { transform: oldTransform }))
++                return
++              }
++              // Non-groups: fall through to recalculateDimensions which handles the
++              // single MATRIX transform case, baking it into element coords (e.g. path d)
+             }
+ 
+-            // For non-group elements with simple transforms, try recalculateDimensions
++            // For non-group elements with simple transforms (or consolidated single matrix),
++            // try recalculateDimensions
+             const cmd = svgCanvas.recalculateDimensions(elem)
+             if (cmd) {
+               batchCmd.addSubCommand(cmd)
