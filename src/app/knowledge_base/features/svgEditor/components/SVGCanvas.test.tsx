@@ -18,12 +18,27 @@ const MockSvgCanvas = vi.fn(function (this: any, container: HTMLElement) {
   // Inject a stand-in `#svgcontent` SVG element so the production
   // MutationObserver fallback (KB-005a) has something to attach to.
   // The real library does this during init.
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.id = 'svgcontent';
-  container.appendChild(svg);
+  const ensureContent = () => {
+    let node = container.querySelector('#svgcontent') as SVGElement | null
+    if (!node) {
+      node = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as SVGElement;
+      (node as unknown as { id: string }).id = 'svgcontent'
+      container.appendChild(node)
+    }
+    return node
+  }
+  ensureContent()
+  // Real `@svgedit/svgcanvas` `setSvgString` removes the old `#svgcontent`
+  // and attaches a fresh one (svg-exec.js:401-407). Mirror that so the
+  // observer-reattach path is exercised.
+  const setSvg = vi.fn((svg: string) => {
+    container.querySelector('#svgcontent')?.remove()
+    ensureContent()
+    return mockSetSvgString(svg)
+  })
   Object.assign(this, {
     getSvgString: mockGetSvgString,
-    setSvgString: mockSetSvgString,
+    setSvgString: setSvg,
     setMode: mockSetMode,
     undoMgr: { undo: mockUndo, redo: mockRedo },
     setZoom: mockSetZoom,
@@ -101,6 +116,29 @@ describe('SVGCanvas', () => {
     svgcontent.appendChild(rect)
     await new Promise((r) => setTimeout(r, 0))
     // Translate the rect.
+    rect.setAttribute('transform', 'translate(50 50)')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onChanged).toHaveBeenCalled()
+  });
+
+  it('SVG-6.4-19: MutationObserver re-attaches after setSvgString rebuilds #svgcontent', async () => {
+    const onChanged = vi.fn();
+    const ref = createRef<SVGCanvasHandle>();
+    await act(async () => {
+      render(<SVGCanvas ref={ref} onChanged={onChanged} />);
+    });
+    // Load a file — the library detaches the original `#svgcontent` and
+    // installs a fresh one. Without re-attaching, a subsequent move on a
+    // shape inside the new element would never reach the observer.
+    act(() => { ref.current?.setSvgString('<svg><rect/></svg>'); });
+    // Wait for the suppression macrotask to clear.
+    await new Promise((r) => setTimeout(r, 5))
+    onChanged.mockClear()
+    // Mutate the freshly-attached `#svgcontent` (this is the live one;
+    // the old node from the very first init is detached and gone).
+    const live = document.getElementById('svgcontent')!
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    live.appendChild(rect)
     rect.setAttribute('transform', 'translate(50 50)')
     await new Promise((r) => setTimeout(r, 0))
     expect(onChanged).toHaveBeenCalled()

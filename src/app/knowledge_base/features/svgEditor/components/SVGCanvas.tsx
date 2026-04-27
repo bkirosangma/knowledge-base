@@ -84,6 +84,30 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     onSvgLoadedRef.current = onSvgLoaded;
   }, [onSvgLoaded]);
 
+  // Disconnect any prior observer, then re-attach to the *current*
+  // `#svgcontent` element. The library replaces this element on every
+  // `setSvgString` so we have to follow it; an observer pinned to the
+  // initial node would silently watch dead DOM.
+  const attachMutationObserver = () => {
+    mutationObserverRef.current?.disconnect();
+    const svgcontent = containerRef.current?.querySelector("#svgcontent");
+    if (!svgcontent) {
+      mutationObserverRef.current = null;
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (suppressMutationsRef.current) return;
+      onChangedRef.current();
+    });
+    observer.observe(svgcontent, {
+      subtree: true,
+      attributes: true,
+      childList: true,
+      characterData: true,
+    });
+    mutationObserverRef.current = observer;
+  };
+
   // clearSvgContentElement() initialises svgContent with x=CANVAS_W, y=CANVAS_H.
   // selectorParentGroup starts at translate(0,0). updateCanvas() syncs them but
   // requires a canvasBackground DOM element we don't have. Do the sync manually.
@@ -119,25 +143,12 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
 
       // MutationObserver fallback for library event-emission gaps —
       // notably select-mode translate, which `@svgedit/svgcanvas` 7.x
-      // omits a `changed` call for. Watch the shape layer and forward
-      // any DOM change to the dirty tracker, gated by
-      // `suppressMutationsRef` so programmatic `setSvgString` rebuilds
-      // don't trip a spurious dirty.
-      const svgcontent = containerRef.current?.querySelector("#svgcontent");
-      let observer: MutationObserver | null = null;
-      if (svgcontent) {
-        observer = new MutationObserver(() => {
-          if (suppressMutationsRef.current) return;
-          onChangedRef.current();
-        });
-        observer.observe(svgcontent, {
-          subtree: true,
-          attributes: true,
-          childList: true,
-          characterData: true,
-        });
-      }
-      mutationObserverRef.current = observer;
+      // omits a `changed` call for. Re-attaches every time the shape
+      // layer is rebuilt: `setSvgString` (load + discard) calls
+      // `getSvgContent().remove()` then creates a fresh `#svgcontent`
+      // (svg-exec.js:401-407), so an observer attached at canvas init
+      // is left watching a detached node after the very first load.
+      attachMutationObserver();
 
       canvas.bind("selected", () => {
         if (!onStyleChangeRef.current) return;
@@ -331,6 +342,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       // that a real edit a few frames later is still caught.
       suppressMutationsRef.current = true;
       canvas.setSvgString(svg);
+      // The library replaced `#svgcontent` — re-attach the observer to
+      // the new element, otherwise drag-translate mutations on user
+      // shapes won't be seen.
+      attachMutationObserver();
       // Read dimensions from the loaded SVG root; fall back to current size.
       const root = canvas.getSvgRoot?.() as Element | undefined;
       if (root) {

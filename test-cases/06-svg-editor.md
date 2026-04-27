@@ -49,3 +49,4 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-16 | visibilitychange to visible does NOT flush (unit) | ✅ |
 | SVG-6.4-17 | MutationObserver fallback fires onChanged on shape-attribute mutations — closes the @svgedit/svgcanvas select-mode-translate gap (unit) | ✅ |
 | SVG-6.4-18 | MutationObserver is suppressed during programmatic setSvgString load (unit) | ✅ |
+| SVG-6.4-19 | MutationObserver re-attaches after setSvgString rebuilds #svgcontent (unit) | ✅ |
