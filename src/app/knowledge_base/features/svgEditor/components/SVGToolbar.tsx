@@ -37,7 +37,7 @@ const TOOLS: { tool: SVGTool; Icon: React.ElementType; title: string }[] = [
   { tool: "text",    Icon: Type,          title: "Text (T)"       },
 ];
 
-const btnBase = "p-1.5 rounded transition-colors";
+const btnBase = "p-2 rounded transition-colors";
 const btnActive = "bg-surface-2 text-ink";
 const btnInactive = "text-mute hover:text-ink-2 hover:bg-surface-2";
 const btnDisabled = "text-mute opacity-40 cursor-not-allowed";
@@ -107,6 +107,7 @@ export default function SVGToolbar({
   const strokeWidth = style?.strokeWidth ?? 1;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsContainerRef = useRef<HTMLDivElement>(null);
   const [sizeW, setSizeW] = useState(String(canvasSize.w));
   const [sizeH, setSizeH] = useState(String(canvasSize.h));
 
@@ -114,12 +115,19 @@ export default function SVGToolbar({
   useEffect(() => { setSizeW(String(canvasSize.w)); }, [canvasSize.w]);
   useEffect(() => { setSizeH(String(canvasSize.h)); }, [canvasSize.h]);
 
-  // Close settings panel on outside click.
+  // Close settings panel when mousedown lands outside the container.
+  // Using mousedown (not click) + contains() avoids the race where the
+  // opener click's native event reaches the document listener before
+  // stopPropagation can block it.
   useEffect(() => {
     if (!settingsOpen) return;
-    const close = () => setSettingsOpen(false);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const close = (e: MouseEvent) => {
+      if (settingsContainerRef.current && !settingsContainerRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, [settingsOpen]);
 
   const applySize = () => {
@@ -139,7 +147,7 @@ export default function SVGToolbar({
           className={`${btnBase} ${readOnly ? btnDisabled : activeTool === tool ? btnActive : btnInactive}`}
           onClick={() => !readOnly && onToolChange(tool)}
         >
-          <Icon size={14} />
+          <Icon size={16} />
         </button>
       ))}
 
@@ -151,16 +159,16 @@ export default function SVGToolbar({
         onClick={() => !readOnly && onLinkedHandlesChange(!linkedHandles)}
         className={`${btnBase} ${readOnly ? btnDisabled : linkedHandles ? btnActive : btnInactive}`}
       >
-        {linkedHandles ? <Link2 size={14} /> : <Link2Off size={14} />}
+        {linkedHandles ? <Link2 size={16} /> : <Link2Off size={16} />}
       </button>
 
       <div className="w-px h-4 bg-line mx-1" />
 
       <button title="Undo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onUndo}>
-        <Undo2 size={14} />
+        <Undo2 size={16} />
       </button>
       <button title="Redo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onRedo}>
-        <Redo2 size={14} />
+        <Redo2 size={16} />
       </button>
 
       <div className="w-px h-4 bg-line mx-1" />
@@ -183,32 +191,31 @@ export default function SVGToolbar({
       <div className="w-px h-4 bg-line mx-1" />
 
       <button title="Zoom in" className={`${btnBase} ${btnInactive}`} onClick={onZoomIn}>
-        <ZoomIn size={14} />
+        <ZoomIn size={16} />
       </button>
       <button title="Zoom out" className={`${btnBase} ${btnInactive}`} onClick={onZoomOut}>
-        <ZoomOut size={14} />
+        <ZoomOut size={16} />
       </button>
       <button title="Fit" className={`${btnBase} ${btnInactive}`} onClick={onZoomFit}>
-        <Maximize2 size={14} />
+        <Maximize2 size={16} />
       </button>
 
       <div className="w-px h-4 bg-line mx-1" />
 
       {/* Canvas settings — background colour + size */}
-      <div className="relative">
+      <div className="relative" ref={settingsContainerRef}>
         <button
           title="Canvas settings"
           className={`${btnBase} ${settingsOpen ? btnActive : btnInactive}`}
-          onClick={e => { e.stopPropagation(); setSettingsOpen(v => !v); }}
+          onClick={() => setSettingsOpen(v => !v)}
         >
-          <Crop size={14} />
+          <Crop size={16} />
         </button>
 
         {settingsOpen && (
           <div
             className="absolute top-full right-0 mt-1 z-50 rounded-lg shadow-lg border border-line px-3 py-2 w-52"
             style={{ background: "var(--color-surface)" }}
-            onClick={e => e.stopPropagation()}
           >
             <p className="text-[9px] font-semibold uppercase tracking-wider mb-2 text-mute">Canvas</p>
 
