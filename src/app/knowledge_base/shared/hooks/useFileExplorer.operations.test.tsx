@@ -230,17 +230,17 @@ describe('FS-2.3-35: duplicateFile', () => {
   })
 })
 
-// ── createDocument (SVG-1.1-xx) ─────────────────────────────────────────────
+// ── createSVG (FS-2.3-51..54) ───────────────────────────────────────────────
 
-describe('SVG-1.1-xx: createSVG', () => {
-  it('returns null when no directory handle is open', async () => {
+describe('FS-2.3-51: createSVG default name', () => {
+  it('FS-2.3-51: returns null when no directory handle is open', async () => {
     const { result } = renderHook(() => useFileExplorer(), { wrapper })
     let got: unknown = 'sentinel'
     await act(async () => { got = await result.current.createSVG('') })
     expect(got).toBeNull()
   })
 
-  it('creates untitled.svg at root with minimal SVG content', async () => {
+  it('FS-2.3-52: creates untitled.svg at root with minimal SVG content', async () => {
     const root = new MockDir('vault')
     const result = await setupWithRoot(root)
 
@@ -254,7 +254,7 @@ describe('SVG-1.1-xx: createSVG', () => {
     expect(content).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>')
   })
 
-  it('creates inside a subdirectory when parentPath is given', async () => {
+  it('FS-2.3-53: creates inside a subdirectory when parentPath is given', async () => {
     const root = new MockDir('vault')
     root.dirs.set('diagrams', new MockDir('diagrams'))
     const result = await setupWithRoot(root)
@@ -266,7 +266,7 @@ describe('SVG-1.1-xx: createSVG', () => {
     expect(root.dirs.get('diagrams')!.files.has('untitled.svg')).toBe(true)
   })
 
-  it('generates untitled-1.svg when untitled.svg exists', async () => {
+  it('FS-2.3-54: generates untitled-1.svg when untitled.svg exists', async () => {
     const root = new MockDir('vault')
     root.files.set('untitled.svg', new MockFileHandle('untitled.svg', new MockFile('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"></svg>')))
     const result = await setupWithRoot(root)
