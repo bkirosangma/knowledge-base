@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { BrainCircuit, ChevronDown, FileText, Filter, Folder } from "lucide-react";
+import { BrainCircuit, ChevronRight, FileText, Filter, Folder, Search } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
@@ -36,11 +36,12 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
   // ── Node filter ──────────────────────────────────────────────────────────
   const [filterFiles, setFilterFiles] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<"include" | "exclude">("include");
-  const [filterSearch, setFilterSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [treeSearch, setTreeSearch] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Derive unique folders and files from all nodes' source_file fields.
-  const filterItems = useMemo(() => {
+  // All unique files and their ancestor folders derived from graph nodes.
+  const allFileItems = useMemo(() => {
     const files = new Set<string>();
     const folders = new Set<string>();
     for (const n of data.nodes) {
@@ -50,14 +51,23 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
       const parts = sf.split("/");
       for (let i = 1; i < parts.length; i++) folders.add(parts.slice(0, i).join("/"));
     }
-    const items = [
-      ...[...folders].sort().map(f => ({ path: f, isFolder: true, display: f + "/" })),
-      ...[...files].sort().map(f => ({ path: f, isFolder: false, display: f })),
-    ];
-    if (!filterSearch.trim()) return items;
-    const q = filterSearch.toLowerCase();
-    return items.filter(item => item.path.toLowerCase().includes(q));
-  }, [data.nodes, nodeSourceMap, filterSearch]);
+    return { files: [...files].sort(), folders: [...folders].sort() };
+  }, [data.nodes, nodeSourceMap]);
+
+  const fileTree = useMemo(() => buildFileTree(allFileItems.files), [allFileItems.files]);
+
+  // Flat list used when treeSearch is active.
+  const filteredFlatItems = useMemo(() => {
+    if (!treeSearch.trim()) return [];
+    const q = treeSearch.toLowerCase();
+    const folderItems = allFileItems.folders
+      .filter(f => f.toLowerCase().includes(q))
+      .map(f => ({ path: f, isFolder: true }));
+    const fileItems = allFileItems.files
+      .filter(f => f.toLowerCase().includes(q))
+      .map(f => ({ path: f, isFolder: false }));
+    return [...folderItems, ...fileItems];
+  }, [allFileItems, treeSearch]);
 
   // Nodes that survive the active file filter.
   const filteredNodeIds = useMemo<Set<string> | null>(() => {
@@ -92,6 +102,14 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
     });
   }, []);
 
+  const toggleExpandFolder = useCallback((path: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
+
   // Visible node IDs: intersection of filter (when active) and highlight (when active).
   const visibleNodeIds = useMemo<Set<string> | null>(() => {
     let highlightIds: Set<string> | null = null;
@@ -106,6 +124,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
     if (!filteredNodeIds && highlightIds) return highlightIds;
     return new Set([...highlightIds!].filter(id => filteredNodeIds!.has(id)));
   }, [filteredNodeIds, highlightedCommunity, highlightedHyperedge, data.nodes, hyperedges]);
+
   const searchRef = useRef<HTMLInputElement>(null);
   const [physics, setPhysics] = useState<PhysicsConfig>(DEFAULT_PHYSICS);
 
@@ -220,68 +239,88 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
           Could not parse graphify-out/graph.json
         </div>
       ) : (
-        <div className="flex-1 flex min-h-0">
-          {/* Canvas */}
-          <GraphifyCanvas
-            nodes={data.nodes}
-            links={data.links}
-            hyperedges={hyperedges}
-            nodeColorMap={nodeColorMap}
-            nodeDegreeMap={nodeDegreeMap}
-            visibleNodeIds={visibleNodeIds}
-            highlightedNode={highlightedNode}
-            onNodeClick={handleNodeClick}
-            onHyperedgeClick={handleHyperedgeClick}
-            onBackgroundClick={handleDeselect}
-            physicsConfig={physics}
-            onPhysicsChange={handlePhysicsChange}
-          />
+        <>
+          {/* Toolbar */}
+          <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 border-b border-line bg-surface">
+            <div className="flex-1 relative">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-mute pointer-events-none" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search nodes…"
+                className="w-full bg-surface-2 border border-line rounded pl-6 pr-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent"
+                aria-label="Search nodes"
+              />
+            </div>
+            <button
+              type="button"
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors ${filterFiles.size > 0 || filterOpen ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+              onClick={() => setFilterOpen(v => !v)}
+              aria-expanded={filterOpen}
+              aria-label="Toggle node filter"
+            >
+              <Filter size={11} aria-hidden="true" />
+              {filterFiles.size > 0 && (
+                <span className="text-[10px] font-medium tabular-nums">{filterFiles.size}</span>
+              )}
+            </button>
+          </div>
 
-          {/* Sidebar */}
-          <aside
-            className="w-64 flex-shrink-0 flex flex-col border-l border-line bg-surface overflow-hidden"
-            aria-label="Graph sidebar"
-          >
-            {/* Node filter */}
-            <div className="flex-shrink-0 border-b border-line">
-              <button
-                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-surface-2"
-                onClick={() => setFilterOpen(v => !v)}
-                aria-expanded={filterOpen}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Filter size={11} className="text-mute" aria-hidden />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">Node filter</span>
-                  {filterFiles.size > 0 && (
-                    <span className="text-[10px] text-accent font-medium">{filterFiles.size}</span>
-                  )}
-                </div>
-                <ChevronDown size={11} className={`text-mute transition-transform ${filterOpen ? "rotate-180" : ""}`} />
-              </button>
-              {filterOpen && (
-                <div className="px-3 pb-3 space-y-2">
-                  <div className="flex gap-1 pt-0.5">
-                    <button
-                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "include" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
-                      onClick={() => setFilterMode("include")}
-                    >Include + neighbors</button>
-                    <button
-                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "exclude" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
-                      onClick={() => setFilterMode("exclude")}
-                    >Exclude</button>
-                  </div>
-                  <input
-                    type="text"
-                    value={filterSearch}
-                    onChange={e => setFilterSearch(e.target.value)}
-                    placeholder="Search files…"
-                    className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent"
-                  />
-                  <div className="max-h-40 overflow-y-auto -mx-1">
-                    {filterItems.length === 0 && (
-                      <p className="text-[10px] text-mute italic px-1">No files found</p>
-                    )}
-                    {filterItems.map(item => (
+          {/* Search results */}
+          {searchResults.length > 0 && (
+            <div className="flex-shrink-0 border-b border-line bg-surface px-3 pb-2 pt-1">
+              <ul className="max-h-36 overflow-y-auto" role="listbox" aria-label="Search results">
+                {searchResults.map((n) => (
+                  <li
+                    key={n.id}
+                    role="option"
+                    aria-selected={selectedNode?.id === n.id}
+                    className="px-2 py-1 text-xs rounded cursor-pointer text-ink truncate hover:bg-surface-2"
+                    style={{ borderLeft: `3px solid ${nodeColorMap.get(n.id) ?? "#888"}` }}
+                    onClick={() => handleNodeClick(n)}
+                  >
+                    {n.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Filter panel */}
+          {filterOpen && (
+            <div className="flex-shrink-0 border-b border-line bg-surface px-3 py-2">
+              {/* Mode toggle */}
+              <div className="flex gap-1 mb-2">
+                <button
+                  type="button"
+                  className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "include" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                  onClick={() => setFilterMode("include")}
+                >Include + neighbors</button>
+                <button
+                  type="button"
+                  className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "exclude" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                  onClick={() => setFilterMode("exclude")}
+                >Exclude</button>
+              </div>
+
+              {/* Tree search */}
+              <input
+                type="text"
+                value={treeSearch}
+                onChange={e => setTreeSearch(e.target.value)}
+                placeholder="Search files…"
+                className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent mb-2"
+              />
+
+              {/* File tree or filtered flat list */}
+              <div className="max-h-48 overflow-y-auto -mx-1">
+                {treeSearch.trim() ? (
+                  filteredFlatItems.length === 0 ? (
+                    <p className="text-[10px] text-mute italic px-1">No files found</p>
+                  ) : (
+                    filteredFlatItems.map(item => (
                       <label key={item.path} className="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-surface-2">
                         <input
                           type="checkbox"
@@ -293,151 +332,277 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                           ? <Folder size={10} className="text-mute flex-shrink-0" />
                           : <FileText size={10} className="text-mute flex-shrink-0" />
                         }
-                        <span className="text-[10px] text-ink truncate" title={item.display}>{item.display}</span>
+                        <span className="text-[10px] text-ink truncate" title={item.path}>
+                          {item.path}{item.isFolder ? "/" : ""}
+                        </span>
                       </label>
-                    ))}
-                  </div>
-                  {filterFiles.size > 0 && (
-                    <button
-                      className="text-[10px] text-mute hover:text-ink"
-                      onClick={() => setFilterFiles(new Set())}
-                    >Clear filter</button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Search */}
-            <div className="flex-shrink-0 px-3 py-2 border-b border-line">
-              <input
-                ref={searchRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search nodes…"
-                className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent"
-                aria-label="Search nodes"
-              />
-              {searchResults.length > 0 && (
-                <ul className="mt-1 max-h-36 overflow-y-auto" role="listbox" aria-label="Search results">
-                  {searchResults.map((n) => (
-                    <li
-                      key={n.id}
-                      role="option"
-                      aria-selected={selectedNode?.id === n.id}
-                      className="px-2 py-1 text-xs rounded cursor-pointer text-ink truncate hover:bg-surface-2"
-                      style={{ borderLeft: `3px solid ${nodeColorMap.get(n.id) ?? "#888"}` }}
-                      onClick={() => handleNodeClick(n)}
-                    >
-                      {n.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Node info */}
-            <div className="flex-shrink-0 px-3 py-2 border-b border-line min-h-[120px]">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Node info</p>
-              {selectedNode ? (
-                <div className="text-xs text-ink space-y-1">
-                  <div className="font-medium leading-snug">{selectedNode.label}</div>
-                  {(nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file) && (
-                    <button
-                      className="text-accent hover:underline truncate block w-full text-left"
-                      title={nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file}
-                      onClick={() => handleOpenFile(selectedNode)}
-                    >
-                      {(nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file ?? "").split("/").pop()}
-                    </button>
-                  )}
-                  {selectedNode.community != null && (
-                    <button
-                      className={`flex items-center gap-1 w-full text-left rounded transition-opacity ${highlightedCommunity === selectedNode.community ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
-                      title="Click to highlight this community"
-                      onClick={() => {
-                        setHighlightedCommunity(prev => prev === selectedNode.community ? null : selectedNode.community!);
-                        setHighlightedHyperedge(null);
-                      }}
-                    >
-                      <span
-                        className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ background: nodeColorMap.get(selectedNode.id) ?? "#888" }}
+                    ))
+                  )
+                ) : (
+                  fileTree.length === 0 ? (
+                    <p className="text-[10px] text-mute italic px-1">No files found</p>
+                  ) : (
+                    fileTree.map(node => (
+                      <FileTreeItem
+                        key={node.path}
+                        node={node}
+                        depth={0}
+                        filterFiles={filterFiles}
+                        expandedFolders={expandedFolders}
+                        onToggleFilter={toggleFilter}
+                        onToggleExpand={toggleExpandFolder}
                       />
-                      <span className="text-mute">
-                        {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
-                      </span>
-                    </button>
-                  )}
-                  {neighbors.length > 0 && (
-                    <div>
-                      <p className="text-mute mt-1 mb-0.5">Neighbors ({neighbors.length})</p>
-                      <ul className="max-h-24 overflow-y-auto space-y-0.5">
-                        {neighbors.slice(0, 15).map(({ node: nb, relation, direction }, i) => (
-                          <li key={`${nb.id}-${i}`}>
-                            <button
-                              className="w-full text-left hover:text-accent"
-                              style={{ borderLeft: `2px solid ${nodeColorMap.get(nb.id) ?? "#888"}`, paddingLeft: 4 }}
-                              onClick={() => handleNodeClick(nb)}
-                            >
-                              <span className="truncate block leading-tight">{direction === "out" ? "→" : "←"} {nb.label}</span>
-                              {relation && relation !== "→" && relation !== "←" && (
-                                <span className="text-[9px] text-mute italic">{relation}</span>
-                              )}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-mute italic">Click a node to inspect it</p>
+                    ))
+                  )
+                )}
+              </div>
+
+              {filterFiles.size > 0 && (
+                <button
+                  type="button"
+                  className="text-[10px] text-mute hover:text-ink mt-2"
+                  onClick={() => setFilterFiles(new Set())}
+                >Clear filter</button>
               )}
             </div>
+          )}
 
-            {/* Community legend */}
-            <div className="flex-shrink-0 px-3 py-2 border-b border-line">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Communities</p>
-              <ul className="space-y-0.5">
-                {communities.map((c) => (
-                  <CommunityRow
-                    key={c.id}
-                    community={c}
-                    highlighted={highlightedCommunity === c.id}
-                    onToggle={() => {
-                      setHighlightedCommunity((prev) => prev === c.id ? null : c.id);
-                      setHighlightedHyperedge(null);
-                    }}
-                  />
-                ))}
-              </ul>
-            </div>
+          {/* Canvas + sidebar */}
+          <div className="flex-1 flex min-h-0">
+            {/* Canvas */}
+            <GraphifyCanvas
+              nodes={data.nodes}
+              links={data.links}
+              hyperedges={hyperedges}
+              nodeColorMap={nodeColorMap}
+              nodeDegreeMap={nodeDegreeMap}
+              visibleNodeIds={visibleNodeIds}
+              highlightedNode={highlightedNode}
+              onNodeClick={handleNodeClick}
+              onHyperedgeClick={handleHyperedgeClick}
+              onBackgroundClick={handleDeselect}
+              physicsConfig={physics}
+              onPhysicsChange={handlePhysicsChange}
+            />
 
-            {/* Hyperedge list */}
-            {hyperedges.length > 0 && (
-              <div className="flex-1 overflow-y-auto px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Hyperedges</p>
+            {/* Sidebar */}
+            <aside
+              className="w-64 flex-shrink-0 flex flex-col border-l border-line bg-surface overflow-hidden"
+              aria-label="Graph sidebar"
+            >
+              {/* Node info */}
+              <div className="flex-shrink-0 px-3 py-2 border-b border-line min-h-[120px]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Node info</p>
+                {selectedNode ? (
+                  <div className="text-xs text-ink space-y-1">
+                    <div className="font-medium leading-snug">{selectedNode.label}</div>
+                    {(nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file) && (
+                      <button
+                        className="text-accent hover:underline truncate block w-full text-left"
+                        title={nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file}
+                        onClick={() => handleOpenFile(selectedNode)}
+                      >
+                        {(nodeSourceMap.get(selectedNode.id) ?? selectedNode.source_file ?? "").split("/").pop()}
+                      </button>
+                    )}
+                    {selectedNode.community != null && (
+                      <button
+                        className={`flex items-center gap-1 w-full text-left rounded transition-opacity ${highlightedCommunity === selectedNode.community ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+                        title="Click to highlight this community"
+                        onClick={() => {
+                          setHighlightedCommunity(prev => prev === selectedNode.community ? null : selectedNode.community!);
+                          setHighlightedHyperedge(null);
+                        }}
+                      >
+                        <span
+                          className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: nodeColorMap.get(selectedNode.id) ?? "#888" }}
+                        />
+                        <span className="text-mute">
+                          {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
+                        </span>
+                      </button>
+                    )}
+                    {neighbors.length > 0 && (
+                      <div>
+                        <p className="text-mute mt-1 mb-0.5">Neighbors ({neighbors.length})</p>
+                        <ul className="max-h-24 overflow-y-auto space-y-0.5">
+                          {neighbors.slice(0, 15).map(({ node: nb, relation, direction }, i) => (
+                            <li key={`${nb.id}-${i}`}>
+                              <button
+                                className="w-full text-left hover:text-accent"
+                                style={{ borderLeft: `2px solid ${nodeColorMap.get(nb.id) ?? "#888"}`, paddingLeft: 4 }}
+                                onClick={() => handleNodeClick(nb)}
+                              >
+                                <span className="truncate block leading-tight">{direction === "out" ? "→" : "←"} {nb.label}</span>
+                                {relation && relation !== "→" && relation !== "←" && (
+                                  <span className="text-[9px] text-mute italic">{relation}</span>
+                                )}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-mute italic">Click a node to inspect it</p>
+                )}
+              </div>
+
+              {/* Community legend */}
+              <div className="flex-shrink-0 px-3 py-2 border-b border-line">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Communities</p>
                 <ul className="space-y-0.5">
-                  {hyperedges.map((he) => (
-                    <HyperedgeRow
-                      key={he.id}
-                      hyperedge={he}
-                      highlighted={highlightedHyperedge === he.id}
+                  {communities.map((c) => (
+                    <CommunityRow
+                      key={c.id}
+                      community={c}
+                      highlighted={highlightedCommunity === c.id}
                       onToggle={() => {
-                        setHighlightedHyperedge((prev) => prev === he.id ? null : he.id);
-                        setHighlightedCommunity(null);
+                        setHighlightedCommunity((prev) => prev === c.id ? null : c.id);
+                        setHighlightedHyperedge(null);
                       }}
                     />
                   ))}
                 </ul>
               </div>
-            )}
-            {hyperedges.length === 0 && <div className="flex-1" />}
-          </aside>
-        </div>
+
+              {/* Hyperedge list */}
+              {hyperedges.length > 0 && (
+                <div className="flex-1 overflow-y-auto px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Hyperedges</p>
+                  <ul className="space-y-0.5">
+                    {hyperedges.map((he) => (
+                      <HyperedgeRow
+                        key={he.id}
+                        hyperedge={he}
+                        highlighted={highlightedHyperedge === he.id}
+                        onToggle={() => {
+                          setHighlightedHyperedge((prev) => prev === he.id ? null : he.id);
+                          setHighlightedCommunity(null);
+                        }}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {hyperedges.length === 0 && <div className="flex-1" />}
+            </aside>
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+// ── File tree helpers ────────────────────────────────────────────────────────
+
+interface TreeNode {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  children: TreeNode[];
+}
+
+function buildFileTree(filePaths: string[]): TreeNode[] {
+  const nodeMap = new Map<string, TreeNode>();
+  const roots: TreeNode[] = [];
+
+  for (const fp of filePaths) {
+    const parts = fp.split("/");
+    let siblings = roots;
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i];
+      const path = parts.slice(0, i + 1).join("/");
+      const isFolder = i < parts.length - 1;
+      if (!nodeMap.has(path)) {
+        const node: TreeNode = { name, path, isFolder, children: [] };
+        nodeMap.set(path, node);
+        siblings.push(node);
+      }
+      siblings = nodeMap.get(path)!.children;
+    }
+  }
+
+  function sortNodes(nodes: TreeNode[]): void {
+    nodes.sort((a, b) => {
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const n of nodes) sortNodes(n.children);
+  }
+  sortNodes(roots);
+
+  return roots;
+}
+
+function FileTreeItem({
+  node,
+  depth,
+  filterFiles,
+  expandedFolders,
+  onToggleFilter,
+  onToggleExpand,
+}: {
+  node: TreeNode;
+  depth: number;
+  filterFiles: Set<string>;
+  expandedFolders: Set<string>;
+  onToggleFilter: (path: string) => void;
+  onToggleExpand: (path: string) => void;
+}) {
+  const expanded = expandedFolders.has(node.path);
+  return (
+    <>
+      <div
+        className="flex items-center gap-1 py-0.5 rounded hover:bg-surface-2"
+        style={{ paddingLeft: 4 + depth * 12 }}
+      >
+        {node.isFolder ? (
+          <button
+            type="button"
+            onClick={() => onToggleExpand(node.path)}
+            className="flex-shrink-0 text-mute hover:text-ink p-0 leading-none"
+            aria-label={expanded ? "Collapse folder" : "Expand folder"}
+          >
+            <ChevronRight
+              size={10}
+              className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+              aria-hidden="true"
+            />
+          </button>
+        ) : (
+          <span className="w-[10px] flex-shrink-0" />
+        )}
+        <label className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filterFiles.has(node.path)}
+            onChange={() => onToggleFilter(node.path)}
+            className="w-3 h-3 flex-shrink-0 accent-blue-400"
+          />
+          {node.isFolder
+            ? <Folder size={10} className="text-mute flex-shrink-0" aria-hidden="true" />
+            : <FileText size={10} className="text-mute flex-shrink-0" aria-hidden="true" />
+          }
+          <span className="text-[10px] text-ink truncate" title={node.path}>
+            {node.name}{node.isFolder ? "/" : ""}
+          </span>
+        </label>
+      </div>
+      {node.isFolder && expanded && node.children.map(child => (
+        <FileTreeItem
+          key={child.path}
+          node={child}
+          depth={depth + 1}
+          filterFiles={filterFiles}
+          expandedFolders={expandedFolders}
+          onToggleFilter={onToggleFilter}
+          onToggleExpand={onToggleExpand}
+        />
+      ))}
+    </>
   );
 }
 
