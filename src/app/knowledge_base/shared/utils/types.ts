@@ -66,6 +66,7 @@ export interface VaultConfig {
     linkStrength: number;
     repelForce: number;
     centerForce: number;
+    hyperedgeForce: number;
   };
 }
 

@@ -64,6 +64,60 @@ function padHull(hull: Pt[], pad: number): Pt[] {
 }
 
 
+// ── Hyperedge regular-polygon force ──────────────────────────────────────
+// Gently nudges the N nodes of each hyperedge toward the N vertices of a
+// regular polygon (equal sides, equal angles) centred on their centroid.
+// Uses circular-mean to find the polygon orientation that minimises total
+// angular displacement so the shape doesn't spin to a different face.
+type D3Node = { id: string; x: number; y: number; vx: number; vy: number };
+
+function createHyperedgeForce(hyperedges: RawHyperedge[], strength: number) {
+  let nodeById = new Map<string, D3Node>();
+
+  function force(alpha: number) {
+    for (const he of hyperedges) {
+      const members = he.nodes.map(id => nodeById.get(id)).filter((n): n is D3Node => n != null);
+      const N = members.length;
+      if (N < 2) continue;
+
+      const cx = members.reduce((s, n) => s + n.x, 0) / N;
+      const cy = members.reduce((s, n) => s + n.y, 0) / N;
+      const R = members.reduce((s, n) => s + Math.hypot(n.x - cx, n.y - cy), 0) / N;
+      if (R < 0.001) continue;
+
+      // Sort by current polar angle so vertex assignment is stable.
+      const sorted = members
+        .map(n => ({ n, angle: Math.atan2(n.y - cy, n.x - cx) }))
+        .sort((a, b) => a.angle - b.angle);
+
+      // Circular mean of (angle_i − i·2π/N) gives the polygon rotation offset
+      // that minimises total angular displacement across all members.
+      const step = (2 * Math.PI) / N;
+      let sinSum = 0, cosSum = 0;
+      for (let i = 0; i < N; i++) {
+        const diff = sorted[i].angle - i * step;
+        sinSum += Math.sin(diff);
+        cosSum += Math.cos(diff);
+      }
+      const offset = Math.atan2(sinSum, cosSum);
+
+      for (let i = 0; i < N; i++) {
+        const tx = cx + R * Math.cos(offset + i * step);
+        const ty = cy + R * Math.sin(offset + i * step);
+        sorted[i].n.vx += (tx - sorted[i].n.x) * strength * alpha;
+        sorted[i].n.vy += (ty - sorted[i].n.y) * strength * alpha;
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (force as any).initialize = (nodes: D3Node[]) => {
+    nodeById = new Map(nodes.map(n => [n.id, n]));
+  };
+
+  return force;
+}
+
 export default function GraphifyCanvas({
   nodes,
   links,
@@ -107,6 +161,20 @@ export default function GraphifyCanvas({
     graph.d3Force("center")?.strength(physicsConfig.centerForce);
     graph.d3ReheatSimulation();
   }, [physicsConfig]);
+
+  // ── Register hyperedge regular-polygon force ──────────────────────────────
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    if (hyperedges.length === 0) {
+      graph.d3Force("hyperedge", null);
+      return;
+    }
+    graph.d3Force("hyperedge", createHyperedgeForce(hyperedges, physicsConfig.hyperedgeForce));
+    graph.d3ReheatSimulation();
+    return () => { graph.d3Force("hyperedge", null); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hyperedges, physicsConfig.hyperedgeForce]);
 
   // ── Pinch-to-zoom + two-finger pan ───────────────────────────────────────
   // Intercept in capture phase so d3-zoom's bubble-phase handlers never fire
