@@ -43,17 +43,19 @@ async function handleImageFile(
   const { repo, onError, onUploadStart, onUploadEnd } = options;
   if (!repo) return;
 
-  const bytes = await file.arrayBuffer();
-  const hash = await sha256prefix(bytes);
-  const ext = extensionFromMime(file.type);
-  const filename = `${hash}.${ext}`;
-  const src = `.attachments/${filename}`;
-
-  const uploadId = `${Date.now()}-${filename}`;
-  const showChip = file.size > 100_000;
-  if (showChip) onUploadStart(uploadId, filename);
-
+  let activeUploadId: string | null = null;
   try {
+    const bytes = await file.arrayBuffer();
+    const hash = await sha256prefix(bytes);
+    const ext = extensionFromMime(file.type);
+    const filename = `${hash}.${ext}`;
+    const src = `.attachments/${filename}`;
+
+    if (file.size > 100_000) {
+      activeUploadId = `${Date.now()}-${filename}`;
+      onUploadStart(activeUploadId, filename);
+    }
+
     const alreadyExists = await repo.exists(filename);
     if (!alreadyExists) {
       await repo.write(filename, bytes);
@@ -68,7 +70,7 @@ async function handleImageFile(
   } catch (err) {
     onError(err);
   } finally {
-    if (showChip) onUploadEnd(uploadId);
+    if (activeUploadId) onUploadEnd(activeUploadId);
   }
 }
 
