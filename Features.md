@@ -457,11 +457,11 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 ---
 
 ## 4.18 SVG Editor
-`features/svgEditor/SVGEditorView.tsx`, `features/svgEditor/components/SVGCanvas.tsx`, `features/svgEditor/components/SVGToolbar.tsx`, `features/svgEditor/hooks/useSVGPersistence.ts`
+`features/svgEditor/SVGEditorView.tsx`, `features/svgEditor/components/SVGCanvas.tsx`, `features/svgEditor/components/SVGToolbar.tsx`, `features/svgEditor/hooks/useSVGPersistence.ts`, `infrastructure/svgRepo.ts`
 - ✅ **SVG editor pane** — `SVGEditorView` opens `.svg` files in a dedicated pane. Routing: clicking a `.svg` file in the explorer calls `panes.openFile(path, "svgEditor")`. Creating a new SVG via the explorer context menu or folder hover button creates the file and immediately opens the editor pane.
 - ✅ **Toolbar** — `SVGToolbar` renders six drawing-tool buttons (Select, Rectangle, Ellipse, Line, Path, Text), Undo/Redo, and Zoom In / Zoom Out / Fit. Active tool is highlighted.
 - ✅ **Canvas** — `SVGCanvas` mounts a `<div>` into which `@svgedit/svgcanvas` renders an SVG DOM tree; exposed via a `SVGCanvasHandle` ref with `setMode`, `undo`, `redo`, `zoomIn`, `zoomOut`, `zoomFit`, `getSvgString`, and `setSvgString`.
-- ✅ **Persistence** — `useSVGPersistence` reads the vault file on pane open, writes on Cmd+S (via `SVGEditorBridge.onSave`) and on a 1.5 s debounced auto-save triggered by canvas changes. Discard re-reads from disk and clears the dirty flag.
+- ✅ **Persistence** — `useSVGPersistence` routes every read/write through `Repositories.svg` (`SVGRepository` interface in `domain/repositories.ts`, `infrastructure/svgRepo.ts` impl). KB-005 (2026-04-27) closed the silent-failure hole: load, save, discard, and the 200 ms debounced autosave now `try/catch` + `reportError` via `ShellErrorContext`. `isDirty` flips to `false` only on a successful write; failures leave the dirty marker on so the user can retry. Pending debounced writes are flushed on activeFile switch, component unmount, and `window.blur` so a user closing the pane shortly after the last edit still ends up with the final state on disk.
 - ✅ **Pane chrome** — `PaneHeader` shows the filename (without `.svg` extension) as title and Save/Discard buttons when `isDirty=true`.
 - ✅ **Shell bridge** — `SVGEditorBridge` (`{ isDirty, title, onSave, onDiscard }`) is pushed to `knowledgeBase.tsx` via `onSVGEditorBridge`; Cmd+S in the shell calls `svgEditorBridgeRef.current?.onSave()` when the active pane is `"svgEditor"`.
 

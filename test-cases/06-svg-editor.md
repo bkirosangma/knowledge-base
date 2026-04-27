@@ -34,4 +34,12 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-01 | Drawing on canvas sets isDirty=true (unit: useSVGPersistence onChanged) | ✅ |
 | SVG-6.4-02 | Cmd+S saves SVG to vault file and clears dirty (unit: useSVGPersistence handleSave) | ✅ |
 | SVG-6.4-03 | Discard re-reads file from disk and clears dirty (unit: useSVGPersistence handleDiscard) | ✅ |
-| SVG-6.4-04 | Auto-save fires after 1.5 s of inactivity (unit: useSVGPersistence debounce) | ❌ |
+| SVG-6.4-04 | Auto-save fires after 200 ms of inactivity (unit: useSVGPersistence debounce) | ✅ |
+| SVG-6.4-05 | handleSave failure leaves isDirty=true and reports the error via ShellErrorContext (unit) | ✅ |
+| SVG-6.4-06 | Debounced autosave failure leaves isDirty=true and reports the error (unit) | ✅ |
+| SVG-6.4-07 | Load failure surfaces via ShellErrorContext instead of being silently swallowed (unit) | ✅ |
+| SVG-6.4-08 | Discard failure surfaces via ShellErrorContext without resetting isDirty (unit) | ✅ |
+| SVG-6.4-09 | Closing the SVG pane within 200 ms of last edit flushes the pending write to disk (unit: unmount) | ✅ |
+| SVG-6.4-10 | Switching activeFile flushes pending writes to the previous path before loading the new file (unit) | ✅ |
+| SVG-6.4-11 | Window blur flushes pending writes (unit) | ✅ |
+| SVG-6.4-12 | flush() on a clean editor is a no-op (unit) | ✅ |

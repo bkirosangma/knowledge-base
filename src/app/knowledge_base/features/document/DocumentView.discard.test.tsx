@@ -94,7 +94,7 @@ function renderDocView(
   return render(
     <StubShellErrorProvider value={stubShellErrorValue}>
       <StubRepositoryProvider
-        value={{ attachment: null, document: docRepo, diagram: null, linkIndex: null, vaultConfig: null }}
+        value={{ attachment: null, document: docRepo, diagram: null, linkIndex: null, svg: null, vaultConfig: null }}
       >
         <FileWatcherProvider>
           <ToastProvider>

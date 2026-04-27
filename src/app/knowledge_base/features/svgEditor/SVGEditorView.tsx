@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import type { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../shared/components/PaneHeader";
 import SVGCanvas, { type SVGCanvasHandle, type SVGStyle, type SVGTool } from "./components/SVGCanvas";
 import SVGToolbar from "./components/SVGToolbar";
@@ -18,7 +17,6 @@ export interface SVGEditorViewProps {
   focused: boolean;
   side: "left" | "right";
   activeFile: string | null;
-  fileExplorer: ReturnType<typeof useFileExplorer>;
   onSVGEditorBridge: (bridge: SVGEditorBridge) => void;
 }
 
@@ -31,7 +29,6 @@ export default function SVGEditorView({
   focused: _focused,
   side: _side,
   activeFile,
-  fileExplorer,
   onSVGEditorBridge,
 }: SVGEditorViewProps) {
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
@@ -44,7 +41,6 @@ export default function SVGEditorView({
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
-    fileExplorer.dirHandleRef,
     canvasRef,
   );
 
