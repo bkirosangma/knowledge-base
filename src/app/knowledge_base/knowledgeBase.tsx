@@ -926,6 +926,10 @@ function KnowledgeBaseInner() {
             }
             return resultPath;
           }}
+          onCreateSVG={async (parentPath) => {
+            const resultPath = await fileExplorer.createSVG(parentPath);
+            return resultPath;
+          }}
           onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}
           onDeleteFile={handleDeleteFileWithLinks}
           onDeleteFolder={(path, event) => {
@@ -1025,6 +1029,10 @@ function KnowledgeBaseInner() {
             onCreateDocument={async (parentPath) => {
               const resultPath = await fileExplorer.createDocument(parentPath);
               if (resultPath) handleSelectFile(resultPath);
+              return resultPath;
+            }}
+            onCreateSVG={async (parentPath) => {
+              const resultPath = await fileExplorer.createSVG(parentPath);
               return resultPath;
             }}
             onCreateFolder={(parentPath) => diagramBridgeRef.current?.handleCreateFolder(parentPath) ?? Promise.resolve(null)}

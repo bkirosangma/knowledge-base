@@ -115,7 +115,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Tree rendering** — nested folders with chevrons, file icons by type (JSON/diagram vs text/doc), highlight on currently-open file.
 - ✅ **Sorting** — three fields (name, created, modified), two directions (asc/desc), three groupings (folders-first, files-first, mixed); preferences persisted to localStorage; recursive on nested folders.
 - ✅ **Filtering** — "All / Diagrams / Documents" radio; only matching files visible.
-- ✅ **Right-click context menu** — Create, Rename, Delete, Duplicate, Move.
+- ✅ **Right-click context menu** — Create (file, document, folder, SVG), Rename, Delete, Duplicate, Move. Folder rows also show hover buttons for New File, New Document, New Folder, and New SVG.
 - ✅ **Create file / folder / SVG** — dialog prompts; unique-name fallback (`untitled.json`, `untitled-1.json`, `untitled.svg`, `untitled-1.svg`, …); type routed by extension. `useFileExplorer` exports `createFile`, `createDocument`, `createSVG`, and `createFolder`.
 - ✅ **Rename** — inline edit with trimmed validation; **wiki-link-aware** — updates `[[…]]` references in other documents and the link index.
 - ✅ **Delete** — confirmation popover; wiki-link-aware removal from the link index.
