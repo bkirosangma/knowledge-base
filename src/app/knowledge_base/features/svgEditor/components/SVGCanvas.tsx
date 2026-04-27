@@ -55,6 +55,29 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
+  // Pinch-to-zoom (ctrlKey + wheel) and 2-finger scroll pan.
+  // Uses capture phase so we intercept before svgcanvas's own wheel listeners.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey) {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const z = canvas.getZoom() ?? 1;
+        // deltaMode 0 = pixels (trackpad), 1 = lines — normalise to pixels
+        const px = e.deltaMode === 0 ? e.deltaY : e.deltaY * 30;
+        canvas.setZoom(Math.max(0.1, Math.min(10, z * (1 - px * 0.004))));
+      } else {
+        el.scrollLeft += e.deltaX;
+        el.scrollTop += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => el.removeEventListener("wheel", onWheel, { capture: true });
+  }, []);
+
   useImperativeHandle(ref, () => ({
     getSvgString: () => canvasRef.current?.getSvgString() ?? "",
     setSvgString: (svg: string) => canvasRef.current?.setSvgString(svg),
