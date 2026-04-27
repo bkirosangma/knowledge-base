@@ -79,6 +79,11 @@ export interface AttachmentRepository {
   write(filename: string, bytes: ArrayBuffer): Promise<void>;
   /** Return true if `.attachments/<filename>` already exists. */
   exists(filename: string): Promise<boolean>;
+  /** Read `.attachments/<filename>` as a Blob. Used by the editor's image
+   *  NodeView to resolve canonical `.attachments/...` srcs to blob URLs at
+   *  render time (the relative path is unfetchable from the page origin).
+   *  Throws `FileSystemError` on any FS failure. */
+  read(filename: string): Promise<Blob>;
 }
 
 /**

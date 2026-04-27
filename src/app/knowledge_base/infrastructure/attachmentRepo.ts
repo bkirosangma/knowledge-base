@@ -37,5 +37,15 @@ export function createAttachmentRepository(
         throw classifyError(e);
       }
     },
+
+    async read(filename: string): Promise<Blob> {
+      try {
+        const dir = await getAttachmentsDir();
+        const fileHandle = await dir.getFileHandle(filename);
+        return await fileHandle.getFile();
+      } catch (e) {
+        throw classifyError(e);
+      }
+    },
   };
 }

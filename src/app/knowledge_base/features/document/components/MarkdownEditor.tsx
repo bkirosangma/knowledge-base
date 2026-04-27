@@ -13,7 +13,7 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { ListItem } from "@tiptap/extension-list-item";
 import { Link } from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { Image } from "@tiptap/extension-image";
+import { VaultImage } from "../extensions/vaultImage";
 import { getMarkRange } from "@tiptap/core";
 import { WikiLink, type WikiLinkHoverPayload } from "../extensions/wikiLink";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
@@ -371,7 +371,10 @@ export default function MarkdownEditor({
       // in read mode, which is what we want.
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing..." }),
-      Image,
+      VaultImage.configure({
+        repoRef: attachmentRepoRef,
+        onError: (err) => onImageErrorRef.current?.(err),
+      }),
       WikiLink.configure({
         onNavigate: onNavigateLink,
         onCreateDocument,

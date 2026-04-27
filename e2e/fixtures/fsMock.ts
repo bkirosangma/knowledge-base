@@ -102,18 +102,13 @@ export function installMockFS() {
       name,
 
       async getFile(): Promise<File> {
-        const blob = new Blob([body.content], { type: 'text/plain' })
-        const file = {
-          name,
-          size: body.content.length,
+        // Return a real File so it is a structural Blob (necessary for
+        // `URL.createObjectURL` consumers like the editor's image
+        // NodeView). The real FSA also returns a `File` here.
+        return new File([body.content], name, {
           type: 'text/plain',
           lastModified: Date.now(),
-          text: async () => body.content,
-          arrayBuffer: async () => await blob.arrayBuffer(),
-          slice: () => blob.slice(),
-          stream: () => blob.stream(),
-        }
-        return file as unknown as File
+        })
       },
 
       async createWritable(): Promise<FileSystemWritableFileStream> {

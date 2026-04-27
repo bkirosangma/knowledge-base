@@ -80,19 +80,25 @@ test.describe('DOC-4.20 Image paste-to-attachments', () => {
 
     await pasteImage(page, SAMPLE_PNG_BASE64)
 
-    // Image node attaches to the editor inline within ~500 ms. We use
-    // `toBeAttached` rather than `toBeVisible` because the relative
-    // `.attachments/<hash>.png` href cannot resolve in the test harness, so
-    // the browser collapses the broken `<img>` to a 0×0 box.
+    // Image node attaches to the editor inline within ~500 ms. The
+    // VaultImage NodeView assigns a `blob:` URL to `src` for rendering and
+    // stashes the canonical vault path on `data-vault-src`, which is what
+    // the markdown serializer round-trips. We use `toBeAttached` rather
+    // than `toBeVisible` because the mock FS round-trips bytes through
+    // TextDecoder, mangling the PNG signature so the decoded blob fails to
+    // render visually — but the canonical path is still the contract.
     const img = page.locator('.ProseMirror img').first()
     await expect(img).toBeAttached({ timeout: 3_000 })
 
-    // src follows the expected pattern.
-    const src = await img.getAttribute('src')
-    expect(src).toMatch(/^\.attachments\/[0-9a-f]{12}\.png$/)
+    // The canonical vault path follows the expected pattern.
+    const vaultSrc = await img.getAttribute('data-vault-src')
+    expect(vaultSrc).toMatch(/^\.attachments\/[0-9a-f]{12}\.png$/)
+
+    // The DOM `src` is replaced with a blob URL by the resolver.
+    await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 3_000 })
 
     // File exists on disk.
-    const filename = src!.replace('.attachments/', '')
+    const filename = vaultSrc!.replace('.attachments/', '')
     const fileContent = await page.evaluate(
       (f) => window.__kbMockFS!.read(`.attachments/${f}`),
       filename,
@@ -108,18 +114,18 @@ test.describe('DOC-4.20 Image paste-to-attachments', () => {
     await pasteImage(page, SAMPLE_PNG_BASE64)
     const img1 = page.locator('.ProseMirror img').first()
     await expect(img1).toBeAttached({ timeout: 3_000 })
-    const src1 = await img1.getAttribute('src')
+    const vaultSrc1 = await img1.getAttribute('data-vault-src')
 
     await pasteImage(page, SAMPLE_PNG_BASE64)
     // Second image should also appear.
     await expect(page.locator('.ProseMirror img')).toHaveCount(2, { timeout: 3_000 })
-    const src2 = await page.locator('.ProseMirror img').nth(1).getAttribute('src')
+    const vaultSrc2 = await page.locator('.ProseMirror img').nth(1).getAttribute('data-vault-src')
 
-    // Both images point to the same file (same hash).
-    expect(src1).toBe(src2)
+    // Both images point to the same canonical file (same hash).
+    expect(vaultSrc1).toBe(vaultSrc2)
 
     // File exists on disk.
-    const filename = src1!.replace('.attachments/', '')
+    const filename = vaultSrc1!.replace('.attachments/', '')
     const fileContent = await page.evaluate(
       (f) => window.__kbMockFS!.read(`.attachments/${f}`),
       filename,
@@ -154,10 +160,10 @@ test.describe('DOC-4.20 Image paste-to-attachments', () => {
     const img = page.locator('.ProseMirror img').first()
     await expect(img).toBeAttached({ timeout: 3_000 })
 
-    const src = await img.getAttribute('src')
-    expect(src).toMatch(/^\.attachments\/[0-9a-f]{12}\.png$/)
+    const vaultSrc = await img.getAttribute('data-vault-src')
+    expect(vaultSrc).toMatch(/^\.attachments\/[0-9a-f]{12}\.png$/)
 
-    const filename = src!.replace('.attachments/', '')
+    const filename = vaultSrc!.replace('.attachments/', '')
     const fileContent = await page.evaluate(
       (f) => window.__kbMockFS!.read(`.attachments/${f}`),
       filename,
