@@ -36,3 +36,24 @@ index 75bc988..0ff9bb4 100644
              const cmd = svgCanvas.recalculateDimensions(elem)
              if (cmd) {
                batchCmd.addSubCommand(cmd)
+diff --git a/node_modules/@svgedit/svgcanvas/core/path-method.js b/node_modules/@svgedit/svgcanvas/core/path-method.js
+index 9c42c60..d5faf6f 100644
+--- a/node_modules/@svgedit/svgcanvas/core/path-method.js
++++ b/node_modules/@svgedit/svgcanvas/core/path-method.js
+@@ -1130,9 +1130,13 @@ export class Path {
+   */
+   update () {
+     const { elem } = this
+-    if (getRotationAngle(elem)) {
+-      this.matrix = getMatrix(elem)
+-      this.imatrix = this.matrix.inverse()
++    // Always compute the full transform matrix so grips account for any
++    // transform on the path (translate, matrix, or rotation), not just rotation.
++    const m = getMatrix(elem)
++    const isIdentity = m && m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.e === 0 && m.f === 0
++    if (!isIdentity) {
++      this.matrix = m
++      this.imatrix = m.inverse()
+     } else {
+       this.matrix = null
+       this.imatrix = null
