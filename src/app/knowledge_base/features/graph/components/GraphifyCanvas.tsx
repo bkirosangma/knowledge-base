@@ -480,11 +480,11 @@ export default function GraphifyCanvas({
         const padded = padHull(convexHull(pts), 12);
         if (padded.length >= 3 && pointInPolygon({ x: gx, y: gy }, padded)) {
           onHyperedgeClick(he);
-          return;
+          break; // don't return — still fall through to deselect node below
         }
       }
     }
-    onBackgroundClick?.();
+    onBackgroundClick?.(); // always fires — background click always deselects the active node
   }, [onHyperedgeClick, onBackgroundClick, hyperedges, nodes]);
 
   return (
