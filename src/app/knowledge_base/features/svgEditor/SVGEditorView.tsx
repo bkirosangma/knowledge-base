@@ -36,6 +36,7 @@ export default function SVGEditorView({
 }: SVGEditorViewProps) {
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
@@ -58,9 +59,8 @@ export default function SVGEditorView({
     <div className="flex flex-col h-full min-h-0 flex-1">
       <PaneHeader
         filePath={activeFile ?? ""}
-        readOnly={false}
-        onToggleReadOnly={() => {}}
-        hideReadOnlyToggle
+        readOnly={isReadOnly}
+        onToggleReadOnly={() => setIsReadOnly(v => !v)}
         title={title}
         isDirty={isDirty}
         hasActiveFile={activeFile !== null}
@@ -75,10 +75,12 @@ export default function SVGEditorView({
         onZoomIn={() => canvasRef.current?.zoomIn()}
         onZoomOut={() => canvasRef.current?.zoomOut()}
         onZoomFit={() => canvasRef.current?.zoomFit()}
+        readOnly={isReadOnly}
       />
       <SVGCanvas
         ref={canvasRef}
         onChanged={onChanged}
+        readOnly={isReadOnly}
       />
     </div>
   );

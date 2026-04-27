@@ -17,13 +17,14 @@ export interface SVGCanvasHandle {
 
 interface SVGCanvasProps {
   onChanged: () => void;
+  readOnly?: boolean;
 }
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
 
 const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas(
-  { onChanged },
+  { onChanged, readOnly = false },
   ref,
 ) {
   const wrapperRef  = useRef<HTMLDivElement>(null); // scroll viewport
@@ -121,7 +122,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     >
       {/* Spacer sized to the zoomed canvas so the scroll container gets the right range */}
       <div ref={spacerRef} style={{ width: CANVAS_W, height: CANVAS_H, position: "relative" }}>
-        <div ref={containerRef} style={{ position: "absolute", transformOrigin: "0 0" }} />
+        <div
+          ref={containerRef}
+          style={{ position: "absolute", transformOrigin: "0 0", pointerEvents: readOnly ? "none" : undefined }}
+        />
       </div>
     </div>
   );

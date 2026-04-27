@@ -15,6 +15,7 @@ interface SVGToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomFit: () => void;
+  readOnly?: boolean;
 }
 
 const TOOLS: { tool: SVGTool; Icon: React.ElementType; title: string }[] = [
@@ -30,8 +31,10 @@ const btnBase = "p-1.5 rounded transition-colors";
 const btnActive = "bg-surface-2 text-ink";
 const btnInactive = "text-mute hover:text-ink-2 hover:bg-surface-2";
 
+const btnDisabled = "text-mute opacity-40 cursor-not-allowed";
+
 export default function SVGToolbar({
-  activeTool, onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomFit,
+  activeTool, onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomFit, readOnly = false,
 }: SVGToolbarProps) {
   return (
     <div className="flex items-center gap-0.5 px-2 py-1 border-b border-line bg-surface flex-shrink-0">
@@ -39,9 +42,10 @@ export default function SVGToolbar({
         <button
           key={tool}
           title={title}
-          data-active={activeTool === tool}
-          className={`${btnBase} ${activeTool === tool ? btnActive : btnInactive}`}
-          onClick={() => onToolChange(tool)}
+          disabled={readOnly}
+          data-active={!readOnly && activeTool === tool}
+          className={`${btnBase} ${readOnly ? btnDisabled : activeTool === tool ? btnActive : btnInactive}`}
+          onClick={() => !readOnly && onToolChange(tool)}
         >
           <Icon size={14} />
         </button>
@@ -49,10 +53,10 @@ export default function SVGToolbar({
 
       <div className="w-px h-4 bg-line mx-1" />
 
-      <button title="Undo" className={`${btnBase} ${btnInactive}`} onClick={onUndo}>
+      <button title="Undo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onUndo}>
         <Undo2 size={14} />
       </button>
-      <button title="Redo" className={`${btnBase} ${btnInactive}`} onClick={onRedo}>
+      <button title="Redo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onRedo}>
         <Redo2 size={14} />
       </button>
 
