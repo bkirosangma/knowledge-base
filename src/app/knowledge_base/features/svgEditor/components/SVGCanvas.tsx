@@ -122,10 +122,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     >
       {/* Spacer sized to the zoomed canvas so the scroll container gets the right range */}
       <div ref={spacerRef} style={{ width: CANVAS_W, height: CANVAS_H, position: "relative" }}>
-        <div
-          ref={containerRef}
-          style={{ position: "absolute", transformOrigin: "0 0", pointerEvents: readOnly ? "none" : undefined }}
-        />
+        <div ref={containerRef} style={{ position: "absolute", transformOrigin: "0 0" }} />
+        {/* Intercepts all pointer events in read mode — pointer-events:none on the container
+            div does not block its SVG children, so an overlay is the reliable solution. */}
+        {readOnly && <div style={{ position: "absolute", inset: 0 }} />}
       </div>
     </div>
   );

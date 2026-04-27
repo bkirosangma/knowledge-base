@@ -36,7 +36,7 @@ export default function SVGEditorView({
 }: SVGEditorViewProps) {
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(true);
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
