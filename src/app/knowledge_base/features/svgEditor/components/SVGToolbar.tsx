@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import {
   MousePointer2, Square, Circle, Minus, PenTool, Type,
-  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
+  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Link2, Link2Off,
 } from "lucide-react";
 import type { SVGStyle, SVGTool } from "./SVGCanvas";
 
@@ -19,6 +19,8 @@ interface SVGToolbarProps {
   onFillChange: (color: string) => void;
   onStrokeChange: (color: string) => void;
   onStrokeWidthChange: (width: number) => void;
+  linkedHandles: boolean;
+  onLinkedHandlesChange: (linked: boolean) => void;
   readOnly?: boolean;
 }
 
@@ -66,7 +68,8 @@ function ColorSwatch({
 
 export default function SVGToolbar({
   activeTool, onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomFit,
-  style, onFillChange, onStrokeChange, onStrokeWidthChange, readOnly = false,
+  style, onFillChange, onStrokeChange, onStrokeWidthChange,
+  linkedHandles, onLinkedHandlesChange, readOnly = false,
 }: SVGToolbarProps) {
   const fill        = style?.fill        ?? "#000000";
   const stroke      = style?.stroke      ?? "#000000";
@@ -86,6 +89,17 @@ export default function SVGToolbar({
           <Icon size={14} />
         </button>
       ))}
+
+      <div className="w-px h-4 bg-line mx-1" />
+
+      <button
+        title={linkedHandles ? "Handles linked — click to break (allow sharp points)" : "Handles independent — click to link (smooth curves)"}
+        disabled={readOnly}
+        onClick={() => !readOnly && onLinkedHandlesChange(!linkedHandles)}
+        className={`${btnBase} ${readOnly ? btnDisabled : linkedHandles ? btnActive : btnInactive}`}
+      >
+        {linkedHandles ? <Link2 size={14} /> : <Link2Off size={14} />}
+      </button>
 
       <div className="w-px h-4 bg-line mx-1" />
 

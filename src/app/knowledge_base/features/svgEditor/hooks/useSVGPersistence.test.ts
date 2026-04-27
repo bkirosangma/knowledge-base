@@ -36,6 +36,7 @@ function makeCanvas(svgContent = EMPTY_SVG): SVGCanvasHandle & { _content: strin
     setFill: vi.fn(),
     setStroke: vi.fn(),
     setStrokeWidth: vi.fn(),
+    setLinkedHandles: vi.fn(),
   };
   return canvas;
 }

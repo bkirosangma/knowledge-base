@@ -38,6 +38,7 @@ export default function SVGEditorView({
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [svgStyle, setSvgStyle] = useState<SVGStyle>({ fill: "#000000", stroke: "#000000", strokeWidth: 1 });
+  const [linkedHandles, setLinkedHandles] = useState(true);
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
@@ -114,6 +115,8 @@ export default function SVGEditorView({
         onFillChange={c => { setSvgStyle(s => ({ ...s, fill: c })); canvasRef.current?.setFill(c); }}
         onStrokeChange={c => { setSvgStyle(s => ({ ...s, stroke: c })); canvasRef.current?.setStroke(c); }}
         onStrokeWidthChange={w => { setSvgStyle(s => ({ ...s, strokeWidth: w })); canvasRef.current?.setStrokeWidth(w); }}
+        linkedHandles={linkedHandles}
+        onLinkedHandlesChange={linked => { setLinkedHandles(linked); canvasRef.current?.setLinkedHandles(linked); }}
         readOnly={isReadOnly}
       />
       <SVGCanvas

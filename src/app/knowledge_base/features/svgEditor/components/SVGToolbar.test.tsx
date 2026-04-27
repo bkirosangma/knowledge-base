@@ -16,6 +16,8 @@ describe('SVGToolbar', () => {
     onFillChange: vi.fn(),
     onStrokeChange: vi.fn(),
     onStrokeWidthChange: vi.fn(),
+    linkedHandles: true,
+    onLinkedHandlesChange: vi.fn(),
   };
 
   it('SVG-6.3-01: renders all tool buttons', () => {

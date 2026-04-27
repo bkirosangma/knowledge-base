@@ -27,6 +27,7 @@ export interface SVGCanvasHandle {
   setFill: (color: string) => void;
   setStroke: (color: string) => void;
   setStrokeWidth: (width: number) => void;
+  setLinkedHandles: (linked: boolean) => void;
 }
 
 interface SVGCanvasProps {
@@ -195,6 +196,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     setFill: (color: string) => canvasRef.current?.setColor?.("fill", color),
     setStroke: (color: string) => canvasRef.current?.setColor?.("stroke", color),
     setStrokeWidth: (width: number) => canvasRef.current?.setStrokeWidth?.(width),
+    setLinkedHandles: (linked: boolean) => canvasRef.current?.setLinkControlPoints?.(linked),
     zoomIn:  () => applyZoom(zoomRef.current * 1.2),
     zoomOut: () => applyZoom(zoomRef.current / 1.2),
     zoomFit: () => {
