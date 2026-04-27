@@ -242,6 +242,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
         <div className="flex-1 flex flex-col min-h-0 relative">
           {/* Toolbar */}
           <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 border-b border-line bg-surface">
+            {/* Search — dropdown anchored to this wrapper */}
             <div className="relative flex-1 max-w-[160px]">
               <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-mute pointer-events-none" aria-hidden="true" />
               <input
@@ -253,120 +254,123 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                 className="w-full bg-surface-2 border border-line rounded pl-6 pr-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent"
                 aria-label="Search nodes"
               />
-            </div>
-            <button
-              type="button"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs border transition-colors ${filterFiles.size > 0 || filterOpen ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
-              onClick={() => setFilterOpen(v => !v)}
-              aria-expanded={filterOpen}
-              aria-label="Toggle node filter"
-            >
-              <Filter size={12} aria-hidden="true" />
-              <span>Filter</span>
-              {filterFiles.size > 0 && (
-                <span className="font-medium tabular-nums">{filterFiles.size}</span>
+              {searchResults.length > 0 && (
+                <ul
+                  className="absolute left-0 top-full mt-1 z-30 w-56 max-h-48 overflow-y-auto bg-surface border border-line rounded shadow-lg py-1"
+                  role="listbox"
+                  aria-label="Search results"
+                >
+                  {searchResults.map((n) => (
+                    <li
+                      key={n.id}
+                      role="option"
+                      aria-selected={selectedNode?.id === n.id}
+                      className="px-2 py-1 text-xs cursor-pointer text-ink truncate hover:bg-surface-2"
+                      style={{ borderLeft: `3px solid ${nodeColorMap.get(n.id) ?? "#888"}` }}
+                      onClick={() => handleNodeClick(n)}
+                    >
+                      {n.label}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </button>
-          </div>
-
-          {/* Search results — absolute overlay so the canvas never shifts */}
-          {searchResults.length > 0 && (
-            <div className="absolute left-2 top-9 z-30 w-56 bg-surface border border-line rounded-b shadow-lg overflow-hidden">
-              <ul className="max-h-48 overflow-y-auto py-1" role="listbox" aria-label="Search results">
-                {searchResults.map((n) => (
-                  <li
-                    key={n.id}
-                    role="option"
-                    aria-selected={selectedNode?.id === n.id}
-                    className="px-2 py-1 text-xs cursor-pointer text-ink truncate hover:bg-surface-2"
-                    style={{ borderLeft: `3px solid ${nodeColorMap.get(n.id) ?? "#888"}` }}
-                    onClick={() => handleNodeClick(n)}
-                  >
-                    {n.label}
-                  </li>
-                ))}
-              </ul>
             </div>
-          )}
 
-          {/* Filter panel — absolute overlay anchored to right of toolbar */}
-          {filterOpen && (
-            <div className="absolute right-2 top-9 z-30 w-64 bg-surface border border-line rounded-b shadow-lg px-3 py-2">
-              {/* Mode toggle */}
-              <div className="flex gap-1 mb-2">
-                <button
-                  type="button"
-                  className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "include" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
-                  onClick={() => setFilterMode("include")}
-                >Include + neighbors</button>
-                <button
-                  type="button"
-                  className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "exclude" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
-                  onClick={() => setFilterMode("exclude")}
-                >Exclude</button>
-              </div>
-
-              {/* Tree search */}
-              <input
-                type="text"
-                value={treeSearch}
-                onChange={e => setTreeSearch(e.target.value)}
-                placeholder="Search files…"
-                className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent mb-2"
-              />
-
-              {/* File tree or filtered flat list */}
-              <div className="max-h-48 overflow-y-auto -mx-1">
-                {treeSearch.trim() ? (
-                  filteredFlatItems.length === 0 ? (
-                    <p className="text-[10px] text-mute italic px-1">No files found</p>
-                  ) : (
-                    filteredFlatItems.map(item => (
-                      <label key={item.path} className="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-surface-2">
-                        <input
-                          type="checkbox"
-                          checked={filterFiles.has(item.path)}
-                          onChange={() => toggleFilter(item.path)}
-                          className="w-3 h-3 flex-shrink-0 accent-blue-400"
-                        />
-                        {item.isFolder
-                          ? <Folder size={10} className="text-mute flex-shrink-0" />
-                          : <FileText size={10} className="text-mute flex-shrink-0" />
-                        }
-                        <span className="text-[10px] text-ink truncate" title={item.path}>
-                          {item.path}{item.isFolder ? "/" : ""}
-                        </span>
-                      </label>
-                    ))
-                  )
-                ) : (
-                  fileTree.length === 0 ? (
-                    <p className="text-[10px] text-mute italic px-1">No files found</p>
-                  ) : (
-                    fileTree.map(node => (
-                      <FileTreeItem
-                        key={node.path}
-                        node={node}
-                        depth={0}
-                        filterFiles={filterFiles}
-                        expandedFolders={expandedFolders}
-                        onToggleFilter={toggleFilter}
-                        onToggleExpand={toggleExpandFolder}
-                      />
-                    ))
-                  )
+            {/* Filter button — dropdown anchored to this wrapper */}
+            <div className="relative">
+              <button
+                type="button"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs border transition-colors ${filterFiles.size > 0 || filterOpen ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                onClick={() => setFilterOpen(v => !v)}
+                aria-expanded={filterOpen}
+                aria-label="Toggle node filter"
+              >
+                <Filter size={12} aria-hidden="true" />
+                <span>Filter</span>
+                {filterFiles.size > 0 && (
+                  <span className="font-medium tabular-nums">{filterFiles.size}</span>
                 )}
-              </div>
+              </button>
 
-              {filterFiles.size > 0 && (
-                <button
-                  type="button"
-                  className="text-[10px] text-mute hover:text-ink mt-2"
-                  onClick={() => setFilterFiles(new Set())}
-                >Clear filter</button>
+              {filterOpen && (
+                <div className="absolute right-0 top-full mt-1 z-30 w-64 bg-surface border border-line rounded shadow-lg px-3 py-2">
+                  {/* Mode toggle */}
+                  <div className="flex gap-1 mb-2">
+                    <button
+                      type="button"
+                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "include" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                      onClick={() => setFilterMode("include")}
+                    >Include + neighbors</button>
+                    <button
+                      type="button"
+                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "exclude" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                      onClick={() => setFilterMode("exclude")}
+                    >Exclude</button>
+                  </div>
+
+                  {/* Tree search */}
+                  <input
+                    type="text"
+                    value={treeSearch}
+                    onChange={e => setTreeSearch(e.target.value)}
+                    placeholder="Search files…"
+                    className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent mb-2"
+                  />
+
+                  {/* File tree or filtered flat list */}
+                  <div className="max-h-48 overflow-y-auto -mx-1">
+                    {treeSearch.trim() ? (
+                      filteredFlatItems.length === 0 ? (
+                        <p className="text-[10px] text-mute italic px-1">No files found</p>
+                      ) : (
+                        filteredFlatItems.map(item => (
+                          <label key={item.path} className="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-surface-2">
+                            <input
+                              type="checkbox"
+                              checked={filterFiles.has(item.path)}
+                              onChange={() => toggleFilter(item.path)}
+                              className="w-3 h-3 flex-shrink-0 accent-blue-400"
+                            />
+                            {item.isFolder
+                              ? <Folder size={10} className="text-mute flex-shrink-0" />
+                              : <FileText size={10} className="text-mute flex-shrink-0" />
+                            }
+                            <span className="text-[10px] text-ink truncate" title={item.path}>
+                              {item.path}{item.isFolder ? "/" : ""}
+                            </span>
+                          </label>
+                        ))
+                      )
+                    ) : (
+                      fileTree.length === 0 ? (
+                        <p className="text-[10px] text-mute italic px-1">No files found</p>
+                      ) : (
+                        fileTree.map(node => (
+                          <FileTreeItem
+                            key={node.path}
+                            node={node}
+                            depth={0}
+                            filterFiles={filterFiles}
+                            expandedFolders={expandedFolders}
+                            onToggleFilter={toggleFilter}
+                            onToggleExpand={toggleExpandFolder}
+                          />
+                        ))
+                      )
+                    )}
+                  </div>
+
+                  {filterFiles.size > 0 && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-mute hover:text-ink mt-2"
+                      onClick={() => setFilterFiles(new Set())}
+                    >Clear filter</button>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Canvas + sidebar */}
           <div className="flex-1 flex min-h-0">
