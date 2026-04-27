@@ -20,6 +20,8 @@ interface GraphifyCanvasProps {
   /** Node ID to highlight; null = no selection. */
   highlightedNode: string | null;
   onNodeClick: (node: RawGraphifyNode) => void;
+  /** Called when the user clicks inside a hyperedge hull. */
+  onHyperedgeClick?: (he: RawHyperedge) => void;
   /** Called when the user clicks the empty canvas background — use to deselect. */
   onBackgroundClick?: () => void;
   physicsConfig: PhysicsConfig;
@@ -63,6 +65,19 @@ function padHull(hull: Pt[], pad: number): Pt[] {
   });
 }
 
+
+// Ray-casting point-in-polygon for convex hull click detection.
+function pointInPolygon(pt: Pt, polygon: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const { x: xi, y: yi } = polygon[i];
+    const { x: xj, y: yj } = polygon[j];
+    if ((yi > pt.y) !== (yj > pt.y) && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 // ── Per-node gravity force ────────────────────────────────────────────────
 // Replaces d3's forceCenter. forceCenter only anchors the CENTRE OF MASS —
@@ -147,6 +162,7 @@ export default function GraphifyCanvas({
   visibleNodeIds,
   highlightedNode,
   onNodeClick,
+  onHyperedgeClick,
   onBackgroundClick,
   physicsConfig,
   onPhysicsChange,
@@ -444,6 +460,33 @@ export default function GraphifyCanvas({
     [onNodeClick],
   );
 
+  // Background click: test if the click falls inside a hyperedge hull first.
+  const handleBackgroundClick = useCallback((event: MouseEvent) => {
+    if (onHyperedgeClick && hyperedges.length > 0 && graphRef.current && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const sx = event.clientX - rect.left;
+      const sy = event.clientY - rect.top;
+      const { x: gx, y: gy } = graphRef.current.screen2GraphCoords(sx, sy);
+
+      type PN = RawGraphifyNode & { x?: number; y?: number };
+      const posMap = new Map<string, Pt>();
+      for (const n of nodes as PN[]) {
+        if (n.x != null && n.y != null) posMap.set(n.id, { x: n.x, y: n.y });
+      }
+
+      for (const he of hyperedges) {
+        const pts = he.nodes.flatMap(id => { const p = posMap.get(id); return p ? [p] : []; });
+        if (pts.length < 2) continue;
+        const padded = padHull(convexHull(pts), 12);
+        if (padded.length >= 3 && pointInPolygon({ x: gx, y: gy }, padded)) {
+          onHyperedgeClick(he);
+          return;
+        }
+      }
+    }
+    onBackgroundClick?.();
+  }, [onHyperedgeClick, onBackgroundClick, hyperedges, nodes]);
+
   return (
     <div
       ref={containerRef}
@@ -474,7 +517,7 @@ export default function GraphifyCanvas({
           nodeCanvasObjectMode={() => "after"}
           onRenderFramePost={onRenderFramePost}
           onNodeClick={handleNodeClick}
-          onBackgroundClick={onBackgroundClick}
+          onBackgroundClick={handleBackgroundClick}
           enableNodeDrag
           cooldownTicks={120}
         />

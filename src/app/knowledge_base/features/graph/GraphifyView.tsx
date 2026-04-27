@@ -85,6 +85,11 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
     setHighlightedNode(null);
   }, []);
 
+  const handleHyperedgeClick = useCallback((he: { id: string }) => {
+    setHighlightedHyperedge(prev => prev === he.id ? null : he.id);
+    setHighlightedCommunity(null);
+  }, []);
+
   const handleOpenFile = useCallback((node: RawGraphifyNode) => {
     const filePath = nodeSourceMap.get(node.id) ?? node.source_file;
     if (filePath) onSelectNode(filePath);
@@ -163,6 +168,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
             visibleNodeIds={visibleNodeIds}
             highlightedNode={highlightedNode}
             onNodeClick={handleNodeClick}
+            onHyperedgeClick={handleHyperedgeClick}
             onBackgroundClick={handleDeselect}
             physicsConfig={physics}
             onPhysicsChange={handlePhysicsChange}
