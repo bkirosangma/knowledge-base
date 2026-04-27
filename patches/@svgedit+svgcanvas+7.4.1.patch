@@ -57,3 +57,28 @@ index 9c42c60..d5faf6f 100644
      } else {
        this.matrix = null
        this.imatrix = null
+diff --git a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
+index 4788dff..b9c6253 100644
+--- a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
++++ b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
+@@ -2527,7 +2527,8 @@ class nv {
+   */
+   update() {
+     const { elem: e } = this;
+-    return bA(e) ? (this.matrix = Jm(e), this.imatrix = this.matrix.inverse()) : (this.matrix = null, this.imatrix = null), this.eachSeg(function(t) {
++    const _m = Jm(e), _id = _m && _m.a === 1 && _m.b === 0 && _m.c === 0 && _m.d === 1 && _m.e === 0 && _m.f === 0;
++    return _id ? (this.matrix = null, this.imatrix = null) : (this.matrix = _m, this.imatrix = _m.inverse()), this.eachSeg(function(t) {
+       this.item = e.pathSegList.getItem(t), this.update();
+     }), this;
+   }
+@@ -5261,8 +5262,8 @@ const mU = (r) => {
+               for (; S.numberOfItems > 0; )
+                 S.removeItem(0);
+               const R = I.getSvgRoot().createSVGTransform();
+-              R.setMatrix(_), S.appendItem(R), v.addSubCommand(new z1(b, { transform: B }));
+-              return;
++              R.setMatrix(_), S.appendItem(R);
++              if (Q) { v.addSubCommand(new z1(b, { transform: B })); return; }
+             }
+             const N = I.recalculateDimensions(b);
+             N ? v.addSubCommand(N) : (b.getAttribute("transform") || "") !== B && v.addSubCommand(new z1(b, { transform: B }));
