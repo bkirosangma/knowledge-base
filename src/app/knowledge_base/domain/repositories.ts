@@ -100,3 +100,23 @@ export interface DiagramRepository {
    *  Throws on failure. */
   write(diagramPath: string, data: DiagramData): Promise<void>;
 }
+
+/**
+ * Abstraction over an SVG file (`.svg`). Mirrors `DocumentRepository` —
+ * raw text in, raw text out — but kept as its own contract so the SVG
+ * editor can grow type-specific behaviour later (e.g. shape validation)
+ * without leaking through the document path.
+ *
+ * KB-005 (2026-04-27): introduced to close the SVG editor's silent-write
+ * hole. Callers that previously poked `writeTextFile` directly with a
+ * `.catch(() => {})` now route through this contract; failures throw a
+ * classified `FileSystemError` and surface via `ShellErrorContext`.
+ */
+export interface SVGRepository {
+  /** Read the SVG document's raw text. Throws `FileSystemError` on any
+   *  failure. */
+  read(svgPath: string): Promise<string>;
+  /** Overwrite the SVG document. Creates parent dirs + file as needed.
+   *  Throws on failure. */
+  write(svgPath: string, svgString: string): Promise<void>;
+}

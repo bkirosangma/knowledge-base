@@ -236,6 +236,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       diagram: null,
       document: repo as Repositories['document'],
       linkIndex: null,
+      svg: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -319,6 +320,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       diagram: null,
       document: { read, write: vi.fn(async () => {}) },
       linkIndex: null,
+      svg: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -368,6 +370,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
         write: vi.fn().mockRejectedValue(new FileSystemError('permission', 'denied')),
       },
       linkIndex: null,
+      svg: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -415,6 +418,7 @@ describe('useDocumentContent — loadedPath field', () => {
       diagram: null,
       document: { read, write: vi.fn(async () => {}) },
       linkIndex: null,
+      svg: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {

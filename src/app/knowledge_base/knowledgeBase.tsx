@@ -863,7 +863,6 @@ function KnowledgeBaseInner() {
           focused={focused}
           side={side}
           activeFile={entry.filePath}
-          fileExplorer={fileExplorer}
           onSVGEditorBridge={handleSVGEditorBridge}
         />
       );

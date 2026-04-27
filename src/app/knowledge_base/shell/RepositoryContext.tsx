@@ -8,12 +8,14 @@ import type {
   DiagramRepository,
   DocumentRepository,
   LinkIndexRepository,
+  SVGRepository,
   VaultConfigRepository,
 } from "../domain/repositories";
 import { createAttachmentRepository } from "../infrastructure/attachmentRepo";
 import { createDiagramRepository } from "../infrastructure/diagramRepo";
 import { createDocumentRepository } from "../infrastructure/documentRepo";
 import { createLinkIndexRepository } from "../infrastructure/linkIndexRepo";
+import { createSVGRepository } from "../infrastructure/svgRepo";
 import { createVaultConfigRepository } from "../infrastructure/vaultConfigRepo";
 
 /**
@@ -27,6 +29,7 @@ export interface Repositories {
   diagram: DiagramRepository | null;
   document: DocumentRepository | null;
   linkIndex: LinkIndexRepository | null;
+  svg: SVGRepository | null;
   vaultConfig: VaultConfigRepository | null;
 }
 
@@ -35,6 +38,7 @@ const EMPTY_REPOS: Repositories = {
   diagram: null,
   document: null,
   linkIndex: null,
+  svg: null,
   vaultConfig: null,
 };
 
@@ -65,6 +69,7 @@ export function RepositoryProvider({
       diagram: createDiagramRepository(rootHandle),
       document: createDocumentRepository(rootHandle),
       linkIndex: createLinkIndexRepository(rootHandle),
+      svg: createSVGRepository(rootHandle),
       vaultConfig: createVaultConfigRepository(rootHandle),
     };
   }, [rootHandle]);

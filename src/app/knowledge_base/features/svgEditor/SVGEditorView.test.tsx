@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import SVGEditorView from './SVGEditorView';
-import type { useFileExplorer } from '../../shared/hooks/useFileExplorer';
 
 vi.mock('./components/SVGCanvas', () => {
   const MockSVGCanvas = React.forwardRef((_props: unknown, ref: React.Ref<unknown>) => {
@@ -28,41 +27,9 @@ vi.mock('./hooks/useSVGPersistence', () => ({
     onChanged: vi.fn(),
     handleSave: vi.fn(),
     handleDiscard: vi.fn(),
+    flush: vi.fn(),
   }),
 }));
-
-const mockFileExplorer: ReturnType<typeof useFileExplorer> = {
-  dirHandleRef: { current: {} as FileSystemDirectoryHandle },
-  tree: [],
-  activeFile: null,
-  isLoading: false,
-  supported: true,
-  dirtyFiles: new Set<string>(),
-  pendingFile: null,
-  clearPendingFile: vi.fn(),
-  openFolder: vi.fn(),
-  selectFile: vi.fn(),
-  saveFile: vi.fn(),
-  createFile: vi.fn(),
-  createDocument: vi.fn(),
-  createSVG: vi.fn(),
-  createFolder: vi.fn(),
-  deleteFile: vi.fn(),
-  deleteFolder: vi.fn(),
-  renameFile: vi.fn(),
-  renameFolder: vi.fn(),
-  duplicateFile: vi.fn(),
-  moveItem: vi.fn(),
-  discardFile: vi.fn(),
-  markDirty: vi.fn(),
-  refresh: vi.fn(),
-  watcherRescan: vi.fn(),
-  handleFallbackInput: vi.fn(),
-  inputRef: { current: null },
-  setActiveFile: vi.fn(),
-  rootHandle: null,
-  directoryName: 'vault',
-};
 
 describe('SVGEditorView', () => {
   const onSVGEditorBridge = vi.fn();
@@ -78,7 +45,6 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="diagrams/logo.svg"
-          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
@@ -93,7 +59,6 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="logo.svg"
-          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
@@ -108,7 +73,6 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="logo.svg"
-          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
