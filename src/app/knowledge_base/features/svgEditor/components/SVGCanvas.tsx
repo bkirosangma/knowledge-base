@@ -44,6 +44,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
         initStroke: { color: "000000", opacity: 1, width: 1 },
         initOpacity: 1,
         dimensions: [800, 600],
+        imgPath: "/svgedit-cursors",
       });
       canvasRef.current = canvas;
       canvas.bind("changed", () => onChangedRef.current());
