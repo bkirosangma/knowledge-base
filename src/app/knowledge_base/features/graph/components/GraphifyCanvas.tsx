@@ -177,18 +177,22 @@ export default function GraphifyCanvas({
   }, [hyperedges, physicsConfig.hyperedgeForce]);
 
   // ── Pan to centroid of visible nodes when selection changes ──────────────
+  // d3 mutates the original node objects in place with x/y — same pattern
+  // used by onRenderFramePost for hull rendering.
   useEffect(() => {
     if (!visibleNodeIds || visibleNodeIds.size === 0) return;
     const graph = graphRef.current;
     if (!graph) return;
     type PN = RawGraphifyNode & { x?: number; y?: number };
-    const members = (graph.graphData().nodes as PN[]).filter(
+    const members = (nodes as PN[]).filter(
       n => visibleNodeIds.has(n.id) && n.x != null && n.y != null,
     );
     if (!members.length) return;
     const cx = members.reduce((s, n) => s + (n.x ?? 0), 0) / members.length;
     const cy = members.reduce((s, n) => s + (n.y ?? 0), 0) / members.length;
     graph.centerAt(cx, cy, 500);
+  // nodes is stable (same array reference); visibleNodeIds change drives panning.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleNodeIds]);
 
   // ── Pinch-to-zoom + two-finger pan ───────────────────────────────────────
