@@ -135,7 +135,7 @@ The 52 🚫 items break down into:
 - **Removed/obsolete UI** (SHELL-1.2-01/07/08, SHELL-1.4-07) — components deleted in the 2026-04-19 header strip-down.
 - **Module-private helpers** (DOC-4.3-36/37, DOC-4.5-09/10/11) — LRU cache and rawBlock toggle helpers are unexported; would require extraction to unit-test.
 - **Intentional behavior locks** (DOC-4.13-14) — documented code-fence limitation preserved as a regression guard.
-- **Non-features by design** (PERSIST-7.3-16, PERSIST-7.5-04, SHELL-1.3-08) — no retry logic, reset-app IDB semantics unverified, confirmation dialog not implemented.
+- **Non-features by design** (PERSIST-7.3-16, PERSIST-7.5-04) — no retry logic, reset-app IDB semantics unverified.
 - **Browser-level only** (PERSIST-7.1-15, FS-2.1-12, FS-2.3-50) — private-mode simulation, native permission revocation, and `preventDefault` on contextmenu can't be asserted even with Playwright.
 - **Not yet implemented** (DIAG-3.8-09, DIAG-3.13-23, DIAG-3.13-26) — bidirectional arrowheads, manual-size override toggle, and per-connection curve algorithm dropdown not yet built.
 

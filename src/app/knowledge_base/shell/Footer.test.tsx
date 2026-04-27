@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { useEffect } from 'react'
 import Footer from './Footer'
 import { FooterProvider, useFooterContext, type DiagramFooterBridge } from './FooterContext'
 import { ToolbarProvider, useToolbarContext, type PaneType, type FocusedPane } from './ToolbarContext'
 import type { PaneEntry } from './PaneManager'
 
-// Covers SHELL-1.3-01 through 1.3-07. 1.3-05/06 (live updates) are integration-level
+// Covers SHELL-1.3-01 through 1.3-08. 1.3-05/06 (live updates) are integration-level
 // and covered by Canvas/useZoom tests in later buckets.
 
 /** Test harness that drives both contexts into a specified state, then renders Footer. */
@@ -134,7 +134,7 @@ describe('Footer — diagram stats', () => {
   })
 })
 
-describe('Footer — Reset App button (SHELL-1.3-07)', () => {
+describe('Footer — Reset App button (SHELL-1.3-07, SHELL-1.3-08)', () => {
   // The real implementation calls window.location.reload(). jsdom's
   // reload is non-configurable on the prototype, so we swap out
   // window.location wholesale with a minimal stub for the duration of the test.
@@ -159,11 +159,31 @@ describe('Footer — Reset App button (SHELL-1.3-07)', () => {
     })
   })
 
-  it('clears localStorage and reloads on click', () => {
+  it('SHELL-1.3-07: first click shows confirm popover without resetting', () => {
     render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
-    expect(localStorage.getItem('dummy-key')).toBe('value')
     fireEvent.click(screen.getByText('Reset App'))
+    expect(screen.getByText(/Clear all local state/)).toBeTruthy()
+    expect(localStorage.getItem('dummy-key')).toBe('value')
+    expect(reloadMock).not.toHaveBeenCalled()
+  })
+
+  it('SHELL-1.3-07: confirming clears localStorage and reloads', () => {
+    render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
+    fireEvent.click(screen.getByText('Reset App'))
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
     expect(localStorage.getItem('dummy-key')).toBeNull()
     expect(reloadMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('SHELL-1.3-08: Escape dismisses the confirm popover without resetting', () => {
+    render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
+    fireEvent.click(screen.getByText('Reset App'))
+    expect(screen.getByText(/Clear all local state/)).toBeTruthy()
+    act(() => {
+      fireEvent.keyDown(window, { key: 'Escape' })
+    })
+    expect(screen.queryByText(/Clear all local state/)).toBeNull()
+    expect(localStorage.getItem('dummy-key')).toBe('value')
+    expect(reloadMock).not.toHaveBeenCalled()
   })
 })

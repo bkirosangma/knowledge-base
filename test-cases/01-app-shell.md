@@ -50,8 +50,8 @@
 - **SHELL-1.3-04** ✅ **Document pane omits diagram stats** — no `FooterInfo` in context → stats markup is not rendered.
 - **SHELL-1.3-05** 🟡 **Zoom updates live** — the live update path goes through `setLeftInfo`/`setRightInfo` calls from the diagram's zoom hook; round-trip verified in [FooterContext.test.tsx](../src/app/knowledge_base/shell/FooterContext.test.tsx). End-to-end live update test
 - **SHELL-1.3-06** 🟡 **Patch count updates on content growth** — same path; live assertion deferred to Playwright.
-- **SHELL-1.3-07** ✅ **Reset App clears state** — click clears `localStorage` and calls `window.location.reload`; verified with `window.location` swap stub.
-- **SHELL-1.3-08** 🚫 **Reset App confirmation** — current implementation wipes silently. Product decision needed; no confirmation is in place.
+- **SHELL-1.3-07** ✅ **Reset App clears state** — first click opens confirm popover; second click (confirm button) clears `localStorage` and calls `window.location.reload`; verified with `window.location` swap stub.
+- **SHELL-1.3-08** ✅ **Reset App confirmation** — `ConfirmPopover` with destructive variant wraps the Reset button; Escape dismisses without resetting; confirmed in `Footer.test.tsx`.
 
 Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/ToolbarContext.test.tsx): pane-count (1 vs 2), focus propagation, mixed-type active-pane derivation, pane-type fallback to `"diagram"` when left is null.
 
