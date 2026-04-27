@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { BrainCircuit } from "lucide-react";
+import { BrainCircuit, ChevronDown, FileText, Filter, Folder } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
@@ -33,16 +33,79 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
   const [highlightedHyperedge, setHighlightedHyperedge] = useState<string | null>(null);
   const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
 
+  // ── Node filter ──────────────────────────────────────────────────────────
+  const [filterFiles, setFilterFiles] = useState<Set<string>>(new Set());
+  const [filterMode, setFilterMode] = useState<"include" | "exclude">("include");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // Derive unique folders and files from all nodes' source_file fields.
+  const filterItems = useMemo(() => {
+    const files = new Set<string>();
+    const folders = new Set<string>();
+    for (const n of data.nodes) {
+      const sf = nodeSourceMap.get(n.id) ?? n.source_file;
+      if (!sf) continue;
+      files.add(sf);
+      const parts = sf.split("/");
+      for (let i = 1; i < parts.length; i++) folders.add(parts.slice(0, i).join("/"));
+    }
+    const items = [
+      ...[...folders].sort().map(f => ({ path: f, isFolder: true, display: f + "/" })),
+      ...[...files].sort().map(f => ({ path: f, isFolder: false, display: f })),
+    ];
+    if (!filterSearch.trim()) return items;
+    const q = filterSearch.toLowerCase();
+    return items.filter(item => item.path.toLowerCase().includes(q));
+  }, [data.nodes, nodeSourceMap, filterSearch]);
+
+  // Nodes that survive the active file filter.
+  const filteredNodeIds = useMemo<Set<string> | null>(() => {
+    if (filterFiles.size === 0) return null;
+    const matchedIds = new Set<string>();
+    for (const n of data.nodes) {
+      const sf = nodeSourceMap.get(n.id) ?? n.source_file;
+      if (!sf) continue;
+      for (const f of filterFiles) {
+        if (sf === f || sf.startsWith(f + "/")) { matchedIds.add(n.id); break; }
+      }
+    }
+    if (filterMode === "exclude") {
+      return new Set(data.nodes.filter(n => !matchedIds.has(n.id)).map(n => n.id));
+    }
+    // include + direct neighbors via any link
+    const result = new Set(matchedIds);
+    for (const l of data.links) {
+      const src = typeof l.source === "object" ? (l.source as { id: string }).id : l.source;
+      const tgt = typeof l.target === "object" ? (l.target as { id: string }).id : l.target;
+      if (matchedIds.has(src)) result.add(tgt);
+      if (matchedIds.has(tgt)) result.add(src);
+    }
+    return result;
+  }, [filterFiles, filterMode, data.nodes, data.links, nodeSourceMap]);
+
+  const toggleFilter = useCallback((path: string) => {
+    setFilterFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
+
+  // Visible node IDs: intersection of filter (when active) and highlight (when active).
   const visibleNodeIds = useMemo<Set<string> | null>(() => {
+    let highlightIds: Set<string> | null = null;
     if (highlightedCommunity !== null) {
-      return new Set(data.nodes.filter(n => n.community === highlightedCommunity).map(n => n.id));
-    }
-    if (highlightedHyperedge !== null) {
+      highlightIds = new Set(data.nodes.filter(n => n.community === highlightedCommunity).map(n => n.id));
+    } else if (highlightedHyperedge !== null) {
       const he = hyperedges.find(h => h.id === highlightedHyperedge);
-      return he ? new Set(he.nodes) : null;
+      highlightIds = he ? new Set(he.nodes) : null;
     }
-    return null;
-  }, [highlightedCommunity, highlightedHyperedge, data.nodes, hyperedges]);
+    if (!filteredNodeIds && !highlightIds) return null;
+    if (filteredNodeIds && !highlightIds) return filteredNodeIds;
+    if (!filteredNodeIds && highlightIds) return highlightIds;
+    return new Set([...highlightIds!].filter(id => filteredNodeIds!.has(id)));
+  }, [filteredNodeIds, highlightedCommunity, highlightedHyperedge, data.nodes, hyperedges]);
   const searchRef = useRef<HTMLInputElement>(null);
   const [physics, setPhysics] = useState<PhysicsConfig>(DEFAULT_PHYSICS);
 
@@ -179,6 +242,71 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
             className="w-64 flex-shrink-0 flex flex-col border-l border-line bg-surface overflow-hidden"
             aria-label="Graph sidebar"
           >
+            {/* Node filter */}
+            <div className="flex-shrink-0 border-b border-line">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-surface-2"
+                onClick={() => setFilterOpen(v => !v)}
+                aria-expanded={filterOpen}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Filter size={11} className="text-mute" aria-hidden />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">Node filter</span>
+                  {filterFiles.size > 0 && (
+                    <span className="text-[10px] text-accent font-medium">{filterFiles.size}</span>
+                  )}
+                </div>
+                <ChevronDown size={11} className={`text-mute transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+              </button>
+              {filterOpen && (
+                <div className="px-3 pb-3 space-y-2">
+                  <div className="flex gap-1 pt-0.5">
+                    <button
+                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "include" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                      onClick={() => setFilterMode("include")}
+                    >Include + neighbors</button>
+                    <button
+                      className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${filterMode === "exclude" ? "border-accent/50 text-accent bg-accent/10" : "border-line text-mute hover:text-ink"}`}
+                      onClick={() => setFilterMode("exclude")}
+                    >Exclude</button>
+                  </div>
+                  <input
+                    type="text"
+                    value={filterSearch}
+                    onChange={e => setFilterSearch(e.target.value)}
+                    placeholder="Search files…"
+                    className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-ink placeholder:text-mute outline-none focus:border-accent"
+                  />
+                  <div className="max-h-40 overflow-y-auto -mx-1">
+                    {filterItems.length === 0 && (
+                      <p className="text-[10px] text-mute italic px-1">No files found</p>
+                    )}
+                    {filterItems.map(item => (
+                      <label key={item.path} className="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-surface-2">
+                        <input
+                          type="checkbox"
+                          checked={filterFiles.has(item.path)}
+                          onChange={() => toggleFilter(item.path)}
+                          className="w-3 h-3 flex-shrink-0 accent-blue-400"
+                        />
+                        {item.isFolder
+                          ? <Folder size={10} className="text-mute flex-shrink-0" />
+                          : <FileText size={10} className="text-mute flex-shrink-0" />
+                        }
+                        <span className="text-[10px] text-ink truncate" title={item.display}>{item.display}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {filterFiles.size > 0 && (
+                    <button
+                      className="text-[10px] text-mute hover:text-ink"
+                      onClick={() => setFilterFiles(new Set())}
+                    >Clear filter</button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Search */}
             <div className="flex-shrink-0 px-3 py-2 border-b border-line">
               <input
