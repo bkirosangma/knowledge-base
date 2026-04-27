@@ -172,7 +172,13 @@ export default function GraphifyCanvas({
 
   const [physicsOpen, setPhysicsOpen] = useState(false);
 
-  // ── Apply d3-force parameters whenever physicsConfig changes ─────────────
+  // true once ForceGraph2D has mounted (size became non-zero).
+  // Used as a dep so the physics effect fires on first mount, not just on
+  // config changes — otherwise graphRef.current is null at component mount
+  // and the effect exits early, leaving d3 defaults in place forever.
+  const graphMounted = size.w > 0;
+
+  // ── Apply d3-force parameters whenever physicsConfig changes or graph mounts
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
@@ -181,7 +187,9 @@ export default function GraphifyCanvas({
     graph.d3Force("center", null); // forceCenter only anchors CoM — use per-node gravity instead
     graph.d3Force("gravity", createGravityForce(physicsConfig.centerForce));
     graph.d3ReheatSimulation();
-  }, [physicsConfig]);
+  // graphMounted transitions false→true exactly once when ForceGraph2D mounts.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [physicsConfig, graphMounted]);
 
   // ── Register hyperedge regular-polygon force ──────────────────────────────
   useEffect(() => {
