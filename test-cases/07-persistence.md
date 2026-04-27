@@ -62,9 +62,9 @@
 
 ## 7.4 Draft ↔ Disk Interaction
 
-- **PERSIST-7.4-01** 🟡 **Edit writes draft immediately** — local change → `localStorage` key updated. The `saveDraft` util itself is synchronous (DIAG-3.19-10); the caller's debounce is integration-level.
-- **PERSIST-7.4-02** 🟡 **Open file with newer draft than disk** — draft wins; editor marked dirty. The draft-wins logic is in `useFileExplorer.openFile` / `useDocumentContent`; an explicit draft-newer-than-disk test is deferred to the integration harness.
-- **PERSIST-7.4-03** 🟡 **Open file with no draft** — disk content used; clean state. Same integration scope as 7.4-02.
+- **PERSIST-7.4-01** 🟡 **Edit writes draft immediately** — local change → `localStorage` key updated. The `saveDraft` util itself is synchronous (DIAG-3.19-10); the caller's debounce is integration-level. KB-002 added an end-to-end check on the doc side (DOC-4.11-16 + `e2e/documentDraftRestore.spec.ts`).
+- **PERSIST-7.4-02** ✅ **Open file with newer draft than disk** — draft wins; editor marked dirty. KB-002 added an explicit unit test on the document side (DOC-4.11-12) plus an e2e (`documentDraftRestore.spec.ts` "restore banner appears…"). Diagram coverage stays at the unit level via DIAG-3.19 and the `useFileActions` tests.
+- **PERSIST-7.4-03** ✅ **Open file with no draft** — disk content used; clean state. KB-002's `useDocumentContent.draftRestore.test.ts` "does nothing special when no draft exists" covers the document side; diagram side is the same `useFileActions` integration as before.
 - **PERSIST-7.4-04** ✅ **Save clears draft for that path.** — `clearDraft` semantics covered in `persistence.test.ts` DIAG-3.19-14; save → clearDraft wiring is in `useFileActions` and is hit by the useFileActions unit tests.
 - **PERSIST-7.4-05** ✅ **Discard clears draft without writing disk.** — `useFileActions.test.ts` "executeDiscard" covers the clear path; disk writes only happen via `saveFile`, which is not called.
 - **PERSIST-7.4-06** ✅ **`listDrafts` returns all scoped draft keys.** — DIAG-3.19-13 in `persistence.test.ts` asserts exactly this.

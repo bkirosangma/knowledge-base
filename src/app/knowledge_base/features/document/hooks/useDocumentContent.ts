@@ -5,6 +5,22 @@ import { useRepositories } from "../../../shell/RepositoryContext";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
 import { FileSystemError, classifyError } from "../../../domain/errors";
 import { fnv1a } from "../../../shared/utils/historyPersistence";
+import {
+  saveDocumentDraft,
+  loadDocumentDraft,
+  clearDraft,
+} from "../../../shared/utils/persistence";
+
+const DRAFT_DEBOUNCE_MS = 500;
+
+/**
+ * Handed back to consumers when an autosaved draft was restored on mount.
+ * Drives the [Discard] [Keep] banner in DocumentView (KB-002).
+ */
+export interface PendingDraft {
+  /** When the draft was last persisted to localStorage. */
+  savedAt: number;
+}
 
 export interface DocumentPaneBridge {
   save: () => Promise<void>;
@@ -40,6 +56,10 @@ export function useDocumentContent(filePath: string | null) {
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
   const [loadError, setLoadError] = useState<FileSystemError | null>(null);
+  // KB-002: when a draft was restored from localStorage on mount and the
+  // restored content differs from disk, surface a banner offering Keep /
+  // Discard. `null` once the user dismisses it (or on a clean load).
+  const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
   /** The filePath whose content is currently held in `content`. Set after
    *  every successful load (and on null/no-repo branches). Consumers can
    *  compare `loadedPath === filePath` to know that content is fresh for
@@ -71,6 +91,11 @@ export function useDocumentContent(filePath: string | null) {
       await repo.write(filePath, contentRef.current);
       diskChecksumRef.current = fnv1a(contentRef.current);
       setDirty(false);
+      // KB-002: a successful save means the in-memory state matches disk,
+      // so any persisted draft is now redundant. Drop it and dismiss the
+      // restore banner if it was still showing.
+      clearDraft(filePath);
+      setPendingDraft(null);
     } catch (e) {
       reportError(e, `Saving ${filePath}`);
     }
@@ -90,9 +115,13 @@ export function useDocumentContent(filePath: string | null) {
       // to the shell banner instead of being silently dropped — the
       // switch proceeds either way so the user isn't stuck on the old
       // pane, but they see the error and can retry.
+      // KB-002: a successful auto-save means the prev path no longer
+      // has unsaved work, so its draft is now stale — clear it. On
+      // failure leave the draft so a future reopen can restore.
       if (prevPath && dirtyRef.current && repo) {
         try {
           await repo.write(prevPath, contentRef.current);
+          clearDraft(prevPath);
         } catch (e) {
           reportError(e, `Auto-saving ${prevPath} on switch`);
         }
@@ -104,6 +133,7 @@ export function useDocumentContent(filePath: string | null) {
         setDirty(false);
         setLoadError(null);
         setLoadedPath(null);
+        setPendingDraft(null);
         return;
       }
       if (!repo) {
@@ -112,16 +142,34 @@ export function useDocumentContent(filePath: string | null) {
         setDirty(false);
         setLoadError(null);
         setLoadedPath(filePath);
+        setPendingDraft(null);
         return;
       }
 
       try {
         const text = await repo.read(filePath);
-        setContent(text);
-        diskChecksumRef.current = fnv1a(text);
-        setDirty(false);
-        setLoadError(null);
-        setLoadedPath(filePath);
+        const draft = loadDocumentDraft(filePath);
+        // KB-002 restore-on-mount: if the stored draft differs from disk
+        // it represents unsaved work — restore it as the in-memory state
+        // (dirty=true) and raise the [Discard] [Keep] banner. If the
+        // draft matches disk it's stale (the user must have saved on
+        // another tab) — silently clear it.
+        if (draft && draft.content !== text) {
+          setContent(draft.content);
+          diskChecksumRef.current = fnv1a(text);
+          setDirty(true);
+          setLoadError(null);
+          setLoadedPath(filePath);
+          setPendingDraft({ savedAt: draft.savedAt });
+        } else {
+          if (draft) clearDraft(filePath);
+          setContent(text);
+          diskChecksumRef.current = fnv1a(text);
+          setDirty(false);
+          setLoadError(null);
+          setLoadedPath(filePath);
+          setPendingDraft(null);
+        }
       } catch (e) {
         const fsErr = e instanceof FileSystemError ? e : classifyError(e);
         setLoadError(fsErr);
@@ -183,10 +231,40 @@ export function useDocumentContent(filePath: string | null) {
       const text = await repo.read(filePath);
       setContent(text);
       setDirty(false);
+      // KB-002: discard wipes unsaved edits, so any persisted draft is
+      // also discarded. Dismiss the restore banner too — it's about to
+      // become inaccurate.
+      clearDraft(filePath);
+      setPendingDraft(null);
     } catch (e) {
       reportError(e, `Discarding changes to ${filePath}`);
     }
   }, [filePath, reportError]);
+
+  // KB-002: debounced autosave of dirty content into the per-vault draft
+  // entry. Mirrors useDiagramPersistence's 500ms cadence. Failures route
+  // through the shell banner so quota/permission issues are surfaced
+  // instead of silently dropping the user's edits.
+  useEffect(() => {
+    if (!filePath || !dirty) return;
+    const t = setTimeout(() => {
+      try {
+        saveDocumentDraft(filePath, content);
+      } catch (e) {
+        reportError(e, `Auto-saving draft of ${filePath}`);
+      }
+    }, DRAFT_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [filePath, content, dirty, reportError]);
+
+  // KB-002: "Keep" handler. Leaves the restored draft as the live
+  // (dirty) in-memory state and just hides the banner — the next
+  // debounced tick re-persists it. The "Discard" handler is the
+  // existing `discard()` (now also clears the draft + banner), so the
+  // banner does not need a separate disk-restore helper.
+  const dismissDraftBanner = useCallback(() => {
+    setPendingDraft(null);
+  }, []);
 
   // Bridge object with ref-backed getters so parent reads latest values
   // without triggering re-renders on every keystroke
@@ -198,5 +276,21 @@ export function useDocumentContent(filePath: string | null) {
     get content() { return contentRef.current; },
   }), [save, discard, filePath]);
 
-  return { content, dirty, loadError, loadedPath, save, discard, resetToContent, updateContent, bridge, diskChecksumRef, getContentFromDisk, updateDiskChecksum };
+  return {
+    content,
+    dirty,
+    loadError,
+    loadedPath,
+    save,
+    discard,
+    resetToContent,
+    updateContent,
+    bridge,
+    diskChecksumRef,
+    getContentFromDisk,
+    updateDiskChecksum,
+    // KB-002 — draft restore banner state + control.
+    pendingDraft,
+    dismissDraftBanner,
+  };
 }

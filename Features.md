@@ -402,11 +402,12 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ⚙️ **Graphify cross-ref emission** — calls `emitCrossReferences` after each update.
 
 ### 4.10 Document Persistence
-`hooks/useDocumentContent.ts`, `hooks/useDocuments.ts`
+`hooks/useDocumentContent.ts`, `hooks/useDocuments.ts`, `components/DraftRestoreBanner.tsx`
 - ✅ **Per-pane content & dirty state.**
 - ✅ **Auto-save on file switch** — saves the previous doc before loading the new one.
 - ✅ **`loadedPath` signal** — set to `filePath` once a load succeeds (or immediately for null/no-repo cases); consumers compare `loadedPath === filePath` to confirm content is fresh for the current file before acting on it.
 - ✅ **Ref-backed `save()` / `dirty` / `filePath` / `content` bridge** — lets parent read latest without re-rendering per keystroke.
+- ✅ **Autosaved drafts (KB-002, 2026-04-27)** — every dirty content change debounces 500 ms and persists `{ kind: "document", content, savedAt }` to `localStorage` under the per-vault `scopedKey('knowledge-base-draft:')` namespace. On mount, `useDocumentContent` compares the stored draft to the on-disk content; if they differ the draft is restored as the live (dirty) state and `DraftRestoreBanner` surfaces "Restored unsaved changes from <relative time>." with `[Discard] [Keep]` actions. `save()` and `discard()` clear the draft; switching files auto-saves the previous doc and clears its draft. A shell-level `beforeunload` guard in `knowledgeBase.tsx` raises the browser's "leave site?" dialog whenever any open file (doc or diagram) is dirty.
 - ✅ **`createDocument`, `attachDocument`, `detachDocument`, `removeDocument`, `getDocumentsForEntity`, `hasDocuments`.**
 - ⚙️ **`collectDocPaths`, `existingDocPaths`.**
 
