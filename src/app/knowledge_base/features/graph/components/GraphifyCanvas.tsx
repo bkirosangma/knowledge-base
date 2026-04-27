@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ForceGraph2D from "react-force-graph-2d";
 import { Settings } from "lucide-react";
 import type { RawGraphifyNode, RawGraphifyLink, RawGraphifyData, RawHyperedge } from "../hooks/useRawGraphify";
-import { edgeColor, RELATION_COLORS } from "../graphifyColors";
+import { edgeColor, RELATION_COLORS_DARK, RELATION_COLORS_LIGHT } from "../graphifyColors";
 import { DEFAULT_PHYSICS, PHYSICS_SLIDERS, type PhysicsConfig } from "../graphifyPhysics";
 
 export type { PhysicsConfig };
@@ -26,11 +26,8 @@ interface GraphifyCanvasProps {
   onBackgroundClick?: () => void;
   physicsConfig: PhysicsConfig;
   onPhysicsChange: (c: PhysicsConfig) => void;
+  theme?: "light" | "dark";
 }
-
-// Graph canvas always uses a dark background regardless of app theme —
-// community-colored nodes and edges are far more legible on dark.
-const CANVAS_BG = "#0f172a"; // slate-900
 
 // ── Convex hull (Andrew's monotone chain) ────────────────────────────────
 type Pt = { x: number; y: number };
@@ -166,7 +163,9 @@ export default function GraphifyCanvas({
   onBackgroundClick,
   physicsConfig,
   onPhysicsChange,
+  theme = "dark",
 }: GraphifyCanvasProps) {
+  const isDark = theme === "dark";
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
@@ -391,7 +390,7 @@ export default function GraphifyCanvas({
     [nodeDegreeMap],
   );
 
-  // Draw a white ring around the selected node, on top of the default fill.
+  // Draw a ring around the selected node, on top of the default fill.
   const nodeCanvasObject = useCallback(
     (node: RawGraphifyNode & { x?: number; y?: number }, ctx: CanvasRenderingContext2D) => {
       if (node.id !== highlightedNode) return;
@@ -399,11 +398,11 @@ export default function GraphifyCanvas({
       const r = Math.sqrt(val) * 4 + 2; // mirror ForceGraph2D's radius formula
       ctx.beginPath();
       ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = isDark ? "#ffffff" : "#0f172a";
       ctx.lineWidth = 2;
       ctx.stroke();
     },
-    [highlightedNode, nodeDegreeMap],
+    [highlightedNode, nodeDegreeMap, isDark],
   );
 
   const nodeLabelAccessor = useCallback((node: RawGraphifyNode) => node.label, []);
@@ -435,9 +434,9 @@ export default function GraphifyCanvas({
         ctx.moveTo(padded[0].x, padded[0].y);
         for (let i = 1; i < padded.length; i++) ctx.lineTo(padded[i].x, padded[i].y);
         ctx.closePath();
-        ctx.fillStyle = "rgba(148,163,184,0.07)";
+        ctx.fillStyle = isDark ? "rgba(148,163,184,0.07)" : "rgba(51,65,85,0.06)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(148,163,184,0.3)";
+        ctx.strokeStyle = isDark ? "rgba(148,163,184,0.3)" : "rgba(51,65,85,0.2)";
         ctx.lineWidth = 1 / globalScale;
         ctx.setLineDash([3 / globalScale, 3 / globalScale]);
         ctx.stroke();
@@ -447,12 +446,12 @@ export default function GraphifyCanvas({
         const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
         const cy = Math.min(...padded.map((p) => p.y)) - 4 / globalScale;
         ctx.font = `${10 / globalScale}px sans-serif`;
-        ctx.fillStyle = "rgba(203,213,225,0.7)";
+        ctx.fillStyle = isDark ? "rgba(203,213,225,0.7)" : "rgba(30,41,59,0.65)";
         ctx.textAlign = "center";
         ctx.fillText(he.label, cx, cy);
       }
     },
-    [hyperedges, nodes],
+    [hyperedges, nodes, isDark],
   );
 
   const handleNodeClick = useCallback(
@@ -499,7 +498,7 @@ export default function GraphifyCanvas({
           width={size.w}
           height={size.h}
           graphData={graphData}
-          backgroundColor={CANVAS_BG}
+          backgroundColor={isDark ? "#0f172a" : "#f1f5f9"}
           nodeId="id"
           nodeLabel={nodeLabelAccessor}
           nodeColor={nodeColor}
@@ -507,11 +506,11 @@ export default function GraphifyCanvas({
           nodeRelSize={4}
           nodeVisibility={nodeVisibility}
           linkVisibility={linkVisibility}
-          linkColor={(link) => edgeColor((link as RawGraphifyLink).relation)}
+          linkColor={(link) => edgeColor((link as RawGraphifyLink).relation, isDark)}
           linkLabel={(link) => (link as RawGraphifyLink).relation ?? ""}
           linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={1}
-          linkDirectionalArrowColor={(link) => edgeColor((link as RawGraphifyLink).relation)}
+          linkDirectionalArrowColor={(link) => edgeColor((link as RawGraphifyLink).relation, isDark)}
           linkWidth={1.2}
           nodeCanvasObject={nodeCanvasObject}
           nodeCanvasObjectMode={() => "after"}
@@ -528,25 +527,34 @@ export default function GraphifyCanvas({
         <button
           onClick={() => setPhysicsOpen(v => !v)}
           className="rounded-lg p-1.5"
-          style={{ background: "rgba(15,23,42,0.75)", backdropFilter: "blur(4px)" }}
+          style={{
+            background: isDark ? "rgba(15,23,42,0.78)" : "rgba(255,255,255,0.88)",
+            backdropFilter: "blur(4px)",
+            border: isDark ? "none" : "1px solid rgba(148,163,184,0.35)",
+          }}
           title="Graph physics"
           aria-label="Toggle physics settings"
         >
-          <Settings size={13} style={{ color: "#94a3b8" }} />
+          <Settings size={13} style={{ color: isDark ? "#94a3b8" : "#64748b" }} />
         </button>
         {physicsOpen && (
           <div
             className="rounded-lg px-3 py-2 w-48"
-            style={{ background: "rgba(15,23,42,0.85)", backdropFilter: "blur(4px)" }}
+            style={{
+              background: isDark ? "rgba(15,23,42,0.88)" : "rgba(255,255,255,0.93)",
+              backdropFilter: "blur(4px)",
+              border: isDark ? "none" : "1px solid rgba(148,163,184,0.35)",
+            }}
           >
-            <p className="text-[9px] font-semibold uppercase tracking-wider mb-2" style={{ color: "#94a3b8" }}>
+            <p className="text-[9px] font-semibold uppercase tracking-wider mb-2"
+              style={{ color: isDark ? "#94a3b8" : "#64748b" }}>
               Physics
             </p>
             {PHYSICS_SLIDERS.map(({ key, label, min, max, step }) => (
               <div key={key} className="mb-2">
                 <div className="flex justify-between mb-0.5">
-                  <span className="text-[10px]" style={{ color: "#cbd5e1" }}>{label}</span>
-                  <span className="text-[10px] font-mono" style={{ color: "#94a3b8" }}>
+                  <span className="text-[10px]" style={{ color: isDark ? "#cbd5e1" : "#334155" }}>{label}</span>
+                  <span className="text-[10px] font-mono" style={{ color: isDark ? "#94a3b8" : "#64748b" }}>
                     {physicsConfig[key]}
                   </span>
                 </div>
@@ -562,7 +570,7 @@ export default function GraphifyCanvas({
             <button
               onClick={() => onPhysicsChange(DEFAULT_PHYSICS)}
               className="text-[10px] mt-1 w-full text-center hover:opacity-100 opacity-60"
-              style={{ color: "#94a3b8" }}
+              style={{ color: isDark ? "#94a3b8" : "#64748b" }}
             >
               Reset defaults
             </button>
@@ -572,16 +580,21 @@ export default function GraphifyCanvas({
 
       {/* Edge type legend — bottom-right overlay */}
       <div className="absolute bottom-3 right-3 rounded-lg px-3 py-2 pointer-events-none"
-        style={{ background: "rgba(15,23,42,0.75)", backdropFilter: "blur(4px)" }}
+        style={{
+          background: isDark ? "rgba(15,23,42,0.78)" : "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(4px)",
+          border: isDark ? "none" : "1px solid rgba(148,163,184,0.35)",
+        }}
       >
-        <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#94a3b8" }}>
+        <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
+          style={{ color: isDark ? "#94a3b8" : "#64748b" }}>
           Edge types
         </p>
         <ul className="space-y-1">
-          {Object.entries(RELATION_COLORS).map(([relation, color]) => (
+          {Object.entries(isDark ? RELATION_COLORS_DARK : RELATION_COLORS_LIGHT).map(([relation, color]) => (
             <li key={relation} className="flex items-center gap-2">
               <span className="inline-block w-4 flex-shrink-0" style={{ height: 2, background: color, borderRadius: 1 }} />
-              <span className="text-[10px] whitespace-nowrap" style={{ color: "#cbd5e1" }}>
+              <span className="text-[10px] whitespace-nowrap" style={{ color: isDark ? "#cbd5e1" : "#334155" }}>
                 {relation.replace(/_/g, " ")}
               </span>
             </li>

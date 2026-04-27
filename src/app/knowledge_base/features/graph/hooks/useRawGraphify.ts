@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 export type GraphifyStatus = "idle" | "loading" | "loaded" | "missing" | "error";
 
@@ -64,20 +64,32 @@ export interface GraphifyResult {
 const EMPTY: RawGraphifyData = { nodes: [], links: [] };
 
 // Golden-angle hue spacing gives visually distinct colors even for many communities.
-// Higher lightness (68%) and moderate saturation (58%) look good on the dark canvas bg.
-function communityColor(index: number): string {
+function communityColor(index: number, isDark: boolean): string {
   const hue = (index * 137.508) % 360;
-  return `hsl(${Math.round(hue)}, 58%, 68%)`;
+  // Dark: lighter, lower-saturation pastels pop against the dark canvas.
+  // Light: darker, more saturated tones stay readable against the pale canvas.
+  return isDark
+    ? `hsl(${Math.round(hue)}, 58%, 68%)`
+    : `hsl(${Math.round(hue)}, 62%, 40%)`;
+}
+
+/** Raw community data loaded from graph.json — no color, just identity. */
+interface RawCommunity {
+  id: number;
+  name: string;
+  count: number;
+  /** Stable index into the sorted community list — drives hue assignment. */
+  sortIndex: number;
 }
 
 export function useRawGraphify(
   dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>,
+  theme: "light" | "dark" = "dark",
 ): GraphifyResult {
   const [status, setStatus] = useState<GraphifyStatus>("idle");
   const [data, setData] = useState<RawGraphifyData>(EMPTY);
   const [hyperedges, setHyperedges] = useState<RawHyperedge[]>([]);
-  const [communities, setCommunities] = useState<CommunityInfo[]>([]);
-  const [nodeColorMap, setNodeColorMap] = useState<Map<string, string>>(new Map());
+  const [rawCommunities, setRawCommunities] = useState<RawCommunity[]>([]);
   const [nodeSourceMap, setNodeSourceMap] = useState<Map<string, string>>(new Map());
   const [nodeDegreeMap, setNodeDegreeMap] = useState<Map<string, number>>(new Map());
   const lastHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
@@ -124,7 +136,7 @@ export function useRawGraphify(
           degreeMap.set(tgt, (degreeMap.get(tgt) ?? 0) + 1);
         }
 
-        // Build community palette + find the most-connected node per community
+        // Build community metadata (no colors — derived reactively in useMemo below)
         const communityCountMap = new Map<number, number>();
         const communityTopNode = new Map<number, { label: string; degree: number }>();
         for (const n of raw.nodes) {
@@ -142,31 +154,22 @@ export function useRawGraphify(
           .filter(([id]) => id >= 0)
           .sort(([a], [b]) => a - b);
 
-        // Assign stable colors by community ID sort order
-        const colorPalette = new Map<number, string>();
-        sortedCommunities.forEach(([id], idx) => {
-          colorPalette.set(id, communityColor(idx));
-        });
-
-        const communityList: CommunityInfo[] = sortedCommunities.map(([id, count]) => ({
+        const rawComms: RawCommunity[] = sortedCommunities.map(([id, count], idx) => ({
           id,
           name: reportNameMap.get(id) ?? communityTopNode.get(id)?.label ?? `Community ${id}`,
-          color: colorPalette.get(id)!,
           count,
+          sortIndex: idx,
         }));
 
-        // Build fast lookup maps
-        const colorMap = new Map<string, string>();
+        // Build node source map
         const sourceMap = new Map<string, string>();
         for (const n of raw.nodes) {
-          colorMap.set(n.id, colorPalette.get(n.community ?? -1) ?? "#888");
           if (n.source_file) sourceMap.set(n.id, n.source_file);
         }
 
         setData(raw);
         setHyperedges(raw.hyperedges ?? []);
-        setCommunities(communityList);
-        setNodeColorMap(colorMap);
+        setRawCommunities(rawComms);
         setNodeSourceMap(sourceMap);
         setNodeDegreeMap(degreeMap);
         setStatus("loaded");
@@ -179,8 +182,7 @@ export function useRawGraphify(
         }
         setData(EMPTY);
         setHyperedges([]);
-        setCommunities([]);
-        setNodeColorMap(new Map());
+        setRawCommunities([]);
         setNodeSourceMap(new Map());
         setNodeDegreeMap(new Map());
       }
@@ -191,6 +193,29 @@ export function useRawGraphify(
   // but the dep on dirHandleRef itself means this fires once on mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirHandleRef]);
+
+  // Derive theme-reactive colors from raw community data without reloading.
+  const isDark = theme === "dark";
+
+  const communities = useMemo<CommunityInfo[]>(
+    () => rawCommunities.map(c => ({
+      id: c.id,
+      name: c.name,
+      count: c.count,
+      color: communityColor(c.sortIndex, isDark),
+    })),
+    [rawCommunities, isDark],
+  );
+
+  const nodeColorMap = useMemo<Map<string, string>>(() => {
+    const indexMap = new Map(rawCommunities.map(c => [c.id, c.sortIndex]));
+    const map = new Map<string, string>();
+    for (const n of data.nodes) {
+      const idx = indexMap.get(n.community ?? -1);
+      map.set(n.id, idx !== undefined ? communityColor(idx, isDark) : (isDark ? "#64748b" : "#94a3b8"));
+    }
+    return map;
+  }, [rawCommunities, data.nodes, isDark]);
 
   return { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status };
 }

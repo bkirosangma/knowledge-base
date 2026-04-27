@@ -6,6 +6,7 @@ import { BrainCircuit, ChevronRight, FileText, Filter, Folder, Search } from "lu
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
+import { useTheme } from "../../shared/hooks/useTheme";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
 const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
@@ -25,7 +26,8 @@ export interface GraphifyViewProps {
 }
 
 export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyViewProps) {
-  const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(dirHandleRef);
+  const { theme } = useTheme();
+  const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(dirHandleRef, theme);
 
   const [search, setSearch] = useState("");
   const [selectedNode, setSelectedNode] = useState<RawGraphifyNode | null>(null);
@@ -388,6 +390,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
               onBackgroundClick={handleDeselect}
               physicsConfig={physics}
               onPhysicsChange={handlePhysicsChange}
+              theme={theme}
             />
 
             {/* Sidebar */}
