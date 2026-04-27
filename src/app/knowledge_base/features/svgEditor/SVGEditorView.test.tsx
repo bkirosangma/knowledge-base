@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import SVGEditorView from './SVGEditorView';
+import type { useFileExplorer } from '../../shared/hooks/useFileExplorer';
 
-vi.mock('./components/SVGCanvas', () => ({
-  default: React.forwardRef((_props: unknown, ref: React.Ref<unknown>) => {
+vi.mock('./components/SVGCanvas', () => {
+  const MockSVGCanvas = React.forwardRef((_props: unknown, ref: React.Ref<unknown>) => {
     React.useImperativeHandle(ref, () => ({
       getSvgString: () => '<svg></svg>',
       setSvgString: vi.fn(),
@@ -16,8 +17,10 @@ vi.mock('./components/SVGCanvas', () => ({
       zoomFit: vi.fn(),
     }));
     return <div data-testid="svg-canvas" />;
-  }),
-}));
+  });
+  MockSVGCanvas.displayName = 'MockSVGCanvas';
+  return { default: MockSVGCanvas };
+});
 
 vi.mock('./hooks/useSVGPersistence', () => ({
   useSVGPersistence: vi.fn().mockReturnValue({
@@ -28,7 +31,7 @@ vi.mock('./hooks/useSVGPersistence', () => ({
   }),
 }));
 
-const mockFileExplorer = {
+const mockFileExplorer: ReturnType<typeof useFileExplorer> = {
   dirHandleRef: { current: {} as FileSystemDirectoryHandle },
   tree: [],
   activeFile: null,
@@ -75,7 +78,7 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="diagrams/logo.svg"
-          fileExplorer={mockFileExplorer as any}
+          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
@@ -90,7 +93,7 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="logo.svg"
-          fileExplorer={mockFileExplorer as any}
+          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
@@ -105,7 +108,7 @@ describe('SVGEditorView', () => {
           focused={true}
           side="left"
           activeFile="logo.svg"
-          fileExplorer={mockFileExplorer as any}
+          fileExplorer={mockFileExplorer}
           onSVGEditorBridge={onSVGEditorBridge}
         />
       );
