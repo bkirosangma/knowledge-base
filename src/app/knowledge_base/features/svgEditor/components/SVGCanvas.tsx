@@ -19,13 +19,19 @@ interface SVGCanvasProps {
   onChanged: () => void;
 }
 
+const CANVAS_W = 800;
+const CANVAS_H = 600;
+
 const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas(
   { onChanged },
   ref,
 ) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef  = useRef<HTMLDivElement>(null); // scroll viewport
+  const spacerRef   = useRef<HTMLDivElement>(null); // layout spacer sized to zoomed content
+  const containerRef = useRef<HTMLDivElement>(null); // svgcanvas mount point
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const canvasRef = useRef<any>(null);
+  const zoomRef   = useRef(1);
   const onChangedRef = useRef(onChanged);
 
   useEffect(() => {
@@ -43,7 +49,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
         initFill: { color: "ffffff", opacity: 1 },
         initStroke: { color: "000000", opacity: 1, width: 1 },
         initOpacity: 1,
-        dimensions: [800, 600],
+        dimensions: [CANVAS_W, CANVAS_H],
         imgPath: "/svgedit-cursors",
       });
       canvasRef.current = canvas;
@@ -56,32 +62,35 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
-  // setZoom() only stores the value; updateCanvas() is what re-renders the viewport.
+  // Visual zoom via CSS transform — avoids updateCanvas() which clips content.
+  // getScreenCTM() on mouse events accounts for CSS transforms automatically,
+  // so SVG coordinate mapping stays correct without touching canvas.setZoom().
   const applyZoom = (zoom: number) => {
-    const canvas = canvasRef.current;
-    const el = containerRef.current;
-    if (!canvas || !el) return;
     const clamped = Math.max(0.1, Math.min(10, zoom));
-    canvas.setZoom(clamped);
-    canvas.updateCanvas(el.clientWidth, el.clientHeight);
+    zoomRef.current = clamped;
+    if (containerRef.current) {
+      containerRef.current.style.transform = `scale(${clamped})`;
+      containerRef.current.style.transformOrigin = "0 0";
+    }
+    if (spacerRef.current) {
+      spacerRef.current.style.width  = `${CANVAS_W * clamped}px`;
+      spacerRef.current.style.height = `${CANVAS_H * clamped}px`;
+    }
   };
 
   // Pinch-to-zoom (ctrlKey + wheel) and 2-finger scroll pan.
-  // Capture phase so we intercept before svgcanvas's own wheel listeners.
+  // Capture phase fires before svgcanvas's own wheel listeners.
   useEffect(() => {
-    const el = containerRef.current;
+    const el = wrapperRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (e.ctrlKey) {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        // deltaMode 0 = pixels (trackpad), 1 = lines
         const px = e.deltaMode === 0 ? e.deltaY : e.deltaY * 30;
-        applyZoom(canvas.getZoom() * (1 - px * 0.004));
+        applyZoom(zoomRef.current * (1 - px * 0.004));
       } else {
         el.scrollLeft += e.deltaX;
-        el.scrollTop += e.deltaY;
+        el.scrollTop  += e.deltaY;
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false, capture: true });
@@ -95,24 +104,26 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
     undo: () => canvasRef.current?.undoMgr?.undo(),
     redo: () => canvasRef.current?.undoMgr?.redo(),
-    zoomIn:  () => applyZoom((canvasRef.current?.getZoom() ?? 1) * 1.2),
-    zoomOut: () => applyZoom((canvasRef.current?.getZoom() ?? 1) / 1.2),
+    zoomIn:  () => applyZoom(zoomRef.current * 1.2),
+    zoomOut: () => applyZoom(zoomRef.current / 1.2),
     zoomFit: () => {
-      const canvas = canvasRef.current;
-      const el = containerRef.current;
-      if (!canvas || !el) return;
-      const cw = canvas.getContentW?.() ?? 800;
-      const ch = canvas.getContentH?.() ?? 600;
-      applyZoom(Math.min(el.clientWidth / cw, el.clientHeight / ch) * 0.9);
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      applyZoom(Math.min(wrapper.clientWidth / CANVAS_W, wrapper.clientHeight / CANVAS_H) * 0.9);
     },
   }));
 
   return (
     <div
-      ref={containerRef}
-      className="flex-1 w-full h-full overflow-auto"
+      ref={wrapperRef}
+      className="flex-1 w-full h-full overflow-auto bg-surface-2"
       data-testid="svg-canvas-container"
-    />
+    >
+      {/* Spacer sized to the zoomed canvas so the scroll container gets the right range */}
+      <div ref={spacerRef} style={{ width: CANVAS_W, height: CANVAS_H, position: "relative" }}>
+        <div ref={containerRef} style={{ position: "absolute", transformOrigin: "0 0" }} />
+      </div>
+    </div>
   );
 });
 
