@@ -453,6 +453,17 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 
 ---
 
+## 4.18 SVG Editor
+`features/svgEditor/SVGEditorView.tsx`, `features/svgEditor/components/SVGCanvas.tsx`, `features/svgEditor/components/SVGToolbar.tsx`, `features/svgEditor/hooks/useSVGPersistence.ts`
+- ✅ **SVG editor pane** — `SVGEditorView` opens `.svg` files in a dedicated pane. Routing: clicking a `.svg` file in the explorer calls `panes.openFile(path, "svgEditor")`. Creating a new SVG via the explorer context menu or folder hover button creates the file and immediately opens the editor pane.
+- ✅ **Toolbar** — `SVGToolbar` renders six drawing-tool buttons (Select, Rectangle, Ellipse, Line, Path, Text), Undo/Redo, and Zoom In / Zoom Out / Fit. Active tool is highlighted.
+- ✅ **Canvas** — `SVGCanvas` is a `<canvas>`-based drawing surface exposed via a `SVGCanvasHandle` ref with `setMode`, `undo`, `redo`, `zoomIn`, `zoomOut`, `zoomFit`, `getSVGContent`, and `loadSVGContent`.
+- ✅ **Persistence** — `useSVGPersistence` reads the vault file on pane open, writes on Cmd+S (via `SVGEditorBridge.onSave`) and on a 1.5 s debounced auto-save triggered by canvas changes. Discard re-reads from disk and clears the dirty flag.
+- ✅ **Pane chrome** — `PaneHeader` shows the filename (without `.svg` extension) as title and Save/Discard buttons when `isDirty=true`.
+- ✅ **Shell bridge** — `SVGEditorBridge` (`{ isDirty, title, onSave, onDiscard }`) is pushed to `knowledgeBase.tsx` via `onSVGEditorBridge`; Cmd+S in the shell calls `svgEditorBridgeRef.current?.onSave()` when the active pane is `"svgEditor"`.
+
+---
+
 ## 5. Cross-Cutting Link & Graph Layer
 
 ### 5.1 Link Index — see §4.9.
