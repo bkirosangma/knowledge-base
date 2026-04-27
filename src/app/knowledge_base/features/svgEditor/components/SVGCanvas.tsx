@@ -96,11 +96,16 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       syncLayout(canvas);
       canvas.bind("changed", () => onChangedRef.current());
       canvas.bind("selected", () => {
-        const c = canvasRef.current;
-        if (!c || !onStyleChangeRef.current) return;
-        const fill = c.getCurProperties?.("fill") ?? "#000000";
-        const stroke = c.getCurProperties?.("stroke") ?? "#000000";
-        const strokeWidth = Number(c.getCurProperties?.("stroke_width") ?? 1);
+        if (!onStyleChangeRef.current) return;
+        // Read attributes directly from the selected element; getCurProperties
+        // is stale at the time "selected" fires (it reflects the previous selection).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const selected: (Element | null)[] = (canvas as any).getSelectedElements?.() ?? [];
+        const el = selected.find((e) => e != null) as Element | null;
+        if (!el) return;
+        const fill = el.getAttribute("fill") ?? "";
+        const stroke = el.getAttribute("stroke") ?? "";
+        const strokeWidth = Number(el.getAttribute("stroke-width") ?? 1);
         onStyleChangeRef.current({
           fill: /^#[0-9a-fA-F]{3,6}$/.test(fill) ? fill : "#000000",
           stroke: /^#[0-9a-fA-F]{3,6}$/.test(stroke) ? stroke : "#000000",
