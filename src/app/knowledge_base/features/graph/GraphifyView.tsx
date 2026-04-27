@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BrainCircuit } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
+import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
+import { DEFAULT_PHYSICS, type PhysicsConfig } from "./components/GraphifyCanvas";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
 const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
@@ -30,6 +32,25 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
   const [highlightedCommunity, setHighlightedCommunity] = useState<number | null>(null);
   const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [physics, setPhysics] = useState<PhysicsConfig>(DEFAULT_PHYSICS);
+
+  // Load saved physics once the vault is open.
+  useEffect(() => {
+    if (status !== "loaded") return;
+    const root = dirHandleRef.current;
+    if (!root) return;
+    readVaultConfig(root)
+      .then(cfg => { if (cfg.graphifyPhysics) setPhysics({ ...DEFAULT_PHYSICS, ...cfg.graphifyPhysics }); })
+      .catch(() => {});
+  // dirHandleRef is a stable ref — status is the correct trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const handlePhysicsChange = useCallback((c: PhysicsConfig) => {
+    setPhysics(c);
+    const root = dirHandleRef.current;
+    if (root) updateVaultConfig(root, { graphifyPhysics: c }).catch(() => {});
+  }, [dirHandleRef]);
 
   // Search results — match label or source_file
   const searchResults: RawGraphifyNode[] = search.trim()
@@ -131,6 +152,8 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
             highlightedNode={highlightedNode}
             onNodeClick={handleNodeClick}
             onBackgroundClick={handleDeselect}
+            physicsConfig={physics}
+            onPhysicsChange={handlePhysicsChange}
           />
 
           {/* Sidebar */}

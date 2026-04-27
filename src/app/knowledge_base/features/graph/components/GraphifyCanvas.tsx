@@ -2,8 +2,30 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
+import { Settings } from "lucide-react";
 import type { RawGraphifyNode, RawGraphifyLink, RawGraphifyData, RawHyperedge } from "../hooks/useRawGraphify";
 import { edgeColor, RELATION_COLORS } from "../graphifyColors";
+
+export interface PhysicsConfig {
+  linkDistance: number;
+  linkStrength: number;
+  repelForce: number;
+  centerForce: number;
+}
+
+export const DEFAULT_PHYSICS: PhysicsConfig = {
+  linkDistance: 70,
+  linkStrength: 0.3,
+  repelForce: 400,
+  centerForce: 0.05,
+};
+
+const PHYSICS_SLIDERS = [
+  { key: "linkDistance" as const, label: "Link distance", min: 10,  max: 300,  step: 5    },
+  { key: "linkStrength" as const, label: "Link strength", min: 0,   max: 1,    step: 0.01 },
+  { key: "repelForce"   as const, label: "Repel force",   min: 0,   max: 1000, step: 10   },
+  { key: "centerForce"  as const, label: "Center force",  min: 0,   max: 1,    step: 0.01 },
+] satisfies { key: keyof PhysicsConfig; label: string; min: number; max: number; step: number }[];
 
 interface GraphifyCanvasProps {
   nodes: RawGraphifyNode[];
@@ -18,6 +40,8 @@ interface GraphifyCanvasProps {
   onNodeClick: (node: RawGraphifyNode) => void;
   /** Called when the user clicks the empty canvas background — use to deselect. */
   onBackgroundClick?: () => void;
+  physicsConfig: PhysicsConfig;
+  onPhysicsChange: (c: PhysicsConfig) => void;
 }
 
 // Graph canvas always uses a dark background regardless of app theme —
@@ -68,6 +92,8 @@ export default function GraphifyCanvas({
   highlightedNode,
   onNodeClick,
   onBackgroundClick,
+  physicsConfig,
+  onPhysicsChange,
 }: GraphifyCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,6 +113,18 @@ export default function GraphifyCanvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const [physicsOpen, setPhysicsOpen] = useState(false);
+
+  // ── Apply d3-force parameters whenever physicsConfig changes ─────────────
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.d3Force("link")?.distance(physicsConfig.linkDistance).strength(physicsConfig.linkStrength);
+    graph.d3Force("charge")?.strength(-physicsConfig.repelForce);
+    graph.d3Force("center")?.strength(physicsConfig.centerForce);
+    graph.d3ReheatSimulation();
+  }, [physicsConfig]);
 
   // ── Pinch-to-zoom + two-finger pan ───────────────────────────────────────
   // Intercept in capture phase so d3-zoom's bubble-phase handlers never fire
@@ -350,6 +388,53 @@ export default function GraphifyCanvas({
           cooldownTicks={120}
         />
       )}
+
+      {/* Physics settings — top-right overlay */}
+      <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-10">
+        <button
+          onClick={() => setPhysicsOpen(v => !v)}
+          className="rounded-lg p-1.5"
+          style={{ background: "rgba(15,23,42,0.75)", backdropFilter: "blur(4px)" }}
+          title="Graph physics"
+          aria-label="Toggle physics settings"
+        >
+          <Settings size={13} style={{ color: "#94a3b8" }} />
+        </button>
+        {physicsOpen && (
+          <div
+            className="rounded-lg px-3 py-2 w-48"
+            style={{ background: "rgba(15,23,42,0.85)", backdropFilter: "blur(4px)" }}
+          >
+            <p className="text-[9px] font-semibold uppercase tracking-wider mb-2" style={{ color: "#94a3b8" }}>
+              Physics
+            </p>
+            {PHYSICS_SLIDERS.map(({ key, label, min, max, step }) => (
+              <div key={key} className="mb-2">
+                <div className="flex justify-between mb-0.5">
+                  <span className="text-[10px]" style={{ color: "#cbd5e1" }}>{label}</span>
+                  <span className="text-[10px] font-mono" style={{ color: "#94a3b8" }}>
+                    {physicsConfig[key]}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={min} max={max} step={step}
+                  value={physicsConfig[key]}
+                  onChange={e => onPhysicsChange({ ...physicsConfig, [key]: Number(e.target.value) })}
+                  className="w-full h-1 accent-blue-400"
+                />
+              </div>
+            ))}
+            <button
+              onClick={() => onPhysicsChange(DEFAULT_PHYSICS)}
+              className="text-[10px] mt-1 w-full text-center hover:opacity-100 opacity-60"
+              style={{ color: "#94a3b8" }}
+            >
+              Reset defaults
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Edge type legend — bottom-right overlay */}
       <div className="absolute bottom-3 right-3 rounded-lg px-3 py-2 pointer-events-none"
