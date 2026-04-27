@@ -224,13 +224,22 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                     </button>
                   )}
                   {selectedNode.community != null && (
-                    <div className="flex items-center gap-1 text-mute">
+                    <button
+                      className={`flex items-center gap-1 w-full text-left rounded transition-opacity ${highlightedCommunity === selectedNode.community ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+                      title="Click to highlight this community"
+                      onClick={() => {
+                        setHighlightedCommunity(prev => prev === selectedNode.community ? null : selectedNode.community!);
+                        setHighlightedHyperedge(null);
+                      }}
+                    >
                       <span
                         className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                         style={{ background: nodeColorMap.get(selectedNode.id) ?? "#888" }}
                       />
-                      {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
-                    </div>
+                      <span className="text-mute">
+                        {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
+                      </span>
+                    </button>
                   )}
                   {neighbors.length > 0 && (
                     <div>
