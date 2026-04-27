@@ -41,6 +41,12 @@ interface PaneHeaderProps {
    * to dissolve title chrome while keeping the breadcrumb row's height stable.
    */
   hideTitleControls?: boolean;
+  /**
+   * Hide the Read/Edit toggle pill entirely. Use for panes that have no
+   * read-only mode (e.g. SVG editor). When true, `readOnly` and
+   * `onToggleReadOnly` are ignored.
+   */
+  hideReadOnlyToggle?: boolean;
   /** Extra actions rendered to the right of the Read Mode button. */
   children?: React.ReactNode;
 }
@@ -57,6 +63,7 @@ export default function PaneHeader({
   onSave,
   onDiscard,
   hideTitleControls = false,
+  hideReadOnlyToggle = false,
   children,
 }: PaneHeaderProps) {
   const pathParts = filePath.split("/");
@@ -159,20 +166,22 @@ export default function PaneHeader({
 
       {!showTitleSection && <div className="flex-1" />}
 
-      <button
-        onClick={onToggleReadOnly}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border flex-shrink-0 ${
-          readOnly
-            ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
-            : "bg-surface-2 text-ink-2 hover:text-ink border-line"
-        }`}
-        title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-        aria-pressed={readOnly}
-        aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-      >
-        {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-        <span>{readOnly ? "Read" : "Edit"}</span>
-      </button>
+      {!hideReadOnlyToggle && (
+        <button
+          onClick={onToggleReadOnly}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border flex-shrink-0 ${
+            readOnly
+              ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
+              : "bg-surface-2 text-ink-2 hover:text-ink border-line"
+          }`}
+          title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+          aria-pressed={readOnly}
+          aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+        >
+          {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+          <span>{readOnly ? "Read" : "Edit"}</span>
+        </button>
+      )}
 
       {readOnly && readingTimeMinutes != null && readingTimeMinutes > 0 && (
         <span

@@ -58,9 +58,19 @@ export function useSVGPersistence(
   const handleSave = useCallback(async () => {
     if (!activeFile || !canvasRef.current || !dirHandleRef.current) return;
     const svg = canvasRef.current.getSvgString();
-    await writeTextFile(dirHandleRef.current, activeFile, svg);
-    setIsDirty(false);
+    try {
+      await writeTextFile(dirHandleRef.current, activeFile, svg);
+      setIsDirty(false);
+    } catch {
+      // write failed — leave isDirty=true so user knows the save didn't stick
+    }
   }, [activeFile, canvasRef, dirHandleRef]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleDiscard = useCallback(async () => {
     if (!activeFile || !dirHandleRef.current) return;

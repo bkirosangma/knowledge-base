@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
   MousePointer2, Square, Circle, Minus, PenTool, Type,

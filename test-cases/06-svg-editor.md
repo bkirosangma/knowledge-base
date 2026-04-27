@@ -14,7 +14,7 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 
 | ID | Scenario | Status |
 |----|----------|--------|
-| SVG-6.2-01 | SVG editor pane shows PaneHeader with filename without `.svg` extension as title | ❌ |
+| SVG-6.2-01 | SVG editor pane shows PaneHeader with filename without `.svg` extension as title | ✅ |
 | SVG-6.2-02 | PaneHeader shows Save and Discard buttons when isDirty=true | ❌ |
 | SVG-6.2-03 | Reload page → SVG editor pane is restored from saved pane layout | 🚫 (File System Access API) |
 
@@ -22,10 +22,10 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 
 | ID | Scenario | Status |
 |----|----------|--------|
-| SVG-6.3-01 | All 6 tool buttons render (Select, Rectangle, Ellipse, Line, Path, Text) | ❌ |
-| SVG-6.3-02 | Clicking a tool button highlights it as active | ❌ |
-| SVG-6.3-03 | Undo / Redo buttons are present | ❌ |
-| SVG-6.3-04 | Zoom In / Zoom Out / Fit buttons are present | ❌ |
+| SVG-6.3-01 | All 6 tool buttons render (Select, Rectangle, Ellipse, Line, Path, Text) | ✅ |
+| SVG-6.3-02 | Clicking a tool button highlights it as active | ✅ |
+| SVG-6.3-03 | Undo / Redo buttons are present | ✅ |
+| SVG-6.3-04 | Zoom In / Zoom Out / Fit buttons are present | ✅ |
 
 ## 6.4 Persistence
 

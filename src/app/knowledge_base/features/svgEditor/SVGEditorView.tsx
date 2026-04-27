@@ -60,6 +60,7 @@ export default function SVGEditorView({
         filePath={activeFile ?? ""}
         readOnly={false}
         onToggleReadOnly={() => {}}
+        hideReadOnlyToggle
         title={title}
         isDirty={isDirty}
         hasActiveFile={activeFile !== null}

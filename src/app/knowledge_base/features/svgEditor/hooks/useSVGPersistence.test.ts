@@ -69,7 +69,7 @@ describe('useSVGPersistence', () => {
     expect(result.current.isDirty).toBe(false);
   });
 
-  it('sets isDirty to true when onChanged is called', async () => {
+  it('SVG-6.4-01: sets isDirty to true when onChanged is called', async () => {
     const canvas = makeCanvas();
     const canvasRef = makeRef<SVGCanvasHandle>(canvas);
     const { result } = renderHook(() =>
@@ -80,7 +80,7 @@ describe('useSVGPersistence', () => {
     expect(result.current.isDirty).toBe(true);
   });
 
-  it('handleSave writes getSvgString output and resets isDirty', async () => {
+  it('SVG-6.4-02: handleSave writes getSvgString output and resets isDirty', async () => {
     const canvas = makeCanvas();
     const canvasRef = makeRef<SVGCanvasHandle>(canvas);
     const { result } = renderHook(() =>
@@ -98,7 +98,7 @@ describe('useSVGPersistence', () => {
     expect(result.current.isDirty).toBe(false);
   });
 
-  it('handleDiscard re-reads the file and resets isDirty', async () => {
+  it('SVG-6.4-03: handleDiscard re-reads the file and resets isDirty', async () => {
     const canvas = makeCanvas();
     const canvasRef = makeRef<SVGCanvasHandle>(canvas);
     const { result } = renderHook(() =>

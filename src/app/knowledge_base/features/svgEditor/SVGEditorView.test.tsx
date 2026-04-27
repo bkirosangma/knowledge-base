@@ -68,7 +68,7 @@ describe('SVGEditorView', () => {
     vi.clearAllMocks();
   });
 
-  it('renders PaneHeader with the filename as title', async () => {
+  it('SVG-6.2-01: renders PaneHeader with the filename as title', async () => {
     await act(async () => {
       render(
         <SVGEditorView

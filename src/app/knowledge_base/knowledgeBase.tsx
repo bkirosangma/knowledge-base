@@ -116,10 +116,8 @@ function KnowledgeBaseInner() {
 
   // ─── SVG editor bridge ───
   const svgEditorBridgeRef = useRef<SVGEditorBridge | null>(null);
-  const [, setSVGEditorBridge] = useState<SVGEditorBridge | null>(null);
   const handleSVGEditorBridge = useCallback((bridge: SVGEditorBridge) => {
     svgEditorBridgeRef.current = bridge;
-    setSVGEditorBridge(bridge);
   }, []);
 
   // ─── Document bridges: one per pane side ───
