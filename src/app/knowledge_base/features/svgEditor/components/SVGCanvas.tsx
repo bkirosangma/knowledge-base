@@ -28,6 +28,7 @@ export interface SVGCanvasHandle {
   setStroke: (color: string) => void;
   setStrokeWidth: (width: number) => void;
   setLinkedHandles: (linked: boolean) => void;
+  finishOpenPath: () => void;
 }
 
 interface SVGCanvasProps {
@@ -114,6 +115,70 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     };
   }, []);
 
+  // Expand stroke hit areas so thin lines are easier to click.
+  // When the user misses a path element (clicks on SVG background), check if
+  // any path/line is within HIT_TOLERANCE_PX and re-dispatch there instead.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const HIT_TOLERANCE_PX = 8;
+    // WeakSet prevents the re-dispatched event from re-triggering this handler.
+    const redispatched = new WeakSet<MouseEvent>();
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (redispatched.has(e)) return;
+      const target = e.target as Element | null;
+      if (!target) return;
+      // Only expand when clicking on SVG background (not an actual element).
+      const tag = target.tagName;
+      const id = (target as HTMLElement).id;
+      const isBackground = tag === "svg" || id === "svgcanvas" || id === "svgroot"
+        || id === "svgcontent" || (tag === "g" && id === "svgcontent");
+      if (!isBackground) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = canvas as any;
+      const svgRoot = c.getSvgRoot?.() as SVGSVGElement | undefined;
+      const layer = c.getCurrentDrawing?.()?.getCurrentLayer?.() as Element | undefined;
+      if (!svgRoot || !layer) return;
+
+      const candidates = layer.querySelectorAll<SVGGeometryElement>("path, line, polyline");
+      let nearest: SVGGeometryElement | null = null;
+
+      for (const el of candidates) {
+        if (el.id === "path_stretch_line") continue;
+        try {
+          const ctm = (el as SVGGraphicsElement).getScreenCTM();
+          if (!ctm) continue;
+          const scale = Math.abs(ctm.a) || 1;
+          const origSW = parseFloat(el.getAttribute("stroke-width") || "1");
+          el.setAttribute("stroke-width", String(Math.max(origSW, (HIT_TOLERANCE_PX / scale) * 2)));
+          const pt = svgRoot.createSVGPoint();
+          pt.x = e.clientX; pt.y = e.clientY;
+          const hit = el.isPointInStroke(pt.matrixTransform(ctm.inverse()));
+          el.setAttribute("stroke-width", String(origSW));
+          if (hit) { nearest = el; break; }
+        } catch { continue; }
+      }
+
+      if (!nearest) return;
+      e.stopPropagation();
+      const ev = new MouseEvent("mousedown", {
+        bubbles: true, cancelable: true,
+        clientX: e.clientX, clientY: e.clientY,
+        button: e.button, buttons: e.buttons,
+        altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey,
+      });
+      redispatched.add(ev);
+      nearest.dispatchEvent(ev);
+    };
+
+    wrapper.addEventListener("mousedown", onMouseDown, { capture: true });
+    return () => wrapper.removeEventListener("mousedown", onMouseDown, { capture: true });
+  }, []);
+
   // Capture pointer on pathedit pointerdown so mouseleave can't fire a
   // synthetic mouseup that kills a handle drag mid-operation.
   useEffect(() => {
@@ -172,6 +237,14 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (readOnly) return;
     const mod = e.ctrlKey || e.metaKey;
+    if (e.key === "Enter" && !mod) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((canvasRef.current as any)?.getCurrentMode?.() === "path") {
+        e.preventDefault();
+        canvasRef.current?.finishOpenPath?.();
+        return;
+      }
+    }
     if ((e.key === "Delete" || e.key === "Backspace") && !mod) {
       e.preventDefault();
       canvasRef.current?.deleteSelectedElements?.();
@@ -211,6 +284,25 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     setStroke: (color: string) => canvasRef.current?.setColor?.("stroke", color),
     setStrokeWidth: (width: number) => canvasRef.current?.setStrokeWidth?.(width),
     setLinkedHandles: (linked: boolean) => canvasRef.current?.setLinkControlPoints?.(linked),
+    finishOpenPath: () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canvas = canvasRef.current as any;
+      if (!canvas || canvas.getCurrentMode?.() !== "path") return;
+      const drawnPath = canvas.getDrawnPath?.();
+      if (!drawnPath) return;
+      const id = canvas.getId?.();
+      // Remove path stretch-line preview
+      document.getElementById("path_stretch_line")?.remove();
+      // Remove path from internal tracking (so toEditMode creates fresh state)
+      canvas.removePath_?.(id);
+      canvas.setDrawnPath?.(null);
+      canvas.setStarted?.(false);
+      // Enter edit mode for the finished (open) path
+      if (id) {
+        const pathEl = document.getElementById(id);
+        if (pathEl) canvas.pathActions?.toEditMode?.(pathEl);
+      }
+    },
     zoomIn:  () => applyZoom(zoomRef.current * 1.2),
     zoomOut: () => applyZoom(zoomRef.current / 1.2),
     zoomFit: () => {

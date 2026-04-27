@@ -58,7 +58,7 @@ index 9c42c60..d5faf6f 100644
        this.matrix = null
        this.imatrix = null
 diff --git a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
-index 4788dff..b9c6253 100644
+index 4788dff..824f768 100644
 --- a/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
 +++ b/node_modules/@svgedit/svgcanvas/dist/svgcanvas.js
 @@ -2527,7 +2527,8 @@ class nv {
@@ -71,6 +71,15 @@ index 4788dff..b9c6253 100644
        this.item = e.pathSegList.getItem(t), this.update();
      }), this;
    }
+@@ -5199,7 +5200,7 @@ const mU = (r) => {
+   );
+ }, yU = (r) => {
+   const { $id: e } = I;
+-  if (I.getCurrentMode() !== "select" && I.getStarted()) {
++  if (I.getCurrentMode() !== "select" && I.getCurrentMode() !== "pathedit" && I.getStarted()) {
+     const t = new MouseEvent("mouseup", {
+       bubbles: !0,
+       cancelable: !0,
 @@ -5261,8 +5262,8 @@ const mU = (r) => {
                for (; S.numberOfItems > 0; )
                  S.removeItem(0);

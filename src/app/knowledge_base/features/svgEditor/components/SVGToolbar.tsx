@@ -138,6 +138,12 @@ export default function SVGToolbar({
       <button title="Fit" className={`${btnBase} ${btnInactive}`} onClick={onZoomFit}>
         <Maximize2 size={14} />
       </button>
+
+      {!readOnly && activeTool === "path" && (
+        <span className="ml-2 text-[10px] text-mute italic select-none">
+          Enter = end path (open) · click start = close
+        </span>
+      )}
     </div>
   );
 }
