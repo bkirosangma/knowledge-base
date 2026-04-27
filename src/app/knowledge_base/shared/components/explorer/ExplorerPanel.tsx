@@ -438,6 +438,7 @@ export default function ExplorerPanel({
                 handleDrop={handleDrop}
                 handleSortFieldClick={handleSortFieldClick}
                 handleGroupingClick={handleGroupingClick}
+                onOpenFolder={onOpenFolder}
               />
 
               {/* Search input */}

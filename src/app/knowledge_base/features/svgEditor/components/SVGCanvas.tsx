@@ -326,16 +326,17 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       if (!canvas) return;
       const svgContent = canvas.getSvgContent?.() as Element | undefined;
       if (!svgContent) return;
-      let bgRect = document.getElementById(BG_RECT_ID);
+      let bgRect: Element | null = document.getElementById(BG_RECT_ID);
       if (!color || color === "none") {
         bgRect?.remove();
         return;
       }
       if (!bgRect) {
-        bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bgRect.id = BG_RECT_ID;
-        bgRect.setAttribute("pointer-events", "none");
-        svgContent.insertBefore(bgRect, svgContent.firstChild);
+        const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        el.id = BG_RECT_ID;
+        el.setAttribute("pointer-events", "none");
+        svgContent.insertBefore(el, svgContent.firstChild);
+        bgRect = el;
       }
       const { w, h } = canvasSizeRef.current;
       bgRect.setAttribute("x", "0");
