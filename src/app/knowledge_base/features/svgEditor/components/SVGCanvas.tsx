@@ -141,13 +141,27 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       syncLayout(canvas);
       canvas.bind("changed", () => onChangedRef.current());
 
-      // MutationObserver fallback for library event-emission gaps —
-      // notably select-mode translate, which `@svgedit/svgcanvas` 7.x
-      // omits a `changed` call for. Re-attaches every time the shape
-      // layer is rebuilt: `setSvgString` (load + discard) calls
-      // `getSvgContent().remove()` then creates a fresh `#svgcontent`
-      // (svg-exec.js:401-407), so an observer attached at canvas init
-      // is left watching a detached node after the very first load.
+      // Wrap `addCommandToHistory` — the canonical chokepoint every
+      // meaningful change in `@svgedit/svgcanvas` flows through (42
+      // call sites in 7.x, including the select-mode translate path
+      // that omits the `changed` event). Firing `onChanged` from here
+      // gives a deterministic signal that doesn't depend on the SVG
+      // DOM 2 quirk where `SVGTransformList` mutations don't always
+      // reflect to MutationObserver.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = canvas as any;
+      const origAddCmd = (c.addCommandToHistory as (cmd: unknown) => void).bind(c);
+      c.addCommandToHistory = (cmd: unknown) => {
+        origAddCmd(cmd);
+        if (!suppressMutationsRef.current) onChangedRef.current();
+      };
+
+      // MutationObserver belt-and-braces — catches DOM changes that
+      // bypass `addCommandToHistory` (e.g. ad-hoc undo/redo). Re-
+      // attaches every time `setSvgString` rebuilds `#svgcontent`
+      // (svg-exec.js:401-407 detaches the old node and installs a
+      // fresh one), so an observer pinned at init is left watching
+      // detached DOM after the very first load.
       attachMutationObserver();
 
       canvas.bind("selected", () => {

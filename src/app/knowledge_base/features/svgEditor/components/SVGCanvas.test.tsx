@@ -44,6 +44,7 @@ const MockSvgCanvas = vi.fn(function (this: any, container: HTMLElement) {
     setZoom: mockSetZoom,
     getZoom: mockGetZoom,
     bind: mockBind,
+    addCommandToHistory: vi.fn(),
   });
 });
 
@@ -120,6 +121,42 @@ describe('SVGCanvas', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(onChanged).toHaveBeenCalled()
   });
+
+  it('SVG-6.4-20: wrapped addCommandToHistory fires onChanged for every meaningful change', async () => {
+    const onChanged = vi.fn()
+    const ref = createRef<SVGCanvasHandle>()
+    await act(async () => {
+      render(<SVGCanvas ref={ref} onChanged={onChanged} />)
+    })
+    // The MockSvgCanvas constructor stores the canvas instance on `this`;
+    // grab it from the most recent invocation.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const canvas = (MockSvgCanvas.mock.instances[0] as any)
+    onChanged.mockClear()
+    canvas.addCommandToHistory({ kind: 'fake-cmd' })
+    expect(onChanged).toHaveBeenCalledTimes(1)
+  })
+
+  it('SVG-6.4-21: wrapped addCommandToHistory is suppressed during programmatic setSvgString load', async () => {
+    const onChanged = vi.fn()
+    const ref = createRef<SVGCanvasHandle>()
+    await act(async () => {
+      render(<SVGCanvas ref={ref} onChanged={onChanged} />)
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const canvas = (MockSvgCanvas.mock.instances[0] as any)
+    // Trigger the suppression window by calling setSvgString — its
+    // internal `addCommandToHistory("Change Source")` call must not
+    // count as a user edit.
+    onChanged.mockClear()
+    act(() => { ref.current?.setSvgString('<svg><rect/></svg>') })
+    canvas.addCommandToHistory({ kind: 'change-source-cmd' })
+    expect(onChanged).not.toHaveBeenCalled()
+    // After the suppression macrotask clears, edits resume as normal.
+    await new Promise((r) => setTimeout(r, 5))
+    canvas.addCommandToHistory({ kind: 'real-edit' })
+    expect(onChanged).toHaveBeenCalledTimes(1)
+  })
 
   it('SVG-6.4-19: MutationObserver re-attaches after setSvgString rebuilds #svgcontent', async () => {
     const onChanged = vi.fn();
