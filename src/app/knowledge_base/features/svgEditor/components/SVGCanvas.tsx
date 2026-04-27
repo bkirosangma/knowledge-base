@@ -4,6 +4,12 @@ import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState, us
 
 export type SVGTool = "select" | "rect" | "ellipse" | "line" | "path" | "text";
 
+export interface SVGStyle {
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+}
+
 export interface SVGCanvasHandle {
   getSvgString: () => string;
   setSvgString: (svg: string) => void;
@@ -18,10 +24,14 @@ export interface SVGCanvasHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   zoomFit: () => void;
+  setFill: (color: string) => void;
+  setStroke: (color: string) => void;
+  setStrokeWidth: (width: number) => void;
 }
 
 interface SVGCanvasProps {
   onChanged: () => void;
+  onStyleChange?: (style: SVGStyle) => void;
   readOnly?: boolean;
 }
 
@@ -31,7 +41,7 @@ const CANVAS_H = 600;
 const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘" : "Ctrl ";
 
 const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas(
-  { onChanged, readOnly = false },
+  { onChanged, onStyleChange, readOnly = false },
   ref,
 ) {
   const wrapperRef   = useRef<HTMLDivElement>(null); // scroll viewport
@@ -41,11 +51,16 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   const canvasRef  = useRef<any>(null);
   const zoomRef    = useRef(1);
   const onChangedRef = useRef(onChanged);
+  const onStyleChangeRef = useRef(onStyleChange);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     onChangedRef.current = onChanged;
   }, [onChanged]);
+
+  useEffect(() => {
+    onStyleChangeRef.current = onStyleChange;
+  }, [onStyleChange]);
 
   // clearSvgContentElement() initialises svgContent with x=CANVAS_W, y=CANVAS_H.
   // selectorParentGroup starts at translate(0,0). updateCanvas() syncs them but
@@ -78,6 +93,18 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       canvasRef.current = canvas;
       syncLayout(canvas);
       canvas.bind("changed", () => onChangedRef.current());
+      canvas.bind("selected", () => {
+        const c = canvasRef.current;
+        if (!c || !onStyleChangeRef.current) return;
+        const fill = c.getCurProperties?.("fill") ?? "#000000";
+        const stroke = c.getCurProperties?.("stroke") ?? "#000000";
+        const strokeWidth = Number(c.getCurProperties?.("stroke_width") ?? 1);
+        onStyleChangeRef.current({
+          fill: /^#[0-9a-fA-F]{3,6}$/.test(fill) ? fill : "#000000",
+          stroke: /^#[0-9a-fA-F]{3,6}$/.test(stroke) ? stroke : "#000000",
+          strokeWidth: isFinite(strokeWidth) && strokeWidth > 0 ? strokeWidth : 1,
+        });
+      });
     });
 
     return () => {
@@ -165,6 +192,9 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     paste: () => canvasRef.current?.pasteElements?.(),
     undo: () => canvasRef.current?.undoMgr?.undo(),
     redo: () => canvasRef.current?.undoMgr?.redo(),
+    setFill: (color: string) => canvasRef.current?.setColor?.("fill", color),
+    setStroke: (color: string) => canvasRef.current?.setColor?.("stroke", color),
+    setStrokeWidth: (width: number) => canvasRef.current?.setStrokeWidth?.(width),
     zoomIn:  () => applyZoom(zoomRef.current * 1.2),
     zoomOut: () => applyZoom(zoomRef.current / 1.2),
     zoomFit: () => {

@@ -33,6 +33,9 @@ function makeCanvas(svgContent = EMPTY_SVG): SVGCanvasHandle & { _content: strin
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
     zoomFit: vi.fn(),
+    setFill: vi.fn(),
+    setStroke: vi.fn(),
+    setStrokeWidth: vi.fn(),
   };
   return canvas;
 }

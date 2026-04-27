@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../shared/components/PaneHeader";
-import SVGCanvas, { type SVGCanvasHandle, type SVGTool } from "./components/SVGCanvas";
+import SVGCanvas, { type SVGCanvasHandle, type SVGStyle, type SVGTool } from "./components/SVGCanvas";
 import SVGToolbar from "./components/SVGToolbar";
 import { useSVGPersistence } from "./hooks/useSVGPersistence";
 
@@ -37,6 +37,7 @@ export default function SVGEditorView({
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
   const [isReadOnly, setIsReadOnly] = useState(true);
+  const [svgStyle, setSvgStyle] = useState<SVGStyle>({ fill: "#000000", stroke: "#000000", strokeWidth: 1 });
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
@@ -109,11 +110,16 @@ export default function SVGEditorView({
         onZoomIn={() => canvasRef.current?.zoomIn()}
         onZoomOut={() => canvasRef.current?.zoomOut()}
         onZoomFit={() => canvasRef.current?.zoomFit()}
+        style={svgStyle}
+        onFillChange={c => { setSvgStyle(s => ({ ...s, fill: c })); canvasRef.current?.setFill(c); }}
+        onStrokeChange={c => { setSvgStyle(s => ({ ...s, stroke: c })); canvasRef.current?.setStroke(c); }}
+        onStrokeWidthChange={w => { setSvgStyle(s => ({ ...s, strokeWidth: w })); canvasRef.current?.setStrokeWidth(w); }}
         readOnly={isReadOnly}
       />
       <SVGCanvas
         ref={canvasRef}
         onChanged={onChanged}
+        onStyleChange={setSvgStyle}
         readOnly={isReadOnly}
       />
     </div>

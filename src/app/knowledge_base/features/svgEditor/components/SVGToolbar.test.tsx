@@ -13,6 +13,9 @@ describe('SVGToolbar', () => {
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
     onZoomFit: vi.fn(),
+    onFillChange: vi.fn(),
+    onStrokeChange: vi.fn(),
+    onStrokeWidthChange: vi.fn(),
   };
 
   it('SVG-6.3-01: renders all tool buttons', () => {
