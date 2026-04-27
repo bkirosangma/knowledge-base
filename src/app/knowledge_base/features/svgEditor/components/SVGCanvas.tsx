@@ -40,6 +40,21 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     onChangedRef.current = onChanged;
   }, [onChanged]);
 
+  // clearSvgContentElement() initialises svgContent with x=CANVAS_W, y=CANVAS_H.
+  // selectorParentGroup starts at translate(0,0). updateCanvas() syncs them but
+  // requires a canvasBackground DOM element we don't have. Do the sync manually.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const syncLayout = (canvas: any) => {
+    const content = canvas.getSvgContent?.();
+    if (!content) return;
+    content.setAttribute("x", "0");
+    content.setAttribute("y", "0");
+    content.setAttribute("width", String(CANVAS_W));
+    content.setAttribute("height", String(CANVAS_H));
+    content.setAttribute("viewBox", `0 0 ${CANVAS_W} ${CANVAS_H}`);
+    canvas.selectorManager?.selectorParentGroup?.setAttribute("transform", "translate(0,0)");
+  };
+
   useEffect(() => {
     if (!containerRef.current) return;
     let cancelled = false;
@@ -47,7 +62,6 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     import("@svgedit/svgcanvas").then(({ default: SvgCanvas }) => {
       if (cancelled || !containerRef.current) return;
       const canvas = new SvgCanvas(containerRef.current, {
-        canvas_expansion: 3,
         initFill: { color: "ffffff", opacity: 1 },
         initStroke: { color: "000000", opacity: 1, width: 1 },
         initOpacity: 1,
@@ -55,6 +69,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
         imgPath: "/svgedit-cursors",
       });
       canvasRef.current = canvas;
+      syncLayout(canvas);
       canvas.bind("changed", () => onChangedRef.current());
     });
 
@@ -102,7 +117,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
 
   useImperativeHandle(ref, () => ({
     getSvgString: () => canvasRef.current?.getSvgString() ?? "",
-    setSvgString: (svg: string) => canvasRef.current?.setSvgString(svg),
+    setSvgString: (svg: string) => {
+      canvasRef.current?.setSvgString(svg);
+      syncLayout(canvasRef.current);
+    },
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
     clearSelection: () => canvasRef.current?.clearSelection(),
     undo: () => canvasRef.current?.undoMgr?.undo(),
