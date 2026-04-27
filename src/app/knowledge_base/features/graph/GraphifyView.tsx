@@ -6,7 +6,6 @@ import { BrainCircuit, ChevronRight, FileText, Filter, Folder, Search } from "lu
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
-import { useTheme } from "../../shared/hooks/useTheme";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
 const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
@@ -26,7 +25,23 @@ export interface GraphifyViewProps {
 }
 
 export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyViewProps) {
-  const { theme } = useTheme();
+  // Read theme from the nearest [data-theme] ancestor set by knowledgeBase.tsx.
+  // MutationObserver reacts instantly when the user toggles the global theme,
+  // avoiding the prop-drilling problem (renderPane is defined outside ThemeProvider).
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  useEffect(() => {
+    const getTheme = (): "light" | "dark" => {
+      const val = document.querySelector("[data-theme]")?.getAttribute("data-theme");
+      return val === "light" ? "light" : "dark";
+    };
+    setTheme(getTheme());
+    const target = document.querySelector("[data-theme]");
+    if (!target) return;
+    const obs = new MutationObserver(() => setTheme(getTheme()));
+    obs.observe(target, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => obs.disconnect();
+  }, []);
+
   const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(dirHandleRef, theme);
 
   const [search, setSearch] = useState("");
