@@ -64,6 +64,26 @@ function padHull(hull: Pt[], pad: number): Pt[] {
 }
 
 
+// ── Per-node gravity force ────────────────────────────────────────────────
+// Replaces d3's forceCenter. forceCenter only anchors the CENTRE OF MASS —
+// it applies zero net force when two disconnected clusters are symmetrically
+// placed around the origin, so they drift apart under repulsion.
+// Per-node gravity (vx -= x * α * strength) pulls every node individually
+// toward the origin; the restoring force scales with distance, so distant
+// clusters are always pulled back.
+function createGravityForce(strength: number) {
+  let nodes: D3Node[] = [];
+  function force(alpha: number) {
+    for (const n of nodes) {
+      n.vx -= n.x * strength * alpha;
+      n.vy -= n.y * strength * alpha;
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (force as any).initialize = (ns: D3Node[]) => { nodes = ns; };
+  return force;
+}
+
 // ── Hyperedge regular-polygon force ──────────────────────────────────────
 // Gently nudges the N nodes of each hyperedge toward the N vertices of a
 // regular polygon (equal sides, equal angles) centred on their centroid.
@@ -158,7 +178,8 @@ export default function GraphifyCanvas({
     if (!graph) return;
     graph.d3Force("link")?.distance(physicsConfig.linkDistance).strength(physicsConfig.linkStrength);
     graph.d3Force("charge")?.strength(-physicsConfig.repelForce);
-    graph.d3Force("center")?.strength(physicsConfig.centerForce);
+    graph.d3Force("center", null); // forceCenter only anchors CoM — use per-node gravity instead
+    graph.d3Force("gravity", createGravityForce(physicsConfig.centerForce));
     graph.d3ReheatSimulation();
   }, [physicsConfig]);
 
