@@ -477,7 +477,29 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **Layout-restore tolerance** — `__graph__` sentinel bypasses the tree-validity check in pane-layout restore so the graph survives reloads.
 - ✅ **Accessible debug list** — hidden `<ul data-testid="graph-debug-list">` mirrors visible nodes; gives Playwright a clickable surface and screen-readers a fallback list.
 
-### 5.5 Unlinked Mentions (Phase 3 PR 2)
+### 5.5 Graphify Knowledge Graph View
+`features/graph/GraphifyView.tsx`, `components/GraphifyCanvas.tsx`, `graphifyColors.ts`, `graphifyPhysics.ts`, `hooks/useRawGraphify.ts`
+
+Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and renders it as an interactive force-directed knowledge graph in its own pane (virtual entry `fileType: "graphify"`).
+
+- ✅ **Virtual pane entry** — opened via `view.open-graphify` palette command (⌘⇧K); replaces the focused pane; uses sentinel filePath `"__graphify__"`. Lazy-loaded canvas avoids pulling `react-force-graph-2d` into the main bundle.
+- ✅ **Data loading** — `useRawGraphify` reads `graphify-out/graph.json` (and optionally `GRAPH_REPORT.md` for LLM-generated community names) using the vault's `FileSystemDirectoryHandle`. Reports four statuses: `idle`, `loading`, `loaded`, `missing`, `error`.
+- ✅ **Community-colored nodes** — golden-angle hue spacing (`index × 137.508°`) assigns a distinct HSL color per community; `CommunityInfo` carries id, name, count, and color. Node size scales with degree (hub nodes rendered larger via `nodeVal = degree`).
+- ✅ **Relation-typed edges** — seven named relation types (`references`, `calls`, `implements`, `conceptually_related_to`, `semantically_similar_to`, `shares_data_with`, `rationale_for`) each get a distinct color; an edge-type legend is rendered as a canvas overlay (bottom-right).
+- ✅ **Hyperedges** — `RawHyperedge` groups (N nodes) are rendered as padded convex-hull polygons with dashed strokes; a regular-polygon d3 force (`createHyperedgeForce`) nudges member nodes toward equal-sided polygon shapes.
+- ✅ **Physics tuning panel** — gear icon overlay (top-right) exposes five d3-force sliders: Link distance, Link strength, Repel force, Center force, Hyperedge force. Settings persisted to `vaultConfig.graphifyPhysics` and restored on next vault open. "Reset defaults" button snaps all values back.
+- ✅ **Per-node gravity** — replaces d3's `forceCenter` with a custom per-node gravity force (`createGravityForce`) so disconnected subgraphs don't drift symmetrically apart under repulsion.
+- ✅ **Pinch-to-zoom & two-finger pan** — touch and trackpad wheel events intercepted in the capture phase before d3-zoom to provide native-feeling zoom-to-cursor and pan gestures.
+- ✅ **Sidebar** — 256 px right panel containing: Node info (label, source file link, community badge, neighbor list), Community legend (click to highlight all community nodes), Hyperedge list (click to highlight hull members).
+- ✅ **Community & hyperedge selection** — clicking a community or hyperedge row pans the canvas to the centroid of those nodes; selection highlights them (others dimmed via `visibleNodeIds`). Clicking the community badge in Node info also highlights the community.
+- ✅ **Canvas hull click** — clicking inside a hyperedge's rendered hull selects it (ray-casting point-in-polygon on the padded hull); background click always deselects the active node even when inside a hull.
+- ✅ **Node search** — search input in the toolbar; results appear as an absolute-positioned dropdown (does not shift the canvas). Escape clears search.
+- ✅ **File/folder node filter** — Filter button in the toolbar opens a dropdown panel with a collapsible file tree (explorer-style, folder expand/collapse). Two modes: *Include + neighbors* (show matched nodes plus their direct link neighbors), *Exclude* (hide matched nodes). Tree-search input shows a flat filtered list when non-empty. Active filter count shown on the button badge. Settings do not persist.
+- ✅ **Node click → opens in other pane** — clicking a node opens its `source_file` in the opposite pane (graph pane stays mounted).
+- ✅ **Theme-aware color scheme** — dark theme: slate-900 canvas, HSL 68%-lightness pastels, dark glass overlays. Light theme: slate-100 canvas, HSL 40%-lightness saturated tones, frosted-white glass overlays, -600/-700 edge colors. Community and node colors re-derived instantly via `useMemo` when the global theme toggles (no vault reload). Theme change detected via `MutationObserver` on `[data-theme]`.
+- ✅ **Accessible debug list** — hidden `<ul data-testid="graphify-debug-list">` mirrors all nodes; each `<button>` has `aria-label="Select {label}"`.
+
+### 5.6 Unlinked Mentions (Phase 3 PR 2)
 `features/document/components/UnlinkedMentions.tsx`, `features/document/utils/unlinkedMentions.ts`
 - ✅ **Detector** — tokenizes the document body (after stripping `[[...]]` blocks), matches tokens (length ≥ 4, lowercase) against vault basenames, excludes a stoplist of common English words and the doc's own basename. Caps at 50 hits. Sorted by count desc then alphabetical.
 - ✅ **Properties-panel section** — mounts in `DocumentProperties` below Backlinks; lists token, count, target basename, and a per-row "Convert all" button.

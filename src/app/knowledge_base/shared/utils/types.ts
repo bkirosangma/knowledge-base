@@ -60,6 +60,14 @@ export interface VaultConfig {
   graph?: {
     layout?: Record<string, { x: number; y: number }>;
   };
+  /** Graphify knowledge-graph physics tuning, persisted across sessions. */
+  graphifyPhysics?: {
+    linkDistance: number;
+    linkStrength: number;
+    repelForce: number;
+    centerForce: number;
+    hyperedgeForce: number;
+  };
 }
 
 export type ExplorerFilter = 'all' | 'diagrams' | 'documents';
