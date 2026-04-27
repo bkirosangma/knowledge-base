@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   MousePointer2, Square, Circle, Minus, PenTool, Type,
-  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Link2, Link2Off,
+  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Link2, Link2Off, Crop,
 } from "lucide-react";
 import type { SVGStyle, SVGTool } from "./SVGCanvas";
 
@@ -22,6 +22,10 @@ interface SVGToolbarProps {
   linkedHandles: boolean;
   onLinkedHandlesChange: (linked: boolean) => void;
   readOnly?: boolean;
+  bgColor?: string;
+  onBgColorChange?: (color: string) => void;
+  canvasSize?: { w: number; h: number };
+  onCanvasSizeChange?: (w: number, h: number) => void;
 }
 
 const TOOLS: { tool: SVGTool; Icon: React.ElementType; title: string }[] = [
@@ -36,33 +40,58 @@ const TOOLS: { tool: SVGTool; Icon: React.ElementType; title: string }[] = [
 const btnBase = "p-1.5 rounded transition-colors";
 const btnActive = "bg-surface-2 text-ink";
 const btnInactive = "text-mute hover:text-ink-2 hover:bg-surface-2";
-
 const btnDisabled = "text-mute opacity-40 cursor-not-allowed";
 
+const CHECKER = "repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%)";
+
 function ColorSwatch({
-  label, color, disabled, onChange,
-}: { label: string; color: string; disabled: boolean; onChange: (c: string) => void }) {
+  label, color, disabled, onChange, allowNone = false,
+}: {
+  label: string;
+  color: string;
+  disabled: boolean;
+  onChange: (c: string) => void;
+  allowNone?: boolean;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const isNone = color === "none";
+  // Remember the last valid hex so the picker opens with it after toggling back from none.
+  const lastHexRef = useRef(isNone ? "#000000" : color);
+  if (!isNone) lastHexRef.current = color;
+
   return (
-    <button
-      title={label}
-      disabled={disabled}
-      className={`${btnBase} flex items-center gap-0.5 ${disabled ? btnDisabled : btnInactive}`}
-      onClick={() => !disabled && inputRef.current?.click()}
-    >
-      <span className="text-[10px] text-mute">{label[0].toUpperCase()}</span>
-      <span
-        className="inline-block w-3.5 h-3.5 rounded-sm border border-line"
-        style={{ background: color }}
-      />
-      <input
-        ref={inputRef}
-        type="color"
-        value={color}
-        className="sr-only"
-        onChange={e => onChange(e.target.value)}
-      />
-    </button>
+    <div className="flex items-center">
+      <button
+        title={isNone ? `${label}: none — click to pick color` : `${label}: ${color}`}
+        disabled={disabled}
+        className={`${btnBase} flex items-center gap-0.5 ${disabled ? btnDisabled : btnInactive}`}
+        onClick={() => !disabled && inputRef.current?.click()}
+      >
+        <span className="text-[10px] text-mute">{label[0].toUpperCase()}</span>
+        <span
+          className="inline-block w-3.5 h-3.5 rounded-sm border border-line"
+          style={isNone
+            ? { backgroundImage: CHECKER, backgroundSize: "6px 6px" }
+            : { background: color }}
+        />
+        <input
+          ref={inputRef}
+          type="color"
+          value={lastHexRef.current}
+          className="sr-only"
+          onChange={e => onChange(e.target.value)}
+        />
+      </button>
+      {allowNone && !disabled && (
+        <button
+          title={isNone ? `Restore ${label.toLowerCase()} color` : `Set ${label.toLowerCase()} to none`}
+          className={`text-[10px] leading-none px-0.5 ${isNone ? "text-ink-2 font-bold" : "text-mute hover:text-ink"}`}
+          onClick={() => onChange(isNone ? lastHexRef.current : "none")}
+        >
+          ∅
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -70,10 +99,34 @@ export default function SVGToolbar({
   activeTool, onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomFit,
   style, onFillChange, onStrokeChange, onStrokeWidthChange,
   linkedHandles, onLinkedHandlesChange, readOnly = false,
+  bgColor = "none", onBgColorChange,
+  canvasSize = { w: 800, h: 600 }, onCanvasSizeChange,
 }: SVGToolbarProps) {
   const fill        = style?.fill        ?? "#000000";
   const stroke      = style?.stroke      ?? "#000000";
   const strokeWidth = style?.strokeWidth ?? 1;
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sizeW, setSizeW] = useState(String(canvasSize.w));
+  const [sizeH, setSizeH] = useState(String(canvasSize.h));
+
+  // Sync local size inputs when the prop changes (e.g. after file load).
+  useEffect(() => { setSizeW(String(canvasSize.w)); }, [canvasSize.w]);
+  useEffect(() => { setSizeH(String(canvasSize.h)); }, [canvasSize.h]);
+
+  // Close settings panel on outside click.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const close = () => setSettingsOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [settingsOpen]);
+
+  const applySize = () => {
+    const w = parseInt(sizeW, 10);
+    const h = parseInt(sizeH, 10);
+    if (w > 0 && h > 0) onCanvasSizeChange?.(w, h);
+  };
 
   return (
     <div className="flex items-center gap-0.5 px-2 py-1 border-b border-line bg-surface flex-shrink-0">
@@ -112,8 +165,8 @@ export default function SVGToolbar({
 
       <div className="w-px h-4 bg-line mx-1" />
 
-      <ColorSwatch label="Fill"   color={fill}   disabled={readOnly} onChange={onFillChange}   />
-      <ColorSwatch label="Stroke" color={stroke} disabled={readOnly} onChange={onStrokeChange} />
+      <ColorSwatch label="Fill"   color={fill}   disabled={readOnly} onChange={onFillChange}   allowNone />
+      <ColorSwatch label="Stroke" color={stroke} disabled={readOnly} onChange={onStrokeChange} allowNone />
       <div className="flex items-center gap-1 px-1">
         <span className="text-[10px] text-mute">W</span>
         <input
@@ -138,6 +191,63 @@ export default function SVGToolbar({
       <button title="Fit" className={`${btnBase} ${btnInactive}`} onClick={onZoomFit}>
         <Maximize2 size={14} />
       </button>
+
+      <div className="w-px h-4 bg-line mx-1" />
+
+      {/* Canvas settings — background colour + size */}
+      <div className="relative">
+        <button
+          title="Canvas settings"
+          className={`${btnBase} ${settingsOpen ? btnActive : btnInactive}`}
+          onClick={e => { e.stopPropagation(); setSettingsOpen(v => !v); }}
+        >
+          <Crop size={14} />
+        </button>
+
+        {settingsOpen && (
+          <div
+            className="absolute top-full right-0 mt-1 z-50 rounded-lg shadow-lg border border-line px-3 py-2 w-52"
+            style={{ background: "var(--color-surface)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-[9px] font-semibold uppercase tracking-wider mb-2 text-mute">Canvas</p>
+
+            <div className="mb-3">
+              <p className="text-[10px] text-mute mb-1">Background</p>
+              <ColorSwatch
+                label="Background"
+                color={bgColor}
+                disabled={false}
+                onChange={c => onBgColorChange?.(c)}
+                allowNone
+              />
+            </div>
+
+            <div>
+              <p className="text-[10px] text-mute mb-1">Size (px)</p>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number" min={1} max={9999} step={1}
+                  value={sizeW}
+                  className="w-16 h-5 text-[10px] text-center rounded border border-line bg-transparent text-ink"
+                  onChange={e => setSizeW(e.target.value)}
+                  onBlur={applySize}
+                  onKeyDown={e => e.key === "Enter" && applySize()}
+                />
+                <span className="text-[10px] text-mute">×</span>
+                <input
+                  type="number" min={1} max={9999} step={1}
+                  value={sizeH}
+                  className="w-16 h-5 text-[10px] text-center rounded border border-line bg-transparent text-ink"
+                  onChange={e => setSizeH(e.target.value)}
+                  onBlur={applySize}
+                  onKeyDown={e => e.key === "Enter" && applySize()}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {!readOnly && activeTool === "path" && (
         <span className="ml-2 text-[10px] text-mute italic select-none">

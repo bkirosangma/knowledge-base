@@ -29,21 +29,26 @@ export interface SVGCanvasHandle {
   setStrokeWidth: (width: number) => void;
   setLinkedHandles: (linked: boolean) => void;
   finishOpenPath: () => void;
+  setBackground: (color: string) => void;
+  resize: (w: number, h: number) => void;
 }
 
 interface SVGCanvasProps {
   onChanged: () => void;
   onStyleChange?: (style: SVGStyle) => void;
   readOnly?: boolean;
+  /** Called after setSvgString with the file's width, height, and detected background color. */
+  onSvgLoaded?: (w: number, h: number, bgColor: string) => void;
 }
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
+const BG_RECT_ID = "svg-editor-bg";
 
 const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘" : "Ctrl ";
 
 const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas(
-  { onChanged, onStyleChange, readOnly = false },
+  { onChanged, onStyleChange, readOnly = false, onSvgLoaded },
   ref,
 ) {
   const wrapperRef   = useRef<HTMLDivElement>(null); // scroll viewport
@@ -52,8 +57,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const canvasRef  = useRef<any>(null);
   const zoomRef    = useRef(1);
+  const canvasSizeRef = useRef({ w: CANVAS_W, h: CANVAS_H });
   const onChangedRef = useRef(onChanged);
   const onStyleChangeRef = useRef(onStyleChange);
+  const onSvgLoadedRef = useRef(onSvgLoaded);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -64,6 +71,10 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     onStyleChangeRef.current = onStyleChange;
   }, [onStyleChange]);
 
+  useEffect(() => {
+    onSvgLoadedRef.current = onSvgLoaded;
+  }, [onSvgLoaded]);
+
   // clearSvgContentElement() initialises svgContent with x=CANVAS_W, y=CANVAS_H.
   // selectorParentGroup starts at translate(0,0). updateCanvas() syncs them but
   // requires a canvasBackground DOM element we don't have. Do the sync manually.
@@ -71,11 +82,12 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   const syncLayout = (canvas: any) => {
     const content = canvas.getSvgContent?.();
     if (!content) return;
+    const { w, h } = canvasSizeRef.current;
     content.setAttribute("x", "0");
     content.setAttribute("y", "0");
-    content.setAttribute("width", String(CANVAS_W));
-    content.setAttribute("height", String(CANVAS_H));
-    content.setAttribute("viewBox", `0 0 ${CANVAS_W} ${CANVAS_H}`);
+    content.setAttribute("width", String(w));
+    content.setAttribute("height", String(h));
+    content.setAttribute("viewBox", `0 0 ${w} ${h}`);
     canvas.selectorManager?.selectorParentGroup?.setAttribute("transform", "translate(0,0)");
   };
 
@@ -153,7 +165,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       let nearest: SVGGeometryElement | null = null;
 
       for (const el of candidates) {
-        if (el.id === "path_stretch_line") continue;
+        if (el.id === "path_stretch_line" || el.id === BG_RECT_ID) continue;
         try {
           const ctm = (el as SVGGraphicsElement).getScreenCTM();
           if (!ctm) continue;
@@ -215,8 +227,9 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       containerRef.current.style.transformOrigin = "0 0";
     }
     if (spacerRef.current) {
-      spacerRef.current.style.width  = `${CANVAS_W * clamped}px`;
-      spacerRef.current.style.height = `${CANVAS_H * clamped}px`;
+      const { w, h } = canvasSizeRef.current;
+      spacerRef.current.style.width  = `${w * clamped}px`;
+      spacerRef.current.style.height = `${h * clamped}px`;
     }
   };
 
@@ -274,8 +287,26 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
   useImperativeHandle(ref, () => ({
     getSvgString: () => canvasRef.current?.getSvgString() ?? "",
     setSvgString: (svg: string) => {
-      canvasRef.current?.setSvgString(svg);
-      syncLayout(canvasRef.current);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canvas = canvasRef.current as any;
+      if (!canvas) return;
+      canvas.setSvgString(svg);
+      // Read dimensions from the loaded SVG root; fall back to current size.
+      const root = canvas.getSvgRoot?.() as Element | undefined;
+      if (root) {
+        const w = parseInt(root.getAttribute("width") ?? "", 10);
+        const h = parseInt(root.getAttribute("height") ?? "", 10);
+        if (w > 0 && h > 0) canvasSizeRef.current = { w, h };
+      }
+      syncLayout(canvas);
+      applyZoom(zoomRef.current);
+      // Notify parent with loaded size + background colour.
+      const bgEl = document.getElementById(BG_RECT_ID);
+      onSvgLoadedRef.current?.(
+        canvasSizeRef.current.w,
+        canvasSizeRef.current.h,
+        bgEl?.getAttribute("fill") ?? "none",
+      );
     },
     setMode: (tool: SVGTool) => canvasRef.current?.setMode(tool),
     clearSelection: () => canvasRef.current?.clearSelection(),
@@ -289,6 +320,48 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     setStroke: (color: string) => canvasRef.current?.setColor?.("stroke", color),
     setStrokeWidth: (width: number) => canvasRef.current?.setStrokeWidth?.(width),
     setLinkedHandles: (linked: boolean) => canvasRef.current?.setLinkControlPoints?.(linked),
+    setBackground: (color: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canvas = canvasRef.current as any;
+      if (!canvas) return;
+      const svgContent = canvas.getSvgContent?.() as Element | undefined;
+      if (!svgContent) return;
+      let bgRect = document.getElementById(BG_RECT_ID);
+      if (!color || color === "none") {
+        bgRect?.remove();
+        return;
+      }
+      if (!bgRect) {
+        bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.id = BG_RECT_ID;
+        bgRect.setAttribute("pointer-events", "none");
+        svgContent.insertBefore(bgRect, svgContent.firstChild);
+      }
+      const { w, h } = canvasSizeRef.current;
+      bgRect.setAttribute("x", "0");
+      bgRect.setAttribute("y", "0");
+      bgRect.setAttribute("width", String(w));
+      bgRect.setAttribute("height", String(h));
+      bgRect.setAttribute("fill", color);
+    },
+    resize: (w: number, h: number) => {
+      if (!w || !h || w <= 0 || h <= 0) return;
+      canvasSizeRef.current = { w, h };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canvas = canvasRef.current as any;
+      if (!canvas) return;
+      const dims = [["width", w], ["height", h], ["viewBox", `0 0 ${w} ${h}`]] as const;
+      const svgRoot = canvas.getSvgRoot?.() as Element | undefined;
+      if (svgRoot) dims.forEach(([k, v]) => svgRoot.setAttribute(k, String(v)));
+      const svgContent = canvas.getSvgContent?.() as Element | undefined;
+      if (svgContent) {
+        svgContent.setAttribute("x", "0"); svgContent.setAttribute("y", "0");
+        dims.forEach(([k, v]) => svgContent.setAttribute(k, String(v)));
+      }
+      const bgRect = document.getElementById(BG_RECT_ID);
+      if (bgRect) { bgRect.setAttribute("width", String(w)); bgRect.setAttribute("height", String(h)); }
+      applyZoom(zoomRef.current);
+    },
     finishOpenPath: () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const canvas = canvasRef.current as any;
@@ -313,7 +386,8 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
     zoomFit: () => {
       const wrapper = wrapperRef.current;
       if (!wrapper) return;
-      applyZoom(Math.min(wrapper.clientWidth / CANVAS_W, wrapper.clientHeight / CANVAS_H) * 0.9);
+      const { w, h } = canvasSizeRef.current;
+      applyZoom(Math.min(wrapper.clientWidth / w, wrapper.clientHeight / h) * 0.9);
     },
   }));
 

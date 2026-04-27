@@ -38,6 +38,8 @@ function makeCanvas(svgContent = EMPTY_SVG): SVGCanvasHandle & { _content: strin
     setStrokeWidth: vi.fn(),
     setLinkedHandles: vi.fn(),
     finishOpenPath: vi.fn(),
+    setBackground: vi.fn(),
+    resize: vi.fn(),
   };
   return canvas;
 }

@@ -39,6 +39,8 @@ export default function SVGEditorView({
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [svgStyle, setSvgStyle] = useState<SVGStyle>({ fill: "#000000", stroke: "#000000", strokeWidth: 1 });
   const [linkedHandles, setLinkedHandles] = useState(true);
+  const [bgColor, setBgColor] = useState<string>("none");
+  const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
@@ -55,6 +57,21 @@ export default function SVGEditorView({
   const handleToolChange = useCallback((tool: SVGTool) => {
     setActiveTool(tool);
     canvasRef.current?.setMode(tool);
+  }, []);
+
+  const handleBgChange = useCallback((color: string) => {
+    setBgColor(color);
+    canvasRef.current?.setBackground(color);
+  }, []);
+
+  const handleCanvasSizeChange = useCallback((w: number, h: number) => {
+    setCanvasSize({ w, h });
+    canvasRef.current?.resize(w, h);
+  }, []);
+
+  const handleSvgLoaded = useCallback((w: number, h: number, bg: string) => {
+    setCanvasSize({ w, h });
+    setBgColor(bg);
   }, []);
 
   const handleToggleReadOnly = useCallback(() => {
@@ -118,11 +135,16 @@ export default function SVGEditorView({
         linkedHandles={linkedHandles}
         onLinkedHandlesChange={linked => { setLinkedHandles(linked); canvasRef.current?.setLinkedHandles(linked); }}
         readOnly={isReadOnly}
+        bgColor={bgColor}
+        onBgColorChange={handleBgChange}
+        canvasSize={canvasSize}
+        onCanvasSizeChange={handleCanvasSizeChange}
       />
       <SVGCanvas
         ref={canvasRef}
         onChanged={onChanged}
         onStyleChange={setSvgStyle}
+        onSvgLoaded={handleSvgLoaded}
         readOnly={isReadOnly}
       />
     </div>
