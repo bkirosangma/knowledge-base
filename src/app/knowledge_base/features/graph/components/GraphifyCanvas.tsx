@@ -15,8 +15,8 @@ interface GraphifyCanvasProps {
   hyperedges: RawHyperedge[];
   nodeColorMap: Map<string, string>;
   nodeDegreeMap: Map<string, number>;
-  /** Community ID to highlight; null = all visible at full opacity. */
-  highlightedCommunity: number | null;
+  /** Node IDs to show at full opacity; null = all visible. */
+  visibleNodeIds: Set<string> | null;
   /** Node ID to highlight; null = no selection. */
   highlightedNode: string | null;
   onNodeClick: (node: RawGraphifyNode) => void;
@@ -124,7 +124,7 @@ export default function GraphifyCanvas({
   hyperedges,
   nodeColorMap,
   nodeDegreeMap,
-  highlightedCommunity,
+  visibleNodeIds,
   highlightedNode,
   onNodeClick,
   onBackgroundClick,
@@ -302,13 +302,6 @@ export default function GraphifyCanvas({
     (node: RawGraphifyNode) => nodeColorMap.get(node.id) ?? "#888",
     [nodeColorMap],
   );
-
-  // Build a Set of visible node IDs when a community is selected.
-  // null = all nodes visible (no filter active).
-  const visibleNodeIds = useMemo<Set<string> | null>(() => {
-    if (highlightedCommunity === null) return null;
-    return new Set(nodes.filter((n) => n.community === highlightedCommunity).map((n) => n.id));
-  }, [highlightedCommunity, nodes]);
 
   const nodeVisibility = useCallback(
     (node: RawGraphifyNode) => !visibleNodeIds || visibleNodeIds.has(node.id),

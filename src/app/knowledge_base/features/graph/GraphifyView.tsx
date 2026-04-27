@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BrainCircuit } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
@@ -30,7 +30,19 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
   const [search, setSearch] = useState("");
   const [selectedNode, setSelectedNode] = useState<RawGraphifyNode | null>(null);
   const [highlightedCommunity, setHighlightedCommunity] = useState<number | null>(null);
+  const [highlightedHyperedge, setHighlightedHyperedge] = useState<string | null>(null);
   const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
+
+  const visibleNodeIds = useMemo<Set<string> | null>(() => {
+    if (highlightedCommunity !== null) {
+      return new Set(data.nodes.filter(n => n.community === highlightedCommunity).map(n => n.id));
+    }
+    if (highlightedHyperedge !== null) {
+      const he = hyperedges.find(h => h.id === highlightedHyperedge);
+      return he ? new Set(he.nodes) : null;
+    }
+    return null;
+  }, [highlightedCommunity, highlightedHyperedge, data.nodes, hyperedges]);
   const searchRef = useRef<HTMLInputElement>(null);
   const [physics, setPhysics] = useState<PhysicsConfig>(DEFAULT_PHYSICS);
 
@@ -148,7 +160,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
             hyperedges={hyperedges}
             nodeColorMap={nodeColorMap}
             nodeDegreeMap={nodeDegreeMap}
-            highlightedCommunity={highlightedCommunity}
+            visibleNodeIds={visibleNodeIds}
             highlightedNode={highlightedNode}
             onNodeClick={handleNodeClick}
             onBackgroundClick={handleDeselect}
@@ -242,7 +254,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
             </div>
 
             {/* Community legend */}
-            <div className="flex-1 overflow-y-auto px-3 py-2">
+            <div className="flex-shrink-0 px-3 py-2 border-b border-line">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Communities</p>
               <ul className="space-y-0.5">
                 {communities.map((c) => (
@@ -250,15 +262,64 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                     key={c.id}
                     community={c}
                     highlighted={highlightedCommunity === c.id}
-                    onToggle={() => setHighlightedCommunity((prev) => prev === c.id ? null : c.id)}
+                    onToggle={() => {
+                      setHighlightedCommunity((prev) => prev === c.id ? null : c.id);
+                      setHighlightedHyperedge(null);
+                    }}
                   />
                 ))}
               </ul>
             </div>
+
+            {/* Hyperedge list */}
+            {hyperedges.length > 0 && (
+              <div className="flex-1 overflow-y-auto px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-1">Hyperedges</p>
+                <ul className="space-y-0.5">
+                  {hyperedges.map((he) => (
+                    <HyperedgeRow
+                      key={he.id}
+                      hyperedge={he}
+                      highlighted={highlightedHyperedge === he.id}
+                      onToggle={() => {
+                        setHighlightedHyperedge((prev) => prev === he.id ? null : he.id);
+                        setHighlightedCommunity(null);
+                      }}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+            {hyperedges.length === 0 && <div className="flex-1" />}
           </aside>
         </div>
       )}
     </div>
+  );
+}
+
+function HyperedgeRow({
+  hyperedge,
+  highlighted,
+  onToggle,
+}: {
+  hyperedge: { id: string; label: string; nodes: string[]; relation?: string };
+  highlighted: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li>
+      <button
+        className={`flex items-center gap-2 w-full text-left px-1 py-0.5 rounded text-xs transition-opacity ${highlighted ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+        onClick={onToggle}
+        title={`${hyperedge.label}${hyperedge.relation ? ` (${hyperedge.relation})` : ""} — ${hyperedge.nodes.length} nodes`}
+      >
+        <span className="inline-block w-2.5 h-2.5 rounded flex-shrink-0 border border-[rgba(148,163,184,0.5)]"
+          style={{ background: "rgba(148,163,184,0.15)" }} />
+        <span className="flex-1 text-ink truncate">{hyperedge.label}</span>
+        <span className="text-mute text-[10px]">{hyperedge.nodes.length}</span>
+      </button>
+    </li>
   );
 }
 
