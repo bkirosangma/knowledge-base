@@ -242,6 +242,20 @@ Write `<resolved-path>/CLAUDE.md`. This file gives AI assistants context about t
 
 Knowledge Base vault.
 
+## STRICT REQUIREMENT: Use the Knowledge Base Skill
+
+**Every document and diagram operation in this vault — creation, generation, editing, writing — MUST go through the `/knowledge-base` skill. No exceptions, no shortcuts.**
+
+This rule covers:
+- Creating or generating new documents → `/knowledge-base document <topic>` or `/knowledge-base create <topic>`
+- Creating or generating new diagrams → `/knowledge-base diagram <topic>` or `/knowledge-base create <topic>`
+- Editing existing documents or diagrams → `/knowledge-base edit <path>`
+- Any subagent dispatched to produce vault content
+
+**Why this is non-negotiable:** The skill runs compound intelligence (graphify + claude-mem + MEMORY.md) before generating, enforces consistent formatting, applies the correct archetype, updates the topic registry, and writes flow explanation docs. Bypassing it — even by reading the skill files and replicating the rules manually — skips these steps and produces inconsistent, under-linked output.
+
+**For subagents:** Any agent tasked with creating or editing content in this vault must invoke `Skill("knowledge-base", "<sub-command> <topic>")` directly. The agent must NOT replicate skill rules from memory or from reading skill files. If a task requires generating multiple topics, dispatch one agent per topic and have each invoke the skill for its topic.
+
 ## File Conventions
 
 - `.json` files are architecture diagrams (visual editor format)
@@ -266,6 +280,16 @@ Check `memory/topic-registry.md` for known topics and their relationships.
 Diagram generation uses archetype files from `~/.claude/skills/knowledge-base/archetypes/`.
 Each archetype defines layer conventions, icon mappings, connection semantics, and layout rules.
 The `software-architecture` archetype is the default for system diagrams.
+
+## graphify
+
+This vault has a graphify knowledge graph at graphify-out/.
+
+Rules:
+
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- **After creating or editing any document or diagram in this vault, run `graphify . --update` to keep the knowledge graph current.**
 ```
 
 ---
@@ -368,11 +392,12 @@ memory/
 
 ### Step 9: Build initial graphify index
 
-If graphify is available (Step 7 succeeded) AND the vault has existing content (pre-existing `.md` or `.json` files beyond what we just created), offer to build an initial index:
+If graphify is available (Step 7 succeeded), offer to build an initial index:
 
 ```
-This vault has existing content. Would you like to build an initial graphify index now?
-This will analyze all documents and diagrams to create a searchable knowledge graph.
+Would you like to build the initial graphify knowledge graph now?
+This analyzes all documents and diagrams to create a searchable knowledge graph
+(even an empty vault benefits — it initializes the index for future rebuilds).
 ```
 
 If the user accepts:
@@ -380,7 +405,7 @@ If the user accepts:
 cd "<resolved-path>" && graphify . --update
 ```
 
-If graphify is not available, or the vault has no pre-existing content, skip this step silently.
+If graphify is not available, skip this step silently.
 
 ---
 

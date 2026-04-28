@@ -36,13 +36,39 @@ They are linked together: the document contains a wiki-link to the diagram, and 
 1. The **topic** string is the subject of both the document and diagram. It may be multiple words (e.g., `"Microservices authentication flow"`).
 2. If the topic is empty, ask the user: "What topic should I create a document and diagram for?"
 3. Check for the `-i` or `--interactive` flag. If present, set `interactive = true` and strip the flag from the topic string.
-4. Derive a **topic-slug** from the topic for filenames:
-   - Lowercase the topic
-   - Replace spaces with hyphens
-   - Remove all characters that are not `a-z`, `0-9`, or `-`
-   - Collapse consecutive hyphens into one
-   - Trim leading/trailing hyphens
-   - Example: `"Microservices Authentication Flow"` -> `microservices-authentication-flow`
+4. Derive a **topic-slug** via script — do not compute manually:
+
+```bash
+SLUG=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py slug "<topic>")
+# If vault detected, check for duplicates:
+SLUG=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py next-slug "$SLUG" "<vaultRoot>/memory/topic-registry.md")
+```
+
+## Step 1b: Suggest Placement
+
+If `vaultRoot` is set, determine which collection (folder) this new topic belongs in before generating any content.
+
+1. **Run the placement script**:
+
+```bash
+PLACEMENT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_suggest_placement.py \
+  --topic "<topic-slug>" \
+  --vault-root "<vaultRoot>")
+```
+
+2. **Merge with graphify context**: From `gatheredContext`, identify the collection paths of the most semantically related existing topics (if graphify results are available).
+
+3. **Present to the user** — combine the script's structural suggestion with any graphify semantic signal, then ask:
+
+> **Where should this topic be placed?**
+>
+> Offer up to 4 options drawn from the script's `suggestions[]`, using their `display` and `reason` fields. Always include a "Vault root" option and an "Other (type path)" option.
+>
+> If the script suggests `react-next` with strong word overlap AND graphify confirms related topics are in `react-next/`, lead with that as the recommended option.
+
+4. **Apply the confirmed path**: Set `topicFolder = "<vaultRoot>/<confirmed-path>/<topic-slug>/"` (create with `mkdir -p`). If the user picks "Vault root", use `<vaultRoot>/<topic-slug>/`. If the user types a custom path, use that directly (it may be nested, e.g. `react-next/nextjs-app-router/`).
+
+5. **If no vault detected**: skip this step and use `<cwd>/<topic-slug>/` as the topic folder.
 
 ## Step 2: Detect Vault and Gather Context
 
@@ -179,26 +205,22 @@ These are suggestions, not rigid templates. Adapt the structure to what serves t
 
 ### Output Location
 
-Determine where to write the document:
+All files for a topic (document, diagram, flow explanations) go into the topic folder determined in Step 1b:
 
-1. **If vault detected (`vaultRoot` is set)**:
-   - Check if the vault has a conventional subdirectory that fits (e.g., `docs/`, `docs/guides/`, `docs/architecture/`)
-   - If a clear fit exists, write there: `<vaultRoot>/docs/<appropriate-subdir>/<topic-slug>.md`
-   - If no subdirectory convention exists, write to vault root: `<vaultRoot>/<topic-slug>.md`
-   - Do NOT create new subdirectory structures without reason -- respect what already exists
+- **If vault detected**: `topicFolder` is set in Step 1b (e.g., `<vaultRoot>/react-next/<topic-slug>/`)
+- **If no vault detected**: `topicFolder` is `<cwd>/<topic-slug>/`
 
-2. **If no vault detected**:
-   - Write to current working directory: `<cwd>/<topic-slug>.md`
+Create the folder with `mkdir -p "<topicFolder>"`. Write the document to `<topicFolder>/<topic-slug>.md`.
 
-Before writing, check if a file with the same name already exists:
+Before writing, check if the folder or document already exists:
 
 ```bash
-ls "<output-path>/<topic-slug>.md" 2>/dev/null
+ls "<topic-folder>/<topic-slug>.md" 2>/dev/null
 ```
 
-If it exists, ask the user: "A document named `<topic-slug>.md` already exists. Should I overwrite it, or use a different name?"
+If it exists, ask the user: "A document named `<topic-slug>.md` already exists in `<topic-slug>/`. Should I overwrite it, or use a different name?"
 
-Write the document using the Write tool. Note the absolute path -- the diagram must be written to the same directory.
+Write the document using the Write tool. Note the absolute folder path -- all remaining files go into this same folder.
 
 ## Step 5: Generate the Diagram SECOND
 
@@ -206,13 +228,16 @@ The diagram is informed by the document's content. It maps the key concepts, str
 
 ### 5a. Select Archetype
 
-Read all `.md` files from `~/.claude/skills/knowledge-base/archetypes/` **excluding** `_archetype-template.md`. Parse the YAML frontmatter of each file to extract `name`, `description`, and `domain-indicators`.
+Run the archetype selection script — do not score archetypes manually:
 
-For each archetype, check if the topic (lowercased) contains any of its `domain-indicators`. Score each archetype by number of matching indicators.
+```bash
+ARCHETYPE_RESULT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_archetype.py \
+  --archetypes-dir ~/.claude/skills/knowledge-base/archetypes \
+  --topic "<topic>")
+```
 
-- **If one archetype wins** (highest match count, at least 1 match): Use that archetype. Read the full archetype file for all conventions (layers, icons, connections, layout, spacing rules, flows).
-- **If multiple archetypes tie**: Prefer the one whose `description` most closely relates to the topic. If still ambiguous, use the first match alphabetically.
-- **If no archetype matches**: Adapt on the fly using `_archetype-template.md` as the structural guide. Invent 3-6 layer categories appropriate to the topic's domain, choose Lucide icons by visual metaphor, assign connection colors by flow type, and select a flow direction based on the topic nature (see the diagram command's Step 2c for full adaptation rules).
+- If output is `no-match`: adapt on the fly using `_archetype-template.md` as the structural guide (see diagram command Step 2c for full adaptation rules).
+- Otherwise: output is `<archetype-name> <absolute-path-to-archetype.md>`. Read the full archetype file at the given path for all conventions (layers, icons, connections, layout, flows).
 
 If `archetype-preferences.md` was loaded in Step 2a, apply any learned preferences that override archetype defaults (icon overrides, color preferences, layout preferences).
 
@@ -260,6 +285,7 @@ Execute these steps in order, informed by the document content from Step 4:
     - Has a `name`: Human-readable description of the path
     - Has `connectionIds`: Array of connection IDs forming a contiguous graph, listed in traversal order
     - Verify the contiguity constraint: each connection shares at least one node with another connection in the same flow
+    - Draft a brief **flow explanation** (2–3 sentences) covering: trigger, key steps, outcome. Store for Step 5f.
 
 ### 5c. Diagram Title
 
@@ -276,24 +302,67 @@ Produce the diagram as a JSON file conforming to the schema:
   "nodes": [SerializedNodeData],
   "connections": [Connection],
   "layerManualSizes": {},
-  "lineCurve": "orthogonal",
-  "flows": [FlowDef]
+  "lineCurve": "bezier",
+  "flows": [FlowDef],
+  "documents": [DocumentMeta]
 }
 ```
 
-See the software-architecture archetype for the full schema of each type (LayerDef, SerializedNodeData, Connection, FlowDef).
+`DocumentMeta` entries are populated in Step 5f. If there are no flows, omit `documents`.
+
+See the software-architecture archetype for the full schema of LayerDef, SerializedNodeData, Connection, and FlowDef.
+
+### 5f. Flow Explanation Documents
+
+For each flow defined in Step 5b, write a companion Markdown file in the same directory as the diagram. These are short "quick-reference" docs that surface in the Flow Properties panel when the user selects a flow — distinct from the comprehensive main document written in Step 4.
+
+**Filename:** `<flow-descriptive-id>.md`, placed inside a `flow-descriptions/` subfolder: `<topicFolder>/flow-descriptions/<flow-descriptive-id>.md`
+
+Create the subfolder first: `mkdir -p "<topicFolder>/flow-descriptions/"`
+
+**Generate the tables via script** — after the diagram JSON has been written to disk:
+
+```bash
+TABLES=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_flow_tables.py \
+  --diagram "<topic-folder>/<topic-slug>.json" \
+  --flow "<flow-id>")
+```
+
+**Content template** — write only the prose paragraph; insert script output for the tables:
+
+```markdown
+# <Flow Name>
+
+<The 2–3 sentence explanation drafted in Step 5b item 10: trigger, key steps, outcome.>
+
+<TABLES — paste kb_flow_tables.py output here verbatim>
+
+## Further Reading
+
+For full context, see [[<topic-slug>.md]].
+```
+
+After writing each file, add a `DocumentMeta` entry to the `documents` array in the diagram JSON:
+
+```json
+{
+  "id": "<topic-slug>-<flow-descriptive-id>",
+  "filename": "<collection-path>/<topic-slug>/flow-descriptions/<flow-descriptive-id>.md",
+  "title": "<Flow Name> — Explanation",
+  "attachedTo": [{ "type": "flow", "id": "<flow-id>" }]
+}
+```
+
+If a diagram has no flows, skip this step entirely.
 
 ### 5e. Output Location
 
-Write the diagram JSON to the **same directory** as the document from Step 4:
-- If the document was written to `<vaultRoot>/<topic-slug>.md`, write the diagram to `<vaultRoot>/<topic-slug>.json`
-- If the document was written to `<vaultRoot>/docs/<subdir>/<topic-slug>.md`, write the diagram to `<vaultRoot>/docs/<subdir>/<topic-slug>.json`
-- If no vault, write to `<cwd>/<topic-slug>.json`
+Write the diagram JSON into the same topic folder created in Step 4: `<topic-folder>/<topic-slug>.json`.
 
 Before writing, check if a file with the same name already exists:
 
 ```bash
-ls "<output-path>/<topic-slug>.json" 2>/dev/null
+ls "<topic-folder>/<topic-slug>.json" 2>/dev/null
 ```
 
 If it exists, ask the user: "A diagram named `<topic-slug>.json` already exists. Should I overwrite it, or use a different name?"
@@ -332,26 +401,16 @@ Ensure the `memory/` directory exists:
 mkdir -p "<vaultRoot>/memory"
 ```
 
-Append an entry to `<vaultRoot>/memory/topic-registry.md`. If the file does not exist, create it with a header first.
+Run the registry script — do not append manually:
 
-**Format for new file:**
-
-```markdown
-# Topic Registry
-
-All topics generated in this vault, ordered by creation date.
-
-## Topics
-
-- **<Topic>** -- document: `<topic-slug>.md`, diagram: `<topic-slug>.json` (created <YYYY-MM-DD>)
-```
-
-**Format for appending to existing file:**
-
-Append a new entry under the `## Topics` section (or at the end of the file if no such section exists):
-
-```
-- **<Topic>** -- document: `<topic-slug>.md`, diagram: `<topic-slug>.json` (created <YYYY-MM-DD>)
+```bash
+python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py append-registry \
+  --vault-root "<vaultRoot>" \
+  --date "<YYYY-MM-DD>" \
+  --topic "<Topic>" \
+  --slug "$SLUG" \
+  --doc "<topic-slug>/<topic-slug>.md" \
+  --diagram "<topic-slug>/<topic-slug>.json"
 ```
 
 ### 6d. Auto-Learn Archetype Preferences
@@ -381,6 +440,7 @@ Created: <Topic>
   Diagram: <absolute-path-to-diagram>
     Archetype: <archetype-name or "adapted">
     Layers: <count>, Nodes: <count>, Connections: <count>, Flows: <count>
+    Flow docs: <count> companion explanation documents pre-attached
 
   Vault: <vault-name> (or "none -- standalone files")
   Registry: <updated | created | skipped (no vault)>
@@ -391,6 +451,7 @@ Please open both files in the knowledge-base app and verify:
 3. All nodes are positioned within their layers without overlap
 4. All connections route cleanly between nodes
 5. Labels are readable and don't overlap other elements
+6. Each flow shows its companion explanation doc in the Flow Properties panel
 
 If anything needs adjustment, describe the change and I'll update
 both files and save the preference for future use.

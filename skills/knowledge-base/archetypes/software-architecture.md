@@ -36,10 +36,14 @@ The diagram output is a JSON file. The output location is determined by the `/kn
   "nodes": [SerializedNodeData],
   "connections": [Connection],
   "layerManualSizes": {},
-  "lineCurve": "orthogonal",
+  "lineCurve": "bezier",
   "flows": [FlowDef]
 }
 ```
+
+`lineCurve` controls the default routing algorithm for all connections: `"bezier"` (cubic curves with anchor-direction tangents), `"orthogonal"` (obstacle-avoiding right-angle paths with rounded corners), or `"straight"` (direct lines). Default: `"bezier"`.
+
+`layerManualSizes` stores per-layer manual size overrides as `{ "ly-<id>": { "width": N, "height": N } }`. Set to `{}` to use auto-sizing (computed from child nodes).
 
 ### LayerDef
 
@@ -54,6 +58,8 @@ The diagram output is a JSON file. The output location is determined by the `/kn
 
 ### SerializedNodeData
 
+**Regular node** (inside a layer):
+
 ```json
 {
   "id": "el-<short-id>",
@@ -67,6 +73,27 @@ The diagram output is a JSON file. The output location is determined by the `/kn
 }
 ```
 
+**Condition node** (diamond shape, lives on the canvas between layers — NO `layer` property):
+
+```json
+{
+  "id": "cond-<short-id>",
+  "label": "Condition Label",
+  "shape": "condition",
+  "conditionSize": 2,
+  "conditionOutCount": 3,
+  "x": 750,
+  "y": 280
+}
+```
+
+- `shape: "condition"` — required to render as a diamond
+- `conditionSize` (1–5) — controls diamond scale; 1 is default small, 2 is medium (omit for default 1)
+- `conditionOutCount` (1–5) — number of outgoing paths, each gets a `cond-out-N` anchor (omit for default 2)
+- Omit `layer` — condition nodes span between layers and must not belong to one
+- Incoming anchor: `"cond-in"` (single entry point at top vertex)
+- Outgoing anchors: `"cond-out-0"`, `"cond-out-1"`, ... `"cond-out-N"` (distributed along base)
+
 ### Connection
 
 ```json
@@ -77,9 +104,20 @@ The diagram output is a JSON file. The output location is determined by the `/kn
   "fromAnchor": "bottom-1",
   "toAnchor": "top-1",
   "color": "#hex6",
-  "label": "Connection Label"
+  "label": "Connection Label",
+  "labelPosition": 0.5,
+  "biDirectional": false,
+  "connectionType": "synchronous",
+  "flowDuration": "",
+  "waypoints": []
 }
 ```
+
+- `labelPosition` (0.0–1.0) — where the label sits along the path. **Do not leave all at 0.5** — see Label Positioning table below.
+- `biDirectional` — when `true`, renders arrows at both ends. Default `false`.
+- `connectionType` — `"synchronous"` (solid line) or `"asynchronous"` (dashed line). Default `"synchronous"`.
+- `flowDuration` — optional string annotation (e.g. `"< 50ms"`) displayed near the connection.
+- `waypoints` — optional array of `{ x, y }` intermediate points to force the path through specific coordinates.
 
 ### FlowDef
 
@@ -89,9 +127,12 @@ Flows are named groupings of contiguous connections that represent end-to-end da
 {
   "id": "flow-<descriptive-short-id>",
   "name": "Human Readable Flow Name",
+  "category": "Optional Category",
   "connectionIds": ["dl-conn1", "dl-conn2", "dl-conn3"]
 }
 ```
+
+- `category` — optional string. Flows with the same category are grouped under that heading in the properties panel. Omit for ungrouped (flat list).
 
 **Contiguity constraint**: Connections in a flow MUST form a connected graph -- each connection must share at least one node (`from`/`to`) with another connection in the flow. The app validates this and rejects non-contiguous flows.
 
@@ -112,7 +153,9 @@ Flows are named groupings of contiguous connections that represent end-to-end da
 
 ## Icon Mappings
 
-Invalid icon names default to `Database`.
+**Only these 41 icons are registered in the app.** Any other icon name silently renders as `Database`. Do not use icon names outside this list — not even common Lucide icons like `BookOpen`, `FileCheck`, `Lightbulb`, `Bug`, or `CheckCircle`.
+
+Registered: `Activity`, `Archive`, `BarChart`, `Bell`, `Box`, `Cable`, `Cloud`, `CloudCog`, `Code`, `Cog`, `Container`, `Cpu`, `Database`, `DatabaseZap`, `FileCode`, `Fingerprint`, `Folder`, `GitBranch`, `Globe`, `HardDrive`, `Key`, `Laptop`, `Layers`, `Lock`, `Mail`, `Monitor`, `Network`, `Plug`, `Radio`, `Router`, `Server`, `ServerCog`, `Shield`, `ShieldCheck`, `Smartphone`, `Tablet`, `Terminal`, `User`, `Users`, `Wifi`, `Zap`.
 
 | Domain Concept | Icon | Notes |
 |---------------|------|-------|
@@ -203,14 +246,21 @@ These rules MUST be followed to prevent node collisions and ensure clean connect
 - `LAYER_PADDING` = 25px inside layers around nodes
 - `LAYER_TITLE_OFFSET` = 20px extra vertical space at top of layer for title
 
+### Center Coordinate System
+
+**All `x`, `y` values in the JSON are the CENTER of the node bounding box**, not the top-left corner. This is critical for layout calculations. A node at `x: 500, y: 100` with `w: 210, h: 70` spans `x: 395–605, y: 65–135`.
+
 ### Layer Auto-Sizing Formula
 
-Layers auto-size around their nodes:
+Layers auto-size using node half-extents (center ± halfW/halfH):
 
-- **Left**: `minNodeX - 25`
-- **Right**: `maxNodeX + maxNodeW + 25`
-- **Top**: `minNodeY - 45` (25 padding + 20 title offset)
-- **Bottom**: `maxNodeY + nodeHeight + 25`
+- **Left**: `min(node.x − node.w/2) − 25` → for w=210: `min(node.x) − 130`
+- **Right**: `max(node.x + node.w/2) + 25` → for w=210: `max(node.x) + 130`
+- **Top**: `min(node.y − node.h/2) − 45` → for h=70: `min(node.y) − 80`
+- **Bottom**: `max(node.y + node.h/2) + 25` → for h=70: `max(node.y) + 60`
+
+Quick reference for a uniform w=210 h=70 row at y=Y with leftmost center at x=L and rightmost at x=R:
+- layer_left = L − 130, layer_right = R + 130, layer_top = Y − 80, layer_bottom = Y + 60
 
 ### Connection Routing Constants
 
@@ -253,16 +303,59 @@ Diagrams should maximize visual symmetry. These rules take priority during coord
 
 ## Condition Nodes
 
-Condition nodes (`"shape": "condition"`) live on the canvas (no `layer` property) and **must not overlap any layer bounds**. To place them between two layers:
+See the **SerializedNodeData** schema above for the full JSON fields. Key reminder: fields are `conditionSize` and `conditionOutCount` — **not** `size`/`exits`.
 
-1. **Create sufficient gap**: Adjust `layerManualSizes` to ensure at least `conditionHeight + 2 * LAYER_GAP + 20px` gap between adjacent layers (typically 110-120px)
-2. **Center in the gap**: Place the condition at the Y midpoint between the two layer boundaries
-3. **Center on the main axis**: Place at x~centerAxis when the condition's connections fan out symmetrically below
-4. **Collision verification formula**:
-   - `conditionTop > upperLayerBottom + LAYER_GAP`
-   - `conditionBottom < lowerLayerTop - LAYER_GAP`
-   - Where conditionTop/Bottom = `y +/- conditionHalfHeight` (halfHeight ~ 40px)
-5. **When no gap exists**: If layers are adjacent with no room, place the condition to the **right** of the wider layer (x > layerRight + LAYER_GAP + conditionHalfWidth)
+### Pixel Dimensions
+
+| conditionSize | conditionOutCount | Width | Height |
+|:---:|:---:|:---:|:---:|
+| 1 | 2 | 81px | 70px |
+| 2 | 2 | 101px | 88px |
+| 3 | 2 | 122px | 105px |
+| 4 | 2 | 142px | 123px |
+| 5 | 2 | 162px | 140px |
+
+Adding exits beyond 2 widens the vertex angle (12° per extra exit, max 120°) and expands width. For 3 exits: w≈93px, h≈66px (size=1). Use these halves for collision math: `halfW = w/2`, `halfH = h/2`.
+
+### Collision Check
+
+The app uses `rectsOverlap(condition, layer, gap=10)` — **both axes** must overlap for a collision:
+
+```
+x_overlap = (cond_left  < layer_right + gap) AND (cond_right + gap > layer_left)
+y_overlap = (cond_top   < layer_bottom + gap) AND (cond_bottom + gap > layer_top)
+collision  = x_overlap AND y_overlap
+```
+
+Where `cond_left = x − halfW`, `cond_right = x + halfW`, etc. (all values from CENTER coordinates).
+
+**No x-overlap = no collision**, even at the same y level. This means a condition placed to the left of a layer's left boundary is always safe regardless of y.
+
+### Placement Procedure
+
+**Option A — To the left of a layer (cleanest for conditions at the same y level as a layer):**
+
+```
+safe_cond_x < layer_left − halfCondW − LAYER_GAP
+           = min(node.x) − 130 − halfCondW − 10
+```
+
+For size=1 (halfW=40.5) on a layer whose leftmost node center is at x=500:
+`safe_cond_x < 500 − 130 − 40.5 − 10 = 319.5` → use x ≤ 319
+
+**Option B — Between two layers (condition bridges a gap):**
+
+Required gap between adjacent layers: `condH + 2 × LAYER_GAP + slack` ≥ 90px (size=1)
+
+```
+safe_cond_y > upper_layer_bottom + halfCondH + LAYER_GAP
+safe_cond_y < lower_layer_top   − halfCondH − LAYER_GAP
+```
+
+Gap range = `lower_layer_top − upper_layer_bottom`. Must be > `condH + 20` (≥ 90px for size=1).
+Center y in the range: `cond_y = (upper_layer_bottom + lower_layer_top) / 2`
+
+If the x position is **within** either layer's x range, the y-gap constraint above is required. If the x is **outside** both layers' x ranges, no y constraint applies.
 
 ## Connection Label Positioning
 
