@@ -25,16 +25,18 @@ Copy the skill into your Claude Code skills directory:
 
 ```bash
 mkdir -p ~/.claude/skills/knowledge-base
-cp -r skills/knowledge-base/* ~/.claude/skills/knowledge-base/
+cp -r skills/knowledge-base/. ~/.claude/skills/knowledge-base/
 ```
 
 Add the following to your `~/.claude/CLAUDE.md` so Claude recognizes the trigger:
 
 ```markdown
 # knowledge-base
-- **knowledge-base** (`~/.claude/skills/knowledge-base/SKILL.md`) - unified skill for knowledge-base vaults. Sub-commands: init, diagram, document, create. Trigger: `/knowledge-base` or `/kb`
+- **knowledge-base** (`~/.claude/skills/knowledge-base/SKILL.md`) — unified skill for knowledge-base vaults. Sub-commands: init, diagram, document, create, edit, validate, transform. Trigger: `/knowledge-base` or `/kb`
 When the user types `/knowledge-base` or `/kb`, invoke the Skill tool with `skill: "knowledge-base"` before doing anything else.
 ```
+
+Restart Claude Code so the new trigger registers. Re-run the `cp` command after every `git pull` to pick up upstream skill changes.
 
 ## 4. Initialize a Vault
 
