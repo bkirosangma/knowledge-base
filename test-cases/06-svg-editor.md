@@ -52,3 +52,4 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-19 | MutationObserver re-attaches after setSvgString rebuilds #svgcontent (unit) | ✅ |
 | SVG-6.4-20 | Wrapped canvas.addCommandToHistory fires onChanged for every meaningful change (unit) | ✅ |
 | SVG-6.4-21 | Wrapped addCommandToHistory is suppressed during programmatic setSvgString load (unit) | ✅ |
+| SVG-6.4-22 | Two SVGs side-by-side: changing the background on one pane does not mutate or autosave the other (e2e) | ✅ |
