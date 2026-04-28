@@ -112,7 +112,7 @@ describe('SVGCanvas', () => {
     // Simulate the user dragging an existing rect — `@svgedit/svgcanvas`
     // 7.x omits a `changed` call for select-mode mouseup translates
     // (event.js:646), so the only signal we have is the DOM mutation.
-    const svgcontent = document.getElementById('svgcontent')!
+    const svgcontent = document.querySelector<HTMLElement>('#svgcontent')!
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     svgcontent.appendChild(rect)
     await new Promise((r) => setTimeout(r, 0))
@@ -173,7 +173,7 @@ describe('SVGCanvas', () => {
     onChanged.mockClear()
     // Mutate the freshly-attached `#svgcontent` (this is the live one;
     // the old node from the very first init is detached and gone).
-    const live = document.getElementById('svgcontent')!
+    const live = document.querySelector<HTMLElement>('#svgcontent')!
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
     live.appendChild(rect)
     rect.setAttribute('transform', 'translate(50 50)')
@@ -192,7 +192,7 @@ describe('SVGCanvas', () => {
     // the flag on the next macrotask. Observer mutations during that
     // window must not look like user edits.
     act(() => { ref.current?.setSvgString('<svg><rect/></svg>'); });
-    const svgcontent = document.getElementById('svgcontent')!
+    const svgcontent = document.querySelector<HTMLElement>('#svgcontent')!
     svgcontent.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'rect'))
     await new Promise((r) => setTimeout(r, 0))
     expect(onChanged).not.toHaveBeenCalled()

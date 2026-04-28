@@ -43,7 +43,12 @@ interface SVGCanvasProps {
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
-const BG_RECT_ID = "svg-editor-bg";
+// The bg-rect is identified by a `data-bg-rect` attribute scoped to
+// each canvas's `containerRef` subtree — a global id-based lookup
+// would collide between split-pane instances (KB-006). Files saved
+// before KB-006 used `id="svg-editor-bg"` instead; setSvgString
+// migrates them on load so old content keeps working.
+const LEGACY_BG_RECT_ID = "svg-editor-bg";
 
 const MOD = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "⌘" : "Ctrl ";
 
@@ -224,7 +229,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       let nearest: SVGGeometryElement | null = null;
 
       for (const el of candidates) {
-        if (el.id === "path_stretch_line" || el.id === BG_RECT_ID) continue;
+        if (el.id === "path_stretch_line" || el.hasAttribute("data-bg-rect")) continue;
         try {
           const ctm = (el as SVGGraphicsElement).getScreenCTM();
           if (!ctm) continue;
@@ -360,6 +365,15 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       // the new element, otherwise drag-translate mutations on user
       // shapes won't be seen.
       attachMutationObserver();
+      // Migrate pre-KB-006 files that used `id="svg-editor-bg"` to the
+      // scoped `data-bg-rect` marker — done while mutations are
+      // suppressed so the migration itself doesn't look like an edit.
+      const legacy = containerRef.current?.querySelector(
+        `rect[id="${LEGACY_BG_RECT_ID}"]`,
+      );
+      if (legacy && !legacy.hasAttribute("data-bg-rect")) {
+        legacy.setAttribute("data-bg-rect", "true");
+      }
       // Read dimensions from the loaded SVG root; fall back to current size.
       const root = canvas.getSvgRoot?.() as Element | undefined;
       if (root) {
@@ -370,7 +384,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       syncLayout(canvas);
       applyZoom(zoomRef.current);
       // Notify parent with loaded size + background colour.
-      const bgEl = document.getElementById(BG_RECT_ID);
+      const bgEl = containerRef.current?.querySelector("[data-bg-rect]");
       onSvgLoadedRef.current?.(
         canvasSizeRef.current.w,
         canvasSizeRef.current.h,
@@ -396,14 +410,14 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       if (!canvas) return;
       const svgContent = canvas.getSvgContent?.() as Element | undefined;
       if (!svgContent) return;
-      let bgRect: Element | null = document.getElementById(BG_RECT_ID);
+      let bgRect: Element | null = containerRef.current?.querySelector("[data-bg-rect]") ?? null;
       if (!color || color === "none") {
         bgRect?.remove();
         return;
       }
       if (!bgRect) {
         const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        el.id = BG_RECT_ID;
+        el.setAttribute("data-bg-rect", "true");
         el.setAttribute("pointer-events", "none");
         svgContent.insertBefore(el, svgContent.firstChild);
         bgRect = el;
@@ -429,7 +443,7 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
         svgContent.setAttribute("x", "0"); svgContent.setAttribute("y", "0");
         dims.forEach(([k, v]) => svgContent.setAttribute(k, String(v)));
       }
-      const bgRect = document.getElementById(BG_RECT_ID);
+      const bgRect = containerRef.current?.querySelector("[data-bg-rect]");
       if (bgRect) { bgRect.setAttribute("width", String(w)); bgRect.setAttribute("height", String(h)); }
       applyZoom(zoomRef.current);
     },
@@ -440,15 +454,19 @@ const SVGCanvas = forwardRef<SVGCanvasHandle, SVGCanvasProps>(function SVGCanvas
       const drawnPath = canvas.getDrawnPath?.();
       if (!drawnPath) return;
       const id = canvas.getId?.();
-      // Remove path stretch-line preview
-      document.getElementById("path_stretch_line")?.remove();
+      // Remove path stretch-line preview — scoped to this canvas's
+      // container so a peer split-pane's preview isn't accidentally
+      // ripped out (KB-006).
+      containerRef.current?.querySelector("#path_stretch_line")?.remove();
       // Remove path from internal tracking (so toEditMode creates fresh state)
       canvas.removePath_?.(id);
       canvas.setDrawnPath?.(null);
       canvas.setStarted?.(false);
-      // Enter edit mode for the finished (open) path
+      // Enter edit mode for the finished (open) path. The id comes from
+      // `@svgedit/svgcanvas`'s shared counter, which can collide between
+      // canvases, so look it up inside this canvas's container.
       if (id) {
-        const pathEl = document.getElementById(id);
+        const pathEl = containerRef.current?.querySelector(`[id="${id}"]`);
         if (pathEl) canvas.pathActions?.toEditMode?.(pathEl);
       }
     },
