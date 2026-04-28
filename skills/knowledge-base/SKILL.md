@@ -4,12 +4,16 @@ description: >
   Unified skill for managing knowledge-base vaults. Sub-commands: init (set up a vault),
   diagram (generate a diagram on any topic), document (generate a standalone document),
   create (generate both a document and diagram, linked together),
-  validate (check / auto-fix a diagram JSON against the app schema).
+  edit (modify an existing diagram JSON — enforces placement constraints),
+  validate (check / auto-fix a diagram JSON against the app schema),
+  transform (bring an existing .md or .json file into skill-format conformance without changing content).
   Trigger on: "knowledge-base", "kb", "create architecture", "design diagram",
   "architecture of X", "create document", "write about X", "init vault",
   "initialize vault", "set up vault", "create about X", "diagram of X",
-  "validate diagram", "fix diagram json", "check diagram".
-argument-hint: <sub-command> [args] — sub-commands: init, diagram, document, create, validate
+  "validate diagram", "fix diagram json", "check diagram",
+  "edit diagram", "update diagram", "add to diagram", "modify diagram",
+  "transform file", "fix format", "bring into conformance", "normalize vault files".
+argument-hint: <sub-command> [args] — sub-commands: init, diagram, document, create, edit, validate, transform
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Agent, WebSearch, WebFetch]
 version: 1.0.0
 ---
@@ -25,12 +29,16 @@ Unified skill for managing knowledge-base vaults — structured collections of d
 /knowledge-base diagram <topic>          — Generate a diagram on <topic>
 /knowledge-base document <topic> [-i]    — Generate a standalone document on <topic>
 /knowledge-base create <topic> [-i]      — Generate both a document and diagram, linked together
+/knowledge-base edit <path> [change]     — Edit an existing diagram (enforces all placement rules)
 /knowledge-base validate <path> [--fix]  — Validate (and optionally auto-fix) a diagram JSON file
+/knowledge-base transform <path> [--dry-run] [--add-conventions]  — Conform an existing file to skill format
 ```
 
 Options:
 - `-i`, `--interactive` — Enter interactive mode: ask clarifying questions before generating content (available for `document` and `create`)
 - `--fix` — After validation, write the corrected JSON back to disk (a timestamped backup of the original is kept). Without this flag `validate` is read-only. (Available for `validate`.)
+- `--dry-run` — Show what would change without writing any file. (Available for `transform`.)
+- `--add-conventions` — Also add missing structural elements like Visual overview links and Related sections. (Available for `transform`.)
 
 Examples:
 ```
@@ -41,6 +49,9 @@ Examples:
 /kb create "GraphQL federation architecture" -i
 /knowledge-base validate ./auth-flow.json
 /kb validate ./broken-diagram.json --fix
+/knowledge-base transform ./react-next/nextjs-configuration/nextjs-configuration.md
+/kb transform "react-next/**/*.md" --dry-run
+/kb transform ./old-diagram.json --add-conventions
 ```
 
 ## Sub-Command Routing
@@ -62,7 +73,9 @@ Parse the user's argument string to determine the sub-command, then dispatch to 
 | `diagram`           | Read `~/.claude/skills/knowledge-base/commands/diagram.md` and execute it. Pass remaining args as **topic**. |
 | `document`          | Read `~/.claude/skills/knowledge-base/commands/document.md` and execute it. Pass remaining args as **topic**. Pass `interactive` flag. |
 | `create`            | Read `~/.claude/skills/knowledge-base/commands/create.md` and execute it. Pass remaining args as **topic**. Pass `interactive` flag. |
+| `edit`              | Read `~/.claude/skills/knowledge-base/commands/edit.md` and execute it. Pass remaining args as **path** (the diagram file) followed by an optional description of the change. |
 | `validate`          | Read `~/.claude/skills/knowledge-base/commands/validate.md` and execute it. Pass remaining args as **path** (a file or glob). Pass a `fix` flag when `--fix` appears in the args (strip the flag before passing the path). |
+| `transform`         | Read `~/.claude/skills/knowledge-base/commands/transform.md` and execute it. Pass remaining args as **path** (a file or glob). Pass `dryRun = true` when `--dry-run` appears; pass `addConventions = true` when `--add-conventions` appears. Strip both flags before passing the path. |
 | *anything else*     | Treat the **entire** argument string (including the unrecognized token) as the **topic**. Route to `create` — this is the most common use case. Read `~/.claude/skills/knowledge-base/commands/create.md`. |
 
 When reading a command file, follow every instruction inside it. The command file is the authority on how to execute that sub-command.

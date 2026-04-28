@@ -41,17 +41,18 @@ Beyond the context SKILL.md already gathered:
 
 ## Step 2: Select Archetype
 
-### 2a. Load All Archetypes
+### 2a. Select Archetype via Script
 
-Read all `.md` files from `~/.claude/skills/knowledge-base/archetypes/` **excluding** `_archetype-template.md`. Parse the YAML frontmatter of each file to extract `name`, `description`, and `domain-indicators`.
+Run the archetype selection script — do not score archetypes manually:
 
-### 2b. Match Topic to Archetype
+```bash
+ARCHETYPE_RESULT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_archetype.py \
+  --archetypes-dir ~/.claude/skills/knowledge-base/archetypes \
+  --topic "<topic>")
+```
 
-For each archetype, check if the topic (lowercased) contains any of its `domain-indicators`. Score each archetype by number of matching indicators.
-
-- **If one archetype wins** (highest match count, at least 1 match): Use that archetype. Read the full archetype file for all conventions (layers, icons, connections, layout, spacing rules, flows).
-- **If multiple archetypes tie**: Prefer the one whose `description` most closely relates to the topic. If still ambiguous, use the first match alphabetically.
-- **If no archetype matches**: Adapt on the fly (see 2c).
+- If output is `no-match`: adapt on the fly using `_archetype-template.md` (see 2c below).
+- Otherwise: output is `<archetype-name> <absolute-path-to-archetype.md>`. Read the full archetype file at the given path for all conventions (layers, icons, connections, layout, flows).
 
 ### 2c. On-the-Fly Adaptation
 
@@ -134,6 +135,7 @@ Execute these steps in order:
     - Has a `name`: Human-readable description of the path
     - Has `connectionIds`: Array of connection IDs forming a contiguous graph, listed in traversal order
     - Verify the contiguity constraint: each connection shares at least one node with another connection in the same flow
+    - Draft a brief **flow explanation** (3–5 sentences) covering: what triggers this flow, the key steps across nodes, and the outcome. Store this text for Step 3e.
 
 ### 3b. JSON Output
 
@@ -146,33 +148,107 @@ Produce the diagram as a JSON file conforming to the schema defined in the softw
   "nodes": [SerializedNodeData],
   "connections": [Connection],
   "layerManualSizes": {},
-  "lineCurve": "orthogonal",
-  "flows": [FlowDef]
+  "lineCurve": "bezier",
+  "flows": [FlowDef],
+  "documents": [DocumentMeta]
 }
 ```
 
-See the software-architecture archetype for the full schema of each type (LayerDef, SerializedNodeData, Connection, FlowDef).
+`DocumentMeta` shape (one entry per companion document created in Step 3e):
+
+```json
+{
+  "id": "<uuid-or-slug>",
+  "filename": "<vault-relative-path-to-.md>",
+  "title": "<flow name> — Explanation",
+  "attachedTo": [{ "type": "flow", "id": "<flow-id>" }]
+}
+```
+
+The `documents` array tells the app which documents are pre-attached to which flows. When the user opens the diagram, attachments are restored automatically. **Only include entries for documents that were actually written to disk in Step 3e.**
+
+See the software-architecture archetype for the full schema of LayerDef, SerializedNodeData, Connection, and FlowDef.
+
+### 3e. Flow Explanation Documents
+
+For each flow defined in Step 3a, write a companion Markdown document that explains the flow in prose:
+
+1. **Filename**: `<flow-descriptive-id>.md` (e.g. `flow-authorization-code.md`). Place inside a `flow-descriptions/` subfolder: `<topicFolder>/flow-descriptions/<flow-descriptive-id>.md`. Create the subfolder first: `mkdir -p "<topicFolder>/flow-descriptions/"`.
+
+2. **Generate the tables via script** — after the diagram JSON has been written to disk, run for each flow:
+
+```bash
+TABLES=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_flow_tables.py \
+  --diagram "<topic-folder>/<topic-slug>.json" \
+  --flow "<flow-id>")
+```
+
+3. **Content template** — write only the prose paragraph; insert script output for the tables:
+
+```markdown
+# <Flow Name>
+
+<The 3–5 sentence explanation drafted in Step 3a: trigger, key steps, outcome.>
+
+<TABLES — paste kb_flow_tables.py output here verbatim>
+
+## Further Reading
+
+For full context, see [[<topic-slug>.md]].
+```
+
+4. **Register in `documents[]`**: After writing each file, add a `DocumentMeta` entry to the `documents` array in the diagram JSON:
+
+```json
+{
+  "id": "<topic-slug>-<flow-descriptive-id>",
+  "filename": "<collection-path>/<topic-slug>/flow-descriptions/<flow-descriptive-id>.md",
+  "title": "<Flow Name> — Explanation",
+  "attachedTo": [{ "type": "flow", "id": "<flow-id>" }]
+}
+```
+
+If a diagram has no flows, skip this step (the `documents` key may be omitted from the JSON).
 
 ### 3c. Output Location
 
-- **If in a vault**: Write the JSON to `<vault-root>/<topic-slug>.json`
-- **If not in a vault**: Write the JSON to `<cwd>/<topic-slug>.json`
+Use the `topicFolder` confirmed in the placement step (Step 1d below). Write the JSON to `<topicFolder>/<topic-slug>.json`. Flow explanation documents go into `<topicFolder>/flow-descriptions/`.
+
+Create folders with `mkdir -p` before writing.
 
 ### 3d. Topic Slug
 
-Convert the topic to a file-safe slug:
-1. Lowercase the topic string
-2. Replace spaces with hyphens
-3. Remove all characters that are not `a-z`, `0-9`, or `-`
-4. Collapse consecutive hyphens into one
-5. Trim leading/trailing hyphens
+Run the slug script — do not compute this manually:
 
-Examples:
-- "Kubernetes Pod Lifecycle" -> `kubernetes-pod-lifecycle`
-- "OAuth2 Authorization Code Flow" -> `oauth2-authorization-code-flow`
-- "TCP/IP 3-Way Handshake" -> `tcpip-3-way-handshake`
+```bash
+SLUG=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py slug "<topic>")
+```
 
-If the slug already exists in the topic registry (Step 1b), append a numeric suffix: `<slug>-2`, `<slug>-3`, etc.
+If a vault is detected and a registry exists, check for duplicates:
+
+```bash
+SLUG=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py next-slug "$SLUG" "<vault-root>/memory/topic-registry.md")
+```
+
+### 1d. Suggest Placement
+
+After deriving the slug, if `vaultRoot` is set:
+
+1. **Run the placement script**:
+
+```bash
+PLACEMENT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_suggest_placement.py \
+  --topic "<topic-slug>" \
+  --vault-root "<vault-root>")
+```
+
+2. **Merge with graphify context**: From `gatheredContext`, identify the collection paths of the most semantically related existing topics.
+
+3. **Present to the user** — ask which collection this diagram belongs in. Offer up to 4 options from the script's `suggestions[]` (using `display` and `reason` fields), plus "Vault root" and "Other (type path)".
+
+4. **Apply the confirmed path**: `topicFolder = "<vault-root>/<confirmed-path>/<topic-slug>/"`. If user picks "Vault root", use `<vault-root>/<topic-slug>/`. Custom paths (e.g. `react-next/nextjs-app-router/`) are supported.
+
+5. **If no vault detected**: skip and use `topicFolder = <cwd>/<topic-slug>/`.
 
 ## Step 4: Update Vault State
 
@@ -190,21 +266,16 @@ If graphify is not installed or the command fails, skip silently -- this is a be
 
 ### 4b. Update Topic Registry
 
-Append an entry to `<vault-root>/memory/topic-registry.md`. Create the file (and `memory/` directory) if they don't exist.
+Run the registry script — do not append manually:
 
-**Format of topic-registry.md:**
-
-```markdown
-# Topic Registry
-
-All topics generated in this vault, ordered by creation date.
-
-| Date | Topic | Slug | Archetype | File |
-|------|-------|------|-----------|------|
-| <ISO-date> | <topic> | <slug> | <archetype-name or "adapted"> | <filename>.json |
+```bash
+python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py append-registry \
+  --vault-root "<vault-root>" \
+  --date "<YYYY-MM-DD>" \
+  --topic "<topic>" \
+  --slug "$SLUG" \
+  --diagram "<topic-slug>/<topic-slug>.json"
 ```
-
-If the file already exists, append a new row to the table. If creating for the first time, write the header and the first row.
 
 ### 4c. Auto-Learn Archetype Preferences
 
@@ -270,6 +341,8 @@ Please open this file in the knowledge-base app and verify:
 4. Labels are readable and don't overlap other elements
 5. All flows are listed in the Architecture Properties panel
 6. Selecting a flow correctly highlights the intended path
+7. Each flow shows its companion explanation document in the Documents section
+   of the Flow Properties panel (pre-attached — no manual linking needed)
 
 If anything needs adjustment, describe the change and I'll update
 the diagram and save the preference for future use.

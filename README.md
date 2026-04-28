@@ -127,6 +127,27 @@ The `main` branch requires a passing CI run, one approving review, and a linear 
 
 This project includes a Claude Code skill (`/knowledge-base`) for generating diagrams and documents from natural language.
 
+### Setup
+
+The repo ships the skill source under [`skills/knowledge-base/`](skills/knowledge-base/). Copy it into your Claude Code skills directory:
+
+```bash
+mkdir -p ~/.claude/skills/knowledge-base
+cp -r skills/knowledge-base/. ~/.claude/skills/knowledge-base/
+```
+
+Then add this entry to your `~/.claude/CLAUDE.md` so Claude routes the trigger to the skill:
+
+```markdown
+# knowledge-base
+- **knowledge-base** (`~/.claude/skills/knowledge-base/SKILL.md`) — unified skill for knowledge-base vaults. Sub-commands: init, diagram, document, create, edit, validate, transform. Trigger: `/knowledge-base` or `/kb`
+When the user types `/knowledge-base` or `/kb`, invoke the Skill tool with `skill: "knowledge-base"` before doing anything else.
+```
+
+Restart Claude Code so the trigger registers, then run `/kb` in any directory to see the help screen. See [setup.md](setup.md) for the full walkthrough including vault initialization and the optional compound intelligence layer.
+
+To pick up upstream skill changes after `git pull`, re-run the `cp` command above — it overwrites cleanly.
+
 ### Sub-commands
 
 | Command | Description |
@@ -135,7 +156,9 @@ This project includes a Claude Code skill (`/knowledge-base`) for generating dia
 | `/knowledge-base diagram <topic>` | Generate an architecture diagram (JSON) on any topic |
 | `/knowledge-base document <topic> [-i]` | Generate a Markdown document (`-i` for interactive mode) |
 | `/knowledge-base create <topic> [-i]` | Generate both a document and diagram, cross-linked via wiki-links |
-| `/knowledge-base validate <path> [--fix]` | Validate a diagram JSON file; `--fix` writes corrections back to disk (original backed up) |
+| `/knowledge-base edit <path> [change]` | Edit an existing diagram, enforcing all placement rules |
+| `/knowledge-base validate <path> [--fix]` | Validate a diagram or document; `--fix` writes corrections back to disk (original backed up) |
+| `/knowledge-base transform <path> [--dry-run] [--add-conventions]` | Bring an existing `.md` or `.json` file into skill-format conformance without changing its content |
 
 ### Examples
 
@@ -144,8 +167,10 @@ This project includes a Claude Code skill (`/knowledge-base`) for generating dia
 /knowledge-base diagram "Kubernetes pod lifecycle"
 /knowledge-base document "Event sourcing patterns" -i
 /knowledge-base create "Microservices authentication flow"
+/knowledge-base edit ./auth-flow.json "add OAuth2 token refresh layer"
 /knowledge-base validate ./auth-flow.json
 /knowledge-base validate ./broken-diagram.json --fix
+/knowledge-base transform ./old-doc.md --dry-run
 ```
 
 ### Compound Intelligence (Optional)
