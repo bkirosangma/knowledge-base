@@ -1,13 +1,18 @@
 "use client";
 
-// Dedicated search surface (KB-010c / SEARCH-8.6). Mounts as a virtual
-// pane via the SEARCH_SENTINEL pattern, mirroring the Graph view. v1
-// renders an input + results list; filter chips for kind / field /
-// folder are scaffolded into the spec but deferred per the stop
-// conditions.
+// Dedicated search surface (KB-010c / SEARCH-8.6).
+// Mounts as a virtual pane via the SEARCH_SENTINEL pattern, mirroring
+// the Graph view. v1 renders an input + results list; chip filters
+// (kind / field / folder) compose post-query as documented in
+// `applyChipFilters.ts`.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { SearchResult } from "./VaultIndex";
+import type { Field, SearchResult } from "./VaultIndex";
+import {
+  applyChipFilters,
+  listResultFolders,
+  type ChipFilters,
+} from "./applyChipFilters";
 
 interface SearchPanelProps {
   /** Resolves the latest results for a query. Wired to
@@ -20,12 +25,19 @@ interface SearchPanelProps {
 }
 
 const RESULT_LIMIT = 50;
+const FIELD_OPTIONS: readonly Field[] = ["body", "title", "label", "flow"];
 
 export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [rawResults, setRawResults] = useState<SearchResult[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Chip selections — applied post-query, so changing chips never
+  // re-fires the worker.
+  const [kindFilter, setKindFilter] = useState<"doc" | "diagram" | null>(null);
+  const [fieldFilters, setFieldFilters] = useState<Set<Field>>(() => new Set());
+  const [folderFilters, setFolderFilters] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -36,12 +48,12 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
   // current view.
   useEffect(() => {
     if (!query) {
-      setResults([]);
+      setRawResults([]);
       return;
     }
     let cancelled = false;
     void searchFn(query, RESULT_LIMIT).then((items) => {
-      if (!cancelled) setResults(items);
+      if (!cancelled) setRawResults(items);
     });
     return () => {
       cancelled = true;
@@ -50,13 +62,25 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [query]);
+  }, [query, kindFilter, fieldFilters, folderFilters]);
+
+  const filters: ChipFilters = useMemo(
+    () => ({ kind: kindFilter, fields: fieldFilters, folders: folderFilters }),
+    [kindFilter, fieldFilters, folderFilters],
+  );
+
+  const results = useMemo(() => applyChipFilters(rawResults, filters), [rawResults, filters]);
+
+  // Folder chips are derived from the raw result set (not the filtered
+  // set) so deselecting a folder doesn't make its chip disappear.
+  const availableFolders = useMemo(() => listResultFolders(rawResults), [rawResults]);
 
   const announcement = useMemo(() => {
     if (!query) return "Type to search the vault";
-    if (results.length === 0) return "No results";
+    if (rawResults.length === 0) return "No results";
+    if (results.length === 0) return "No results match the active filters";
     return `${results.length} ${results.length === 1 ? "result" : "results"}`;
-  }, [query, results]);
+  }, [query, rawResults, results]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -70,6 +94,24 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
       const r = results[activeIndex];
       if (r) onResultClick(r, query);
     }
+  };
+
+  const toggleField = (f: Field) => {
+    setFieldFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+  };
+
+  const toggleFolder = (f: string) => {
+    setFolderFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
   };
 
   return (
@@ -93,6 +135,60 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
         />
       </div>
 
+      {/* Filter chips — only meaningful once there's a result set. */}
+      {rawResults.length > 0 && (
+        <div
+          className="border-b border-line px-4 py-2 flex flex-wrap gap-x-3 gap-y-2 items-center text-xs"
+          data-testid="search-panel-chips"
+          aria-label="Filter chips"
+        >
+          <ChipGroup label="Kind">
+            <Chip
+              testId="chip-kind-doc"
+              active={kindFilter === "doc"}
+              onClick={() => setKindFilter(kindFilter === "doc" ? null : "doc")}
+            >
+              Documents
+            </Chip>
+            <Chip
+              testId="chip-kind-diagram"
+              active={kindFilter === "diagram"}
+              onClick={() => setKindFilter(kindFilter === "diagram" ? null : "diagram")}
+            >
+              Diagrams
+            </Chip>
+          </ChipGroup>
+
+          <ChipGroup label="Field">
+            {FIELD_OPTIONS.map((f) => (
+              <Chip
+                key={f}
+                testId={`chip-field-${f}`}
+                active={fieldFilters.has(f)}
+                onClick={() => toggleField(f)}
+              >
+                {f}
+              </Chip>
+            ))}
+          </ChipGroup>
+
+          {availableFolders.length > 1 && (
+            <ChipGroup label="Folder">
+              {availableFolders.map((f) => (
+                <Chip
+                  key={f || "__root__"}
+                  testId={`chip-folder-${f || "root"}`}
+                  active={folderFilters.has(f)}
+                  onClick={() => toggleFolder(f)}
+                >
+                  {f === "" ? "(root)" : f}
+                </Chip>
+              ))}
+            </ChipGroup>
+          )}
+        </div>
+      )}
+
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </div>
@@ -104,12 +200,24 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
         className="flex-1 overflow-y-auto py-1 list-none m-0 p-0"
       >
         {!query ? (
-          <li className="px-4 py-6 text-center text-sm text-mute" role="presentation">
+          <li
+            className="px-4 py-6 text-center text-sm text-mute"
+            role="presentation"
+            data-testid="search-panel-empty-state"
+            data-state="idle"
+          >
             Type to search across documents and diagrams.
           </li>
         ) : results.length === 0 ? (
-          <li className="px-4 py-6 text-center text-sm text-mute" role="presentation">
-            No results
+          <li
+            className="px-4 py-6 text-center text-sm text-mute"
+            role="presentation"
+            data-testid="search-panel-empty-state"
+            data-state={rawResults.length === 0 ? "no-results" : "filtered-out"}
+          >
+            {rawResults.length === 0
+              ? "No results"
+              : "No results match the active filters"}
           </li>
         ) : (
           results.map((r, idx) => {
@@ -150,5 +258,47 @@ export default function SearchPanel({ searchFn, onResultClick }: SearchPanelProp
         )}
       </ul>
     </div>
+  );
+}
+
+// ─── Chip primitives ─────────────────────────────────────────────────────
+
+function ChipGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] uppercase tracking-wider text-mute select-none">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  testId,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-active={active ? "true" : "false"}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded-full border text-[11px] transition-colors ${
+        active
+          ? "bg-blue-50 text-blue-700 border-blue-200"
+          : "bg-transparent text-ink-2 border-line hover:bg-surface-2"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

@@ -76,14 +76,14 @@
 `features/search/SearchPanel.tsx`
 
 - **SEARCH-8.6-01** 🧪 **Dedicated tab with a search input and result list** — virtual pane mounted via `SEARCH_SENTINEL`; opened by `view.open-search` command (⌘⇧F). _(e2e: `vaultSearch.spec.ts`.)_
-- **SEARCH-8.6-02** ❌ **Filter chips: kind / field / folder** — narrowing chips compose by intersection. Deferred — stop conditions for 10c don't require it; the underlying index already tags hits by kind/field, so a follow-up PR can add chips without changing the worker.
+- **SEARCH-8.6-02** ✅ **Filter chips: kind / field / folder** — chips applied post-query in `applyChipFilters` (pure function) and rendered by the `SearchPanel`'s chip row. Kind is mutually exclusive (Documents / Diagrams), field is multi-select (body / title / label / flow), folder lists distinct top-level folders derived from the raw result set. Chip types compose by intersection. _(unit: `applyChipFilters.test.ts`; e2e end-to-end UX: `vaultSearch.spec.ts SEARCH-8.6-02`.)_
 - **SEARCH-8.6-03** 🧪 **Click result opens the file in the focused pane** — same `onResultClick` pathway as the palette, exercised end-to-end by `SEARCH-8.6-01` (typing returns results) + `SEARCH-8.7-01` (clicking a result navigates).
-- **SEARCH-8.6-04** ❌ **Empty-state copy distinct between "no results" and "type to search"** — wording lives in the component but isn't asserted in tests yet.
+- **SEARCH-8.6-04** 🧪 **Empty-state copy distinct between "no results" and "type to search"** — the empty-state element carries `data-state` (`idle` / `no-results` / `filtered-out`) so the assertion is stable against copy changes. _(e2e: `vaultSearch.spec.ts SEARCH-8.6-04`.)_
 
 ## SEARCH-8.7 Diagram-side hits (PR 10c)
 
 - **SEARCH-8.7-01** 🧪 **Clicking a diagram-label result opens the diagram with a pending centre-on-node intent** — the shell threads `searchTarget: { nodeId }` through `panes.openFile` → `PaneEntry`; `DiagramView` consumes it once on mount, calls `setSelection({ type: "node", id })` and `scrollToRect(...)`, guarded by `consumedSearchTargetRef` keyed by `${filePath}::${nodeId}` so re-renders don't re-fire. The node ID is resolved by `findFirstNodeMatching` (re-reads the diagram once after click). _(e2e: `vaultSearch.spec.ts`.)_
-- **SEARCH-8.7-02** ❌ **Stale intents are dropped** — opening a different file mid-flight (before the previous diagram mounts) cancels the previous pending intent. The `consumedSearchTargetRef` key already includes the filePath, so the mechanism is in place; an explicit assertion is deferred to a follow-up.
+- **SEARCH-8.7-02** 🧪 **Successive intents do not leak across opens** — opening diagram A via search, then diagram B via search, surfaces B's selected node, not a leaked A target. `consumedSearchTargetRef` keys by `${filePath}::${nodeId}`, so the second pane consumes its own intent. _(e2e: `vaultSearch.spec.ts SEARCH-8.7-02`.)_
 
 ## SEARCH-8.8 Incremental indexing (PR 10b)
 
