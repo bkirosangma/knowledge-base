@@ -2,9 +2,9 @@ import { test, expect, type Page } from '@playwright/test'
 import { installMockFS } from './fixtures/fsMock'
 
 // KB-010c — vault search UI surfaces.
-// Covers SEARCH-2.1-01..05, SEARCH-2.2-01, SEARCH-3.1-01, SEARCH-1.4-02
+// Covers SEARCH-8.5-01..05, SEARCH-8.6-01, SEARCH-8.7-01, SEARCH-8.4-02
 // (16ms frame budget) and the integration touchpoints from earlier PRs
-// (SEARCH-4.1-04 initial bulk index, SEARCH-4.1-05 diagram save reindex).
+// (SEARCH-8.8-04 initial bulk index, SEARCH-8.8-05 diagram save reindex).
 
 const PALETTE_PLACEHOLDER = 'Search the vault, or > for commands…'
 
@@ -67,7 +67,7 @@ const DIAGRAM_FIXTURE = {
 }
 
 test.describe('Vault Search — palette mode', () => {
-  test('SEARCH-2.1-01: typing without > returns results within 100 ms', async ({ page }) => {
+  test('SEARCH-8.5-01: typing without > returns results within 100 ms', async ({ page }) => {
     await setupFs(page, DOC_SEED)
     await openFolder(page)
 
@@ -96,7 +96,7 @@ test.describe('Vault Search — palette mode', () => {
     expect(paths).toContain('notes/charlie.md')
   })
 
-  test('SEARCH-2.1-05: Enter on a search result opens the file', async ({ page }) => {
+  test('SEARCH-8.5-05: Enter on a search result opens the file', async ({ page }) => {
     await setupFs(page, DOC_SEED)
     await openFolder(page)
     await page.waitForTimeout(2000)
@@ -118,7 +118,7 @@ test.describe('Vault Search — palette mode', () => {
 })
 
 test.describe('Vault Search — SearchPanel', () => {
-  test('SEARCH-2.2-01: ⌘⇧F opens the SearchPanel; query returns results', async ({ page }) => {
+  test('SEARCH-8.6-01: ⌘⇧F opens the SearchPanel; query returns results', async ({ page }) => {
     await setupFs(page, DOC_SEED)
     await openFolder(page)
     await page.waitForTimeout(2000)
@@ -138,7 +138,7 @@ test.describe('Vault Search — SearchPanel', () => {
 })
 
 test.describe('Vault Search — diagram-side hits', () => {
-  test('SEARCH-3.1-01: diagram-node hit opens the diagram and selects the matching node', async ({ page }) => {
+  test('SEARCH-8.7-01: diagram-node hit opens the diagram and selects the matching node', async ({ page }) => {
     await setupFs(page, {
       ...DOC_SEED,
       'topo.json': JSON.stringify(DIAGRAM_FIXTURE),
@@ -169,7 +169,7 @@ test.describe('Vault Search — diagram-side hits', () => {
 })
 
 test.describe('Vault Search — performance', () => {
-  test('SEARCH-1.4-02: query does not block the main thread > 16 ms', async ({ page }) => {
+  test('SEARCH-8.4-02: query does not block the main thread > 16 ms', async ({ page }) => {
     await setupFs(page, DOC_SEED)
     await openFolder(page)
     await page.waitForTimeout(2000)

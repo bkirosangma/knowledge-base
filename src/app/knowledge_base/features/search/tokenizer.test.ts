@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { tokenize, tokenizeWithPositions } from "./tokenizer";
 
 describe("tokenizer", () => {
-  it("SEARCH-1.1-01: lowercases input", () => {
+  it("SEARCH-8.1-01: lowercases input", () => {
     expect(tokenize("Hello World")).toEqual(["hello", "world"]);
   });
 
-  it("SEARCH-1.1-02: strips Markdown punctuation and link syntax", () => {
-    // Note: "x" is dropped by the 2-char minimum (SEARCH-1.1-03).
+  it("SEARCH-8.1-02: strips Markdown punctuation and link syntax", () => {
+    // Note: "x" is dropped by the 2-char minimum (SEARCH-8.1-03).
     expect(tokenize("**bold** _italic_ [link](http://x)")).toEqual([
       "bold",
       "italic",
@@ -16,15 +16,15 @@ describe("tokenizer", () => {
     ]);
   });
 
-  it("SEARCH-1.1-03: drops tokens shorter than 2 characters", () => {
+  it("SEARCH-8.1-03: drops tokens shorter than 2 characters", () => {
     expect(tokenize("a b cat")).toEqual(["cat"]);
   });
 
-  it("SEARCH-1.1-04: preserves unicode word characters", () => {
+  it("SEARCH-8.1-04: preserves unicode word characters", () => {
     expect(tokenize("café résumé")).toEqual(["café", "résumé"]);
   });
 
-  it("SEARCH-1.1-05: tokenizeWithPositions returns character offsets", () => {
+  it("SEARCH-8.1-05: tokenizeWithPositions returns character offsets", () => {
     const out = tokenizeWithPositions("hello there world");
     expect(out).toEqual([
       { token: "hello", position: 0 },

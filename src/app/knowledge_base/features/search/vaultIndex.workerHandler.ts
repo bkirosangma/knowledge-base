@@ -1,4 +1,4 @@
-// Worker message protocol (KB-010 / SEARCH-1.3).
+// Worker message protocol (KB-010 / SEARCH-8.3).
 //
 // The actual Web Worker file (`vaultIndex.worker.ts`) is a tiny shell that
 // owns the `self.onmessage` plumbing. All real logic lives here so it can

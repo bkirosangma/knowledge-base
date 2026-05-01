@@ -362,7 +362,7 @@ export default function DiagramView({
     return () => el.removeEventListener("scroll", onScroll);
   }, [canvasRef]);
 
-  // ─── Consume search-target intent (KB-010c / SEARCH-3.1) ───
+  // ─── Consume search-target intent (KB-010c / SEARCH-8.7) ───
   // When a vault-search hit on a diagram-node label is clicked, the
   // shell threads a `searchTarget` through `panes.openFile` → PaneEntry
   // → here. Once the diagram's nodes are loaded, find the node, select

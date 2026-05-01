@@ -548,14 +548,41 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 `features/search/`. Prose spec: [`test-cases/08-search.md`](test-cases/08-search.md). Lands across PRs 10a → 10c.
 
-- ⚙️ **Tokenizer** (10a) — `tokenizer.ts`. Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
-- ⚙️ **Inverted index** (10a) — `VaultIndex.ts`. `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
-- ⚙️ **Worker** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
+### 8.1 Tokenizer
+`features/search/tokenizer.ts`
+- ⚙️ **Tokenizer** (10a) — Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
+
+### 8.2 Inverted index
+`features/search/VaultIndex.ts`
+- ⚙️ **Index shape** (10a) — `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
 - ⚙️ **Query semantics** (10a) — AND-of-tokens with prefix on the last token; results carry per-field hits and a ±40-char snippet around the first body match (or first non-body match as fallback).
-- ⚙️ **Incremental indexing** (10b) — `useVaultSearch` hook owns the worker; `searchStream.readForSearchIndex` streams content to it. Direct save-signal wiring on doc Cmd+S, diagram `onAfterDiagramSaved`, rename/delete, and new-file creation; bulk index fires once per vault open and clears on vault swap. FileWatcher polling integration is deferred — the 1 s budget is met by the in-app save path alone.
-- ✅ **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; the `>` prefix selects command mode (existing UX). Empty input shows a hint. Race-by-cleanup ensures stale results never overwrite the latest.
-- ✅ **SearchPanel surface** (10c) — virtual pane mounted via `SEARCH_SENTINEL`; opened by the `view.open-search` command and ⌘⇧F shortcut. Renders an input + result list with kind chip + snippet. Filter chips (kind/field/folder) are scaffolded in the spec for a follow-up.
-- ✅ **Diagram-side hits** (10c) — clicking a result whose path is a `.json` diagram threads `PaneEntry.searchTarget = { nodeId }` through `panes.openFile`. `DiagramView` consumes it once on mount: `setSelection({ type: "node", id })` + `scrollToRect(...)` reusing `useCanvasEffects.scrollToRect`. Node ID resolved by `searchStream.findFirstNodeMatching` (one diagram re-read on click).
+
+### 8.3 Worker
+`features/search/vaultIndex.worker.ts`, `vaultIndex.workerHandler.ts`
+- ⚙️ **Worker shell + handler** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
+- ⚙️ **Worker client** (10b) — `searchWorkerClient.ts` exposes a small interface so `useVaultSearch` can be unit-tested with an in-process client backed by the real handler; production uses `createRealWorkerClient()` (a Web Worker via `new Worker(new URL(...))`).
+
+### 8.4 Performance
+- ✅ **Median query latency < 50 ms on a 200-doc fixture** (10a) — asserted in `VaultIndex.test.ts`.
+- 🧪 **No long main-thread blocks during search activity** (10c) — asserted in `e2e/vaultSearch.spec.ts` via `PerformanceObserver({ entryTypes: ['longtask'] })`.
+
+### 8.5 Command palette — vault search mode
+`shared/components/CommandPalette.tsx`
+- ✅ **Default mode is vault search** (10c) — typing plain text routes to the worker; `>` prefix selects command mode (existing UX). Empty input shows a hint. Race-by-cleanup ensures stale results never overwrite the latest.
+
+### 8.6 SearchPanel
+`features/search/SearchPanel.tsx`
+- ✅ **Dedicated pane** (10c) — virtual pane mounted via `SEARCH_SENTINEL`; opened by the `view.open-search` command and ⌘⇧F shortcut. Renders an input + result list with kind chip + snippet.
+- ❌ **Filter chips** (kind / field / folder) — deferred follow-up; the index already tags hits by kind/field, so chips can be added without changing the worker.
+
+### 8.7 Diagram-side hits
+`features/diagram/DiagramView.tsx`, `infrastructure/searchStream.ts`, `shell/PaneManager.tsx`
+- ✅ **Centre + select on click** (10c) — clicking a result whose path is a `.json` diagram threads `PaneEntry.searchTarget = { nodeId }` through `panes.openFile`. `DiagramView` consumes it once on mount: `setSelection({ type: "node", id })` + `scrollToRect(...)` reusing `useCanvasEffects.scrollToRect`. Node ID resolved by `searchStream.findFirstNodeMatching` (one diagram re-read on click). The intent is single-fire by `${filePath}::${nodeId}` key and is intentionally stripped at the `SavedPaneEntry` boundary so it does not survive reload.
+
+### 8.8 Incremental indexing
+`features/search/useVaultSearch.ts`, `infrastructure/searchStream.ts`
+- ⚙️ **Hook owns worker lifecycle** (10b) — `useVaultSearch` multiplexes `QUERY`/`RESULTS` by id, drains pending promises on terminate so callers never hang.
+- ⚙️ **Save-signal wiring** (10b) — direct addDoc on doc Cmd+S, diagram `onAfterDiagramSaved`, rename/delete, and new-file creation; bulk index fires once per vault open and clears on vault swap. FileWatcher polling integration is deferred — the 1 s budget is met by the in-app save path alone.
 
 ---
 
