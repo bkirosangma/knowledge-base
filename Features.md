@@ -595,3 +595,18 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 10. **Directory-scoped localStorage** — `scopedKey` behaviour when two vaults mounted in sequence.
 11. **Link index** — full rebuild idempotency, backlink reverse mapping, rename propagation.
 12. **Playwright smoke** — already exists; extend with folder-picker stub + basic diagram-create / doc-create flow (mindful of Preview-MCP's File System Access limit — see `MEMORY.md`).
+
+---
+
+## 11. Vault Search (KB-010)
+
+`features/search/`. Prose spec: [`test/prose/06-search.md`](test/prose/06-search.md). Lands across PRs 10a → 10c.
+
+- ⚙️ **Tokenizer** (10a) — `tokenizer.ts`. Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
+- ⚙️ **Inverted index** (10a) — `VaultIndex.ts`. `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
+- ⚙️ **Worker** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
+- ⚙️ **Query semantics** (10a) — AND-of-tokens with prefix on the last token; results carry per-field hits and a ±40-char snippet around the first body match (or first non-body match as fallback).
+- ? **Incremental indexing** (10b) — `useVaultSearch` hook subscribes to FileWatcher events plus the document save signal; reindex within 1 s of save.
+- ? **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; `>` prefix retains command behaviour.
+- ? **SearchPanel surface** (10c) — dedicated tab with kind / field / folder filter chips.
+- ? **Diagram-side hits** (10c) — clicking a node-label result opens the diagram with a pending centre-on-node intent; `DiagramView` consumes the intent on mount, selects the node, centres the viewport.
