@@ -658,6 +658,27 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
 
+  // ─── Full link-index rebuild on first tree load ───
+  // loadIndex only restores the persisted snapshot. Files (md or diagram)
+  // never opened or saved this session are absent from the index, so their
+  // outbound wiki-links never produce backlink entries. This background
+  // rebuild scans every .md and .json path once per vault open so that all
+  // backlinks are correct immediately, without blocking the UI. Mirrors
+  // the manual Graph view "Refresh" trigger so behaviour is consistent.
+  const indexRebuildVaultRef = useRef<string | null>(null);
+  useEffect(() => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle || fileExplorer.tree.length === 0) return;
+    if (indexRebuildVaultRef.current === fileExplorer.directoryName) return;
+    indexRebuildVaultRef.current = fileExplorer.directoryName;
+
+    const allPaths = collectAllPaths(fileExplorer.tree);
+    linkManager.fullRebuild(rootHandle, allPaths).catch((e) =>
+      reportError(e, "Hydrating link index on vault open")
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.tree, fileExplorer.directoryName]);
+
   // ─── Graph pane: open-graph + open-from-graph helpers ───
   // Opening the graph from the palette: replace the focused pane with the
   // virtual graph entry. (Same as `panes.openFile` for any other type —
