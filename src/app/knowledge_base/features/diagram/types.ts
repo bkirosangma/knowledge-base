@@ -119,3 +119,57 @@ export interface RegionBounds {
   height: number;
   empty: boolean;
 }
+
+// ─── Shell bridge types ──────────────────────────────────────────────
+//
+// DiagramView publishes a bridge object back to the shell so the
+// header / explorer tree / confirm popovers can hook into the same
+// behaviour the diagram uses internally. Pre-KB-020 these were declared
+// inline at the top of DiagramView.tsx; they live here now so the
+// bridge hook (`useDiagramBridge`) and DiagramView don't need to
+// duplicate the definitions.
+
+import type React from "react";
+
+export interface ConfirmAction {
+  type: "delete-file" | "delete-folder" | "discard";
+  path?: string;
+  x: number;
+  y: number;
+}
+
+/** Title + save/discard surface consumed by the Header. */
+export interface HeaderBridge {
+  isDirty: boolean;
+  title: string;
+  titleInputValue: string;
+  setTitleInputValue: (v: string) => void;
+  titleWidth: number | string;
+  setTitleWidth: (w: number | string) => void;
+  onTitleCommit: (value: string) => void;
+  onSave: () => void;
+  onDiscard: (e: React.MouseEvent) => void;
+}
+
+/** File-ops + confirm-popover surface consumed by the explorer tree and rename/delete wrappers. */
+export interface ExplorerBridge {
+  handleLoadFile: (fileName: string) => Promise<void>;
+  handleCreateFile: (parentPath?: string) => Promise<string | null>;
+  handleCreateFolder: (parentPath?: string) => Promise<string | null>;
+  handleDeleteFile: (path: string, event: React.MouseEvent) => void;
+  handleDeleteFolder: (path: string, event: React.MouseEvent) => void;
+  handleRenameFile: (oldPath: string, newName: string) => Promise<void>;
+  handleRenameFolder: (oldPath: string, newName: string) => Promise<void>;
+  handleDuplicateFile: (path: string) => Promise<void>;
+  handleMoveItem: (sourcePath: string, targetFolderPath: string) => Promise<void>;
+  handleConfirmAction: () => Promise<void>;
+  confirmAction: ConfirmAction | null;
+  setConfirmAction: React.Dispatch<React.SetStateAction<ConfirmAction | null>>;
+}
+
+/**
+ * Bridge object that DiagramView exposes to the shell.
+ * Consumers that only need one slice should prefer `HeaderBridge` or
+ * `ExplorerBridge` in their own parameter types.
+ */
+export type DiagramBridge = HeaderBridge & ExplorerBridge;
