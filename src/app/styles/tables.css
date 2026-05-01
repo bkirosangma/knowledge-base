@@ -1,0 +1,140 @@
+/* ── Tables ──
+ * Basic markdown-editor table styles, then the table-editing overrides
+ * that prosemirror-tables relies on. Source order matters: the editing
+ * rules below override the basic ones (same selector specificity).
+ */
+
+.markdown-editor .ProseMirror table {
+  border-collapse: collapse;
+  width: auto;
+  margin: 1rem 0;
+  font-size: 0.9em;
+}
+.markdown-editor .ProseMirror th,
+.markdown-editor .ProseMirror td {
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.markdown-editor .ProseMirror th {
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.markdown-editor .ProseMirror tr:nth-child(even) td {
+  background: var(--surface-2);
+}
+
+/* ── Table editing ── */
+
+.markdown-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-editor .ProseMirror table {
+  border-collapse: collapse;
+  table-layout: auto;
+  width: 100%;
+  margin: 0;
+}
+
+.markdown-editor .ProseMirror td,
+.markdown-editor .ProseMirror th {
+  border: 1px solid var(--line);
+  padding: 0.4rem 0.6rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+}
+
+.markdown-editor .ProseMirror th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.markdown-editor .ProseMirror td > *,
+.markdown-editor .ProseMirror th > * {
+  margin: 0;
+}
+
+.markdown-editor .ProseMirror .selectedCell {
+  background: #dbeafe;
+}
+
+.markdown-editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #3b82f6;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.markdown-editor .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* ── Table floating toolbar ── */
+
+.kb-table-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  z-index: 20;
+  pointer-events: auto;
+  user-select: none;
+}
+
+/* Custom tooltip (faster + styled vs. the native browser `title`). The
+ * button reads `data-tooltip`; ::after renders the label bubble above the
+ * button, ::before draws a small downward arrow.  `overflow: visible` is
+ * the default on the toolbar, so the bubble can extend past its edge. */
+.kb-table-toolbar button[data-tooltip] {
+  position: relative;
+}
+.kb-table-toolbar button[data-tooltip]:hover::after,
+.kb-table-toolbar button[data-tooltip]:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.kb-table-toolbar button[data-tooltip]:hover::before,
+.kb-table-toolbar button[data-tooltip]:focus-visible::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1e293b;
+  z-index: 30;
+  pointer-events: none;
+}
+/* Don't show the tooltip on disabled buttons — they do nothing and the
+ * visual affordance (dimmed icon + cursor: not-allowed) is enough. */
+.kb-table-toolbar button[data-tooltip]:disabled:hover::after,
+.kb-table-toolbar button[data-tooltip]:disabled:hover::before,
+.kb-table-toolbar button[data-tooltip]:disabled:focus-visible::after,
+.kb-table-toolbar button[data-tooltip]:disabled:focus-visible::before {
+  display: none;
+}

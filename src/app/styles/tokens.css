@@ -1,0 +1,88 @@
+/* ── Design tokens ──────────────────────────────────────────────────────────
+ * Phase 3 PR 1 (2026-04-26). Token layer + locked type scale, exposed as
+ * Tailwind v4 utilities via `@theme inline` (so dark-mode flips propagate
+ * through `var(--…)` instead of being baked at theme-build time).
+ *
+ * Light is the default; `[data-theme="dark"]` (set on the knowledge-base
+ * root in `knowledgeBase.tsx`) re-binds the same token names to the dark
+ * palette so every utility / `var(--…)` reference flips together.
+ * ----------------------------------------------------------------------- */
+
+:root {
+  /* Surface */
+  --surface: #ffffff;
+  --surface-2: #f8fafc;        /* slate-50 */
+  --line: #e2e8f0;             /* slate-200 */
+
+  /* Ink (text) */
+  --ink: #0f172a;              /* slate-900 */
+  --ink-2: #1e293b;            /* slate-800 */
+  --mute: #64748b;             /* slate-500 */
+
+  /* Accent (links, active states) */
+  --accent: #047857;           /* emerald-700 — matches Phase 2 editorial */
+  --accent-2: #065f46;         /* emerald-800 */
+
+  /* Status */
+  --ok: #16a34a;               /* green-600 */
+  --warn: #d97706;             /* amber-600 */
+  --danger: #dc2626;           /* red-600 */
+
+  /* Focus ring */
+  --focus: rgba(4, 120, 87, 0.4);
+}
+
+[data-theme="dark"] {
+  --surface: #0f172a;          /* slate-900 */
+  --surface-2: #1e293b;        /* slate-800 */
+  --line: #334155;             /* slate-700 */
+
+  --ink: #f1f5f9;              /* slate-100 */
+  --ink-2: #e2e8f0;            /* slate-200 */
+  --mute: #94a3b8;             /* slate-400 */
+
+  --accent: #34d399;           /* emerald-400 — brighter for dark */
+  --accent-2: #10b981;         /* emerald-500 */
+
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+
+  --focus: rgba(52, 211, 153, 0.5);
+}
+
+/* Active-row backgrounds — `bg-blue-50` (left pane) and `bg-green-50`
+ * (right pane) read as near-white on the dark surface, which kills the
+ * active affordance. Re-bind to translucent accent / green fills so the
+ * active row stays visible without introducing new tokens or touching
+ * every consumer (Phase 3 PR 1, 2026-04-26). */
+[data-theme="dark"] .bg-blue-50 {
+  background-color: rgba(52, 211, 153, 0.18);
+}
+[data-theme="dark"] .bg-green-50 {
+  background-color: rgba(74, 222, 128, 0.15);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-mute: var(--mute);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  /* Locked type scale (overrides Tailwind defaults for these sizes) */
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 34px;
+  --text-4xl: 44px;
+}

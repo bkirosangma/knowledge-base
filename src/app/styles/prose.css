@@ -1,0 +1,199 @@
+/* ── Markdown Editor (Tiptap/ProseMirror) ── */
+
+.markdown-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+  padding: 2rem 2.5rem;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+/* Headings */
+.markdown-editor .ProseMirror h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.markdown-editor .ProseMirror h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.markdown-editor .ProseMirror h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.markdown-editor .ProseMirror h4,
+.markdown-editor .ProseMirror h5,
+.markdown-editor .ProseMirror h6 {
+  font-weight: 600;
+  line-height: 1.4;
+}
+.markdown-editor .ProseMirror h4 {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--ink-2);
+}
+.markdown-editor .ProseMirror h5 {
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  color: var(--ink-2);
+}
+.markdown-editor .ProseMirror h6 {
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  color: var(--mute);
+}
+
+/* Paragraphs */
+.markdown-editor .ProseMirror p {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+/* Blockquotes — left accent border, no background */
+.markdown-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--ink-2);
+  font-style: normal;
+}
+.markdown-editor .ProseMirror blockquote p {
+  margin-bottom: 0.25rem;
+}
+
+/* Horizontal rule */
+.markdown-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1.5rem 0;
+}
+
+/* Inline code */
+.markdown-editor .ProseMirror code {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  color: var(--ink-2);
+}
+
+/* Code blocks */
+.markdown-editor .ProseMirror pre {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+.markdown-editor .ProseMirror pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+/* Lists */
+.markdown-editor .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.markdown-editor .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.markdown-editor .ProseMirror li {
+  margin-bottom: 0.25rem;
+}
+.markdown-editor .ProseMirror li p {
+  margin-bottom: 0.25rem;
+}
+
+/* Task lists */
+.markdown-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.markdown-editor .ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.25rem;
+}
+
+/* Links — clickable only in read mode. In edit mode, use the text caret so
+   users know clicks will place the cursor (not navigate). */
+.markdown-editor .ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-editor .ProseMirror a:hover {
+  color: var(--accent-2);
+}
+.markdown-editor .ProseMirror a strong,
+.markdown-editor .ProseMirror a em,
+.markdown-editor .ProseMirror a s,
+.markdown-editor .ProseMirror a code {
+  color: inherit;
+}
+.markdown-editor .ProseMirror[contenteditable="true"] a,
+.markdown-editor .ProseMirror[contenteditable="true"] .wiki-link {
+  cursor: text;
+}
+
+/* Images */
+.markdown-editor .ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* Strong / Bold */
+.markdown-editor .ProseMirror strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Placeholder */
+.markdown-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--mute);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Markdown Reveal (raw editing block). */
+.md-raw-block {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
