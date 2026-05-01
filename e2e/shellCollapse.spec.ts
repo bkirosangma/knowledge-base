@@ -50,8 +50,12 @@ const DIAGRAM_SEED = JSON.stringify({
 
 test.describe('Shell collapse — PaneTitle folded into PaneHeader (SHELL-1.12)', () => {
   test('SHELL-1.12-01: title input lives inside the breadcrumb row (no separate row)', async ({ page }) => {
-    await setupFs(page, { 'arch.json': DIAGRAM_SEED })
+    // KB-013 hides the breadcrumb at path depth ≤ 1, so this test
+    // (which co-locates the breadcrumb segment with the title) needs
+    // a nested fixture to surface a breadcrumb segment at all.
+    await setupFs(page, { 'diagrams/arch.json': DIAGRAM_SEED })
     await openFolder(page)
+    await page.getByTestId('explorer-search').fill('arch')
     await openDiagram(page, 'arch.json')
 
     // Both the breadcrumb segment for the file and the title <h1> share the

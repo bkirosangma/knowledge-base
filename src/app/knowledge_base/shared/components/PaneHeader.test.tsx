@@ -26,12 +26,13 @@ describe('PaneHeader — breadcrumb', () => {
     expect(screen.getByText('b').className).not.toContain('font-medium')
   })
 
-  it('single-segment path renders without separators', () => {
-    const { container } = render(
+  it('single-segment path hides the breadcrumb entirely (KB-013)', () => {
+    const { container, queryByTestId } = render(
       <PaneHeader filePath="solo.md" readOnly={false} onToggleReadOnly={() => {}} />,
     )
-    expect(screen.getByText('solo.md')).toBeTruthy()
-    // No ChevronRight icons for single-segment.
+    // Root-level files: no breadcrumb element renders at all.
+    expect(queryByTestId('pane-breadcrumb')).toBeNull()
+    expect(screen.queryByText('solo.md')).toBeNull()
     expect(container.querySelectorAll('svg.lucide-chevron-right').length).toBe(0)
   })
 })
