@@ -1,0 +1,110 @@
+{
+  "title": "System overview",
+  "lineCurve": "orthogonal",
+  "layers": [
+    {
+      "id": "edge",
+      "title": "Edge",
+      "bg": "#fef3c7",
+      "border": "#f59e0b"
+    },
+    {
+      "id": "service",
+      "title": "Services",
+      "bg": "#dbeafe",
+      "border": "#3b82f6"
+    },
+    {
+      "id": "data",
+      "title": "Data",
+      "bg": "#dcfce7",
+      "border": "#22c55e"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n-client",
+      "label": "Web Client",
+      "sub": "Browser",
+      "icon": "default",
+      "x": 600,
+      "y": 600,
+      "w": 220,
+      "layer": "edge"
+    },
+    {
+      "id": "n-gateway",
+      "label": "API Gateway",
+      "sub": "auth + rate-limit",
+      "icon": "default",
+      "x": 1000,
+      "y": 600,
+      "w": 220,
+      "layer": "edge"
+    },
+    {
+      "id": "n-service",
+      "label": "Reading-list Service",
+      "sub": "owns Postgres schema",
+      "icon": "default",
+      "x": 1000,
+      "y": 900,
+      "w": 220,
+      "layer": "service"
+    },
+    {
+      "id": "n-postgres",
+      "label": "Postgres",
+      "sub": "1 primary, 2 replicas",
+      "icon": "default",
+      "x": 1000,
+      "y": 1200,
+      "w": 220,
+      "layer": "data"
+    }
+  ],
+  "connections": [
+    {
+      "id": "c-client-gateway",
+      "from": "n-client",
+      "to": "n-gateway",
+      "fromAnchor": "right-1",
+      "toAnchor": "left-1",
+      "color": "#3b82f6",
+      "label": "REST"
+    },
+    {
+      "id": "c-gateway-service",
+      "from": "n-gateway",
+      "to": "n-service",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#3b82f6",
+      "label": "gRPC"
+    },
+    {
+      "id": "c-service-postgres",
+      "from": "n-service",
+      "to": "n-postgres",
+      "fromAnchor": "bottom-1",
+      "toAnchor": "top-1",
+      "color": "#22c55e",
+      "label": "SQL"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-read",
+      "name": "Read a list",
+      "connectionIds": ["c-client-gateway", "c-gateway-service", "c-service-postgres"]
+    }
+  ],
+  "documents": [
+    {
+      "filename": "architecture.md",
+      "entityType": "diagram",
+      "entityId": "diagram"
+    }
+  ],
+  "layerManualSizes": {}
+}

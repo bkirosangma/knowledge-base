@@ -613,15 +613,32 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 10. Test & Verification Infrastructure
+## 10. First-run experience (KB-012)
 
-### 10.1 Unit (Vitest)
+Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
+
+### 10.1 First-run hero
+`shared/components/FirstRunHero.tsx`
+- ✅ **Hero replaces the right-pane empty state when no vault is open** — gated by `!directoryName && tree.length === 0`. The explorer's own "no folder open" UI on the left remains as-is per the audit-plan brief.
+- ✅ **Two CTAs** — primary "Open Vault" (calls the existing picker via `useFileExplorer.openFolder`) and secondary "Try with sample vault" (calls `useFileExplorer.openFolderWithSeed` with the bundled-vault seeder).
+- ✅ **"What's a vault?" disclosure** — collapsed by default, expands to a 3-bullet explainer covering the FS Access API, the file-shape conventions, and the index folder.
+
+### 10.2 Sample vault
+`public/sample-vault/`
+- ✅ **Realistic content** — five `.md` documents (README, architecture, api-reference, design-decisions, roadmap) about a fictional "Books API" project, cross-linked via `[[wiki-links]]`. Plus one diagram (`system-overview.json` — three layers, four nodes, three connections, one flow), one SVG logo, and one PNG image in `.attachments/cover.png` referenced from the README.
+- ⚙️ **Manifest-driven loader** — `public/sample-vault/manifest.json` lists every file plus its kind (`text` / `binary`). `seedSampleVault(handle)` fetches the manifest, then writes each file (via `getSubdirectoryHandle` for nested paths). No runtime zip dependency: Next serves the files individually from `public/`.
+
+---
+
+## 11. Test & Verification Infrastructure
+
+### 11.1 Unit (Vitest)
 - ✅ **`vitest` + `@vitest/ui` + `@vitest/coverage-v8`** configured (`vitest.config.ts`, `tsconfig.test.json`).
 - ✅ **jsdom** environment via `src/test/setup.ts` + `@testing-library/react` + `@testing-library/user-event` + `@testing-library/jest-dom`.
 - ✅ **Existing test**: `features/diagram/utils/gridSnap.test.ts`.
 - **Scripts**: `npm test`, `npm run test:run`, `npm run test:ui`, `npm run coverage`.
 
-### 10.2 End-to-End (Playwright)
+### 11.2 End-to-End (Playwright)
 - ✅ **`@playwright/test`** configured (`playwright.config.ts`).
 - ✅ **`PLAYWRIGHT_BASE_URL` env-var override** — when set, Playwright targets that URL and skips the built-in `npm run dev` webServer (useful for re-using an already-running local dev server).
 - ✅ **`e2e/app.spec.ts`** — pre-folder shell smoke suite: app mounts with zero errors; Geist font CSS vars present (SHELL-1.1-02); root container is a full-height flex column (SHELL-1.1-03); "No file open" empty state and "Open Folder" button render; Header title defaults to "Untitled".
@@ -632,17 +649,17 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 - ✅ **`e2e/documentGoldenPath.spec.ts`** — full document editor golden path: open `.md` vault, WYSIWYG content renders, `[[wiki-link]]` pill visible, Raw toggle round-trip, Cmd+S saves, dirty-flag cleared, file-switch autosave.
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
-### 10.3 Tooling Hooks
+### 11.3 Tooling Hooks
 - ⚙️ **Build**: `next build` — Next.js 16 / React 19.
 - ⚙️ **Lint**: `eslint` with `eslint-config-next`.
 - ⚙️ **Type check**: strict TS 5 (`tsconfig.json`, `tsconfig.test.json`).
 
-### 10.4 Continuous Integration
+### 11.4 Continuous Integration
 - ⚙️ **GitHub Actions CI** (`.github/workflows/ci.yml`) — gates every PR into `main` and every push to `main` on unit tests (`npm run test:run`), e2e tests (`npm run test:e2e`), and build (`npm run build`). Uses Node version from `.nvmrc`, caches npm, installs Chromium for Playwright, uploads the HTML report as an artifact on failure. Lint is intentionally not gated (pre-existing lint errors deferred to Phase 1).
 
 ---
 
-## 11. External Contracts (for reference in test design)
+## 12. External Contracts (for reference in test design)
 
 - **File System Access API** — `showDirectoryPicker`, `FileSystemDirectoryHandle`, `FileSystemFileHandle`, `FileSystemWritableFileStream` (typings in `types/file-system.d.ts`). Only supported in Chromium-family browsers.
 - **Vault layout** — top-level `*.json` diagrams, `*.md` documents, hidden `.archdesigner/` config dir, `.<name>.history.json` sidecars, optional nested folders.
@@ -650,7 +667,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 12. Notable Items Worth Prioritising for Tests
+## 13. Notable Items Worth Prioritising for Tests
 
 1. **Grid snap** — already has a unit test; extend to round-trip.
 2. **Markdown round-trip** (`htmlToMarkdown` ∘ `markdownToHtml`) — tables, task lists, wiki-links, code fences, blockquotes.
