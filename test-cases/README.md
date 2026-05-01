@@ -17,6 +17,7 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 | 5 | `LINK` | Cross-Cutting Links & Graph | [05-links-and-graph.md](05-links-and-graph.md) |
 | 6 | `HOOK` | Shared Hooks & Utilities | [06-shared-hooks.md](06-shared-hooks.md) |
 | 7 | `PERSIST` | Persistence Surface | [07-persistence.md](07-persistence.md) |
+| 11 | `SEARCH` | Vault Search (KB-010) | [11-search.md](11-search.md) |
 
 ---
 

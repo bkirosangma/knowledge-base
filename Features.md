@@ -600,7 +600,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ## 11. Vault Search (KB-010)
 
-`features/search/`. Prose spec: [`test/prose/06-search.md`](test/prose/06-search.md). Lands across PRs 10a → 10c.
+`features/search/`. Prose spec: [`test-cases/11-search.md`](test-cases/11-search.md). Lands across PRs 10a → 10c.
 
 - ⚙️ **Tokenizer** (10a) — `tokenizer.ts`. Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
 - ⚙️ **Inverted index** (10a) — `VaultIndex.ts`. `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
