@@ -46,6 +46,7 @@ import { useLabelEditing } from "./useLabelEditing";
 import { useAnchorConnections } from "./useAnchorConnections";
 import { useContextMenuActions } from "./useContextMenuActions";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
+import { useCanvasKeyboardNav } from "./useCanvasKeyboardNav";
 import { useDragEndRecorder } from "./useDragEndRecorder";
 import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { DocumentMeta } from "../../document/types";
@@ -352,6 +353,17 @@ export function useDiagramController(input: DiagramControllerInputs) {
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
     readOnly, onToggleReadOnly: toggleReadOnly,
     onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
+  });
+
+  // KB-030: Tab/Shift+Tab walks nodes; arrows nudge; Enter opens label
+  // edit. Bound to the canvas root so document-level shortcuts above
+  // (Escape / Delete / Cmd-Z / E / …) keep their global scope.
+  useCanvasKeyboardNav({
+    canvasRef, nodes, layers,
+    selection, setSelection,
+    setNodes: dispatch.setNodes, scheduleRecord,
+    setEditingLabel, setEditingLabelValue, editingLabelBeforeRef,
+    readOnly, editingLabel,
   });
 
   // ─── Drag-end recorders + connection-create record ───────────────
