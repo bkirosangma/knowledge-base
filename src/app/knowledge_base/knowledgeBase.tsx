@@ -21,6 +21,8 @@ import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import GraphView from "./features/graph/GraphView";
 import GraphifyView from "./features/graph/GraphifyView";
 import { collectAllPaths } from "./features/graph/hooks/useGraphData";
+import { useVaultSearch } from "./features/search/useVaultSearch";
+import { readForSearchIndex } from "./infrastructure/searchStream";
 import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
@@ -69,6 +71,7 @@ function KnowledgeBaseInner() {
   const fileExplorer = useFileExplorer();
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
+  const searchManager = useVaultSearch();
   // Phase 3 PR 3 — viewport detection drives mobile shell branching.
   const { isMobile } = useViewport();
   // KB-001 — File System Access API detection. Initial render assumes
@@ -249,7 +252,16 @@ function KnowledgeBaseInner() {
     } catch (e) {
       reportError(e, `Updating link index after renaming ${oldPath}`);
     }
-  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError]);
+
+    // Search reindex: drop old path, add new (content unchanged on disk).
+    searchManager.removePath(oldPath);
+    void (async () => {
+      try {
+        const item = await readForSearchIndex(rootHandle, newPath);
+        if (item) searchManager.addDoc(item.path, item.kind, item.fields);
+      } catch { /* swallowed — same policy as the bulk-index walk */ }
+    })();
+  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError, searchManager]);
 
   const handleDeleteFileWithLinks = useCallback((path: string, event: React.MouseEvent) => {
     if (diagramBridgeRef.current) {
@@ -259,10 +271,14 @@ function KnowledgeBaseInner() {
           (e) => reportError(e, `Updating link index after deleting ${path}`)
         );
       }
+      // Search index follows whichever path actually deletes the file —
+      // safe to call regardless of extension; removePath is a no-op for
+      // unindexed paths.
+      searchManager.removePath(path);
     } else {
       setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager, reportError]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Capture tree snapshot before the FS move triggers a rescan
@@ -441,6 +457,9 @@ function KnowledgeBaseInner() {
               if (rootHandle && docBridge.filePath) {
                 linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)
                   .catch((e) => reportError(e, `Updating link index for ${docBridge.filePath}`));
+                // Search reindex with the in-memory content — no FS round-trip
+                // needed since `save()` has already persisted it.
+                searchManager.addDoc(docBridge.filePath, "doc", { body: docBridge.content });
               }
             });
           }
@@ -679,6 +698,35 @@ function KnowledgeBaseInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.tree, fileExplorer.directoryName]);
 
+  // ─── Search index: bulk reindex on vault open / swap (KB-010b) ───
+  // Mirrors the link-index rebuild pattern above. On vault swap we clear
+  // first so paths from the previous vault aren't carried over. The
+  // initial walk is deliberately separate from the link-index walk —
+  // both touch FS once; combining them would couple two evolving
+  // subsystems for a 200-file saving the SearchPanel never asks back.
+  const searchInitVaultRef = useRef<string | null>(null);
+  useEffect(() => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle || fileExplorer.tree.length === 0 || !searchManager.ready) return;
+    if (searchInitVaultRef.current === fileExplorer.directoryName) return;
+    searchInitVaultRef.current = fileExplorer.directoryName;
+
+    searchManager.clear();
+    const paths = collectAllPaths(fileExplorer.tree);
+    void (async () => {
+      for (const path of paths) {
+        try {
+          const item = await readForSearchIndex(rootHandle, path);
+          if (item) searchManager.addDoc(item.path, item.kind, item.fields);
+        } catch {
+          // Per-file failures are non-fatal — the rest of the vault
+          // still indexes. ShellErrorContext wiring is deferred to 10c.
+        }
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.tree, fileExplorer.directoryName, searchManager.ready]);
+
   // ─── Graph pane: open-graph + open-from-graph helpers ───
   // Opening the graph from the palette: replace the focused pane with the
   // virtual graph entry. (Same as `panes.openFile` for any other type —
@@ -874,6 +922,15 @@ function KnowledgeBaseInner() {
             linkManager.updateDiagramLinks(rootHandle, diagramPath, docFilenames).catch((e) =>
               reportError(e, `Updating diagram links for ${diagramPath}`)
             );
+            // Search reindex: re-read the diagram so new node labels /
+            // layer titles / flow names enter the index. The bridge has
+            // already written to disk by the time this fires.
+            void (async () => {
+              try {
+                const item = await readForSearchIndex(rootHandle, diagramPath);
+                if (item) searchManager.addDoc(item.path, item.kind, item.fields);
+              } catch { /* see bulk-index policy */ }
+            })();
           }}
         />
       );
@@ -990,6 +1047,10 @@ function KnowledgeBaseInner() {
               const rootHandle = fileExplorer.dirHandleRef.current;
               if (rootHandle) {
                 linkManager.updateDiagramLinks(rootHandle, result.path, []).catch(() => {});
+                // Empty diagram has no searchable text, but registering
+                // it ensures rename/delete operations have a path to
+                // reference before the user adds content.
+                searchManager.addDoc(result.path, "diagram", {});
               }
             }
             return result?.path ?? null;
@@ -1001,6 +1062,7 @@ function KnowledgeBaseInner() {
               const rootHandle = fileExplorer.dirHandleRef.current;
               if (rootHandle) {
                 linkManager.updateDocumentLinks(rootHandle, resultPath, "").catch(() => {});
+                searchManager.addDoc(resultPath, "doc", { body: "" });
               }
             }
             return resultPath;

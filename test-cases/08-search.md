@@ -86,10 +86,12 @@
 
 ## SEARCH-4.1 Incremental indexing (PR 10b)
 
-`features/search/useVaultSearch.ts`, `infrastructure/`
+`features/search/useVaultSearch.ts`, `infrastructure/searchStream.ts`
 
-- **SEARCH-4.1-01** ❌ **Edit + save reflects in search within 1 second** — typing in a doc, saving, then querying returns the updated body. Subscribes to the document save signal directly (not just FileWatcher polling) so the latency budget is met without bumping the polling interval.
-- **SEARCH-4.1-02** ❌ **Rename — file appears at new path, old path drops out** — index removes old, adds new in one transaction.
-- **SEARCH-4.1-03** ❌ **Delete — file drops from results within one tick**.
-- **SEARCH-4.1-04** ❌ **Initial vault open primes the index** — first vault open triggers a full pass; subsequent vault opens reuse the worker but rebuild for the new tree.
-- **SEARCH-4.1-05** ❌ **Diagram save updates `field: "label" / "title" / "flow"` postings**.
+- **SEARCH-4.1-01** ✅ **Edit + save reflects in search within 1 second** — addDoc replaces the entry; the hook's elapsed-time assertion is well under the 1 s budget. Wired into the Cmd+S document-save callsite alongside `linkManager.updateDocumentLinks`. _(unit: `useVaultSearch.test.tsx`.)_
+- **SEARCH-4.1-02** ✅ **Rename — file appears at new path, old path drops out** — `renamePath` issues `REMOVE` + `ADD_DOC` in sequence. Wired into `handleRenameFileWithLinks`. _(unit: `useVaultSearch.test.tsx`.)_
+- **SEARCH-4.1-03** ✅ **Delete — file drops from results within one tick** — `removePath` issues `REMOVE`. Wired into `handleDeleteFileWithLinks` (covers the diagram-bridge delete path; pure-shell deletes self-heal on next vault open). _(unit: `useVaultSearch.test.tsx`.)_
+- **SEARCH-4.1-04** 🧪 **Initial vault open primes the index** — bulk walk fires once per vault on tree population (mirrors the link-index rebuild useEffect, guarded by `searchInitVaultRef`); vault swap clears first. Lives in `knowledgeBase.tsx` so verification is e2e — landed alongside the palette wiring in PR 10c.
+- **SEARCH-4.1-05** 🧪 **Diagram save updates `field: "label" / "title" / "flow"` postings** — `diagramFields` extracts the fields; `onAfterDiagramSaved` re-reads via `readForSearchIndex` and re-adds. Field-extraction is unit-covered (`searchStream.test.ts`); the live save→reindex chain is exercised in the PR-10c e2e.
+
+> **Deferred to 10c+:** FileWatcher-driven polling reindex for changes made by other tools outside the app. The audit plan mentions it, but the 1 s save budget is met purely via the in-app save signal; FileWatcher's 5 s polling would not make that latency anyway. Tracked for a future iteration.
