@@ -1,7 +1,15 @@
 import { test, expect, type Page } from '@playwright/test'
 import { installMockFS } from './fixtures/fsMock'
 
-// Covers SHELL-1.11-01 through SHELL-1.11-05 (command palette open, filter, close, chip trigger, execute).
+// Covers SHELL-1.11-01 through SHELL-1.11-05 (command palette open, filter,
+// close, chip trigger, execute).
+//
+// KB-010c shifted the palette default mode from command-filter to vault
+// search. Command filtering is now reached by prefixing the input with `>`.
+// Tests that exercise command behaviour use `>` accordingly; the search
+// behaviour itself has its own dedicated spec (vaultSearch.spec.ts).
+
+const PALETTE_PLACEHOLDER = 'Search the vault, or > for commands…'
 
 async function setupFs(page: Page, seed: Record<string, string>) {
   await page.addInitScript(installMockFS)
@@ -49,10 +57,10 @@ test.describe('Command Palette', () => {
 
     await page.keyboard.press('Meta+k')
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
-    await expect(page.getByPlaceholder('Search commands…')).toBeVisible()
+    await expect(page.getByPlaceholder(PALETTE_PLACEHOLDER)).toBeVisible()
   })
 
-  test('SHELL-1.11-02: Typing in the palette filters results', async ({ page }) => {
+  test('SHELL-1.11-02: Typing > filters commands', async ({ page }) => {
     await setupFs(page, SEED)
     await openFolder(page)
     await openDocument(page, 'note.md')
@@ -61,11 +69,15 @@ test.describe('Command Palette', () => {
     await page.getByTestId('command-palette-trigger').click()
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
 
-    // Initially "Toggle Read / Edit Mode" should appear (document command registered)
+    // Empty input — palette shows the mode hint, no commands listed
+    await expect(page.getByText(/Type to search documents and diagrams/i)).toBeVisible()
+
+    // `>` shows all commands
+    await page.getByPlaceholder(PALETTE_PLACEHOLDER).fill('>')
     await expect(page.getByText('Toggle Read / Edit Mode').first()).toBeVisible({ timeout: 3000 })
 
-    // Type something that matches nothing
-    await page.getByPlaceholder('Search commands…').fill('xyzzy')
+    // `>xyzzy` matches nothing
+    await page.getByPlaceholder(PALETTE_PLACEHOLDER).fill('>xyzzy')
     await expect(page.getByText('No matching commands')).toBeVisible()
   })
 
@@ -87,7 +99,7 @@ test.describe('Command Palette', () => {
 
     await page.getByTestId('command-palette-trigger').click()
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
-    await expect(page.getByPlaceholder('Search commands…')).toBeVisible()
+    await expect(page.getByPlaceholder(PALETTE_PLACEHOLDER)).toBeVisible()
   })
 
   test('SHELL-1.11-05: Enter executes a command and closes the palette', async ({ page }) => {
@@ -99,11 +111,10 @@ test.describe('Command Palette', () => {
     await page.getByTestId('command-palette-trigger').click()
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
 
-    // Filter to the toggle-read-only command.  Use a query specific enough
-    // to land on Toggle Read / Edit Mode as the active item — bare "Toggle"
-    // also matches Toggle Focus Mode (registered earlier from the shell)
-    // so the active row would be the View command instead.
-    await page.getByPlaceholder('Search commands…').fill('Toggle Read')
+    // Filter to the toggle-read-only command using the `>` prefix.
+    // "Toggle Read" is specific enough to land on Toggle Read / Edit Mode
+    // as the active item — bare "Toggle" also matches Toggle Focus Mode.
+    await page.getByPlaceholder(PALETTE_PLACEHOLDER).fill('>Toggle Read')
     await expect(page.getByText('Toggle Read / Edit Mode').first()).toBeVisible({ timeout: 3000 })
 
     // Execute with Enter

@@ -8,6 +8,12 @@ import type { PaneType, FocusedPane } from "./ToolbarContext";
 export interface PaneEntry {
   filePath: string;
   fileType: PaneType;
+  /** One-shot intent consumed by the receiving view on mount. Used by
+   *  vault search (KB-010c) to centre + select a diagram node when a
+   *  label search hit is clicked. The view is responsible for treating
+   *  this as a single-fire signal — re-renders with the same entry
+   *  must not re-trigger. */
+  searchTarget?: { nodeId: string };
 }
 
 interface PaneManagerProps {
@@ -31,8 +37,12 @@ export function usePaneManager() {
   const [lastClosedPane, setLastClosedPane] = useState<PaneEntry | null>(null);
   const isSplit = rightPane !== null;
 
-  const openFile = useCallback((filePath: string, fileType: PaneType) => {
-    const entry: PaneEntry = { filePath, fileType };
+  const openFile = useCallback((
+    filePath: string,
+    fileType: PaneType,
+    opts?: { searchTarget?: { nodeId: string } },
+  ) => {
+    const entry: PaneEntry = { filePath, fileType, searchTarget: opts?.searchTarget };
     if (!isSplit) {
       setLeftPane(entry);
     } else if (focusedSide === "right") {
@@ -42,8 +52,12 @@ export function usePaneManager() {
     }
   }, [isSplit, focusedSide]);
 
-  const enterSplit = useCallback((filePath: string, fileType: PaneType) => {
-    const entry: PaneEntry = { filePath, fileType };
+  const enterSplit = useCallback((
+    filePath: string,
+    fileType: PaneType,
+    opts?: { searchTarget?: { nodeId: string } },
+  ) => {
+    const entry: PaneEntry = { filePath, fileType, searchTarget: opts?.searchTarget };
     setRightPane(entry);
     setFocusedSide("right");
   }, []);

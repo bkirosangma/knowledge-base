@@ -8,6 +8,7 @@
 // surface can decide whether to report or swallow them.
 
 import type { DocFields, DocKind } from "../features/search/VaultIndex";
+import { tokenize } from "../features/search/tokenizer";
 import type { DiagramData } from "../shared/utils/types";
 import { createDocumentRepository } from "./documentRepo";
 import { createDiagramRepository } from "./diagramRepo";
@@ -37,6 +38,45 @@ export async function readForSearchIndex(
     const data = await readOrNull(() => diagramRepo.read(path));
     if (data === null) return null;
     return { path, kind: "diagram", fields: diagramFields(data) };
+  }
+  return null;
+}
+
+/** Find the first node in `diagramPath` whose label or sub-label contains
+ *  any tokenised term in `query`. Used by the search UI to populate
+ *  `PaneEntry.searchTarget` when a diagram-side hit is clicked, so the
+ *  receiving `DiagramView` knows which node to centre + select. Returns
+ *  null when no match is found (the diagram still opens, just without a
+ *  centring intent).
+ *
+ *  Loose matching by design: the index ranks the diagram by all its
+ *  searchable fields, but the user "expected" a label to land on a
+ *  node, so any token hit is enough. */
+export async function findFirstNodeMatching(
+  rootHandle: FileSystemDirectoryHandle,
+  diagramPath: string,
+  query: string,
+): Promise<string | null> {
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return null;
+  const diagramRepo = createDiagramRepository(rootHandle);
+  const data = await readOrNull(() => diagramRepo.read(diagramPath));
+  if (!data) return null;
+  return firstNodeMatchingTokens(data, tokens);
+}
+
+/** Pure helper exported for tests: scan nodes for the first whose label
+ *  or sub-label contains any of the tokens. */
+export function firstNodeMatchingTokens(
+  data: DiagramData,
+  tokens: string[],
+): string | null {
+  if (tokens.length === 0) return null;
+  for (const node of data.nodes) {
+    const hay = `${node.label ?? ""} ${node.sub ?? ""}`.toLowerCase();
+    for (const t of tokens) {
+      if (hay.includes(t)) return node.id;
+    }
   }
   return null;
 }

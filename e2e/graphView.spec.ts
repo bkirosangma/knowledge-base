@@ -48,7 +48,7 @@ test.describe('Graph View', () => {
     await page.locator('[data-testid="knowledge-base"]').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('Meta+k')
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible({ timeout: 3000 })
-    await page.getByPlaceholder('Search commands…').fill('Graph')
+    await page.getByPlaceholder('Search the vault, or > for commands…').fill('>Graph')
     await page.keyboard.press('Enter')
 
     // Graph pane mounted
@@ -67,7 +67,7 @@ test.describe('Graph View', () => {
     // Open graph view via palette
     await page.locator('[data-testid="knowledge-base"]').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('Meta+k')
-    await page.getByPlaceholder('Search commands…').fill('Graph')
+    await page.getByPlaceholder('Search the vault, or > for commands…').fill('>Graph')
     await page.keyboard.press('Enter')
     await expect(page.getByTestId('graph-view')).toBeVisible({ timeout: 5000 })
 
@@ -95,7 +95,7 @@ test.describe('Graph View', () => {
     // Open graph view
     await page.locator('[data-testid="knowledge-base"]').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('Meta+k')
-    await page.getByPlaceholder('Search commands…').fill('Graph')
+    await page.getByPlaceholder('Search the vault, or > for commands…').fill('>Graph')
     await page.keyboard.press('Enter')
     await expect(page.getByTestId('graph-view')).toBeVisible({ timeout: 5000 })
 

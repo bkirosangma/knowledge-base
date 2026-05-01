@@ -3,11 +3,12 @@
 import { createContext, useContext, useState, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 
-export type PaneType = "diagram" | "document" | "graph" | "graphify" | "svgEditor";
+export type PaneType = "diagram" | "document" | "graph" | "graphify" | "search" | "svgEditor";
 
 /** Sentinel filePath used for the virtual graph pane (no on-disk file). */
 export const GRAPH_SENTINEL = "__graph__";
 export const GRAPHIFY_SENTINEL = "__graphify__";
+export const SEARCH_SENTINEL = "__search__";
 export type FocusedPane = "left" | "right" | "single";
 
 export interface ToolbarState {

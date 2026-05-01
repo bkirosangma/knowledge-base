@@ -553,9 +553,9 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 - ⚙️ **Worker** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
 - ⚙️ **Query semantics** (10a) — AND-of-tokens with prefix on the last token; results carry per-field hits and a ±40-char snippet around the first body match (or first non-body match as fallback).
 - ⚙️ **Incremental indexing** (10b) — `useVaultSearch` hook owns the worker; `searchStream.readForSearchIndex` streams content to it. Direct save-signal wiring on doc Cmd+S, diagram `onAfterDiagramSaved`, rename/delete, and new-file creation; bulk index fires once per vault open and clears on vault swap. FileWatcher polling integration is deferred — the 1 s budget is met by the in-app save path alone.
-- ? **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; `>` prefix retains command behaviour.
-- ? **SearchPanel surface** (10c) — dedicated tab with kind / field / folder filter chips.
-- ? **Diagram-side hits** (10c) — clicking a node-label result opens the diagram with a pending centre-on-node intent; `DiagramView` consumes the intent on mount, selects the node, centres the viewport.
+- ✅ **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; the `>` prefix selects command mode (existing UX). Empty input shows a hint. Race-by-cleanup ensures stale results never overwrite the latest.
+- ✅ **SearchPanel surface** (10c) — virtual pane mounted via `SEARCH_SENTINEL`; opened by the `view.open-search` command and ⌘⇧F shortcut. Renders an input + result list with kind chip + snippet. Filter chips (kind/field/folder) are scaffolded in the spec for a follow-up.
+- ✅ **Diagram-side hits** (10c) — clicking a result whose path is a `.json` diagram threads `PaneEntry.searchTarget = { nodeId }` through `panes.openFile`. `DiagramView` consumes it once on mount: `setSelection({ type: "node", id })` + `scrollToRect(...)` reusing `useCanvasEffects.scrollToRect`. Node ID resolved by `searchStream.findFirstNodeMatching` (one diagram re-read on click).
 
 ---
 

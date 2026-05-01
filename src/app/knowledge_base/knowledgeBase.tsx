@@ -22,8 +22,10 @@ import GraphView from "./features/graph/GraphView";
 import GraphifyView from "./features/graph/GraphifyView";
 import { collectAllPaths } from "./features/graph/hooks/useGraphData";
 import { useVaultSearch } from "./features/search/useVaultSearch";
-import { readForSearchIndex } from "./infrastructure/searchStream";
-import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL } from "./shell/ToolbarContext";
+import SearchPanel from "./features/search/SearchPanel";
+import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
+import type { SearchResult } from "./features/search/VaultIndex";
+import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL, SEARCH_SENTINEL } from "./shell/ToolbarContext";
 import { FooterProvider } from "./shell/FooterContext";
 import { RepositoryProvider } from "./shell/RepositoryContext";
 import { ShellErrorProvider, useShellErrors } from "./shell/ShellErrorContext";
@@ -523,7 +525,7 @@ function KnowledgeBaseInner() {
   // entry users can click. (Phase 3 PR 2.)
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
-    if (path && path !== GRAPH_SENTINEL && path !== GRAPHIFY_SENTINEL) addToRecents(path);
+    if (path && path !== GRAPH_SENTINEL && path !== GRAPHIFY_SENTINEL && path !== SEARCH_SENTINEL) addToRecents(path);
   }, [panes.activeEntry?.filePath, addToRecents]);
 
   // ─── "Go to file…" command in palette ───
@@ -622,7 +624,7 @@ function KnowledgeBaseInner() {
       // won't be in `allPaths`, so we accept it explicitly. Other panes
       // still validate against the tree to avoid restoring deleted files.
       const isValidEntry = (e: PaneEntry | null): boolean =>
-        !!e && (e.fileType === "graph" || e.fileType === "graphify" || allPaths.has(e.filePath));
+        !!e && (e.fileType === "graph" || e.fileType === "graphify" || e.fileType === "search" || allPaths.has(e.filePath));
       const validLeft = isValidEntry(savedLayout.leftPane) ? savedLayout.leftPane : null;
       const validRight = isValidEntry(savedLayout.rightPane) ? savedLayout.rightPane : null;
 
@@ -767,6 +769,42 @@ function KnowledgeBaseInner() {
     }
   }, [panesOpenFile]);
 
+  // ─── KB-010c: Search panel + palette result picker ──────────────
+  const handleToggleSearchPanel = useCallback(() => {
+    const p = panesRef.current;
+    const leftIsSearch  = p.leftPane?.fileType  === "search";
+    const rightIsSearch = p.rightPane?.fileType === "search";
+    if (leftIsSearch || rightIsSearch) {
+      const side = leftIsSearch ? "left" : "right";
+      p.setFocusedSide(side);
+      p.closeFocusedPane();
+    } else {
+      panesOpenFile(SEARCH_SENTINEL, "search");
+    }
+  }, [panesOpenFile]);
+
+  // Vault-search result picker — used by both the palette and the
+  // dedicated SearchPanel. For diagram hits, re-reads the diagram once
+  // to find the first node whose label matches the query, then opens
+  // with `PaneEntry.searchTarget` so DiagramView can centre + select on
+  // mount. For doc hits it just opens the document.
+  const handleSearchPick = useCallback(async (result: SearchResult, query: string) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (result.kind === "diagram") {
+      let nodeId: string | null = null;
+      if (rootHandle) {
+        try {
+          nodeId = await findFirstNodeMatching(rootHandle, result.path, query);
+        } catch {
+          /* fall through with no centring intent */
+        }
+      }
+      panesOpenFile(result.path, "diagram", nodeId ? { searchTarget: { nodeId } } : undefined);
+    } else {
+      panesOpenFile(result.path, "document");
+    }
+  }, [fileExplorer.dirHandleRef, panesOpenFile]);
+
   // Click-from-graph: open the file in the OPPOSITE pane so the graph
   // never gets replaced by the click. Three sub-cases:
   //   (a) Single pane = graph → split: graph stays left, file opens right.
@@ -825,6 +863,31 @@ function KnowledgeBaseInner() {
   }], [handleToggleGraphify]);
   useRegisterCommands(openGraphifyCommands);
 
+  const openSearchCommands = useMemo(() => [{
+    id: "view.open-search",
+    title: "Toggle Search Panel",
+    group: "View",
+    shortcut: "⌘⇧F",
+    run: handleToggleSearchPanel,
+  }], [handleToggleSearchPanel]);
+  useRegisterCommands(openSearchCommands);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el) {
+          const tag = el.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
+        }
+        e.preventDefault();
+        handleToggleSearchPanel();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleToggleSearchPanel]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "g" || e.key === "G")) {
@@ -859,6 +922,14 @@ function KnowledgeBaseInner() {
 
   // ─── Render pane callback for PaneManager ───
   const renderPane = useCallback((entry: PaneEntry, focused: boolean, side: "left" | "right") => {
+    if (entry.fileType === "search") {
+      return (
+        <SearchPanel
+          searchFn={searchManager.search}
+          onResultClick={handleSearchPick}
+        />
+      );
+    }
     if (entry.fileType === "graphify") {
       return (
         <GraphifyView
@@ -892,6 +963,7 @@ function KnowledgeBaseInner() {
           focused={focused}
           side={side}
           activeFile={entry.filePath}
+          searchTarget={entry.searchTarget}
           fileExplorer={fileExplorer}
           onOpenDocument={handleOpenDocument}
           documents={docManager.documents}
@@ -1097,7 +1169,7 @@ function KnowledgeBaseInner() {
           recentFiles={recentFiles}
           searchInputRef={explorerSearchRef}
         />
-        <CommandPalette />
+        <CommandPalette searchFn={searchManager.search} onSearchPick={handleSearchPick} />
       </div>
     ) : (
     <div
@@ -1204,7 +1276,7 @@ function KnowledgeBaseInner() {
       {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
-      <CommandPalette />
+      <CommandPalette searchFn={searchManager.search} onSearchPick={handleSearchPick} />
 
       {/* Confirmation popover — bridge-owned (diagram open) or shell-owned (no diagram) */}
       {confirmAction && (
