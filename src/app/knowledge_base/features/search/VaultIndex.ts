@@ -1,4 +1,4 @@
-// Vault search inverted index (KB-010 / SEARCH-1.2).
+// Vault search inverted index (KB-010 / SEARCH-8.2).
 //
 // In-memory `Map<token, Posting[]>` keyed by token. Each posting links a
 // token back to one (path, field) tuple plus the character offsets where

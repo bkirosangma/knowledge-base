@@ -1,4 +1,4 @@
-// Vault search tokenizer (KB-010 / SEARCH-1.1).
+// Vault search tokenizer (KB-010 / SEARCH-8.1).
 //
 // Produces a canonical lowercased token stream from arbitrary text. The
 // regex captures runs of unicode word characters and digits, which is

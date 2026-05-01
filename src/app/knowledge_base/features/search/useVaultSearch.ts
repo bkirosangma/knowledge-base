@@ -1,4 +1,4 @@
-// React hook for vault search (KB-010b / SEARCH-4.x).
+// React hook for vault search (KB-010b / SEARCH-8.8).
 //
 // Owns the search worker's lifecycle, multiplexes QUERY/RESULTS by id,
 // and exposes a small API the shell uses to pump incremental updates and

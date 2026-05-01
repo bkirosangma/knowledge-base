@@ -50,7 +50,7 @@ function createTestClient(): { client: SearchWorkerClient; deliver: () => void }
 }
 
 describe("useVaultSearch", () => {
-  it("SEARCH-4.1-01: edit reflects in search after addDoc replaces the entry", async () => {
+  it("SEARCH-8.8-01: edit reflects in search after addDoc replaces the entry", async () => {
     const { client } = createTestClient();
     const { result } = renderHook(() => useVaultSearch(() => client));
 
@@ -77,7 +77,7 @@ describe("useVaultSearch", () => {
     expect(elapsed).toBeLessThan(1000);
   });
 
-  it("SEARCH-4.1-02: renamePath drops the old path and adds the new", async () => {
+  it("SEARCH-8.8-02: renamePath drops the old path and adds the new", async () => {
     const { client } = createTestClient();
     const { result } = renderHook(() => useVaultSearch(() => client));
     await waitFor(() => expect(result.current.ready).toBe(true));
@@ -93,7 +93,7 @@ describe("useVaultSearch", () => {
     expect((await result.current.search("alpha")).map((r) => r.path)).toEqual(["new.md"]);
   });
 
-  it("SEARCH-4.1-03: removePath drops a doc from the index", async () => {
+  it("SEARCH-8.8-03: removePath drops a doc from the index", async () => {
     const { client } = createTestClient();
     const { result } = renderHook(() => useVaultSearch(() => client));
     await waitFor(() => expect(result.current.ready).toBe(true));

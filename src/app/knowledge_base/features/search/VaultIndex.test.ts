@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { VaultIndex } from "./VaultIndex";
 
 describe("VaultIndex — basics", () => {
-  it("SEARCH-1.2-01: addDoc registers a doc and indexes its body", () => {
+  it("SEARCH-8.2-01: addDoc registers a doc and indexes its body", () => {
     const idx = new VaultIndex();
     idx.addDoc("notes/a.md", "doc", { body: "alpha bravo charlie" });
     const r = idx.query("alpha");
@@ -12,7 +12,7 @@ describe("VaultIndex — basics", () => {
     expect(r[0].fieldHits.some((h) => h.field === "body")).toBe(true);
   });
 
-  it("SEARCH-1.2-02: addDoc is idempotent on the same path", () => {
+  it("SEARCH-8.2-02: addDoc is idempotent on the same path", () => {
     const idx = new VaultIndex();
     idx.addDoc("notes/a.md", "doc", { body: "alpha alpha alpha" });
     idx.addDoc("notes/a.md", "doc", { body: "alpha alpha alpha" });
@@ -22,7 +22,7 @@ describe("VaultIndex — basics", () => {
     expect(r[0].score).toBe(3);
   });
 
-  it("SEARCH-1.2-03: removeDoc clears all postings for the path", () => {
+  it("SEARCH-8.2-03: removeDoc clears all postings for the path", () => {
     const idx = new VaultIndex();
     idx.addDoc("a.md", "doc", { body: "alpha" });
     idx.addDoc("b.md", "doc", { body: "alpha bravo" });
@@ -33,7 +33,7 @@ describe("VaultIndex — basics", () => {
     expect(idx.has("b.md")).toBe(true);
   });
 
-  it("SEARCH-1.2-04: query AND-of-tokens", () => {
+  it("SEARCH-8.2-04: query AND-of-tokens", () => {
     const idx = new VaultIndex();
     idx.addDoc("both.md", "doc", { body: "alpha and bravo" });
     idx.addDoc("alpha.md", "doc", { body: "alpha only" });
@@ -42,7 +42,7 @@ describe("VaultIndex — basics", () => {
     expect(paths).toEqual(["both.md"]);
   });
 
-  it("SEARCH-1.2-05: query prefix-matches the last token only", () => {
+  it("SEARCH-8.2-05: query prefix-matches the last token only", () => {
     const idx = new VaultIndex();
     idx.addDoc("alpha.md", "doc", { body: "alpha" });
     idx.addDoc("alphabet.md", "doc", { body: "alphabet" });
@@ -63,7 +63,7 @@ describe("VaultIndex — basics", () => {
     expect(idx.query("alp alpha")).toEqual([]);
   });
 
-  it("SEARCH-1.2-06: diagram fields tagged distinctly", () => {
+  it("SEARCH-8.2-06: diagram fields tagged distinctly", () => {
     const idx = new VaultIndex();
     idx.addDoc("d.json", "diagram", {
       title: "topology",
@@ -84,7 +84,7 @@ describe("VaultIndex — basics", () => {
     expect(lr[0].fieldHits.some((h) => h.field === "title")).toBe(true);
   });
 
-  it("SEARCH-1.2-07: snippet around first body hit has ±40 char radius", () => {
+  it("SEARCH-8.2-07: snippet around first body hit has ±40 char radius", () => {
     const body = "lorem ipsum dolor sit amet, consectetur adipiscing elit. alpha is here. sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
     const idx = new VaultIndex();
     idx.addDoc("a.md", "doc", { body });
@@ -99,7 +99,7 @@ describe("VaultIndex — basics", () => {
     expect(r[0].snippet.length).toBeLessThanOrEqual(82);
   });
 
-  it("SEARCH-1.2-07b: snippet falls back to non-body field when no body match", () => {
+  it("SEARCH-8.2-07b: snippet falls back to non-body field when no body match", () => {
     const idx = new VaultIndex();
     idx.addDoc("d.json", "diagram", {
       nodeLabels: ["alpha service", "beta service", "gamma service"],
@@ -109,7 +109,7 @@ describe("VaultIndex — basics", () => {
     expect(r[0].snippet).toContain("beta");
   });
 
-  it("SEARCH-1.2-08: size() reflects registered docs", () => {
+  it("SEARCH-8.2-08: size() reflects registered docs", () => {
     const idx = new VaultIndex();
     expect(idx.size()).toBe(0);
     idx.addDoc("a.md", "doc", { body: "x" });
@@ -119,7 +119,7 @@ describe("VaultIndex — basics", () => {
     expect(idx.size()).toBe(1);
   });
 
-  it("SEARCH-1.2-09: clear() empties the index", () => {
+  it("SEARCH-8.2-09: clear() empties the index", () => {
     const idx = new VaultIndex();
     idx.addDoc("a.md", "doc", { body: "alpha" });
     idx.addDoc("b.md", "doc", { body: "alpha" });
@@ -152,7 +152,7 @@ describe("VaultIndex — basics", () => {
   });
 });
 
-describe("VaultIndex — performance (SEARCH-1.4-01)", () => {
+describe("VaultIndex — performance (SEARCH-8.4-01)", () => {
   // 200-doc synthetic vault. Median query latency must stay under 50 ms.
   // Builds the corpus programmatically so the perf check doesn't depend
   // on committed fixture files.

@@ -1,6 +1,6 @@
 "use client";
 
-// Dedicated search surface (KB-010c / SEARCH-2.2). Mounts as a virtual
+// Dedicated search surface (KB-010c / SEARCH-8.6). Mounts as a virtual
 // pane via the SEARCH_SENTINEL pattern, mirroring the Graph view. v1
 // renders an input + results list; filter chips for kind / field /
 // folder are scaffolded into the spec but deferred per the stop

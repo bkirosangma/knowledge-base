@@ -14,7 +14,7 @@ function captureHandler(): {
 }
 
 describe("vaultIndex.workerHandler", () => {
-  it("SEARCH-1.3-01: ADD_DOC indexes the doc; query returns it", () => {
+  it("SEARCH-8.3-01: ADD_DOC indexes the doc; query returns it", () => {
     const { handle, out } = captureHandler();
     handle({ type: "ADD_DOC", path: "a.md", kind: "doc", fields: { body: "alpha bravo" } });
     expect(out).toEqual([]); // ADD_DOC has no response
@@ -27,7 +27,7 @@ describe("vaultIndex.workerHandler", () => {
     }
   });
 
-  it("SEARCH-1.3-02: REMOVE drops the doc; subsequent QUERY returns nothing", () => {
+  it("SEARCH-8.3-02: REMOVE drops the doc; subsequent QUERY returns nothing", () => {
     const { handle, out } = captureHandler();
     handle({ type: "ADD_DOC", path: "a.md", kind: "doc", fields: { body: "alpha" } });
     handle({ type: "REMOVE", path: "a.md" });
@@ -36,14 +36,14 @@ describe("vaultIndex.workerHandler", () => {
     expect(out[0]).toEqual({ type: "RESULTS", id: 7, items: [] });
   });
 
-  it("SEARCH-1.3-03: QUERY echoes the request id", () => {
+  it("SEARCH-8.3-03: QUERY echoes the request id", () => {
     const { handle, out } = captureHandler();
     handle({ type: "ADD_DOC", path: "a.md", kind: "doc", fields: { body: "alpha" } });
     handle({ type: "QUERY", id: 42, q: "alpha", limit: 1 });
     expect(out[0]).toMatchObject({ type: "RESULTS", id: 42 });
   });
 
-  it("SEARCH-1.3-04: CLEAR empties the index", () => {
+  it("SEARCH-8.3-04: CLEAR empties the index", () => {
     const { handle, out } = captureHandler();
     handle({ type: "ADD_DOC", path: "a.md", kind: "doc", fields: { body: "alpha" } });
     handle({ type: "CLEAR" });
@@ -51,7 +51,7 @@ describe("vaultIndex.workerHandler", () => {
     expect(out).toEqual([{ type: "RESULTS", id: 0, items: [] }]);
   });
 
-  it("SEARCH-1.3-05: unknown message type produces ERROR", () => {
+  it("SEARCH-8.3-05: unknown message type produces ERROR", () => {
     const { handle, out } = captureHandler();
     handle({ type: "WHATEVER" });
     expect(out).toHaveLength(1);
