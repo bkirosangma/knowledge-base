@@ -1,6 +1,6 @@
 # Test Cases — Vault Search (KB-010)
 
-> Mirrors §11 of [Features.md](../Features.md). Covers PRs 10a (index core), 10b
+> Mirrors §8 of [Features.md](../Features.md). Covers PRs 10a (index core), 10b
 > (incremental wiring), and 10c (UI surfaces) with stable IDs that survive the
 > sequence — landing tests can flip status without renumbering.
 >
