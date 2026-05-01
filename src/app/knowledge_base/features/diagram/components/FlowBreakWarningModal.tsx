@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import type { FlowDef } from "../types";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 
 interface FlowBreakWarningModalProps {
   description: string;
@@ -8,9 +10,13 @@ interface FlowBreakWarningModalProps {
 }
 
 export default function FlowBreakWarningModal({ description, brokenFlows, onCancel, onConfirm }: FlowBreakWarningModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // KB-031: focus trap — Tab cycles inside the dialog; Escape calls
+  // `onCancel`; focus returns to the trigger on close.
+  useFocusTrap(dialogRef, true, { onEscape: onCancel });
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" onClick={onCancel}>
-      <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-semibold text-slate-800 mb-2">
           This will break {brokenFlows.length === 1 ? "a flow" : "flows"}
         </h3>

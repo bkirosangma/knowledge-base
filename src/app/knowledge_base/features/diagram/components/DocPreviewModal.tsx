@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { FileText, X, ExternalLink, Loader2 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { markdownToHtml } from "../../document/extensions/markdownSerializer";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 
 interface DocPreviewModalProps {
   docPath: string;
@@ -63,14 +64,11 @@ export default function DocPreviewModal({
     return () => { cancelled = true; };
   }, [docPath, readDocument]);
 
-  const handleKey = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  }, [onClose]);
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [handleKey]);
+  // KB-031: focus trap — captures the trigger, focuses the first
+  // interactive element (the close button), traps Tab within the
+  // dialog, restores focus on close. Escape calls `onClose`.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true, { onEscape: onClose });
 
   useEffect(() => {
     const el = filenameRef.current;
@@ -123,6 +121,7 @@ export default function DocPreviewModal({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="doc-preview-title"

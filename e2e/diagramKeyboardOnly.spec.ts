@@ -78,8 +78,7 @@ test.describe("Diagram keyboard-only golden path (KB-030)", () => {
     // Save. The save button is reachable via Tab from the canvas; rather
     // than count Tab stops (host-dependent), focus it directly via its
     // accessible name and press Space — the keyboard-equivalent of click.
-    await page.getByRole("button", { name: /^save$/i }).focus();
-    await page.keyboard.press("Space");
+    await page.keyboard.press("Meta+s");
 
     // Verify n1 moved 24,16 from seed (120,120) → (144,136).
     const saved1 = await readMockFile(page, "flow.json");
@@ -103,9 +102,14 @@ test.describe("Diagram keyboard-only golden path (KB-030)", () => {
     await page.keyboard.press("Delete");
     await expect(page.locator('[data-testid="node-n2"]')).toHaveCount(0);
 
-    // Save again, verify only n1 remains.
-    await page.getByRole("button", { name: /^save$/i }).focus();
-    await page.keyboard.press("Space");
+    // Save again. Wait for the dirty indicator to flip back to clean
+    // before reading from disk — `handleSave` is async and toggles the
+    // tracking ref before the write resolves; under parallel test load
+    // a bare `keyboard.press("Space")` + immediate read can race the
+    // file-write completion.
+    await page.keyboard.press("Meta+s");
+    await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({ timeout: 3000 });
+    await page.waitForTimeout(50);
     const saved2 = await readMockFile(page, "flow.json");
     const diagram2 = JSON.parse(saved2!) as { nodes: Array<{ id: string }> };
     expect(diagram2.nodes.map((n) => n.id)).toEqual(["n1"]);
