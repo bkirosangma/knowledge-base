@@ -270,4 +270,56 @@ function ConditionElement({
   );
 }
 
-export default React.memo(ConditionElement);
+/**
+ * KB-021: custom memo equality. Same approach as Element — compare
+ * data / visual-state props, ignore handler identities and recomputed
+ * arrays. Includes condition-specific fields (`outCount`, `rotation`).
+ */
+function shallowEqArr<T>(a: T[] | undefined, b: T[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function arePropsEqual(p: ConditionElementProps, n: ConditionElementProps): boolean {
+  return (
+    // Data fields
+    p.id === n.id &&
+    p.label === n.label &&
+    p.icon === n.icon &&
+    p.x === n.x &&
+    p.y === n.y &&
+    p.w === n.w &&
+    p.h === n.h &&
+    p.outCount === n.outCount &&
+    p.rotation === n.rotation &&
+    p.bgColor === n.bgColor &&
+    p.borderColor === n.borderColor &&
+    p.textColor === n.textColor &&
+    p.flowRole === n.flowRole &&
+    // Visual-state booleans
+    p.showLabels === n.showLabels &&
+    p.isDragging === n.isDragging &&
+    p.isSelected === n.isSelected &&
+    p.showAnchors === n.showAnchors &&
+    p.highlightedAnchor === n.highlightedAnchor &&
+    p.dimmed === n.dimmed &&
+    p.hasDocuments === n.hasDocuments &&
+    // Handlers — see Element.tsx for the rationale. Included so that
+    // read-only-toggling closures reach the component promptly.
+    p.onDragStart === n.onDragStart &&
+    p.onAnchorDragStart === n.onAnchorDragStart &&
+    p.onMouseEnter === n.onMouseEnter &&
+    p.onMouseLeave === n.onMouseLeave &&
+    p.onResize === n.onResize &&
+    p.onDoubleClick === n.onDoubleClick &&
+    p.onAddOutAnchor === n.onAddOutAnchor &&
+    p.onRotationDragStart === n.onRotationDragStart &&
+    p.onDocNavigate === n.onDocNavigate &&
+    shallowEqArr(p.documentPaths, n.documentPaths)
+  );
+}
+
+export default React.memo(ConditionElement, arePropsEqual);

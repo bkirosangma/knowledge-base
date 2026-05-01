@@ -208,4 +208,71 @@ function Element({
   );
 }
 
-export default React.memo(Element);
+/**
+ * KB-021: custom memo equality.
+ *
+ * Comparing only the props that actually drive Element's render output
+ * (data, colors, flow role, and the visual-state booleans) lets the
+ * memo survive parent renders that recreate handler identities or the
+ * `documentPaths` array each time. The handler list is intentionally
+ * skipped — `useDiagramController` produces them via `useCallback`, so
+ * the OLD render's handler is functionally identical. `anchors` is
+ * also skipped: it's derived from x / y / w / measuredHeight, all of
+ * which are compared above; any anchor-relevant change implies a data
+ * change that re-renders Element anyway.
+ *
+ * Acceptance criterion: dragging one node on a 50-node diagram should
+ * re-render only the dragged node (its x / y / dimmed change) plus a
+ * couple of overlay components — never the other 49 Elements.
+ */
+function shallowEqArr<T>(a: T[] | undefined, b: T[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
+  return (
+    // Data fields (KB-021 spec: id, x, y, w, h, label, colors, flowRole)
+    p.id === n.id &&
+    p.label === n.label &&
+    p.sub === n.sub &&
+    p.icon === n.icon &&
+    p.x === n.x &&
+    p.y === n.y &&
+    p.w === n.w &&
+    p.measuredHeight === n.measuredHeight &&
+    p.bgColor === n.bgColor &&
+    p.borderColor === n.borderColor &&
+    p.textColor === n.textColor &&
+    p.flowRole === n.flowRole &&
+    // Visual-state booleans — without these, selection/drag/dim feedback
+    // would lag a render
+    p.showLabels === n.showLabels &&
+    p.isDragging === n.isDragging &&
+    p.isSelected === n.isSelected &&
+    p.showAnchors === n.showAnchors &&
+    p.highlightedAnchor === n.highlightedAnchor &&
+    p.dimmed === n.dimmed &&
+    p.hasDocuments === n.hasDocuments &&
+    // Handlers — included so that closures depending on changing state
+    // (e.g. `useNodeDrag`'s `handleDragStart` closes over `isBlocked`,
+    // which flips with read-only mode) reach Element promptly. They're
+    // useCallback-stable mid-drag, so this does not bust the memo per
+    // frame.
+    p.onDragStart === n.onDragStart &&
+    p.onAnchorDragStart === n.onAnchorDragStart &&
+    p.onAnchorHover === n.onAnchorHover &&
+    p.onAnchorHoverEnd === n.onAnchorHoverEnd &&
+    p.onMouseEnter === n.onMouseEnter &&
+    p.onMouseLeave === n.onMouseLeave &&
+    p.onResize === n.onResize &&
+    p.onDoubleClick === n.onDoubleClick &&
+    p.onDocNavigate === n.onDocNavigate &&
+    shallowEqArr(p.documentPaths, n.documentPaths)
+  );
+}
+
+export default React.memo(Element, arePropsEqual);
