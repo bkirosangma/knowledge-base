@@ -10,10 +10,11 @@ const md = MarkdownIt({ html: true, linkify: true, typographer: false });
  * structured HTML. Wiki-links are preserved as [[...]] in the output.
  */
 export function htmlToMarkdown(html: string): string {
-  // Create a temporary DOM element
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return nodeToMarkdown(div).trim();
+  // KB-024: DOMParser instead of innerHTML. nodeToMarkdown's default
+  // switch case returns the children string, so a `body` root acts as
+  // a transparent wrapper the same way the original `div` did.
+  const dom = new DOMParser().parseFromString(html, "text/html");
+  return nodeToMarkdown(dom.body).trim();
 }
 
 function nodeToMarkdown(node: Node): string {

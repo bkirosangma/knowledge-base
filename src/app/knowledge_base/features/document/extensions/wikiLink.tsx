@@ -207,7 +207,14 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         const desiredIcon = kind === "diagram" ? ICON_DIAGRAM : ICON_DOC;
         if (iconEl.dataset.kind !== kind) {
           iconEl.dataset.kind = kind;
-          iconEl.innerHTML = desiredIcon;
+          // KB-024: DOMParser instead of innerHTML. The icon strings
+          // are hardcoded constants so the risk surface here is tiny,
+          // but the rule applies broadly — DOM assembly via the
+          // scriptable HTML setter is the path we want to retire.
+          const svg = new DOMParser()
+            .parseFromString(desiredIcon, "text/html")
+            .body.firstElementChild;
+          iconEl.replaceChildren(...(svg ? [svg] : []));
         }
         if (textEl.textContent !== display) textEl.textContent = display;
         const kindLabel = kind === "diagram" ? "diagram" : "doc";
@@ -397,19 +404,27 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
           function renderList() {
             if (!popup) return;
-            popup.innerHTML = currentItems
-              .map((item, i) => {
-                const hl =
-                  i === selectedIndex
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-700 hover:bg-slate-50";
-                return `<div class="px-3 py-1.5 text-xs cursor-pointer ${hl}" data-index="${i}">${item}</div>`;
-              })
-              .join("");
-            popup.querySelectorAll<HTMLElement>("[data-index]").forEach((el) => {
-              el.addEventListener("click", () => {
-                commandFn?.({ id: el.textContent ?? "" });
+            const host = popup;
+            // KB-024: build the list with explicit DOM nodes instead of
+            // an innerHTML template. Filenames are coerced through
+            // `textContent`, so any HTML-special characters (`<`, `&`,
+            // `"`) in a path render as literal text — closes the
+            // template-injection footgun the original string-concat
+            // form left open.
+            host.replaceChildren();
+            currentItems.forEach((item, i) => {
+              const row = document.createElement("div");
+              const hl =
+                i === selectedIndex
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-700 hover:bg-slate-50";
+              row.className = `px-3 py-1.5 text-xs cursor-pointer ${hl}`;
+              row.dataset.index = String(i);
+              row.textContent = item;
+              row.addEventListener("click", () => {
+                commandFn?.({ id: item });
               });
+              host.appendChild(row);
             });
           }
 
