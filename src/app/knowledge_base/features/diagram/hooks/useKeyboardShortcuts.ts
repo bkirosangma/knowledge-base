@@ -124,10 +124,17 @@ export function useKeyboardShortcuts({
     };
 
     document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mouseup", onMouseUp);
+    // Listen on `document` rather than `window` so the click → selection
+    // commit fires reliably even when bubble propagation stops at the
+    // document level. KB-020 split DiagramView's interaction state into
+    // a nested context-provider tree; in that arrangement (with React 19)
+    // mouseup events targeting a node element bubble up to `document`
+    // but do not always continue to `window`. Document-level catches the
+    // same events and is strictly more robust.
+    document.addEventListener("mouseup", onMouseUp);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("mouseup", onMouseUp);
     };
   }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly, onFirstKeystrokeInReadMode]);
 
