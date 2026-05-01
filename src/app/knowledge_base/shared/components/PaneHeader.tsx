@@ -75,7 +75,7 @@ export default function PaneHeader({
   const [titleDraft, setTitleDraft] = useState(title ?? "");
 
   return (
-    <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
+    <div data-print-hide="true" className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
       <div className="flex items-center gap-1 text-xs text-mute flex-shrink-0">
         {pathParts.map((part, i) => (
           <React.Fragment key={i}>

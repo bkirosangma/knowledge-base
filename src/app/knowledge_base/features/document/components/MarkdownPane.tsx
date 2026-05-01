@@ -10,6 +10,8 @@ import BacklinksRail from "./BacklinksRail";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import PaneHeader from "../../../shared/components/PaneHeader";
 import { useRegisterCommands } from "../../../shared/context/CommandRegistry";
+import ExportMenu from "../../export/ExportMenu";
+import { printDocument } from "../../export/printDocument";
 
 interface MarkdownPaneProps {
   filePath: string | null;           // currently open document path
@@ -148,7 +150,7 @@ export default function MarkdownPane({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white" data-pane-content="document">
       <PaneHeader
         filePath={filePath}
         readOnly={readOnly}
@@ -169,6 +171,8 @@ export default function MarkdownPane({
             {backlinks.length} reference{backlinks.length !== 1 ? "s" : ""}
           </button>
         )}
+        {/* KB-011: Export menu — document → Print / Save as PDF */}
+        <ExportMenu paneType="document" handlers={{ print: () => { printDocument(); } }} />
       </PaneHeader>
 
       {/* Reading progress bar — read mode only.  Mounted (not just hidden)

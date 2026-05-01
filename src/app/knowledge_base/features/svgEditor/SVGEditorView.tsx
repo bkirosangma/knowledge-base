@@ -5,6 +5,10 @@ import PaneHeader from "../../shared/components/PaneHeader";
 import SVGCanvas, { type SVGCanvasHandle, type SVGStyle, type SVGTool } from "./components/SVGCanvas";
 import SVGToolbar from "./components/SVGToolbar";
 import { useSVGPersistence } from "./hooks/useSVGPersistence";
+import ExportMenu from "../export/ExportMenu";
+import { rasterizeSVG } from "../export/exportDiagramPNG";
+import { exportFilename } from "../export/exportFilename";
+import { downloadBlob } from "../export/downloadBlob";
 
 export interface SVGEditorBridge {
   isDirty: boolean;
@@ -115,7 +119,26 @@ export default function SVGEditorView({
         hasActiveFile={activeFile !== null}
         onSave={handleSave}
         onDiscard={() => handleDiscard()}
-      />
+      >
+        {/* KB-011: Export menu — svgEditor → SVG (raw source) / PNG (rasterised) */}
+        <ExportMenu
+          paneType="svgEditor"
+          handlers={{
+            svg: () => {
+              const svg = canvasRef.current?.getSvgString();
+              if (!svg) return;
+              const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+              downloadBlob(blob, exportFilename(activeFile, "svg", "diagram"));
+            },
+            png: async () => {
+              const svg = canvasRef.current?.getSvgString();
+              if (!svg) return;
+              const { blob } = await rasterizeSVG(svg);
+              downloadBlob(blob, exportFilename(activeFile, "png", "diagram"));
+            },
+          }}
+        />
+      </PaneHeader>
       <SVGToolbar
         activeTool={activeTool}
         onToolChange={handleToolChange}

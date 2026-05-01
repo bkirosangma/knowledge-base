@@ -19,6 +19,11 @@ import type { LineCurveAlgorithm, Selection, FlowDef } from "./types";
 import { isItemSelected } from "./utils/selectionUtils";
 import { useSelectionRect } from "./hooks/useSelectionRect";
 import { loadDefaults, serializeNodes } from "../../shared/utils/persistence";
+import ExportMenu from "../export/ExportMenu";
+import { exportDiagramSVG } from "../export/exportDiagramSVG";
+import { exportDiagramPNG } from "../export/exportDiagramPNG";
+import { exportFilename } from "../export/exportFilename";
+import { downloadBlob } from "../export/downloadBlob";
 import { computeLevelMap } from "./utils/levelModel";
 import { computeRegions } from "./utils/layerBounds";
 import { LAYER_PADDING, LAYER_TITLE_OFFSET } from "./utils/constants";
@@ -1116,7 +1121,41 @@ export default function DiagramView({
             hasActiveFile={!!activeFile}
             onSave={handleSave}
             onDiscard={handleDiscard}
-          />
+          >
+            {/* KB-011: Export menu — diagram → SVG / PNG */}
+            <ExportMenu
+              paneType="diagram"
+              handlers={{
+                svg: () => {
+                  const data = {
+                    title,
+                    layers: layerDefs,
+                    nodes: serializeNodes(nodes),
+                    connections,
+                    flows,
+                    layerManualSizes,
+                    lineCurve,
+                  };
+                  const svg = exportDiagramSVG(data);
+                  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+                  downloadBlob(blob, exportFilename(activeFile, "svg", "diagram"));
+                },
+                png: async () => {
+                  const data = {
+                    title,
+                    layers: layerDefs,
+                    nodes: serializeNodes(nodes),
+                    connections,
+                    flows,
+                    layerManualSizes,
+                    lineCurve,
+                  };
+                  const { blob } = await exportDiagramPNG(data);
+                  downloadBlob(blob, exportFilename(activeFile, "png", "diagram"));
+                },
+              }}
+            />
+          </PaneHeader>
 
           {/* Diagram toolbar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-surface-2 border-b border-line z-10">

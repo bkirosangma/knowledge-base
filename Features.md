@@ -587,15 +587,41 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 9. Test & Verification Infrastructure
+## 9. Export (KB-011)
 
-### 9.1 Unit (Vitest)
+`features/export/`. Prose spec: [`test-cases/09-export.md`](test-cases/09-export.md).
+
+### 9.1 Diagram → SVG
+`features/export/exportDiagramSVG.ts`
+- ✅ **Pure `(doc: DiagramData) => string`** — produces a standalone SVG with inlined colours so it renders without app CSS. Re-uses `computeRegions` (layer rects), `getNodeHeight` / `getConditionDimensions`, `getConditionPath`, `computePath` (connection geometry), and the existing `getNodeAnchorPosition` so the export geometry matches the canvas.
+- 🚫 **Lucide icons inside nodes** — out of scope for v1; nodes show their label text only.
+
+### 9.2 Diagram → PNG
+`features/export/exportDiagramPNG.ts`
+- ✅ **Wraps SVG export, rasterises via `<canvas>`** — encodes the SVG as a data URL, draws into an offscreen canvas with `scale = max(2, 1500 / svgIntrinsicWidth)` so the output is always ≥1500 px wide, then `toBlob('image/png')` and downloads.
+
+### 9.3 Document → printable PDF
+`features/export/printDocument.ts`, `app/globals.print.css`
+- ✅ **`printDocument()` toggles `body[data-printing="document"]`, calls `window.print`, clears on `afterprint`** — print stylesheet keys on the attribute so split-pane / graph / search surfaces aren't accidentally hidden in non-print contexts.
+
+### 9.4 ExportMenu
+`features/export/ExportMenu.tsx`, mounted by `shared/components/PaneHeader.tsx`
+- ✅ **Menu in pane header** — items chosen by `getExportItems(paneType)`: diagram → SVG/PNG, document → Print, svgEditor → SVG/PNG, others → none. Trigger is hidden when there are no items.
+
+### 9.5 Filenames
+- ✅ **`<basename>.<ext>` with browser-handled collisions** — slash-stripped basename of the file path; collisions get standard browser `(1)` / `(2)` suffixing (the audit plan's "date suffix on collision" intent in browser context).
+
+---
+
+## 10. Test & Verification Infrastructure
+
+### 10.1 Unit (Vitest)
 - ✅ **`vitest` + `@vitest/ui` + `@vitest/coverage-v8`** configured (`vitest.config.ts`, `tsconfig.test.json`).
 - ✅ **jsdom** environment via `src/test/setup.ts` + `@testing-library/react` + `@testing-library/user-event` + `@testing-library/jest-dom`.
 - ✅ **Existing test**: `features/diagram/utils/gridSnap.test.ts`.
 - **Scripts**: `npm test`, `npm run test:run`, `npm run test:ui`, `npm run coverage`.
 
-### 9.2 End-to-End (Playwright)
+### 10.2 End-to-End (Playwright)
 - ✅ **`@playwright/test`** configured (`playwright.config.ts`).
 - ✅ **`PLAYWRIGHT_BASE_URL` env-var override** — when set, Playwright targets that URL and skips the built-in `npm run dev` webServer (useful for re-using an already-running local dev server).
 - ✅ **`e2e/app.spec.ts`** — pre-folder shell smoke suite: app mounts with zero errors; Geist font CSS vars present (SHELL-1.1-02); root container is a full-height flex column (SHELL-1.1-03); "No file open" empty state and "Open Folder" button render; Header title defaults to "Untitled".
@@ -606,17 +632,17 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 - ✅ **`e2e/documentGoldenPath.spec.ts`** — full document editor golden path: open `.md` vault, WYSIWYG content renders, `[[wiki-link]]` pill visible, Raw toggle round-trip, Cmd+S saves, dirty-flag cleared, file-switch autosave.
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
-### 9.3 Tooling Hooks
+### 10.3 Tooling Hooks
 - ⚙️ **Build**: `next build` — Next.js 16 / React 19.
 - ⚙️ **Lint**: `eslint` with `eslint-config-next`.
 - ⚙️ **Type check**: strict TS 5 (`tsconfig.json`, `tsconfig.test.json`).
 
-### 9.4 Continuous Integration
+### 10.4 Continuous Integration
 - ⚙️ **GitHub Actions CI** (`.github/workflows/ci.yml`) — gates every PR into `main` and every push to `main` on unit tests (`npm run test:run`), e2e tests (`npm run test:e2e`), and build (`npm run build`). Uses Node version from `.nvmrc`, caches npm, installs Chromium for Playwright, uploads the HTML report as an artifact on failure. Lint is intentionally not gated (pre-existing lint errors deferred to Phase 1).
 
 ---
 
-## 10. External Contracts (for reference in test design)
+## 11. External Contracts (for reference in test design)
 
 - **File System Access API** — `showDirectoryPicker`, `FileSystemDirectoryHandle`, `FileSystemFileHandle`, `FileSystemWritableFileStream` (typings in `types/file-system.d.ts`). Only supported in Chromium-family browsers.
 - **Vault layout** — top-level `*.json` diagrams, `*.md` documents, hidden `.archdesigner/` config dir, `.<name>.history.json` sidecars, optional nested folders.
@@ -624,7 +650,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 11. Notable Items Worth Prioritising for Tests
+## 12. Notable Items Worth Prioritising for Tests
 
 1. **Grid snap** — already has a unit test; extend to round-trip.
 2. **Markdown round-trip** (`htmlToMarkdown` ∘ `markdownToHtml`) — tables, task lists, wiki-links, code fences, blockquotes.

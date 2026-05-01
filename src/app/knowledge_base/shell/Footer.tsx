@@ -30,7 +30,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
   const sideLabel = isSplit ? (focusedPane === "right" ? "Right" : "Left") : null;
 
   return (
-    <div className="flex-shrink-0 bg-surface/80 backdrop-blur-sm border-t border-line px-4 py-1 z-20">
+    <div data-print-hide="true" className="flex-shrink-0 bg-surface/80 backdrop-blur-sm border-t border-line px-4 py-1 z-20">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 min-w-0">
           {filename && (

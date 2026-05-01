@@ -49,7 +49,7 @@ export default function Header({
   const dirtyCount = dirtyList.length;
 
   return (
-    <div className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-surface border-b border-line z-20">
+    <div data-print-hide="true" className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-surface border-b border-line z-20">
       {/* Left column — dirty-stack indicator (right-aligned next to chip) */}
       <div className="flex items-center justify-end">
         {dirtyCount > 0 && (
