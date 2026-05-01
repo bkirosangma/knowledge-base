@@ -9,6 +9,7 @@ import DiagramLinesOverlay from "./DiagramLinesOverlay";
 import DiagramNodeLayer from "./DiagramNodeLayer";
 import DiagramLabelEditor from "./DiagramLabelEditor";
 import DiagramLabelOverlay from "./DiagramLabelOverlay";
+import CanvasLiveRegion from "./CanvasLiveRegion";
 import { VIEWPORT_PADDING } from "../hooks/useCanvasCoords";
 import { isItemSelected } from "../utils/selectionUtils";
 import { detectContextMenuTarget } from "../utils/geometry";
@@ -267,6 +268,14 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
   return (
     <div
       ref={canvasRef}
+      // KB-030: canvas root is a focus-visible WAI-ARIA "application"
+      // region. tabindex=0 makes it reachable via Tab; role + aria-label
+      // tell screen readers that this is an interactive canvas; the
+      // *:focus-visible rule in globals.css gives the visible ring.
+      tabIndex={0}
+      role="application"
+      aria-label="Diagram canvas. Tab to walk nodes, arrows to move."
+      data-testid="diagram-canvas-root"
       className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
       style={{ scrollbarWidth: "none" }}
       onMouseDown={(e) => {
@@ -285,6 +294,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
         setContextMenu({ clientX: e.clientX, clientY: e.clientY, canvasX: cx, canvasY: cy, target });
       }}
     >
+      <CanvasLiveRegion selection={selection} nodes={nodes} layers={layerDefs} />
       {!activeFile ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e8ecf0] z-50">
           <div className="flex flex-col items-center gap-3 text-slate-400">

@@ -91,6 +91,7 @@ export default function DiagramLabelEditor({
     >
       <input
         autoFocus
+        data-testid="diagram-label-input"
         value={editingLabelValue}
         onChange={(e) => setEditingLabelValue(e.target.value)}
         onFocus={(e) => e.target.select()}

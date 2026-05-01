@@ -436,3 +436,19 @@ Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base
 | DIAG-3.24-08 | ✅ | Two-finger pinch — distance ratio drives `setZoomTo(pinchStartZoom * scale)`. _(unit: `useTouchCanvas.test.ts`)_ |
 | DIAG-3.24-09 | ✅ | Two-finger pan — midpoint delta inverts onto `scrollLeft`/`scrollTop` (fingers move right ⇒ scrollLeft decreases). _(unit: `useTouchCanvas.test.ts`)_ |
 | DIAG-3.24-10 | ✅ | Cleanup removes touch listeners on unmount — post-unmount touchstart/end is ignored. _(unit: `useTouchCanvas.test.ts`)_ |
+
+## 3.25 Canvas Keyboard Navigation (Accessibility) (KB-030)
+
+`features/diagram/hooks/useCanvasKeyboardNav.ts` + `features/diagram/components/CanvasLiveRegion.tsx`, mounted from `useDiagramController` so the canvas root in `DiagramCanvas.tsx` becomes a focus root with full keyboard control. Closes WCAG 2.1.1.
+
+The audit ticket spelled the IDs as "DIAG-A11Y-1..5"; renumbered into the project's `<PREFIX>-<section>.<sub>-<nn>` scheme as `DIAG-3.25-01..05`. The 1:1 audit→spec mapping is documented inline.
+
+- **DIAG-3.25-01** ✅ **Canvas root is focusable.** (audit: `DIAG-A11Y-1`) The `kb-diagram-viewport` div has `tabindex="0"`, `role="application"`, `aria-label="Diagram canvas. Tab to walk nodes, arrows to move."`, and a visible focus ring on `:focus-visible`. — e2e/diagramKeyboardNav.spec.ts
+- **DIAG-3.25-02** ✅ **Tab walks nodes in reading order.** (audit: `DIAG-A11Y-2`) With the canvas focused, Tab selects the first node in reading order — sort key `(layer.zIndex, y, x)` — and Shift+Tab walks backwards. Wraps at the ends. — e2e/diagramKeyboardNav.spec.ts
+- **DIAG-3.25-03** ✅ **Arrow keys nudge the selected node.** (audit: `DIAG-A11Y-3`) ArrowUp/Down/Left/Right move the selected node by 8 px; with Shift held, by 1 px. No-op in read-only mode. — e2e/diagramKeyboardNav.spec.ts
+- **DIAG-3.25-04** ✅ **Enter starts inline label edit.** (audit: `DIAG-A11Y-4`) With a node selected (via Tab or click), Enter opens the inline label editor on that node — same surface that double-click would hit. — e2e/diagramKeyboardNav.spec.ts
+- **DIAG-3.25-05** ✅ **Selection announced via `aria-live`.** (audit: `DIAG-A11Y-5`) A `<div aria-live="polite">` on the canvas root receives the text `Selected: <label or "unnamed">, layer <name>` whenever selection changes. (Implementation note: `role="status"` was dropped from this region to avoid colliding with the toast's `role="status"`; `aria-live` alone gives the same screen-reader behaviour.) — e2e/diagramKeyboardNav.spec.ts
+
+Acceptance gate (KB-030 ticket):
+- The diagram golden path is completable via keyboard only — covered by `e2e/diagramKeyboardOnly.spec.ts`.
+- `@axe-core/playwright` scan of the diagram pane returns zero violations — covered by `e2e/diagramAxe.spec.ts`.

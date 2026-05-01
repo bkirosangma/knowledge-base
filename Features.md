@@ -324,6 +324,14 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Single-finger non-action** — single-finger touchmove is NOT preventDefault'd, so the browser is free to scroll documents naturally; one-finger panning is intentionally NOT supported on the diagram canvas.
 - ⚙️ **Read-only / mobile guard** — the hook is a no-op when `enabled` is false; DiagramView passes `readOnly && isMobile` so edit mode keeps existing mouse handlers untouched and desktop never picks up the touch listeners.
 
+### 3.25 Canvas Keyboard Navigation (Accessibility) (KB-030)
+`features/diagram/hooks/useCanvasKeyboardNav.ts` + `features/diagram/components/CanvasLiveRegion.tsx`. Closes WCAG 2.1.1.
+- ✅ **Focusable canvas root** — `kb-diagram-viewport` div carries `tabindex="0"`, `role="application"`, `aria-label="Diagram canvas. Tab to walk nodes, arrows to move."`, and a visible focus ring on `:focus-visible`.
+- ✅ **Tab walks nodes in reading order** — Tab/Shift+Tab while the canvas is focused selects nodes sorted by `(layer.zIndex, y, x)`. Wraps at both ends.
+- ✅ **Arrow-key nudge** — ArrowUp/Down/Left/Right move the selected node by 8 px; +Shift = 1 px. Read-only diagrams ignore the keys.
+- ✅ **Enter opens inline label edit** — same target as a double-click, available from a Tab-selected node.
+- ✅ **Live-region announcement** — `<div aria-live="polite">` reads `Selected: <label>, layer <name>` whenever selection changes. (`role="status"` is reserved for the toast.)
+
 ---
 
 ## 4. Document Editor
