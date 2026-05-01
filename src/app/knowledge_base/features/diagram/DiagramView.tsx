@@ -7,6 +7,7 @@ import Canvas, {
   getWorldSize,
 } from "./components/Canvas";
 import Layer from "./components/Layer";
+import DiagramToolbarOverflow from "./components/DiagramToolbarOverflow";
 import { interpolatePoints, closestT } from "./components/DataLine";
 import { rectsOverlap } from "./utils/collisionUtils";
 import FlowDots from "./components/FlowDots";
@@ -303,7 +304,7 @@ export default function DiagramView({
   // before. Long-press on a node selects it so the Properties panel
   // shows backlinks; pinch + two-finger pan ride on the existing zoom /
   // scroll machinery.
-  const { isMobile } = useViewport();
+  const { isMobile, isCompact } = useViewport();
   const handleTouchLongPress = useCallback((nodeId: string) => {
     setSelection({ type: "node", id: nodeId });
   }, []);
@@ -1159,40 +1160,57 @@ export default function DiagramView({
 
           {/* Diagram toolbar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-3 py-1 bg-surface-2 border-b border-line z-10">
-            <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-line">
-              <button
-                onClick={() => setIsLive(l => !l)}
-                className={toggleClass(isLive)}
-                title="Toggle live data flow animation"
-                aria-label="Toggle live data flow animation"
-                aria-pressed={isLive}
-              >
-                <Activity size={13} />
-                <span className="hidden xl:inline">Live</span>
-              </button>
-              <button
-                onClick={() => setShowLabels(l => !l)}
-                className={toggleClass(showLabels)}
-                title="Toggle data line labels"
-                aria-label="Toggle data line labels"
-                aria-pressed={showLabels}
-              >
-                <Tag size={13} />
-                <span className="hidden xl:inline">Labels</span>
-              </button>
-            </div>
-            <button
-              onClick={() => setShowMinimap(m => !m)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-                showMinimap ? "bg-surface shadow-sm text-accent border-line" : "bg-surface text-mute hover:text-ink-2 border-line"
-              }`}
-              title="Toggle minimap"
-              aria-label="Toggle minimap"
-              aria-pressed={showMinimap}
-            >
-              <MapIcon size={13} />
-              <span className="hidden xl:inline">Minimap</span>
-            </button>
+            {/* KB-013: at compact viewports, secondary toggles
+             *  collapse into the overflow menu so the primary
+             *  controls (zoom + auto-arrange) stay visible without
+             *  wrapping. Zoom always remains inline. */}
+            {isCompact ? (
+              <DiagramToolbarOverflow
+                isLive={isLive}
+                onToggleLive={() => setIsLive(l => !l)}
+                showLabels={showLabels}
+                onToggleLabels={() => setShowLabels(l => !l)}
+                showMinimap={showMinimap}
+                onToggleMinimap={() => setShowMinimap(m => !m)}
+              />
+            ) : (
+              <>
+                <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-line">
+                  <button
+                    onClick={() => setIsLive(l => !l)}
+                    className={toggleClass(isLive)}
+                    title="Toggle live data flow animation"
+                    aria-label="Toggle live data flow animation"
+                    aria-pressed={isLive}
+                  >
+                    <Activity size={13} />
+                    <span className="hidden xl:inline">Live</span>
+                  </button>
+                  <button
+                    onClick={() => setShowLabels(l => !l)}
+                    className={toggleClass(showLabels)}
+                    title="Toggle data line labels"
+                    aria-label="Toggle data line labels"
+                    aria-pressed={showLabels}
+                  >
+                    <Tag size={13} />
+                    <span className="hidden xl:inline">Labels</span>
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowMinimap(m => !m)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+                    showMinimap ? "bg-surface shadow-sm text-accent border-line" : "bg-surface text-mute hover:text-ink-2 border-line"
+                  }`}
+                  title="Toggle minimap"
+                  aria-label="Toggle minimap"
+                  aria-pressed={showMinimap}
+                >
+                  <MapIcon size={13} />
+                  <span className="hidden xl:inline">Minimap</span>
+                </button>
+              </>
+            )}
 
             <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-line" role="group" aria-label="Zoom controls">
               <button

@@ -86,13 +86,18 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 
 > 2026-04-26 / SHELL-1.12 — `PaneTitle.tsx` was folded into `PaneHeader.tsx`. The title input, dirty dot, and Save / Discard buttons now live inline in the breadcrumb row. See §1.12 for the collapse-specific cases.
 
-- **SHELL-1.6-01** ✅ **Breadcrumb path** — `filePath` is split on `/` and every segment is rendered; only the last segment gets the `text-slate-700 font-medium` emphasis. Single-segment paths render without chevrons.
+- **SHELL-1.6-01** ✅ **Breadcrumb path** — `filePath` is split on `/` and every segment is rendered; only the last segment gets the `text-slate-700 font-medium` emphasis. **KB-013 (2026-05-01):** the breadcrumb element is hidden entirely at path depth ≤ 1 (root-level files don't have useful crumbs); covered by `e2e/paneChromeDensity.spec.ts` and the updated `PaneHeader.test.tsx` "single-segment path hides the breadcrumb entirely" case.
 - **SHELL-1.6-02** ✅ **Read-Mode toggle icon state** — `readOnly=true` renders `<Lock>`; `readOnly=false` renders `<LockOpen>`. The button's `aria-pressed` mirrors the flag and the accessible name swaps between `"Enter Read Mode"` / `"Exit Read Mode"`.
 - **SHELL-1.6-03** 🟡 **Read-Mode toggle disables editing** — click calls `onToggleReadOnly`; the `contenteditable=false` wiring lives inside the Tiptap editor (the Tiptap integration test).
 - **SHELL-1.6-04** ✅ **Right-side action slot renders** — `children` prop is rendered after the Read Mode toggle.
 - **SHELL-1.6-05** ✅ **PaneHeader title edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit. (Title row folded into PaneHeader on 2026-04-26.)
 - **SHELL-1.6-06** ✅ **PaneHeader title edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
 - **SHELL-1.6-07** 🧪 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`. _(e2e: `e2e/goldenPath.spec.ts`)_
+- **SHELL-1.6-08** 🧪 **KB-013 — root-file breadcrumb hidden** — opening a depth-1 file shows no `[data-testid="pane-breadcrumb"]`; opening a deeper file surfaces it with each segment as text. _(e2e: `paneChromeDensity.spec.ts`.)_
+- **SHELL-1.6-09** 🧪 **KB-013 — same-depth path switch keeps title within 4 px** — switching between two depth-2 files (`notes/a.md` ↔ `notes/b.md`) shifts the `[data-testid="pane-title"]` bounding box by less than 4 px on the x-axis. _(e2e: `paneChromeDensity.spec.ts`.)_
+- **SHELL-1.6-10** 🧪 **KB-013 — diagram toolbar collapses at compact width** — at 1024 px viewport, Live / Labels / Minimap inline buttons disappear; the `data-testid="diagram-toolbar-overflow-trigger"` button surfaces; clicking it reveals the three menu items. Zoom controls remain inline. _(e2e: `paneChromeDensity.spec.ts`.)_
+- **SHELL-1.6-11** ✅ **KB-013 — `DiagramToolbarOverflow` open/close + toggle behaviour** — unit-tested in `DiagramToolbarOverflow.test.tsx`: trigger opens/closes the menu, items fire their toggle and close, `aria-checked` reflects state, Escape closes.
+- **SHELL-1.6-12** 🧪 **KB-013 — explorer width is 240 px (was 260 px)** — `[data-testid="explorer-container"]` measures 240 px wide on a fresh vault open. _(e2e: `paneChromeDensity.spec.ts`.)_
 
 ## 1.7 Error Surface (Phase 5c)
 

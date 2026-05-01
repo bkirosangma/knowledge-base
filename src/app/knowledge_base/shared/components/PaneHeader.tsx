@@ -76,20 +76,31 @@ export default function PaneHeader({
 
   return (
     <div data-print-hide="true" className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
-      <div className="flex items-center gap-1 text-xs text-mute flex-shrink-0">
-        {pathParts.map((part, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <ChevronRight size={10} />}
-            <span className={i === pathParts.length - 1 ? "text-ink-2 font-medium" : ""}>
-              {part}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
+      {/* KB-013: hide breadcrumb at path depth ≤ 1. Root-level files
+       *  don't have useful crumbs ("note.md" by itself just repeats
+       *  the title). At depth ≥ 2 the breadcrumb shows the parent
+       *  folders so the user knows where they are. */}
+      {pathParts.length > 1 && (
+        <div
+          className="flex items-center gap-1 text-xs text-mute flex-shrink-0"
+          data-testid="pane-breadcrumb"
+        >
+          {pathParts.map((part, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <ChevronRight size={10} />}
+              <span className={i === pathParts.length - 1 ? "text-ink-2 font-medium" : ""}>
+                {part}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
 
       {showTitleSection && (
         <>
-          <span className="text-mute select-none" aria-hidden="true">·</span>
+          {pathParts.length > 1 && (
+            <span className="text-mute select-none" aria-hidden="true">·</span>
+          )}
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {editable && isEditingTitle ? (
               <input
