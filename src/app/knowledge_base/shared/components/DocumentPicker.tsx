@@ -1,8 +1,9 @@
 // src/app/knowledge_base/components/DocumentPicker.tsx
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { FileText, Plus, X, Search } from "lucide-react";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface DocumentPickerProps {
   allDocPaths: string[];
@@ -31,9 +32,18 @@ export default function DocumentPicker({
     return allDocPaths.filter(p => !attachedSet.has(p) && p.toLowerCase().includes(lower));
   }, [allDocPaths, attachedSet, search]);
 
+  // KB-031: focus trap. Tab cycles inside the picker; Escape closes;
+  // focus returns to the trigger on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true, { onEscape: onClose });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Attach Document"
         className="bg-white rounded-lg shadow-xl w-80 max-h-96 flex flex-col"
         onClick={e => e.stopPropagation()}
       >

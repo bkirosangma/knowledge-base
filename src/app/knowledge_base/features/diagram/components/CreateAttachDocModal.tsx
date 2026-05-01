@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 
 interface CreateAttachDocModalProps {
   defaultFilename: string;
@@ -15,11 +16,17 @@ export default function CreateAttachDocModal({
 }: CreateAttachDocModalProps) {
   const [filename, setFilename] = useState(defaultFilename);
   const [editNow, setEditNow] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // KB-031: focus trap. Captures the trigger on mount, focuses the
+  // first input, traps Tab inside the dialog, restores focus on close.
+  // Escape closes the modal via the host's `onCancel`.
+  useFocusTrap(dialogRef, true, { onEscape: onCancel });
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onCancel} />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-attach-title"

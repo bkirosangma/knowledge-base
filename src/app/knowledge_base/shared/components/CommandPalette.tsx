@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useCommandRegistry } from "../context/CommandRegistry";
 import type { Command } from "../context/CommandRegistry";
 import type { SearchResult } from "../../features/search/VaultIndex";
@@ -33,7 +34,7 @@ const COMMAND_PREFIX = ">";
 export default function CommandPalette({ searchFn, onSearchPick }: CommandPaletteProps = {}) {
   const { commands, open, setOpen } = useCommandRegistry();
   const inputRef = useRef<HTMLInputElement>(null);
-  const prevFocusRef = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -91,24 +92,18 @@ export default function CommandPalette({ searchFn, onSearchPick }: CommandPalett
     setActiveIndex(0);
   }, [query, mode]);
 
-  // Auto-focus input on open; restore focus on close.
-  useEffect(() => {
-    if (open) {
-      prevFocusRef.current = document.activeElement as HTMLElement;
-      const t = setTimeout(() => inputRef.current?.focus(), 10);
-      return () => {
-        clearTimeout(t);
-        prevFocusRef.current?.focus();
-        prevFocusRef.current = null;
-      };
-    }
-  }, [open]);
-
   const close = useCallback(() => {
     setOpen(false);
     setQuery("");
     setSearchResults([]);
   }, [setOpen]);
+
+  // KB-031: focus trap. Captures the trigger on open, focuses the
+  // search input, traps Tab inside the palette, restores focus on
+  // close. `initialFocusRef` overrides the default first-focusable
+  // pick because the palette has multiple focusable rows but the
+  // search input is always the right entry point.
+  useFocusTrap(dialogRef, open, { onEscape: close, initialFocusRef: inputRef });
 
   const executeCommand = useCallback(
     (cmd: Command) => {
@@ -130,15 +125,9 @@ export default function CommandPalette({ searchFn, onSearchPick }: CommandPalett
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-        return;
-      }
-      if (e.key === "Tab") {
-        e.preventDefault();
-        return;
-      }
+      // Escape + Tab are owned by `useFocusTrap` (document-level
+      // listener). The palette's local handler only owns the
+      // arrow / Enter list-navigation keys.
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, totalItems - 1));
@@ -201,6 +190,7 @@ export default function CommandPalette({ searchFn, onSearchPick }: CommandPalett
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh]"
       style={{ backgroundColor: "rgba(15, 23, 42, 0.45)" }}
       onMouseDown={(e) => {

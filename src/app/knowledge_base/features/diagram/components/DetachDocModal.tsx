@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 
 interface DetachDocModalProps {
   docPath: string;
@@ -21,11 +22,16 @@ export default function DetachDocModal({
   const [alsoDelete, setAlsoDelete] = useState(false);
   const filename = docPath.split("/").pop() ?? docPath;
   const hasRefs = attachments.length > 0 || wikiBacklinks.length > 0;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // KB-031: focus trap — Tab cycles inside the dialog; Escape calls
+  // `onCancel`; focus returns to the trigger on close.
+  useFocusTrap(dialogRef, true, { onEscape: onCancel });
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onCancel} />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="detach-doc-title"
