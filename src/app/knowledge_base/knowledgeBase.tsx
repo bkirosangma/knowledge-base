@@ -22,6 +22,7 @@ import type { DocumentPaneBridge } from "./features/document/DocumentView";
 import GraphView from "./features/graph/GraphView";
 import GraphifyView from "./features/graph/GraphifyView";
 import { collectAllPaths } from "./features/graph/hooks/useGraphData";
+import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
@@ -87,6 +88,11 @@ function KnowledgeBaseInner() {
   }, []);
   // Phase 3 PR 3 — offline cache for last 10 recents (best-effort).
   useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
+  // KB-022: cached flatten of every file path in the vault. Stable
+  // across renders that don't change the tree, so consumers (the
+  // wiki-link router below; DocumentView via prop) avoid the per-render
+  // recursive walk the audit flagged.
+  const allPaths = useAllPaths(fileExplorer.tree);
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
@@ -397,14 +403,9 @@ function KnowledgeBaseInner() {
   // so explicit paths and diagrams still work.
   const handleNavigateWikiLink = useCallback(
     (path: string) => {
-      const allPaths: string[] = [];
-      const walk = (items: typeof fileExplorer.tree) => {
-        for (const it of items) {
-          if (it.type === "file") allPaths.push(it.path);
-          if (it.children) walk(it.children);
-        }
-      };
-      walk(fileExplorer.tree);
+      // KB-022: `allPaths` is the memoised flatten from `useAllPaths`.
+      // Building the Set per-click is fine — it's linear and click-rate
+      // is the user's typing speed at most.
       const set = new Set(allPaths);
 
       const activeFilePath = panes.activeEntry?.filePath ?? null;
@@ -430,7 +431,7 @@ function KnowledgeBaseInner() {
       const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
       handleSelectFile(resolved);
     },
-    [fileExplorer.tree, panes.activeEntry, handleSelectFile],
+    [allPaths, panes.activeEntry, handleSelectFile],
   );
 
   // ─── Persist pane layout to localStorage ───

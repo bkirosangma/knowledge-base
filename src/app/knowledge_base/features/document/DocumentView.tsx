@@ -7,6 +7,7 @@ import { useDocumentContent } from "./hooks/useDocumentContent";
 import type { DocumentPaneBridge } from "./hooks/useDocumentContent";
 import type { useLinkIndex } from "./hooks/useLinkIndex";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
+import { useAllPaths, LINKABLE_EXTENSIONS } from "../../shared/hooks/useAllPaths";
 import { getFirstHeading } from "./utils/getFirstHeading";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
@@ -134,23 +135,10 @@ export default function DocumentView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, content, loadedPath]);
 
-  // Collect all wiki-linkable paths for link autocomplete
-  const allDocPaths = React.useMemo(() => {
-    const paths: string[] = [];
-    const walk = (items: TreeNode[]) => {
-      for (const item of items) {
-        if (
-          item.type === "file" &&
-          (item.name.endsWith(".md") || item.name.endsWith(".json"))
-        ) {
-          paths.push(item.path);
-        }
-        if (item.children) walk(item.children);
-      }
-    };
-    walk(tree);
-    return paths;
-  }, [tree]);
+  // KB-022: collect all wiki-linkable paths for link autocomplete via
+  // the shared, tree-identity-keyed memo so this no longer recomputes
+  // on every keystroke.
+  const allDocPaths = useAllPaths(tree, LINKABLE_EXTENSIONS);
 
   const existingDocPaths = React.useMemo(() => new Set(allDocPaths), [allDocPaths]);
 
