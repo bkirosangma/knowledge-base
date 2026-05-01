@@ -48,6 +48,7 @@
 - **LINK-5.4-02** ❌ **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state.)
 - **LINK-5.4-03** ❌ **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution.)
 - **LINK-5.4-04** ✅ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered by LINK-5.4-04 test in `useLinkIndex.test.ts`.)
+- **LINK-5.4-05** 🧪 **Vault open auto-rebuilds the link index** — on first tree population per vault, `fullRebuild` fires fire-and-forget across every `.md` + `.json` path returned by `collectAllPaths`. Backlinks for files never opened (or never present in the persisted snapshot) appear without the user needing to click the Graph view's Refresh button. Guarded by `indexRebuildVaultRef` so it fires once per vault open, not on every tree update. _(e2e: `e2e/linkIndexHydration.spec.ts`)_
 
 ## 5.5 Wiki-Link Navigation
 

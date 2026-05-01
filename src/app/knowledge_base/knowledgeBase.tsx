@@ -659,10 +659,12 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.directoryName]);
 
   // ─── Full link-index rebuild on first tree load ───
-  // loadIndex only restores the persisted index from disk. Files that were
-  // never opened won't appear in backlinks until they're opened individually.
-  // This background rebuild scans every .md file once per vault open so that
-  // all backlinks are correct immediately, without blocking the UI.
+  // loadIndex only restores the persisted snapshot. Files (md or diagram)
+  // never opened or saved this session are absent from the index, so their
+  // outbound wiki-links never produce backlink entries. This background
+  // rebuild scans every .md and .json path once per vault open so that all
+  // backlinks are correct immediately, without blocking the UI. Mirrors
+  // the manual Graph view "Refresh" trigger so behaviour is consistent.
   const indexRebuildVaultRef = useRef<string | null>(null);
   useEffect(() => {
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -670,16 +672,10 @@ function KnowledgeBaseInner() {
     if (indexRebuildVaultRef.current === fileExplorer.directoryName) return;
     indexRebuildVaultRef.current = fileExplorer.directoryName;
 
-    const mdPaths: string[] = [];
-    const walk = (items: typeof fileExplorer.tree) => {
-      for (const it of items) {
-        if (it.type === "file" && it.path.endsWith(".md")) mdPaths.push(it.path);
-        if (it.children) walk(it.children);
-      }
-    };
-    walk(fileExplorer.tree);
-
-    linkManager.fullRebuild(rootHandle, mdPaths).catch(() => {});
+    const allPaths = collectAllPaths(fileExplorer.tree);
+    linkManager.fullRebuild(rootHandle, allPaths).catch((e) =>
+      reportError(e, "Hydrating link index on vault open")
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.tree, fileExplorer.directoryName]);
 

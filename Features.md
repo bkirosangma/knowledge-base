@@ -400,7 +400,7 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ⚙️ **Index file** — `.archdesigner/_links.json`: `{ updatedAt, documents: { path → { outboundLinks, sectionLinks } }, backlinks: { path → { linkedFrom: [{ sourcePath, section? }] } } }`.
 - ⚙️ **Incremental updates** — `updateDocumentLinks`, `removeDocumentFromIndex`, `renameDocumentInIndex`.
 - ⚙️ **Backlink query** — `getBacklinksFor(docPath)`.
-- ⚙️ **Full rebuild** — `fullRebuild(rootHandle, allDocPaths)` scans every doc on vault init.
+- ⚙️ **Full rebuild** — `fullRebuild(rootHandle, allDocPaths)` scans every `.md` + `.json` doc and writes a fresh `_links.json`. Triggered automatically once per vault open after the file tree is hydrated (so backlinks for never-opened files appear immediately) and manually via the Graph view's Refresh button.
 - ⚙️ **Graphify cross-ref emission** — calls `emitCrossReferences` after each update.
 
 ### 4.10 Document Persistence
