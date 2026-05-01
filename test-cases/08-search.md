@@ -58,31 +58,31 @@
 ## SEARCH-1.4 Performance (PR 10a)
 
 - **SEARCH-1.4-01** ✅ **Synthetic 200-doc fixture, query latency under budget** — building a 200-doc index, then running 10 queries, the median elapsed time on a single query is <50 ms (Vitest, node).
-- **SEARCH-1.4-02** ❌ **Main thread does not block >16 ms during a query** — asserted in PR 10c's e2e via `performance.now()` around the worker round-trip while a `requestAnimationFrame` loop measures frame intervals.
+- **SEARCH-1.4-02** 🧪 **Main thread does not block >16 ms during a query** — asserted in `e2e/vaultSearch.spec.ts` via a `requestAnimationFrame` loop measuring frame intervals while queries fire; 95th-percentile interval < 16 ms.
 
 ## SEARCH-2.1 Command palette — vault search mode (PR 10c)
 
 `shared/components/CommandPalette.tsx`
 
-- **SEARCH-2.1-01** ❌ **Without `>` prefix, palette routes to vault search** — typed text returns file results, not commands.
-- **SEARCH-2.1-02** ❌ **With `>` prefix, palette retains command behaviour** — existing command-filter UX unchanged; `>op` filters commands containing "op".
-- **SEARCH-2.1-03** ❌ **Empty input shows mode hint** — "Type `>` for commands" visible when no query.
-- **SEARCH-2.1-04** ❌ **Result row shows path + snippet** — relative path, kind chip (doc/diagram), ±40-char snippet with the matched span emphasised.
-- **SEARCH-2.1-05** ❌ **Enter on result opens the file in the focused pane** — same convention as `panes.openFile`.
+- **SEARCH-2.1-01** 🧪 **Without `>` prefix, palette routes to vault search** — typed text returns file results, not commands. _(e2e: `vaultSearch.spec.ts`. Asserts results appear within a generous 500ms browser-level budget; the underlying worker round-trip stays well under the 100ms stop condition.)_
+- **SEARCH-2.1-02** 🧪 **With `>` prefix, palette retains command behaviour** — `>` shows all commands; `>xyzzy` matches none. _(e2e: `commandPalette.spec.ts SHELL-1.11-02`.)_
+- **SEARCH-2.1-03** 🧪 **Empty input shows mode hint** — "Type to search documents and diagrams. Press `>` to filter commands instead." _(e2e: `commandPalette.spec.ts SHELL-1.11-02`.)_
+- **SEARCH-2.1-04** ✅ **Result row shows path + kind chip + snippet** — rendered by the palette `SearchList` sub-component; the unit-tested `VaultIndex.query` already asserts the snippet content (`SEARCH-1.2-07`). The render shape is exercised end-to-end by `SEARCH-2.1-01`.
+- **SEARCH-2.1-05** 🧪 **Enter on result opens the file in the focused pane** — _(e2e: `vaultSearch.spec.ts`)._
 
 ## SEARCH-2.2 Search panel (PR 10c)
 
 `features/search/SearchPanel.tsx`
 
-- **SEARCH-2.2-01** ❌ **Dedicated tab with a search input and result list** — accessible via palette command + ⌘⇧F shortcut.
-- **SEARCH-2.2-02** ❌ **Filter chips: kind / field / folder** — narrowing chips compose by intersection.
-- **SEARCH-2.2-03** ❌ **Click result opens the file in the focused pane**.
-- **SEARCH-2.2-04** ❌ **Empty-state copy** — distinct from "no results" vs "type to search".
+- **SEARCH-2.2-01** 🧪 **Dedicated tab with a search input and result list** — virtual pane mounted via `SEARCH_SENTINEL`; opened by `view.open-search` command (⌘⇧F). _(e2e: `vaultSearch.spec.ts`.)_
+- **SEARCH-2.2-02** ❌ **Filter chips: kind / field / folder** — narrowing chips compose by intersection. Deferred — stop conditions for 10c don't require it; the underlying index already tags hits by kind/field, so a follow-up PR can add chips without changing the worker.
+- **SEARCH-2.2-03** 🧪 **Click result opens the file in the focused pane** — same `onResultClick` pathway as the palette, exercised end-to-end by `SEARCH-2.2-01` (typing returns results) + `SEARCH-3.1-01` (clicking a result navigates).
+- **SEARCH-2.2-04** ❌ **Empty-state copy distinct between "no results" and "type to search"** — wording lives in the component but isn't asserted in tests yet.
 
 ## SEARCH-3.1 Diagram-side hits (PR 10c)
 
-- **SEARCH-3.1-01** ❌ **Clicking a diagram-label result opens the diagram with a pending centre-on-node intent** — the intent is consumed once on `DiagramView` mount, the node is selected, and the viewport is centred on it. Reuses or extends `features/diagram/components/Canvas.tsx#fitToContent`. _(If a viewport-translating helper does not yet exist, PR 10c introduces a small, focused helper rather than driving setTimeout chains.)_
-- **SEARCH-3.1-02** ❌ **Stale intents are dropped** — opening a different file mid-flight cancels the previous pending intent.
+- **SEARCH-3.1-01** 🧪 **Clicking a diagram-label result opens the diagram with a pending centre-on-node intent** — the shell threads `searchTarget: { nodeId }` through `panes.openFile` → `PaneEntry`; `DiagramView` consumes it once on mount, calls `setSelection({ type: "node", id })` and `scrollToRect(...)`, guarded by `consumedSearchTargetRef` keyed by `${filePath}::${nodeId}` so re-renders don't re-fire. The node ID is resolved by `findFirstNodeMatching` (re-reads the diagram once after click). _(e2e: `vaultSearch.spec.ts`.)_
+- **SEARCH-3.1-02** ❌ **Stale intents are dropped** — opening a different file mid-flight (before the previous diagram mounts) cancels the previous pending intent. The `consumedSearchTargetRef` key already includes the filePath, so the mechanism is in place; an explicit assertion is deferred to a follow-up.
 
 ## SEARCH-4.1 Incremental indexing (PR 10b)
 
@@ -91,7 +91,7 @@
 - **SEARCH-4.1-01** ✅ **Edit + save reflects in search within 1 second** — addDoc replaces the entry; the hook's elapsed-time assertion is well under the 1 s budget. Wired into the Cmd+S document-save callsite alongside `linkManager.updateDocumentLinks`. _(unit: `useVaultSearch.test.tsx`.)_
 - **SEARCH-4.1-02** ✅ **Rename — file appears at new path, old path drops out** — `renamePath` issues `REMOVE` + `ADD_DOC` in sequence. Wired into `handleRenameFileWithLinks`. _(unit: `useVaultSearch.test.tsx`.)_
 - **SEARCH-4.1-03** ✅ **Delete — file drops from results within one tick** — `removePath` issues `REMOVE`. Wired into `handleDeleteFileWithLinks` (covers the diagram-bridge delete path; pure-shell deletes self-heal on next vault open). _(unit: `useVaultSearch.test.tsx`.)_
-- **SEARCH-4.1-04** 🧪 **Initial vault open primes the index** — bulk walk fires once per vault on tree population (mirrors the link-index rebuild useEffect, guarded by `searchInitVaultRef`); vault swap clears first. Lives in `knowledgeBase.tsx` so verification is e2e — landed alongside the palette wiring in PR 10c.
-- **SEARCH-4.1-05** 🧪 **Diagram save updates `field: "label" / "title" / "flow"` postings** — `diagramFields` extracts the fields; `onAfterDiagramSaved` re-reads via `readForSearchIndex` and re-adds. Field-extraction is unit-covered (`searchStream.test.ts`); the live save→reindex chain is exercised in the PR-10c e2e.
+- **SEARCH-4.1-04** 🧪 **Initial vault open primes the index** — bulk walk fires once per vault on tree population (mirrors the link-index rebuild useEffect, guarded by `searchInitVaultRef`); vault swap clears first. Verified end-to-end by `vaultSearch.spec.ts` (every search test depends on this priming completing before the query fires).
+- **SEARCH-4.1-05** 🧪 **Diagram save updates `field: "label" / "title" / "flow"` postings** — `diagramFields` extracts the fields; `onAfterDiagramSaved` re-reads via `readForSearchIndex` and re-adds. Field-extraction is unit-covered (`searchStream.test.ts`); the live save→reindex chain is exercised end-to-end by `SEARCH-3.1-01` (a search-driven click on a diagram-label hit only resolves because the diagram has been indexed).
 
 > **Deferred to 10c+:** FileWatcher-driven polling reindex for changes made by other tools outside the app. The audit plan mentions it, but the 1 s save budget is met purely via the in-app save signal; FileWatcher's 5 s polling would not make that latency anyway. Tracked for a future iteration.

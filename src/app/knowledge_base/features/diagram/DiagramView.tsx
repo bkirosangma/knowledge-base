@@ -141,6 +141,10 @@ export interface DiagramViewProps {
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
   /** Called after a diagram file is saved or loaded with the file path and its attached doc list. */
   onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
+  /** One-shot intent from the search UI: centre + select this node
+   *  once on mount. Re-renders with the same value must not re-trigger.
+   *  See `PaneEntry.searchTarget` (KB-010c). */
+  searchTarget?: { nodeId: string };
 }
 
 export default function DiagramView({
@@ -160,6 +164,7 @@ export default function DiagramView({
   deleteDocumentWithCleanup,
   onCreateAndAttach,
   onAfterDiagramSaved,
+  searchTarget,
 }: DiagramViewProps) {
   // ─── Diagram State ───
   const {
@@ -356,6 +361,25 @@ export default function DiagramView({
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [canvasRef]);
+
+  // ─── Consume search-target intent (KB-010c / SEARCH-3.1) ───
+  // When a vault-search hit on a diagram-node label is clicked, the
+  // shell threads a `searchTarget` through `panes.openFile` → PaneEntry
+  // → here. Once the diagram's nodes are loaded, find the node, select
+  // it, and centre the viewport. Single-fire by `<filePath>::<nodeId>`
+  // key — re-renders with the same PaneEntry must not re-trigger.
+  const consumedSearchTargetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!searchTarget || !activeFile || nodes.length === 0) return;
+    const key = `${activeFile}::${searchTarget.nodeId}`;
+    if (consumedSearchTargetRef.current === key) return;
+    consumedSearchTargetRef.current = key;
+    const node = nodes.find((n) => n.id === searchTarget.nodeId);
+    if (!node) return; // node may have been deleted between search and click
+    setSelection({ type: "node", id: node.id });
+    const dims = getNodeDimensions(node);
+    scrollToRect({ x: node.x - dims.w / 2, y: node.y - dims.h / 2, w: dims.w, h: dims.h });
+  }, [searchTarget, activeFile, nodes, scrollToRect, getNodeDimensions]);
 
   /**
    * Convert canvas-space (world) coordinates to viewport (screen) coordinates.
