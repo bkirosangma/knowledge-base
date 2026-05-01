@@ -132,6 +132,31 @@ export function useFileExplorer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supported]);
 
+  // KB-012: pick a folder, run a seeder against the just-acquired
+  // handle (e.g. unpack the bundled sample vault), then scan + open it.
+  // The seeder runs inside the same loading window as the tree scan so
+  // the UI doesn't flash the empty state between picker close and seed
+  // completion.
+  const openFolderWithSeed = useCallback(async (
+    seed: (handle: FileSystemDirectoryHandle) => Promise<void>,
+  ): Promise<{ handle: FileSystemDirectoryHandle } | null> => {
+    if (!supported) return null;
+    const acquired = await dirHandle.acquirePickerHandle();
+    if (!acquired) return null;
+    try {
+      setIsLoading(true);
+      await seed(acquired.handle);
+      const nodes = await scanTree(acquired.handle, "");
+      setTree(nodes);
+      setActiveFile(null);
+      drafts.refreshDrafts();
+      return { handle: acquired.handle };
+    } finally {
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supported]);
+
   const handleFallbackInput = useCallback((fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     // Fallback: flat file list, no tree structure
@@ -603,6 +628,7 @@ export function useFileExplorer() {
     pendingFile,
     clearPendingFile,
     openFolder,
+    openFolderWithSeed,
     selectFile,
     saveFile,
     createFile,

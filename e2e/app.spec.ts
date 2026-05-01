@@ -62,15 +62,19 @@ test('SHELL-1.1-03: root shell uses full-height flex column layout', async ({ pa
   expect(Math.round(box!.height)).toBe(viewport.height)
 })
 
-test('empty state renders when no folder is open', async ({ page }) => {
+test('first-run hero renders when no folder is open', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
 
-  // The emptyState copy comes from knowledgeBase.tsx when the pane manager has
-  // no file. Explorer also renders a "No folder open" message + "Open Folder"
-  // button (covered by the Explorer unit tests; verified end-to-end here).
-  await expect(page.getByText('No file open')).toBeVisible()
-  await expect(page.getByText('Open a file from the explorer to start editing')).toBeVisible()
+  // KB-012: when no vault has ever been opened, knowledgeBase.tsx
+  // surfaces the FirstRunHero as the right-pane content. The "No file
+  // open" empty state still exists for the post-vault-open path
+  // (covered by FirstRunHero.test.tsx + firstRunHero.spec.ts). The
+  // explorer's own "No folder open" message + "Open Folder" button
+  // remain on the left sidebar.
+  await expect(page.getByTestId('first-run-hero')).toBeVisible()
+  await expect(page.getByTestId('first-run-open-folder')).toBeVisible()
+  await expect(page.getByTestId('first-run-sample-vault')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open Folder' })).toBeVisible()
 })
 

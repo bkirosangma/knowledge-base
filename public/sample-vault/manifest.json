@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "description": "Books API — sample vault for first-run hero (KB-012).",
+  "files": [
+    { "path": "README.md", "kind": "text" },
+    { "path": "architecture.md", "kind": "text" },
+    { "path": "api-reference.md", "kind": "text" },
+    { "path": "design-decisions.md", "kind": "text" },
+    { "path": "roadmap.md", "kind": "text" },
+    { "path": "system-overview.json", "kind": "text" },
+    { "path": "logo.svg", "kind": "text" },
+    { "path": ".attachments/cover.png", "kind": "binary" }
+  ],
+  "openOnLoad": "README.md"
+}
