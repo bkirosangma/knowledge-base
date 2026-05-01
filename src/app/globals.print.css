@@ -1,0 +1,68 @@
+/* Print stylesheet for document export (KB-011 / EXPORT-9.3).
+ *
+ * `printDocument()` sets `body[data-printing="document"]` before calling
+ * `window.print()` and clears the attribute on `afterprint`, so the rules
+ * below are scoped on both `@media print` AND the attribute. The double
+ * scoping means non-print contexts that happen to query `@media print`
+ * (DevTools emulation while the user is mid-task) don't accidentally
+ * suppress UI chrome. */
+
+@media print {
+  body[data-printing="document"] {
+    background: #ffffff;
+    color: #1e293b;
+  }
+
+  /* App chrome — hidden during a document print so the saved PDF shows
+   * the document content only. Every chrome wrapper carries
+   * `data-print-hide="true"` so this stays one selector instead of a
+   * brittle laundry list. The attribute is also scoped to the printing
+   * body attribute, so non-print contexts that emulate print media
+   * (DevTools) don't accidentally hide things outside an export flow. */
+  body[data-printing="document"] [data-print-hide="true"],
+  body[data-printing="document"] [data-testid="backlinks-rail"],
+  body[data-printing="document"] [data-testid="search-panel"],
+  body[data-printing="document"] [role="dialog"][aria-label="Command Palette"] {
+    display: none !important;
+  }
+
+  /* Drop the in-app overflow constraints so the document flows
+   * naturally across pages instead of being clipped to the editor's
+   * scroll viewport. */
+  body[data-printing="document"],
+  body[data-printing="document"] #__next,
+  body[data-printing="document"] [data-testid="knowledge-base"],
+  body[data-printing="document"] [data-pane-content] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* The editor itself — full width, readable line-length. */
+  body[data-printing="document"] .markdown-editor,
+  body[data-printing="document"] .markdown-editor .ProseMirror {
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Avoid breaking inside structured content. */
+  body[data-printing="document"] .markdown-editor h1,
+  body[data-printing="document"] .markdown-editor h2,
+  body[data-printing="document"] .markdown-editor h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  body[data-printing="document"] .markdown-editor pre,
+  body[data-printing="document"] .markdown-editor blockquote,
+  body[data-printing="document"] .markdown-editor table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

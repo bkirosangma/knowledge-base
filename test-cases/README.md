@@ -18,6 +18,7 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 | 6 | `HOOK` | Shared Hooks & Utilities | [06-shared-hooks.md](06-shared-hooks.md) |
 | 7 | `PERSIST` | Persistence Surface | [07-persistence.md](07-persistence.md) |
 | 8 | `SEARCH` | Vault Search (KB-010) | [08-search.md](08-search.md) |
+| 9 | `EXPORT` | Export (KB-011) — diagram → SVG / PNG, document → print | [09-export.md](09-export.md) |
 
 ---
 

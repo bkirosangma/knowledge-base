@@ -1204,6 +1204,7 @@ function KnowledgeBaseInner() {
           className="flex-shrink-0 bg-surface border-r border-line flex flex-col transition-[width] duration-200 overflow-hidden"
           style={{ width: focusMode ? 0 : explorerCollapsed ? 36 : 260, borderRightWidth: focusMode ? 0 : 1 }}
           data-testid="explorer-container"
+          data-print-hide="true"
           aria-hidden={focusMode}
         >
           <ExplorerPanel
