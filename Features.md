@@ -544,15 +544,30 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 8. Test & Verification Infrastructure
+## 8. Vault Search (KB-010)
 
-### 8.1 Unit (Vitest)
+`features/search/`. Prose spec: [`test-cases/08-search.md`](test-cases/08-search.md). Lands across PRs 10a → 10c.
+
+- ⚙️ **Tokenizer** (10a) — `tokenizer.ts`. Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
+- ⚙️ **Inverted index** (10a) — `VaultIndex.ts`. `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
+- ⚙️ **Worker** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
+- ⚙️ **Query semantics** (10a) — AND-of-tokens with prefix on the last token; results carry per-field hits and a ±40-char snippet around the first body match (or first non-body match as fallback).
+- ? **Incremental indexing** (10b) — `useVaultSearch` hook subscribes to FileWatcher events plus the document save signal; reindex within 1 s of save.
+- ? **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; `>` prefix retains command behaviour.
+- ? **SearchPanel surface** (10c) — dedicated tab with kind / field / folder filter chips.
+- ? **Diagram-side hits** (10c) — clicking a node-label result opens the diagram with a pending centre-on-node intent; `DiagramView` consumes the intent on mount, selects the node, centres the viewport.
+
+---
+
+## 9. Test & Verification Infrastructure
+
+### 9.1 Unit (Vitest)
 - ✅ **`vitest` + `@vitest/ui` + `@vitest/coverage-v8`** configured (`vitest.config.ts`, `tsconfig.test.json`).
 - ✅ **jsdom** environment via `src/test/setup.ts` + `@testing-library/react` + `@testing-library/user-event` + `@testing-library/jest-dom`.
 - ✅ **Existing test**: `features/diagram/utils/gridSnap.test.ts`.
 - **Scripts**: `npm test`, `npm run test:run`, `npm run test:ui`, `npm run coverage`.
 
-### 8.2 End-to-End (Playwright)
+### 9.2 End-to-End (Playwright)
 - ✅ **`@playwright/test`** configured (`playwright.config.ts`).
 - ✅ **`PLAYWRIGHT_BASE_URL` env-var override** — when set, Playwright targets that URL and skips the built-in `npm run dev` webServer (useful for re-using an already-running local dev server).
 - ✅ **`e2e/app.spec.ts`** — pre-folder shell smoke suite: app mounts with zero errors; Geist font CSS vars present (SHELL-1.1-02); root container is a full-height flex column (SHELL-1.1-03); "No file open" empty state and "Open Folder" button render; Header title defaults to "Untitled".
@@ -563,17 +578,17 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 - ✅ **`e2e/documentGoldenPath.spec.ts`** — full document editor golden path: open `.md` vault, WYSIWYG content renders, `[[wiki-link]]` pill visible, Raw toggle round-trip, Cmd+S saves, dirty-flag cleared, file-switch autosave.
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
-### 8.3 Tooling Hooks
+### 9.3 Tooling Hooks
 - ⚙️ **Build**: `next build` — Next.js 16 / React 19.
 - ⚙️ **Lint**: `eslint` with `eslint-config-next`.
 - ⚙️ **Type check**: strict TS 5 (`tsconfig.json`, `tsconfig.test.json`).
 
-### 8.4 Continuous Integration
+### 9.4 Continuous Integration
 - ⚙️ **GitHub Actions CI** (`.github/workflows/ci.yml`) — gates every PR into `main` and every push to `main` on unit tests (`npm run test:run`), e2e tests (`npm run test:e2e`), and build (`npm run build`). Uses Node version from `.nvmrc`, caches npm, installs Chromium for Playwright, uploads the HTML report as an artifact on failure. Lint is intentionally not gated (pre-existing lint errors deferred to Phase 1).
 
 ---
 
-## 9. External Contracts (for reference in test design)
+## 10. External Contracts (for reference in test design)
 
 - **File System Access API** — `showDirectoryPicker`, `FileSystemDirectoryHandle`, `FileSystemFileHandle`, `FileSystemWritableFileStream` (typings in `types/file-system.d.ts`). Only supported in Chromium-family browsers.
 - **Vault layout** — top-level `*.json` diagrams, `*.md` documents, hidden `.archdesigner/` config dir, `.<name>.history.json` sidecars, optional nested folders.
@@ -581,7 +596,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 ---
 
-## 10. Notable Items Worth Prioritising for Tests
+## 11. Notable Items Worth Prioritising for Tests
 
 1. **Grid snap** — already has a unit test; extend to round-trip.
 2. **Markdown round-trip** (`htmlToMarkdown` ∘ `markdownToHtml`) — tables, task lists, wiki-links, code fences, blockquotes.
@@ -595,18 +610,3 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 10. **Directory-scoped localStorage** — `scopedKey` behaviour when two vaults mounted in sequence.
 11. **Link index** — full rebuild idempotency, backlink reverse mapping, rename propagation.
 12. **Playwright smoke** — already exists; extend with folder-picker stub + basic diagram-create / doc-create flow (mindful of Preview-MCP's File System Access limit — see `MEMORY.md`).
-
----
-
-## 11. Vault Search (KB-010)
-
-`features/search/`. Prose spec: [`test/prose/06-search.md`](test/prose/06-search.md). Lands across PRs 10a → 10c.
-
-- ⚙️ **Tokenizer** (10a) — `tokenizer.ts`. Lowercases, strips Markdown punctuation, drops <2-char tokens, preserves unicode word characters; emits `{ token, position }` so callers can build snippets.
-- ⚙️ **Inverted index** (10a) — `VaultIndex.ts`. `Map<token, Posting[]>` keyed by token; postings track `{ path, kind: "doc" | "diagram", field: "body" | "title" | "label" | "flow", positions }`. Prefix matching on the last query token via linear key scan (200-doc vault stays well under the latency budget).
-- ⚙️ **Worker** (10a) — `vaultIndex.worker.ts` is a thin shell; the testable logic lives in `vaultIndex.workerHandler.ts` (message protocol: `ADD_DOC` / `REMOVE` / `QUERY` / `CLEAR`, response `RESULTS` / `ERROR`).
-- ⚙️ **Query semantics** (10a) — AND-of-tokens with prefix on the last token; results carry per-field hits and a ±40-char snippet around the first body match (or first non-body match as fallback).
-- ? **Incremental indexing** (10b) — `useVaultSearch` hook subscribes to FileWatcher events plus the document save signal; reindex within 1 s of save.
-- ? **Palette no-prefix mode** (10c) — `CommandPalette` routes plain text to vault search; `>` prefix retains command behaviour.
-- ? **SearchPanel surface** (10c) — dedicated tab with kind / field / folder filter chips.
-- ? **Diagram-side hits** (10c) — clicking a node-label result opens the diagram with a pending centre-on-node intent; `DiagramView` consumes the intent on mount, selects the node, centres the viewport.

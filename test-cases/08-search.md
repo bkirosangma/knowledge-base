@@ -1,17 +1,12 @@
 # Test Cases — Vault Search (KB-010)
 
-> Prose spec for the vault-search subsystem. Covers PRs 10a (index core), 10b
+> Mirrors §8 of [Features.md](../Features.md). Covers PRs 10a (index core), 10b
 > (incremental wiring), and 10c (UI surfaces) with stable IDs that survive the
 > sequence — landing tests can flip status without renumbering.
 >
-> **Note on directory:** The audit plan and the `Working agreements` section
-> place prose specs at `test/prose/`. The pre-existing repo convention puts
-> them at `test-cases/`. This spec follows the audit plan literally; once the
-> KB-010 series lands, the team can decide whether to consolidate the two
-> directories. References in code/tests cite the IDs directly so consolidation
-> is a rename, not a renumber.
->
-> ID scheme (matches user spec): `SEARCH-<part>.<sub>-<nn>`
+> ID scheme: `SEARCH-<part>.<sub>-<nn>` (the leading number is the KB-010
+> sub-area, not the Features.md section — kept stable so e2e specs can
+> back-reference IDs without churn).
 >
 > | Part | Scope                                | Lands in PR |
 > |-----:|--------------------------------------|-------------|
