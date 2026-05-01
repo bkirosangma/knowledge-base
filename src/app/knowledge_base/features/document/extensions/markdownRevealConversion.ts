@@ -295,9 +295,13 @@ export function rawBlockToRichNodes(
     md.startsWith(">") && !md.startsWith("> ") ? "\\" + md : md;
 
   const html = markdownToHtml(parseMd);
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  const parsed = PMDOMParser.fromSchema(schema).parse(div);
+  // KB-024: DOMParser instead of innerHTML. The parse semantics are
+  // identical (HTML5 fragment parsing in both cases) but DOMParser
+  // never invokes the HTML scripting algorithm — no scripts, no event
+  // handlers, no foot-guns. PMDOMParser handles a body element the
+  // same way it handles a div wrapper.
+  const dom = new DOMParser().parseFromString(html, "text/html");
+  const parsed = PMDOMParser.fromSchema(schema).parse(dom.body);
   const nodes: ProseMirrorNode[] = [];
   parsed.forEach((child) => nodes.push(child));
   cacheSet(schema, md, nodes);
