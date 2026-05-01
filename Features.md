@@ -571,9 +571,10 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 - ✅ **Default mode is vault search** (10c) — typing plain text routes to the worker; `>` prefix selects command mode (existing UX). Empty input shows a hint. Race-by-cleanup ensures stale results never overwrite the latest.
 
 ### 8.6 SearchPanel
-`features/search/SearchPanel.tsx`
+`features/search/SearchPanel.tsx`, `features/search/applyChipFilters.ts`
 - ✅ **Dedicated pane** (10c) — virtual pane mounted via `SEARCH_SENTINEL`; opened by the `view.open-search` command and ⌘⇧F shortcut. Renders an input + result list with kind chip + snippet.
-- ❌ **Filter chips** (kind / field / folder) — deferred follow-up; the index already tags hits by kind/field, so chips can be added without changing the worker.
+- ✅ **Filter chips** — kind (Documents / Diagrams, mutually exclusive), field (body / title / label / flow, multi-select), and folder (distinct top-level folders derived from the raw result set). Chips apply post-query via `applyChipFilters` so the worker is never re-fired on chip toggle, and chip types compose by intersection.
+- ✅ **Distinct empty-state copy** — the empty-state element carries `data-state` (`idle` / `no-results` / `filtered-out`) so the three cases are unambiguous to both screen readers and tests.
 
 ### 8.7 Diagram-side hits
 `features/diagram/DiagramView.tsx`, `infrastructure/searchStream.ts`, `shell/PaneManager.tsx`
