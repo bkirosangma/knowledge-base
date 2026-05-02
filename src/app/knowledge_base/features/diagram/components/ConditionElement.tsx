@@ -4,6 +4,8 @@ import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
 import DocInfoBadge from "./DocInfoBadge";
+import { useTheme } from "../../../shared/hooks/useTheme";
+import { adaptUserColor } from "../utils/themeAdapter";
 
 interface ConditionElementProps {
   id: string;
@@ -81,9 +83,10 @@ function ConditionElement({
   const path = getConditionPath(w, h, outCount);
   const anchors = getConditionAnchors(x, y, w, h, outCount, rotation);
 
-  const fill = bgColor ?? "#ffffff";
-  const stroke = borderColor ?? "#e2e8f0";
-  const text = textColor ?? "#1e293b";
+  const { theme } = useTheme();
+  const fill = adaptUserColor(bgColor ?? "#ffffff", theme);
+  const stroke = adaptUserColor(borderColor ?? "#e2e8f0", theme);
+  const text = adaptUserColor(textColor ?? "#1e293b", theme);
 
   // Dynamic centroid positioning — triangle centroid is ~55% down from top in unrotated space
   // Rotate this offset around the center for arbitrary rotation
@@ -178,7 +181,7 @@ function ConditionElement({
         }}
       >
         {Icon && (
-          <span className="mb-1" style={{ color: textColor ?? "#475569" }}>
+          <span className="mb-1" style={{ color: adaptUserColor(textColor ?? "#475569", theme) }}>
             <Icon size={16} strokeWidth={1.5} />
           </span>
         )}
