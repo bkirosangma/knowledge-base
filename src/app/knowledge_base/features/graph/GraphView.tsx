@@ -26,9 +26,11 @@ import { useTheme } from "../../shared/hooks/useTheme";
 import {
   useGraphData,
   listTopFolders,
+  GRAPH_NODE_GUARD_THRESHOLD,
   type GraphFilters as FiltersState,
 } from "./hooks/useGraphData";
 import GraphFilters from "./components/GraphFilters";
+import GraphPlaceholder from "./components/GraphPlaceholder";
 
 // Lazy-load the canvas wrapper. `ssr: false` because react-force-graph-2d
 // touches `window` at import time. Loading state uses tokenized chrome.
@@ -75,7 +77,11 @@ export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: 
     folders: null,
     fileTypes: new Set<"md" | "json">(["md", "json"]),
     orphansOnly: false,
+    recentOnly: false,
   }));
+  // KB-042 escape hatch — sticks for the lifetime of the pane so the user
+  // doesn't get re-prompted after every filter change. Resets on unmount.
+  const [renderAnyway, setRenderAnyway] = useState(false);
 
   // ─── Cached layout from vaultConfig (read once on mount; not reactive
   //     to vault writes — would feedback-loop with our own onLayoutChange) ─
@@ -150,12 +156,21 @@ export default function GraphView({ tree, linkIndex, onSelectNode, onRefresh }: 
 
       <div className="flex-1 flex min-h-0">
         <GraphFilters allFolders={allFolders} filters={filters} onChange={setFilters} />
-        <GraphCanvas
-          data={data}
-          theme={theme}
-          onSelectNode={onSelectNode}
-          onLayoutChange={handleLayoutChange}
-        />
+        {data.nodes.length > GRAPH_NODE_GUARD_THRESHOLD && !renderAnyway ? (
+          <GraphPlaceholder
+            nodeCount={data.nodes.length}
+            threshold={GRAPH_NODE_GUARD_THRESHOLD}
+            onShowRecentOnly={() => setFilters((f) => ({ ...f, recentOnly: true }))}
+            onRenderAnyway={() => setRenderAnyway(true)}
+          />
+        ) : (
+          <GraphCanvas
+            data={data}
+            theme={theme}
+            onSelectNode={onSelectNode}
+            onLayoutChange={handleLayoutChange}
+          />
+        )}
       </div>
     </div>
   );

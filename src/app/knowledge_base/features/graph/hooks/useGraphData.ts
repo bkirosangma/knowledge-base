@@ -27,6 +27,11 @@ export interface GraphNode {
   fileType: "md" | "json";
   folder: string;        // top-level folder, '' for root
   orphan: boolean;       // 0 incoming + 0 outgoing edges
+  /**
+   * File mtime as carried on the source `TreeNode`. Missing for files
+   * that came from the link index but not the disk scan.
+   */
+  lastModified?: number;
   x?: number;
   y?: number;
 }
@@ -45,7 +50,27 @@ export interface GraphFilters {
   folders: Set<string> | null;       // null = all
   fileTypes: Set<"md" | "json">;
   orphansOnly: boolean;
+  /**
+   * KB-042 quick filter — when true, only the `RECENT_LIMIT` most-recently
+   * modified files survive (ties break by id ascending). Drives the "Show
+   * recent only" affordance in the node-count guard placeholder.
+   */
+  recentOnly: boolean;
 }
+
+/**
+ * Top-N retained when `filters.recentOnly` is on. Sized to stay well below
+ * `GRAPH_NODE_GUARD_THRESHOLD` so toggling the filter always lets the canvas
+ * render without a follow-up "Render anyway".
+ */
+export const RECENT_LIMIT = 100;
+
+/**
+ * KB-042 — `GraphView` swaps the canvas for the placeholder once the
+ * filtered node count exceeds this threshold. `react-force-graph-2d` is
+ * uncapped; ~300 is the empirical comfort ceiling on a mid-tier laptop.
+ */
+export const GRAPH_NODE_GUARD_THRESHOLD = 300;
 
 interface UseGraphDataArgs {
   tree: TreeNode[];
@@ -84,6 +109,22 @@ export function collectAllPaths(tree: TreeNode[]): string[] {
   return out;
 }
 
+/** Walk the tree and build a `path → lastModified` lookup. Files without
+ *  an mtime are omitted (treated as 0 by the recent-slice ranking). */
+function collectMtimes(tree: TreeNode[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const walk = (items: TreeNode[]) => {
+    for (const it of items) {
+      if (it.type === "file" && fileTypeOf(it.path) !== null && it.lastModified !== undefined) {
+        out.set(it.path, it.lastModified);
+      }
+      if (it.children) walk(it.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
 /** Build the unfiltered node + edge sets. Exported for unit testing. */
 export function buildGraphData(
   tree: TreeNode[],
@@ -91,6 +132,7 @@ export function buildGraphData(
   layout?: Record<string, { x: number; y: number }> | null,
 ): { nodes: GraphNode[]; links: GraphLink[] } {
   const allPaths = new Set(collectAllPaths(tree));
+  const mtimes = collectMtimes(tree);
 
   // Edges: from each document's outboundLinks + sectionLinks (deduped).
   const edgeKey = new Set<string>();
@@ -129,12 +171,14 @@ export function buildGraphData(
     const ft = fileTypeOf(id);
     if (ft === null) continue;
     const cached = layout?.[id];
+    const mtime = mtimes.get(id);
     nodes.push({
       id,
       label: basenameNoExt(id),
       fileType: ft,
       folder: topLevelFolder(id),
       orphan: (incoming.get(id) ?? 0) === 0 && (outgoing.get(id) ?? 0) === 0,
+      ...(mtime !== undefined ? { lastModified: mtime } : {}),
       ...(cached ? { x: cached.x, y: cached.y } : {}),
     });
   }
@@ -153,6 +197,24 @@ export function applyFilters(
     if (filters.folders && !filters.folders.has(n.folder)) continue;
     if (filters.orphansOnly && !n.orphan) continue;
     visibleIds.add(n.id);
+  }
+  if (filters.recentOnly && visibleIds.size > RECENT_LIMIT) {
+    // Rank surviving nodes by mtime desc, ties broken by id ascending so the
+    // top-N slice is stable across renders. Without a stable tie-break the
+    // canvas would re-mount nodes whenever the surviving set toggled equal-
+    // mtime files in and out, churning cached force-graph positions.
+    const ranked = data.nodes
+      .filter((n) => visibleIds.has(n.id))
+      .sort((a, b) => {
+        const am = a.lastModified ?? 0;
+        const bm = b.lastModified ?? 0;
+        if (am !== bm) return bm - am;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      });
+    visibleIds.clear();
+    for (let i = 0; i < RECENT_LIMIT && i < ranked.length; i++) {
+      visibleIds.add(ranked[i].id);
+    }
   }
   const nodes = data.nodes.filter((n) => visibleIds.has(n.id));
   const links = data.links.filter(

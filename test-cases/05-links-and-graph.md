@@ -135,3 +135,12 @@
 - **GRAPH-5.4-09** 🚫 **Canvas paints emerald-700 for `.md`, slate-500 for `.json`** — JSDOM doesn't render canvas; visual verification is manual. Token re-read on theme flip is wired through the `useTheme()` value memoized in `GraphCanvas`.
 - **GRAPH-5.4-10** 🚫 **`onEngineStop` debounces layout writes 500 ms** — debounce timer in canvas code; observable only against a live simulation.
 - **GRAPH-5.4-11** 🚫 **Pane-layout restore tolerates the `__graph__` sentinel** — the validator special-cases `fileType === "graph"`; covered by visual verification (open graph, reload, graph reappears).
+
+### KB-042 — Node-count guard
+
+- **GRAPH-5.4-12** ✅ **`recentOnly` filter narrows nodes to the 100 most-recently-modified** — `applyFilters` ranks nodes by `lastModified` desc and keeps the top `RECENT_LIMIT` (100); ties break by id ascending so the result is deterministic. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-13** ✅ **`recentOnly` drops edges whose endpoints fell outside the recent window** — applies after the recent slice, mirroring the existing folder/file-type filter behaviour. (Covered by `useGraphData.test.ts`.)
+- **GRAPH-5.4-14** ✅ **Filtered node count > `GRAPH_NODE_GUARD_THRESHOLD` (300) renders the "Filter to render" placeholder instead of the canvas** — `[data-testid="graph-canvas"]` is absent; `[data-testid="graph-guard-placeholder"]` is present and reports the current node count. (Covered by `GraphView.test.tsx`.)
+- **GRAPH-5.4-15** ✅ **"Render anyway" escape hatch mounts the canvas regardless of node count** — clicking `[data-testid="graph-guard-render-anyway"]` flips a session-scoped flag; the canvas mounts on the next render even though the filtered count is still > 300. The flag does not persist across pane unmount. (Covered by `GraphView.test.tsx`.)
+- **GRAPH-5.4-16** ✅ **"Show recent only" quick filter inside the placeholder sets `filters.recentOnly = true`** — clicking `[data-testid="graph-guard-recent-only"]` updates filter state; if the recent slice brings the count to ≤ 300 the canvas mounts on the next render without "Render anyway". (Covered by `GraphView.test.tsx`.)
+- **GRAPH-5.4-17** 🚫 **Placeholder hint references the folder rail and (when KB-050 lands) the tag rail** — copy stays accurate as new quick filters arrive. _(Visual / copy review.)_
