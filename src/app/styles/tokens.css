@@ -55,9 +55,13 @@
  * (right pane) read as near-white on the dark surface, which kills the
  * active affordance. Re-bind to translucent accent / green fills so the
  * active row stays visible without introducing new tokens or touching
- * every consumer (Phase 3 PR 1, 2026-04-26). */
+ * every consumer (Phase 3 PR 1, 2026-04-26).
+ *
+ * KB-034 (2026-05-02): bumped left-pane alpha .18 → .25 so the
+ * 13px text-accent filename clears WCAG AA on dark — text-accent
+ * (#34d399) on the composited fill (#184646) measures 5.45:1. */
 [data-theme="dark"] .bg-blue-50 {
-  background-color: rgba(52, 211, 153, 0.18);
+  background-color: rgba(52, 211, 153, 0.25);
 }
 [data-theme="dark"] .bg-green-50 {
   background-color: rgba(74, 222, 128, 0.15);

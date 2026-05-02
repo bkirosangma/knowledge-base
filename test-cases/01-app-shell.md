@@ -184,6 +184,7 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.13-06** ❌ **Visible focus ring on keyboard nav** — Tab-focusing a button shows a 2px ring using `var(--focus)`. Mouse clicks do NOT trigger the ring (`:focus-visible` only). _(visual; not yet automated)_
 - **SHELL-1.13-07** ❌ **Locked type scale resolves through tokens** — `text-base` is `15px`, `text-lg` is `17px`, etc. Asserting computed font-size on a benchmark element with `text-base` confirms the override.
 - **SHELL-1.13-08** ❌ **`vaultConfigRepo.update` patches a single field** — calling `repo.update({ theme: "dark" })` reads the existing config, merges the patch, writes it back; existing `name` / `version` / `created` are preserved.
+- **SHELL-1.13-09** ❌ **Active explorer-row text clears WCAG AA in both themes (KB-034)** — the `[data-theme="dark"] .bg-blue-50` rule in `src/app/styles/tokens.css` paints active rows with `rgba(52, 211, 153, 0.25)` (alpha bumped from .18 in KB-034), which composites to `rgb(24, 70, 70)` over `--surface` `#0f172a`. The 13px filename text on selected/active explorer rows uses `--accent`, giving 5.04:1 in light (`#047857` on `#eff6ff`) and 5.45:1 in dark (`#34d399` on the composited fill) — both above the 4.5:1 AA threshold. Verified manually via WCAG 2.1 contrast formula; no automated assertion yet.
 
 ## 1.14 Mobile Shell & Bottom Nav (Phase 3 PR 3)
 
