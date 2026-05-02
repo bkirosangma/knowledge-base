@@ -1,33 +1,44 @@
-/**
- * Verifies that selecting a `.alphatex` file from the explorer opens a
- * `"tab"` pane that renders `TabViewStub`. Foundation-level: TAB-004
- * replaces the stub with the real TabView.
- */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-
-// Bare-shape test that exercises the renderPane mapping logic in
-// isolation — full KnowledgeBase mount is too heavyweight here.
+import { ReactNode } from "react";
+import { StubRepositoryProvider } from "./shell/RepositoryContext";
+import { StubShellErrorProvider } from "./shell/ShellErrorContext";
 import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
 
+vi.mock("./features/tab/hooks/useTabEngine", () => ({
+  useTabEngine: () => ({
+    status: "ready",
+    metadata: null,
+    error: null,
+    mountInto: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+function wrap(children: ReactNode) {
+  return (
+    <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
+      <StubRepositoryProvider
+        value={{
+          attachment: null, document: null, diagram: null,
+          linkIndex: null, svg: null, vaultConfig: null,
+          tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
+        }}
+      >
+        {children}
+      </StubRepositoryProvider>
+    </StubShellErrorProvider>
+  );
+}
+
 describe("tab pane routing", () => {
-  it("renders TabViewStub for entries with fileType=\"tab\"", () => {
-    render(
-      renderTabPaneEntry({
-        filePath: "songs/intro.alphatex",
-        fileType: "tab",
-      })!,
-    );
-    expect(screen.getByTestId("tab-view-stub")).toBeInTheDocument();
-    expect(screen.getByText(/songs\/intro\.alphatex/)).toBeInTheDocument();
+  it("renders TabView with the file path for entries with fileType=\"tab\"", () => {
+    render(wrap(renderTabPaneEntry({ filePath: "songs/intro.alphatex", fileType: "tab" })!));
+    expect(screen.getByTestId("tab-view-canvas")).toBeInTheDocument();
   });
 
   it("returns null for non-tab fileType", () => {
     expect(
-      renderTabPaneEntry({
-        filePath: "x.md",
-        fileType: "document",
-      }),
+      renderTabPaneEntry({ filePath: "x.md", fileType: "document" }),
     ).toBeNull();
   });
 });

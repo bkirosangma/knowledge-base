@@ -5,15 +5,16 @@
  * `flattenTree` converts that tree into a path → handle lookup map.
  *
  * Rules the scanner enforces (covered by `fileTree.test.ts`):
- *   - Only `.md`, `.json`, and `.svg` files appear in the tree.
+ *   - Only `.md`, `.json`, `.svg`, and `.alphatex` files appear in the tree.
  *   - History sidecars matching `/^\..*\.history\.json$/` are excluded.
  *   - System files (`CLAUDE.md`, `MEMORY.md`, `AGENTS.md`) are excluded.
  *   - Dot-prefixed folders (`.archdesigner`, `.claude`, etc.) and the
  *     `memory` folder are excluded.
  *   - Entries are sorted: folders first, then files, each group alphabetical.
  *   - Every file carries `fileType` (`"diagram"` for `.json`, `"document"`
- *     for `.md`, `"svg"` for `.svg`), the raw `FileSystemFileHandle`, and
- *     `lastModified` from `File.lastModified` (best-effort; swallowed on error).
+ *     for `.md`, `"svg"` for `.svg`, `"tab"` for `.alphatex`), the raw
+ *     `FileSystemFileHandle`, and `lastModified` from `File.lastModified`
+ *     (best-effort; swallowed on error).
  */
 
 const HIDDEN_FOLDER_NAMES = new Set(["memory"]);
@@ -25,7 +26,7 @@ export interface TreeNode {
   path: string;
   type: "file" | "folder";
   /** Derived from extension; only set on files. */
-  fileType?: "diagram" | "document" | "svg";
+  fileType?: "diagram" | "document" | "svg" | "tab";
   children?: TreeNode[];
   handle?: FileSystemFileHandle;
   dirHandle?: FileSystemDirectoryHandle;
@@ -63,7 +64,8 @@ export async function scanTree(
         entry.name.endsWith(".json") && !/^\..*\.history\.json$/.test(entry.name);
       const isMd = entry.name.endsWith(".md");
       const isSvg = entry.name.endsWith(".svg");
-      if (!isJson && !isMd && !isSvg) continue;
+      const isAlphatex = entry.name.endsWith(".alphatex");
+      if (!isJson && !isMd && !isSvg && !isAlphatex) continue;
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const fileHandle = entry as FileSystemFileHandle;
       let lastModified: number | undefined;
@@ -73,7 +75,13 @@ export async function scanTree(
       } catch {
         /* ignore — best-effort metadata */
       }
-      const fileType: "diagram" | "document" | "svg" = isJson ? "diagram" : isMd ? "document" : "svg";
+      const fileType: "diagram" | "document" | "svg" | "tab" = isJson
+        ? "diagram"
+        : isMd
+          ? "document"
+          : isSvg
+            ? "svg"
+            : "tab";
       files.push({
         name: entry.name,
         path,

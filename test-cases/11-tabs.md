@@ -14,8 +14,8 @@ Domain interfaces, FSA-backed repository, pane-type plumbing, placeholder view. 
 
 - **TAB-11.1-01** ✅ **`.alphatex` files route to the `"tab"` pane** — `handleSelectFile` opens a tab pane for any path ending in `.alphatex`; other extensions keep their existing routing. _(unit: `knowledgeBase.tabRouting.test.tsx`.)_
 - **TAB-11.1-02** ✅ **Non-tab pane entries fall through to the default renderer** — `renderTabPaneEntry` returns `null` for any `fileType !== "tab"` so the existing `DocumentView` fallback in `renderPane` is preserved. _(unit: `knowledgeBase.tabRouting.test.tsx`.)_
-- **TAB-11.1-03** ✅ **`TabViewStub` renders a placeholder with the file path** — `data-testid="tab-view-stub"` is mounted; the file path is rendered as supporting text. _(unit: `TabViewStub.test.tsx`.)_
-- **TAB-11.1-04** ✅ **`TabViewStub` names TAB-004 in its placeholder copy** — the message reads "Guitar tab viewer coming in TAB-004"; this case is the regression guard against accidentally shipping the stub when the real `TabView` lands. Flip to 🚫 (intentional removal) when TAB-004 deletes the stub. _(unit: `TabViewStub.test.tsx`.)_
+- **TAB-11.1-03** 🚫 **`TabViewStub` deleted in TAB-004** — see TAB-11.1-04. The viewer-mounted-canvas case for the real `TabView` is TAB-11.2-03.
+- **TAB-11.1-04** 🚫 **`TabViewStub` deleted in TAB-004** — the placeholder fulfilled its purpose and was removed when the real `TabView` shipped. Kept for traceability. _(no test — file no longer exists.)_
 - **TAB-11.1-05** ✅ **`createTabRepository.read` returns raw alphaTex text** — flat-path read returns the on-disk text byte-for-byte. _(unit: `tabRepo.test.ts`.)_
 - **TAB-11.1-06** ✅ **`createTabRepository.read` throws `FileSystemError("not-found")` on missing file** — the FSA `NotFoundError` is mapped through `classifyError` to a typed domain error so consumers can branch on `kind`. _(unit: `tabRepo.test.ts`.)_
 - **TAB-11.1-07** ✅ **`createTabRepository.read` resolves files in nested subdirectories** — exercises the `parts.slice(0, -1)` path-walking loop with a `subdir/song.alphatex` path. _(unit: `tabRepo.test.ts`.)_
@@ -32,19 +32,19 @@ Domain interfaces, FSA-backed repository, pane-type plumbing, placeholder view. 
 Replaces `TabViewStub` with a real `TabView` that mounts `AlphaTabEngine` and renders the score from disk. **All cases below start at ❌ — flip to ✅ / 🧪 in the same commit as the test lands.**
 
 - **TAB-11.2-01** ❌ **`TabView` lazy-loads the engine module on mount** — `next/dynamic({ ssr: false })` deferred import; the `@coderline/alphatab` chunk is not in the doc/diagram bundle. _(unit + bundle-size assertion.)_
-- **TAB-11.2-02** ❌ **`TabView` reads the file via `useRepositories().tab`** — opens an `.alphatex` file from the explorer → `TabRepository.read` is invoked exactly once with the vault-relative path.
-- **TAB-11.2-03** ❌ **`TabView` mounts `AlphaTabEngine` and loads the file content** — the engine's `mount()` is called with the host element; `session.load({ kind: "alphatex", text })` follows.
+- **TAB-11.2-02** ✅ **`TabView` reads the file via `useRepositories().tab`** — opens an `.alphatex` file from the explorer → `TabRepository.read` is invoked exactly once with the vault-relative path. _(unit: TabView.test.tsx — "calls mountInto with the loaded file content".)_
+- **TAB-11.2-03** ✅ **`TabView` mounts `AlphaTabEngine` and loads the file content** — the engine's `mount()` is called with the host element; `session.load({ kind: "alphatex", text })` follows. _(unit: TabView.test.tsx — "renders the canvas host when status is 'ready'".)_
 - **TAB-11.2-04** ❌ **Canvas renders within 2 s on a fixture file** — the `"loaded"` event fires within the budget; assertion is wall-clock against a deterministic fixture under JSDOM-stub.
-- **TAB-11.2-05** ❌ **Loading state visible until engine `"ready"` fires** — a `data-testid="tab-view-loading"` placeholder is mounted while async import + asset fetch are in flight.
-- **TAB-11.2-06** ❌ **Engine module load failure renders an inline error pane** — when the dynamic import throws, the view shows a "Reload" button (mirrors the `GraphView` force-graph fallback).
-- **TAB-11.2-07** ❌ **Source parse failure surfaces via `ShellErrorBanner`** — malformed alphaTex routes through `useShellErrors().reportError`; same path the diagram repo uses today.
+- **TAB-11.2-05** ✅ **Loading state visible until engine `"ready"` fires** — a `data-testid="tab-view-loading"` placeholder is mounted while async import + asset fetch are in flight. _(unit: TabView.test.tsx — "shows the loading placeholder while status is 'mounting'".)_
+- **TAB-11.2-06** ✅ **Engine module load failure renders an inline error pane** — when the dynamic import throws, the view shows a "Reload" button (mirrors the `GraphView` force-graph fallback). _(unit: TabView.test.tsx — "renders the engine-load-error pane with a Reload button" + "Reload button re-invokes mountInto".)_
+- **TAB-11.2-07** ✅ **Source parse failure surfaces via `ShellErrorBanner`** — malformed alphaTex routes through `useShellErrors().reportError`; same path the diagram repo uses today. _(unit: TabView.test.tsx — "source-parse errors route through useShellErrors".)_
 - **TAB-11.2-08** ❌ **External file change while pane is open triggers `ConflictBanner`** — the file-watcher signal is the same as docs/diagrams use; the tab pane subscribes through the existing hook.
-- **TAB-11.2-09** ❌ **Closing the pane disposes the session** — `session.dispose()` runs in cleanup; subsequent re-open creates a fresh session (no audio context leak).
+- **TAB-11.2-09** ✅ **Closing the pane disposes the session** — `session.dispose()` runs in cleanup; subsequent re-open creates a fresh session (no audio context leak). _(unit: useTabEngine.test.tsx — "unmount triggers session.dispose via cleanup effect".)_
 - **TAB-11.2-10** ❌ **Re-opening the same file after close re-renders identically** — content + scroll position not in scope; just file content fidelity.
 - **TAB-11.2-11** ❌ **Dark-mode toggle (⌘⇧L) flips the canvas without refresh** — `useObservedTheme()` feeds the engine's colour settings; canvas background, staff lines, and notes all swap on toggle.
 - **TAB-11.2-12** ❌ **Tab pane H1 derives from `\title` directive** — falls back to the file basename if `\title` is absent.
 - **TAB-11.2-13** ❌ **Wiki-link parser recognises `// references:` lines in the kb-meta block** — `useLinkIndex` indexes outbound links from `.alphatex`. (May land alongside TAB-011; track here for traceability.)
-- **TAB-11.2-14** 🧪 **Open + render flow end-to-end** — Playwright drives a vault with one `.alphatex` fixture: open from explorer → canvas mounts → `data-testid="tab-view-canvas"` visible. Audio assertion is "AudioContext was created", not actual sound.
+- **TAB-11.2-14** 🧪 **Open + render flow end-to-end** — Playwright drives a vault with one `.alphatex` fixture: open from explorer → canvas mounts → `data-testid="tab-view-canvas"` visible. Audio assertion is "AudioContext was created", not actual sound. _(e2e: e2e/tab.spec.ts.)_
 
 ---
 
