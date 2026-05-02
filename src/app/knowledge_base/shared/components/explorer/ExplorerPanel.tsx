@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, useId } from "react";
 import {
   ChevronLeft, ChevronRight, FolderOpen,
   FilePlus, FolderPlus, FileText, FileImage, Trash2, Pencil, Copy, Clipboard, FileSymlink, FolderSymlink,
@@ -102,10 +102,10 @@ export default function ExplorerPanel({
   // and a visual ring on the active row. We deliberately do *not* move DOM focus
   // to individual rows — that would interfere with focus elsewhere in the shell.
   const [activeDescendantPath, setActiveDescendantPath] = useState<string | null>(null);
-  const treeIdRef = useRef(`kb-tree-${Math.random().toString(36).slice(2, 8)}`);
+  const treeIdPrefix = useId();
   const rowIdFor = useCallback(
-    (path: string) => `${treeIdRef.current}-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
-    []
+    (path: string) => `${treeIdPrefix}-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+    [treeIdPrefix]
   );
   const menuRef = useRef<HTMLDivElement>(null);
   const dotMenuRef = useRef<HTMLDivElement>(null);
