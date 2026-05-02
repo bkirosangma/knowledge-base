@@ -69,7 +69,6 @@ export default function ExportMenu({ paneType, handlers }: ExportMenuProps) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-line bg-surface text-ink-2 hover:bg-surface-2 transition-colors"
-        title="Export"
       >
         <Download size={14} />
         <span>Export</span>

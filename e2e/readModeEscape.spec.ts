@@ -105,7 +105,7 @@ test.describe('Read Mode Escape Hatch — Document', () => {
     await openFolder(page)
 
     // Click the "New Document" button in the explorer header
-    await page.getByTitle('New Document').click()
+    await page.getByLabel('New Document').click()
 
     // Wait for the new file to appear and be opened
     await expect(page.locator('.ProseMirror').first()).toBeVisible({ timeout: 5000 })
@@ -198,7 +198,7 @@ test.describe('Read Mode Escape Hatch — Diagram', () => {
     await openDiagramFile(page)
 
     // Click the "New Diagram" button in the explorer header
-    await page.getByTitle('New Diagram').click()
+    await page.getByLabel('New Diagram').click()
 
     // Wait for the new diagram canvas to be visible
     await expect(page.locator('[data-testid="diagram-canvas"]')).toBeVisible({ timeout: 5000 })

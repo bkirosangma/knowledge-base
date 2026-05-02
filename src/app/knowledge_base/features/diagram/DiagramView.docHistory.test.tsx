@@ -162,7 +162,7 @@ describe('DiagramView — document attachment history', () => {
     renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
 
     // Click the Undo button (rendered by HistoryPanel inside DiagramOverlays)
-    const undoBtn = document.querySelector('button[title="Undo (Cmd+Z)"]')
+    const undoBtn = document.querySelector('button[aria-label="Undo (Cmd+Z)"]')
     if (!undoBtn) {
       // HistoryPanel may be collapsed; undo is also wired to Ctrl+Z on the canvas
       fireEvent.keyDown(document, { key: 'z', ctrlKey: true })
@@ -186,7 +186,7 @@ describe('DiagramView — document attachment history', () => {
     const onLoadDocuments = vi.fn()
     renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
 
-    const redoBtn = document.querySelector('button[title="Redo (Cmd+Shift+Z)"]')
+    const redoBtn = document.querySelector('button[aria-label="Redo (Cmd+Shift+Z)"]')
     if (!redoBtn) {
       fireEvent.keyDown(document, { key: 'z', ctrlKey: true, shiftKey: true })
     } else {

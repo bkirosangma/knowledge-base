@@ -1,0 +1,72 @@
+/* ── Keyboard-reachable tooltip (KB-036) ──
+ *
+ * Pattern adapted from the `.kb-table-toolbar button[data-tooltip]`
+ * rules in tables.css. The wrapper `.kb-tooltip` renders the trigger
+ * plus a real `[role="tooltip"]` bubble (`.kb-tooltip__bubble`); the
+ * bubble is wired to the trigger via `aria-describedby` for AT.
+ *
+ * Visibility is driven entirely by CSS state on the wrapper: it shows
+ * on `:hover` and on `:has(:focus-visible)` — i.e. keyboard focus —
+ * with no OS delay. Disabled triggers suppress the bubble (the dimmed
+ * icon plus `cursor: not-allowed` is enough affordance).
+ */
+.kb-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.kb-tooltip__bubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.kb-tooltip__bubble::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+}
+
+/* Default placement: above the trigger, arrow pointing down. */
+.kb-tooltip--top .kb-tooltip__bubble {
+  bottom: calc(100% + 6px);
+}
+.kb-tooltip--top .kb-tooltip__bubble::before {
+  top: 100%;
+  border-top-color: #1e293b;
+}
+
+/* Below the trigger, arrow pointing up. */
+.kb-tooltip--bottom .kb-tooltip__bubble {
+  top: calc(100% + 6px);
+}
+.kb-tooltip--bottom .kb-tooltip__bubble::before {
+  bottom: 100%;
+  border-bottom-color: #1e293b;
+}
+
+.kb-tooltip:hover > .kb-tooltip__bubble,
+.kb-tooltip:has(:focus-visible) > .kb-tooltip__bubble {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Don't show the tooltip when the wrapped control is disabled — the
+ * dimmed icon plus `cursor: not-allowed` is enough affordance. */
+.kb-tooltip:has(:disabled) > .kb-tooltip__bubble {
+  display: none;
+}

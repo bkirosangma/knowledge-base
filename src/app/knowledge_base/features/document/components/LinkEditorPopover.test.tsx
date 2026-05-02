@@ -172,7 +172,7 @@ describe('LinkEditorPopover — link mark mode (DOC-4.7-01)', () => {
     await waitFor(() => expect(screen.queryByText('URL')).not.toBeNull())
 
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Remove link'))
+      fireEvent.click(screen.getByLabelText('Remove link'))
     })
 
     await waitFor(() => {
@@ -315,7 +315,7 @@ describe('LinkEditorPopover — wiki-link mode (DOC-4.7-02, 4.7-06, 4.7-10, 4.7-
     )
 
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Remove wiki-link'))
+      fireEvent.click(screen.getByLabelText('Remove wiki-link'))
     })
 
     await waitFor(() => {

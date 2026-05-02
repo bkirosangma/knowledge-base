@@ -13,13 +13,15 @@
  *    3. markdown-editor + .md-raw-block    → prose.css
  *    4. editorial read mode                → editorial.css
  *    5. table editing + floating toolbar   → tables.css
- *    6. mobile @media                      → mobile.css
+ *    6. keyboard-reachable tooltip         → tooltip.css (KB-036)
+ *    7. mobile @media                      → mobile.css
  */
 
 @import "./styles/tokens.css";
 @import "./styles/prose.css";
 @import "./styles/editorial.css";
 @import "./styles/tables.css";
+@import "./styles/tooltip.css";
 @import "./styles/mobile.css";
 
 /* ── Truly-global resets ──────────────────────────────────────────── */

@@ -330,7 +330,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 1, savedIndex: 0, canUndo: true, onUndo })}
       />,
     )
-    fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
+    fireEvent.click(screen.getByLabelText('Undo (Cmd+Z)'))
     expect(onUndo).toHaveBeenCalledOnce()
   })
 
@@ -349,7 +349,7 @@ describe('DocumentProperties — history panel (HIST)', () => {
         history={makeHistoryBridge({ entries: entries satisfies HistoryEntry<unknown>[], currentIndex: 0, savedIndex: 0, canRedo: true, onRedo })}
       />,
     )
-    fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
+    fireEvent.click(screen.getByLabelText('Redo (Cmd+Shift+Z)'))
     expect(onRedo).toHaveBeenCalledOnce()
   })
 

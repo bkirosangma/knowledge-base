@@ -63,7 +63,7 @@ describe('SVGEditorView', () => {
         />
       );
     });
-    expect(screen.getByTitle('Select (S)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select (S)')).toBeInTheDocument();
   });
 
   it('emits bridge with isDirty=false on mount', async () => {

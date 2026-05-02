@@ -101,6 +101,6 @@ describe('DIAG-3.13-02: PropertiesPanel tab switching', () => {
     // Full panel content is not rendered when collapsed
     expect(screen.queryByText('Architecture')).toBeNull()
     // Expand button is visible
-    expect(screen.getByTitle('Expand properties')).toBeTruthy()
+    expect(screen.getByLabelText('Expand properties')).toBeTruthy()
   })
 })

@@ -81,7 +81,7 @@ describe('DIAG-3.13-07: NodeProperties — icon picker', () => {
     const iconBtn = screen.getByText('Database').closest('button')!
     fireEvent.click(iconBtn)
     // The grid has multiple icon buttons — verify at least one is rendered
-    const gridBtns = screen.getAllByRole('button').filter((b) => b.getAttribute('title'))
+    const gridBtns = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-label'))
     expect(gridBtns.length).toBeGreaterThan(5)
   })
 
@@ -91,7 +91,7 @@ describe('DIAG-3.13-07: NodeProperties — icon picker', () => {
     // Open picker
     fireEvent.click(screen.getByText('Database').closest('button')!)
     // Click the "Activity" icon (title="Activity")
-    fireEvent.click(screen.getByTitle('Activity'))
+    fireEvent.click(screen.getByLabelText('Activity'))
     // Lucide icons are forwardRef objects — use expect.anything() since they're not plain Functions
     expect(onUpdate).toHaveBeenCalledWith('n1', { icon: expect.anything() })
   })
@@ -101,7 +101,7 @@ describe('DIAG-3.13-07: NodeProperties — icon picker', () => {
     render(<NodeProperties {...baseProps({ onUpdate, readOnly: true })} />)
     // Picker still opens in readOnly (the toggle button isn't disabled), but onSelect is undefined
     fireEvent.click(screen.getByText('Database').closest('button')!)
-    fireEvent.click(screen.getByTitle('Activity'))
+    fireEvent.click(screen.getByLabelText('Activity'))
     expect(onUpdate).not.toHaveBeenCalled()
   })
 })

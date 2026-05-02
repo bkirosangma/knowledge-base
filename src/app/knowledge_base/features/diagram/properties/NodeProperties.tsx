@@ -5,6 +5,7 @@ import DocumentsSection from "./DocumentsSection";
 import { getDistinctTypes } from "../utils/typeUtils";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 import { AutocompleteInput } from "./AutocompleteInput";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 export function NodeProperties({
   id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onPreviewDocument, readOnly,
@@ -218,13 +219,15 @@ export function NodeProperties({
                     )}
                   </div>
                   {outCount > 2 && !readOnly && (
-                    <button
-                      className="text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-0.5 cursor-pointer"
-                      onClick={() => onDeleteAnchor?.(id, i)}
-                      title="Delete anchor and its connections"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
+                    <Tooltip label="Delete anchor and its connections">
+                      <button
+                        className="text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-0.5 cursor-pointer"
+                        onClick={() => onDeleteAnchor?.(id, i)}
+                        aria-label="Delete anchor and its connections"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               );

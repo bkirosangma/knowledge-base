@@ -89,7 +89,7 @@ test.describe('SVG editor — split-pane id scoping (KB-006)', () => {
     // section labelled "Background" with one `<input type="color">`;
     // anchoring on that label keeps the locator robust against future
     // toolbar reshuffles that would invalidate a positional `nth()`.
-    await page.getByTitle('Canvas settings').first().click()
+    await page.getByLabel('Canvas settings').first().click()
     const bgInput = page
       .getByText('Background', { exact: true })
       .locator('..')

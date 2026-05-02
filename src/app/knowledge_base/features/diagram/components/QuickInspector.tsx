@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Palette, Pencil, Link2, Copy, Trash2 } from "lucide-react";
 import type { EdgeHandleDirection } from "../hooks/useDragToConnect";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 // The 6 preset colour schemes mirrored from properties/shared.tsx COLOR_SCHEMES.
 // Each swatch shows the border colour; clicking applies the full scheme to
@@ -105,68 +106,73 @@ export default function QuickInspector({
         style={{ left, top, transform: "translateX(-50%)", height: TOOLBAR_HEIGHT }}
       >
         {/* Color button */}
-        <button
-          ref={colorButtonRef}
-          title="Change colour"
-          aria-label="Change color"
-          aria-haspopup="true"
-          aria-expanded={showColorPopover}
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors relative"
-          onClick={() => setShowColorPopover((v) => !v)}
-        >
-          {/* Small filled circle showing current colour */}
-          <span
-            className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full border border-slate-300"
-            style={{ backgroundColor: currentColor }} // dynamic — must be inline
-          />
-          <Palette size={15} className="text-slate-600" />
-        </button>
+        <Tooltip label="Change colour">
+          <button
+            ref={colorButtonRef}
+            aria-label="Change color"
+            aria-haspopup="true"
+            aria-expanded={showColorPopover}
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors relative"
+            onClick={() => setShowColorPopover((v) => !v)}
+          >
+            {/* Small filled circle showing current colour */}
+            <span
+              className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full border border-slate-300"
+              style={{ backgroundColor: currentColor }} // dynamic — must be inline
+            />
+            <Palette size={15} className="text-slate-600" />
+          </button>
+        </Tooltip>
 
         {/* Label edit button */}
-        <button
-          title="Edit label"
-          aria-label="Edit label"
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
-          onClick={() => onLabelEdit(nodeId)}
-        >
-          <Pencil size={15} className="text-slate-600" />
-        </button>
+        <Tooltip label="Edit label">
+          <button
+            aria-label="Edit label"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            onClick={() => onLabelEdit(nodeId)}
+          >
+            <Pencil size={15} className="text-slate-600" />
+          </button>
+        </Tooltip>
 
         {/* Divider */}
         <div className="border-l border-slate-200 h-5 mx-0.5" />
 
         {/* Connect button — mousedown, not click, to start drag immediately */}
-        <button
-          title="Connect"
-          aria-label="Connect to another node"
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
-          onMouseDown={(e) => onStartConnect(nodeId, "e", e)}
-        >
-          <Link2 size={15} className="text-slate-600" />
-        </button>
+        <Tooltip label="Connect">
+          <button
+            aria-label="Connect to another node"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            onMouseDown={(e) => onStartConnect(nodeId, "e", e)}
+          >
+            <Link2 size={15} className="text-slate-600" />
+          </button>
+        </Tooltip>
 
         {/* Divider */}
         <div className="border-l border-slate-200 h-5 mx-0.5" />
 
         {/* Duplicate button */}
-        <button
-          title="Duplicate"
-          aria-label="Duplicate node"
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
-          onClick={() => onDuplicate(nodeId)}
-        >
-          <Copy size={15} className="text-slate-600" />
-        </button>
+        <Tooltip label="Duplicate">
+          <button
+            aria-label="Duplicate node"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            onClick={() => onDuplicate(nodeId)}
+          >
+            <Copy size={15} className="text-slate-600" />
+          </button>
+        </Tooltip>
 
         {/* Delete button */}
-        <button
-          title="Delete"
-          aria-label="Delete node"
-          className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 transition-colors"
-          onClick={() => onDelete(nodeId)}
-        >
-          <Trash2 size={15} className="text-red-400" />
-        </button>
+        <Tooltip label="Delete">
+          <button
+            aria-label="Delete node"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 transition-colors"
+            onClick={() => onDelete(nodeId)}
+          >
+            <Trash2 size={15} className="text-red-400" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Colour swatch popover */}
@@ -187,18 +193,18 @@ export default function QuickInspector({
             {COLOUR_SCHEMES.map((scheme) => {
               const isActive = currentColor === scheme.fill;
               return (
-                <button
-                  key={scheme.name}
-                  title={scheme.name}
-                  aria-label={scheme.name}
-                  className={`w-8 h-8 rounded-md border-2 cursor-pointer transition-all ${
-                    isActive
-                      ? "ring-2 ring-blue-400 ring-offset-1 border-white"
-                      : "border-slate-200 hover:border-slate-400"
-                  }`}
-                  style={{ backgroundColor: scheme.fill }} // dynamic — must be inline
-                  onClick={() => handleSchemeClick(scheme)}
-                />
+                <Tooltip key={scheme.name} label={scheme.name}>
+                  <button
+                    aria-label={scheme.name}
+                    className={`w-8 h-8 rounded-md border-2 cursor-pointer transition-all ${
+                      isActive
+                        ? "ring-2 ring-blue-400 ring-offset-1 border-white"
+                        : "border-slate-200 hover:border-slate-400"
+                    }`}
+                    style={{ backgroundColor: scheme.fill }} // dynamic — must be inline
+                    onClick={() => handleSchemeClick(scheme)}
+                  />
+                </Tooltip>
               );
             })}
           </div>

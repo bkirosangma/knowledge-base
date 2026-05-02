@@ -6,6 +6,7 @@ import {
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, Link2, Link2Off, Crop,
 } from "lucide-react";
 import type { SVGStyle, SVGTool } from "./SVGCanvas";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 interface SVGToolbarProps {
   activeTool: SVGTool;
@@ -139,37 +140,45 @@ export default function SVGToolbar({
   return (
     <div className="flex items-center gap-0.5 px-2 py-1 border-b border-line bg-surface flex-shrink-0">
       {TOOLS.map(({ tool, Icon, title }) => (
-        <button
-          key={tool}
-          title={title}
-          disabled={readOnly}
-          data-active={!readOnly && activeTool === tool}
-          className={`${btnBase} ${readOnly ? btnDisabled : activeTool === tool ? btnActive : btnInactive}`}
-          onClick={() => !readOnly && onToolChange(tool)}
-        >
-          <Icon size={16} />
-        </button>
+        <Tooltip key={tool} label={title} placement="bottom">
+          <button
+            disabled={readOnly}
+            data-active={!readOnly && activeTool === tool}
+            aria-label={title}
+            className={`${btnBase} ${readOnly ? btnDisabled : activeTool === tool ? btnActive : btnInactive}`}
+            onClick={() => !readOnly && onToolChange(tool)}
+          >
+            <Icon size={16} />
+          </button>
+        </Tooltip>
       ))}
 
       <div className="w-px h-4 bg-line mx-1" />
 
-      <button
-        title={linkedHandles ? "Handles linked — click to break (allow sharp points)" : "Handles independent — click to link (smooth curves)"}
-        disabled={readOnly}
-        onClick={() => !readOnly && onLinkedHandlesChange(!linkedHandles)}
-        className={`${btnBase} ${readOnly ? btnDisabled : linkedHandles ? btnActive : btnInactive}`}
-      >
-        {linkedHandles ? <Link2 size={16} /> : <Link2Off size={16} />}
-      </button>
+      <Tooltip label={linkedHandles ? "Handles linked — click to break (allow sharp points)" : "Handles independent — click to link (smooth curves)"} placement="bottom">
+        <button
+          disabled={readOnly}
+          aria-label={linkedHandles ? "Unlink handles" : "Link handles"}
+          aria-pressed={linkedHandles}
+          onClick={() => !readOnly && onLinkedHandlesChange(!linkedHandles)}
+          className={`${btnBase} ${readOnly ? btnDisabled : linkedHandles ? btnActive : btnInactive}`}
+        >
+          {linkedHandles ? <Link2 size={16} /> : <Link2Off size={16} />}
+        </button>
+      </Tooltip>
 
       <div className="w-px h-4 bg-line mx-1" />
 
-      <button title="Undo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onUndo}>
-        <Undo2 size={16} />
-      </button>
-      <button title="Redo" disabled={readOnly} className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onRedo}>
-        <Redo2 size={16} />
-      </button>
+      <Tooltip label="Undo" placement="bottom">
+        <button disabled={readOnly} aria-label="Undo" className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onUndo}>
+          <Undo2 size={16} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Redo" placement="bottom">
+        <button disabled={readOnly} aria-label="Redo" className={`${btnBase} ${readOnly ? btnDisabled : btnInactive}`} onClick={onRedo}>
+          <Redo2 size={16} />
+        </button>
+      </Tooltip>
 
       <div className="w-px h-4 bg-line mx-1" />
 
@@ -190,27 +199,35 @@ export default function SVGToolbar({
 
       <div className="w-px h-4 bg-line mx-1" />
 
-      <button title="Zoom in" className={`${btnBase} ${btnInactive}`} onClick={onZoomIn}>
-        <ZoomIn size={16} />
-      </button>
-      <button title="Zoom out" className={`${btnBase} ${btnInactive}`} onClick={onZoomOut}>
-        <ZoomOut size={16} />
-      </button>
-      <button title="Fit" className={`${btnBase} ${btnInactive}`} onClick={onZoomFit}>
-        <Maximize2 size={16} />
-      </button>
+      <Tooltip label="Zoom in" placement="bottom">
+        <button aria-label="Zoom in" className={`${btnBase} ${btnInactive}`} onClick={onZoomIn}>
+          <ZoomIn size={16} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Zoom out" placement="bottom">
+        <button aria-label="Zoom out" className={`${btnBase} ${btnInactive}`} onClick={onZoomOut}>
+          <ZoomOut size={16} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Fit" placement="bottom">
+        <button aria-label="Fit" className={`${btnBase} ${btnInactive}`} onClick={onZoomFit}>
+          <Maximize2 size={16} />
+        </button>
+      </Tooltip>
 
       <div className="w-px h-4 bg-line mx-1" />
 
       {/* Canvas settings — background colour + size */}
       <div className="relative" ref={settingsContainerRef}>
-        <button
-          title="Canvas settings"
-          className={`${btnBase} ${settingsOpen ? btnActive : btnInactive}`}
-          onClick={() => setSettingsOpen(v => !v)}
-        >
-          <Crop size={16} />
-        </button>
+        <Tooltip label="Canvas settings" placement="bottom">
+          <button
+            aria-label="Canvas settings"
+            className={`${btnBase} ${settingsOpen ? btnActive : btnInactive}`}
+            onClick={() => setSettingsOpen(v => !v)}
+          >
+            <Crop size={16} />
+          </button>
+        </Tooltip>
 
         {settingsOpen && (
           <div

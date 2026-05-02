@@ -16,6 +16,7 @@ import type { TreeNode } from "../shared/hooks/useFileExplorer";
 import type { LinkIndex } from "../features/document/types";
 import type { Theme } from "../shared/hooks/useTheme";
 import { useCommandRegistry } from "../shared/context/CommandRegistry";
+import { Tooltip } from "../shared/components/Tooltip";
 
 /**
  * Top-level mobile shell — replaces the desktop split-pane layout when
@@ -202,26 +203,28 @@ export default function MobileShell(props: MobileShellProps) {
         </div>
 
         {/* ⌘K → command palette (also reachable via the search button below). */}
-        <button
-          onClick={() => setPaletteOpen(true)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-line bg-surface-2 text-mute hover:text-ink-2"
-          aria-label="Search commands"
-          data-testid="command-palette-trigger"
-          title="Search commands"
-        >
-          <span className="text-xs font-mono">⌘K</span>
-        </button>
+        <Tooltip label="Search commands" placement="bottom">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-line bg-surface-2 text-mute hover:text-ink-2"
+            aria-label="Search commands"
+            data-testid="command-palette-trigger"
+          >
+            <span className="text-xs font-mono">⌘K</span>
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={onToggleTheme}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-mute hover:bg-surface-2 hover:text-ink-2"
-          aria-label="Toggle theme"
-          aria-pressed={theme === "dark"}
-          data-testid="theme-toggle"
-          title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-        >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        <Tooltip label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} placement="bottom">
+          <button
+            onClick={onToggleTheme}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-mute hover:bg-surface-2 hover:text-ink-2"
+            aria-label="Toggle theme"
+            aria-pressed={theme === "dark"}
+            data-testid="theme-toggle"
+          >
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </Tooltip>
       </div>
 
       {/* ─── Active tab content ────────────────────────────────────── */}

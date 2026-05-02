@@ -11,6 +11,7 @@ import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
 import { DiagramProperties } from "./DiagramProperties";
 import HistoryPanel from "../../../shared/components/HistoryPanel";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 interface PropertiesPanelProps {
   selection: Selection;
@@ -97,13 +98,15 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
         className={`flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
         style={{ width: hidden ? 0 : 36 }}
       >
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
-          title="Expand properties"
-        >
-          <ChevronLeft size={16} className="text-slate-500" />
-        </button>
+        <Tooltip label="Expand properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+            aria-label="Expand properties"
+          >
+            <ChevronLeft size={16} className="text-slate-500" />
+          </button>
+        </Tooltip>
       </div>
     );
   }
@@ -115,15 +118,17 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
       style={{ width: hidden ? 0 : 280 }}
     >
       {onToggleCollapse ? (
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
-          title="Collapse properties"
-        >
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-          <span className="text-[10px] text-slate-400 font-medium">{sectionLabel}</span>
-          <ChevronRight size={14} className="ml-auto text-slate-400" />
-        </button>
+        <Tooltip label="Collapse properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+            aria-label="Collapse properties"
+          >
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+            <span className="text-[10px] text-slate-400 font-medium">{sectionLabel}</span>
+            <ChevronRight size={14} className="ml-auto text-slate-400" />
+          </button>
+        </Tooltip>
       ) : (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
           <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>

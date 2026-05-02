@@ -6,6 +6,7 @@ import { BrainCircuit, ChevronRight, FileText, Filter, Folder, Search } from "lu
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
 import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
+import { Tooltip } from "../../shared/components/Tooltip";
 
 // Lazy-load canvas — react-force-graph-2d touches `window` at import.
 const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
@@ -429,9 +430,10 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                       </button>
                     )}
                     {selectedNode.community != null && (
+                      <Tooltip label="Click to highlight this community">
                       <button
                         className={`flex items-center gap-1 w-full text-left rounded transition-opacity ${highlightedCommunity === selectedNode.community ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
-                        title="Click to highlight this community"
+                        aria-label="Highlight this community"
                         onClick={() => {
                           setHighlightedCommunity(prev => prev === selectedNode.community ? null : selectedNode.community!);
                           setHighlightedHyperedge(null);
@@ -445,6 +447,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
                           {communities.find((c) => c.id === selectedNode.community)?.name ?? `Community ${selectedNode.community}`}
                         </span>
                       </button>
+                      </Tooltip>
                     )}
                     {neighbors.length > 0 && (
                       <div>

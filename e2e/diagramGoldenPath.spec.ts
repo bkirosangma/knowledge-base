@@ -145,8 +145,8 @@ test.describe('Diagram golden path', () => {
     await page.getByText('flow.json').first().click()
     await expect(page.locator('[data-testid="diagram-canvas"]')).toBeVisible({ timeout: 5000 })
 
-    // The properties panel collapse button has title="Collapse properties" when
-    // expanded, or title="Expand properties" when collapsed. Both match /properties/i.
+    // The properties panel collapse button has aria-label="Collapse properties" when
+    // expanded, or aria-label="Expand properties" when collapsed. Both match /properties/i.
     const initial = await page.evaluate(() => localStorage.getItem('properties-collapsed'))
 
     const toggle = page.getByRole('button', { name: /properties/i }).first()

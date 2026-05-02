@@ -8,6 +8,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Activity, Tag, Map as MapIcon } from "lucide-react";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 interface DiagramToolbarOverflowProps {
   isLive: boolean;
@@ -52,17 +53,19 @@ export default function DiagramToolbarOverflow({
 
   return (
     <div className="relative" ref={wrapRef} data-testid="diagram-toolbar-overflow">
-      <button
-        type="button"
-        data-testid="diagram-toolbar-overflow-trigger"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="More toolbar options"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-line bg-surface text-mute hover:text-ink-2 transition-colors"
-      >
-        <MoreHorizontal size={14} />
-      </button>
+      <Tooltip label="More toolbar options" placement="bottom">
+        <button
+          type="button"
+          data-testid="diagram-toolbar-overflow-trigger"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="More toolbar options"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-line bg-surface text-mute hover:text-ink-2 transition-colors"
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </Tooltip>
       {open && (
         <div
           role="menu"
