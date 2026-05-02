@@ -77,9 +77,9 @@ export function useDiagramPersistence(
             saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
             onDirtyChange?.(activeFile, true);
           } catch (e) {
-            // Phase 5c (2026-04-19): quota-exceeded during autosave is a
-            // real data-loss vector. Surface to the shell banner so the
-            // user knows their pending edits are not being persisted.
+            // Quota-exceeded during autosave is a real data-loss vector.
+            // Surface to the shell banner so the user knows their pending
+            // edits are not being persisted.
             reportError(e, `Auto-saving draft of ${activeFile}`);
           }
         }

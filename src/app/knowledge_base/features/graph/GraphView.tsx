@@ -11,8 +11,6 @@
  * Layout positions (post-simulation) are persisted to
  * `vaultConfig.graph.layout` via the `RepositoryContext` so re-opening
  * the pane doesn't re-run the simulation from scratch.
- *
- * Phase 3 PR 2 (2026-04-26).
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";

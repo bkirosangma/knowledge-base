@@ -28,8 +28,6 @@ const TABS: readonly TabSpec[] = [
  * tap target so the row is at-spec for touch ergonomics. Active state
  * uses `text-accent`; inactive uses `text-mute`. `aria-selected` reflects
  * the active tab so screen readers announce state.
- *
- * Phase 3 PR 3 (SHELL-1.14, 2026-04-26).
  */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (

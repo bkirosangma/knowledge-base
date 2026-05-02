@@ -15,8 +15,6 @@
  *      A common-word stoplist filters obvious noise.
  *   4. Skip self-references (the current document's own basename).
  *   5. Cap at 50 hits.
- *
- * Phase 3 PR 2 (2026-04-26).
  */
 
 const COMMON_STOPLIST = new Set<string>([

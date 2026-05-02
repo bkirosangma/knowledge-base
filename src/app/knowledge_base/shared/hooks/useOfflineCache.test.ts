@@ -4,7 +4,7 @@ import { useRef } from 'react'
 import { useOfflineCache, KB_CACHE_PREFIX, cacheKeyForPath } from './useOfflineCache'
 import type { TreeNode } from './useFileExplorer'
 
-// Covers SHELL-1.15-05..06 — Phase 3 PR 3 (PWA offline cache smoke test).
+// Covers SHELL-1.15-05..06 — PWA offline cache smoke test.
 
 describe('cacheKeyForPath', () => {
   it('prefixes any vault path with /__kb-cache/', () => {

@@ -5,10 +5,10 @@ import type { ReactNode } from "react";
 import { FileSystemError, classifyError, type FileSystemErrorKind } from "../domain/errors";
 
 /**
- * Shell-level error surface (Phase 5c, 2026-04-19). Holds the most recent
- * actionable FS error so `ShellErrorBanner` can render it. One error at a
- * time; a new `reportError` replaces the previous one. Intentionally
- * minimal — no queue, no timing, no severity matrix.
+ * Shell-level error surface. Holds the most recent actionable FS error
+ * so `ShellErrorBanner` can render it. One error at a time; a new
+ * `reportError` replaces the previous one. Intentionally minimal — no
+ * queue, no timing, no severity matrix.
  */
 export interface ReportedError {
   readonly kind: FileSystemErrorKind;

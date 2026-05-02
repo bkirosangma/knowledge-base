@@ -278,7 +278,7 @@ describe('propagateMoveLinks (HOOK-6.2-11)', () => {
   })
 })
 
-describe('isDiagramData (Phase 5b schema guard)', () => {
+describe('isDiagramData (schema guard)', () => {
   const goodDiagram = { title: 'x', layers: [], nodes: [], connections: [] }
 
   it('accepts a minimal valid diagram', () => {

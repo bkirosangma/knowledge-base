@@ -5,8 +5,6 @@ import { useEffect, useRef } from "react";
 /**
  * Touch interaction hook for the diagram canvas in read-only mobile mode.
  *
- * Phase 3 PR 3 (DIAG-3.24, 2026-04-26).
- *
  * Behaviour:
  *   - Single-finger touchmove: NO action. The browser is free to scroll
  *     the document; we don't preventDefault for one-finger gestures.

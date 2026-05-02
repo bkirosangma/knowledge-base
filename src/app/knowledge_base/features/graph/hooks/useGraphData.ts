@@ -13,8 +13,6 @@
  * Filters: folder set, file-type set, orphans-only. Cached layout
  * positions from `vaultConfig.graph.layout` are merged into nodes when
  * available so re-opening the pane doesn't re-simulate from scratch.
- *
- * Phase 3 PR 2 (2026-04-26).
  */
 
 import { useMemo } from "react";

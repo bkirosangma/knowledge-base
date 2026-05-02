@@ -384,7 +384,7 @@ describe('PERSIST-7.1-14: localStorage setItem failure behaviour', () => {
     spy.mockRestore()
   })
 
-  it('saveDraft throws a classified FileSystemError (Phase 5c regression) so the caller can reportError', () => {
+  it('saveDraft throws a classified FileSystemError so the caller can reportError', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       const err = new Error('storage is full')
       err.name = 'QuotaExceededError'

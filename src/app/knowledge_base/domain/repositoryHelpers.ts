@@ -1,5 +1,5 @@
 /**
- * Shared helpers for repository consumers (Phase 5c, 2026-04-19).
+ * Shared helpers for repository consumers.
  */
 
 import { FileSystemError, classifyError, isFileSystemErrorOfKind } from "./errors";

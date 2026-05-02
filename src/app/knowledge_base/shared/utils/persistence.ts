@@ -207,11 +207,10 @@ export function saveDraft(
   try {
     localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));
   } catch (e) {
-    // Phase 5c (2026-04-19): classify + re-throw instead of silently
-    // swallowing. Quota-exceeded during autosave was the highest-impact
-    // data-loss vector — user types into diagram, autosave fails, the
-    // tab closes, work is gone with no UI indication. Callers now catch
-    // + reportError.
+    // Classify + re-throw instead of silently swallowing. Quota-exceeded
+    // during autosave was the highest-impact data-loss vector — user
+    // types into diagram, autosave fails, the tab closes, work is gone
+    // with no UI indication. Callers now catch + reportError.
     throw classifyError(e);
   }
 }

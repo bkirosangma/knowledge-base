@@ -124,7 +124,7 @@ describe('resolveWikiLinkPath', () => {
 
   it('DOC-4.8-13: .. beyond root is clamped (dropped, not emitted as a literal segment)', () => {
     // Extra `..` past the vault root are discarded so the resolver never
-    // produces a path that escapes the vault. See Phase 5a (2026-04-19).
+    // produces a path that escapes the vault.
     expect(resolveWikiLinkPath('../../foo', 'a')).toBe('foo.md')
     expect(resolveWikiLinkPath('../../../foo', '')).toBe('foo.md')
   })

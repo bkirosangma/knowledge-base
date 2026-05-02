@@ -1,7 +1,7 @@
 /* ── Design tokens ──────────────────────────────────────────────────────────
- * Phase 3 PR 1 (2026-04-26). Token layer + locked type scale, exposed as
- * Tailwind v4 utilities via `@theme inline` (so dark-mode flips propagate
- * through `var(--…)` instead of being baked at theme-build time).
+ * Token layer + locked type scale, exposed as Tailwind v4 utilities via
+ * `@theme inline` (so dark-mode flips propagate through `var(--…)` instead
+ * of being baked at theme-build time).
  *
  * Light is the default; `[data-theme="dark"]` (set on the knowledge-base
  * root in `knowledgeBase.tsx`) re-binds the same token names to the dark
@@ -20,7 +20,7 @@
   --mute: #64748b;             /* slate-500 */
 
   /* Accent (links, active states) */
-  --accent: #047857;           /* emerald-700 — matches Phase 2 editorial */
+  --accent: #047857;           /* emerald-700 */
   --accent-2: #065f46;         /* emerald-800 */
 
   /* Status */
@@ -55,9 +55,9 @@
  * (right pane) read as near-white on the dark surface, which kills the
  * active affordance. Re-bind to translucent accent / green fills so the
  * active row stays visible without introducing new tokens or touching
- * every consumer (Phase 3 PR 1, 2026-04-26).
+ * every consumer.
  *
- * KB-034 (2026-05-02): bumped left-pane alpha .18 → .25 so the
+ * KB-034: bumped left-pane alpha .18 → .25 so the
  * 13px text-accent filename clears WCAG AA on dark — text-accent
  * (#34d399) on the composited fill (#184646) measures 5.45:1. */
 [data-theme="dark"] .bg-blue-50 {

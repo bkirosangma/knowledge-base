@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 
 /**
  * Mobile breakpoint — below this width the app collapses into the mobile
- * shell (single-pane reader + bottom-tab nav). Phase 3 PR 3 (SHELL-1.14,
- * 2026-04-26).
+ * shell (single-pane reader + bottom-tab nav).
  *
  * Exported so callers can reference the same number for ad-hoc media
  * queries, but the hook is the canonical source — components should

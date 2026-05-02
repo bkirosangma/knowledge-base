@@ -3,10 +3,10 @@
 import { useShellErrors, type ReportedError } from "./ShellErrorContext";
 
 /**
- * Minimal banner (Phase 5c, 2026-04-19). Renders the most recent reported
- * error as a top-of-viewport strip with a dismiss button. No queue, no
- * animation, no severity matrix — if future scope asks for any of those,
- * that's explicit new scope.
+ * Minimal banner. Renders the most recent reported error as a
+ * top-of-viewport strip with a dismiss button. No queue, no animation,
+ * no severity matrix — if future scope asks for any of those, that's
+ * explicit new scope.
  */
 export default function ShellErrorBanner() {
   const { current, dismiss } = useShellErrors();

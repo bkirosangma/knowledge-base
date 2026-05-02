@@ -60,7 +60,7 @@ export async function readVaultConfig(
       e,
     );
   }
-  // Phase 5b (2026-04-19): validate the full shape at the I/O boundary.
+  // Validate the full shape at the I/O boundary.
   if (!isValidVaultConfig(parsed)) {
     throw new FileSystemError(
       "malformed",
@@ -115,8 +115,7 @@ function mergeOneLevel<T extends Record<string, unknown>>(
  * it back atomically. Throws `FileSystemError` on read/write failure or
  * when the file is absent (no silent no-op — partial updates assume a
  * config already exists). Used by `useTheme` to persist theme choice
- * (Phase 3 PR 1, 2026-04-26) and by `GraphView` for the cached graph
- * layout (Phase 3 PR 2, 2026-04-26).
+ * and by `GraphView` for the cached graph layout.
  *
  * Merge semantics: one-level deep — top-level keys in `patch` are merged
  * over `current`, and if both sides of a key are plain objects, those

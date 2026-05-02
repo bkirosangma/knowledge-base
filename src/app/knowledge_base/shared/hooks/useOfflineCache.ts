@@ -6,8 +6,6 @@ import { createDocumentRepository } from "../../infrastructure/documentRepo";
 import { createDiagramRepository } from "../../infrastructure/diagramRepo";
 
 /**
- * Phase 3 PR 3 (PWA / SHELL-1.15, 2026-04-26).
- *
  * Last-known-good cache for the most recently opened files. Reads recents
  * from `localStorage["kb-recents"]` AT EXECUTION TIME (not closure
  * capture, which goes stale across visibilitychange ticks — flagged in

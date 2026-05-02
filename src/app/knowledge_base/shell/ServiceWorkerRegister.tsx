@@ -12,8 +12,6 @@ import { useEffect } from "react";
  * (the library hasn't been updated for the App Router + Turbopack
  * pipeline).  The hand-rolled SW lives at `public/sw.js` and ships as
  * a static asset; this component just calls `register()`.
- *
- * Phase 3 PR 3 (PWA / SHELL-1.15, 2026-04-26).
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {

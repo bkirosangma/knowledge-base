@@ -36,10 +36,10 @@ export function isSupported(): boolean {
 export function isDiagramData(data: unknown): data is DiagramData {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  // Required top-level fields (Phase 5b, 2026-04-19): title string +
-  // non-null array for each of the three structural collections. Element
-  // shapes (NodeData etc.) are validated at serialize/deserialize time;
-  // this guard stays a cheap shallow schema check.
+  // Required top-level fields: title string + non-null array for each
+  // of the three structural collections. Element shapes (NodeData etc.)
+  // are validated at serialize/deserialize time; this guard stays a
+  // cheap shallow schema check.
   if (typeof d.title !== "string") return false;
   if (!Array.isArray(d.layers) || !Array.isArray(d.nodes) || !Array.isArray(d.connections)) return false;
   // Optional fields: if present, must be the right kind — otherwise a

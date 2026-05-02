@@ -3,9 +3,9 @@
 /**
  * useTheme — single source of truth for the app's light/dark theme.
  *
- * Phase 3 PR 1 (2026-04-26). The hook owns the resolved theme + a setter
- * that persists the user's explicit choice to `vaultConfig.theme`. The
- * precedence on first mount is:
+ * The hook owns the resolved theme + a setter that persists the user's
+ * explicit choice to `vaultConfig.theme`. The precedence on first mount
+ * is:
  *
  *   1. User has previously toggled and cached in vault config → that wins.
  *   2. No vault preference → fall back to OS `prefers-color-scheme`.

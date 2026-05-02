@@ -8,9 +8,9 @@ interface State {
 }
 
 /**
- * Uncaught-render fallback (Phase 5c, 2026-04-19). React's built-in
- * ErrorBoundary primitive via `getDerivedStateFromError` + `componentDidCatch`.
- * Does NOT catch async errors — those go through `useShellErrors`. This is
+ * Uncaught-render fallback. React's built-in ErrorBoundary primitive via
+ * `getDerivedStateFromError` + `componentDidCatch`. Does NOT catch async
+ * errors — those go through `useShellErrors`. This is
  * only for a component that threw during render, which today should never
  * happen but is cheap insurance.
  */
