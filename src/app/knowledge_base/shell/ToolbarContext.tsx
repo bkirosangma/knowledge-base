@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 
-export type PaneType = "diagram" | "document" | "graph" | "graphify" | "search" | "svgEditor";
+export type PaneType = "diagram" | "document" | "graph" | "graphify" | "search" | "svgEditor" | "tab";
 
 /** Sentinel filePath used for the virtual graph pane (no on-disk file). */
 export const GRAPH_SENTINEL = "__graph__";

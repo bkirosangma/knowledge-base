@@ -118,3 +118,22 @@ export interface SVGRepository {
    *  Throws on failure. */
   write(svgPath: string, svgString: string): Promise<void>;
 }
+
+/**
+ * Abstraction over a guitar-tab file (`.alphatex`). Mirrors
+ * `DocumentRepository` exactly — raw text in, raw text out — so the
+ * existing draft / conflict / save plumbing reuses unchanged. Kept as
+ * its own contract so the TabView pane and the AlphaTab engine can
+ * grow tab-specific behaviour later (e.g. format detection for `.gp`
+ * imports) without leaking through the document path.
+ *
+ * Source: docs/superpowers/specs/2026-05-02-guitar-tabs-design.md
+ */
+export interface TabRepository {
+  /** Read the tab's raw alphaTex text. Throws `FileSystemError` on any
+   *  failure. */
+  read(tabPath: string): Promise<string>;
+  /** Overwrite the tab's content. Creates parent dirs + file as needed.
+   *  Throws on failure. */
+  write(tabPath: string, content: string): Promise<void>;
+}

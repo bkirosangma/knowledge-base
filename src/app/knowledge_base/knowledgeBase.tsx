@@ -26,6 +26,7 @@ import { collectAllPaths } from "./features/graph/hooks/useGraphData";
 import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
+import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
 import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL, SEARCH_SENTINEL } from "./shell/ToolbarContext";
@@ -355,6 +356,8 @@ function KnowledgeBaseInner() {
       handleOpenDocument(path);
     } else if (path.endsWith(".svg")) {
       panes.openFile(path, "svgEditor");
+    } else if (path.endsWith(".alphatex")) {
+      panes.openFile(path, "tab");
     } else {
       panes.openFile(path, "diagram");
     }
@@ -930,6 +933,10 @@ function KnowledgeBaseInner() {
           onSVGEditorBridge={handleSVGEditorBridge}
         />
       );
+    }
+
+    if (entry.fileType === "tab") {
+      return renderTabPaneEntry(entry);
     }
 
     return (

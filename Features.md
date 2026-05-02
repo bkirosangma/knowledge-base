@@ -699,3 +699,15 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 10. **Directory-scoped localStorage** — `scopedKey` behaviour when two vaults mounted in sequence.
 11. **Link index** — full rebuild idempotency, backlink reverse mapping, rename propagation.
 12. **Playwright smoke** — already exists; extend with folder-picker stub + basic diagram-create / doc-create flow (mindful of Preview-MCP's File System Access limit — see `MEMORY.md`).
+
+---
+
+## 14. Guitar Tabs
+
+Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
+
+### 14.1 Foundation (TAB-001 → TAB-003)
+- ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; `AlphaTabEngine` implementation lands in TAB-004.
+- ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
+- ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`) — `.alphatex` files open a tab pane that currently renders `TabViewStub`.
+- ? **Real `TabView` + playback chrome** — pending TAB-004/TAB-005.

@@ -17,6 +17,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@coderline/alphatab": "^1.8.2",
     "@svgedit/svgcanvas": "^7.4.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tiptap/extension-code-block-lowlight": "^3.22.3",
