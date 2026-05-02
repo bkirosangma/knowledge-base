@@ -175,7 +175,9 @@ export default function PaneManager({
               <div
                 className="absolute inset-0 pointer-events-none border-2 border-blue-500"
                 style={{ zIndex: 100 }}
-              />
+              >
+                <span className="sr-only">Focused</span>
+              </div>
             )}
           </div>
         }
@@ -189,7 +191,9 @@ export default function PaneManager({
               <div
                 className="absolute inset-0 pointer-events-none border-2 border-blue-500"
                 style={{ zIndex: 100 }}
-              />
+              >
+                <span className="sr-only">Focused</span>
+              </div>
             )}
           </div>
         }

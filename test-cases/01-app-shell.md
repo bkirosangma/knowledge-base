@@ -41,6 +41,8 @@
 - **SHELL-1.2-24** ✅ **Dirty dot suppressed without Save/Discard** — when neither `onSave` nor `onDiscard` is provided, the dirty dot does not render even if `isDirty` is true. Keeps stray dots off any static-title host that happens to receive `isDirty` transitively.
 - **SHELL-1.2-25** ✅ **Save / Discard buttons absent when handlers omitted** — omitting `onSave` hides the Save button; omitting `onDiscard` hides the Discard button. Panes that don't wire those handlers (none today, but future hosts) get a clean title row.
 - **SHELL-1.2-26** 🟡 **Document pane title reflects debounced first H1** — `DocumentView` runs `getFirstHeading(content)` through a 250 ms `setTimeout` and pushes the result into `PaneTitle`. First-H1 extraction is unit-tested in `DOC-4.13-01..14`; the debounce + prop plumbing is integration-level
+- **SHELL-1.2-27** ✅ **Title text prepends "•" when dirty (KB-032 non-color signal)** — `PaneHeader` renders the title as `• {title}` whenever `isDirty && (onSave || onDiscard)`. Clean files and panes without Save/Discard render the bare title. Survives "disable browser CSS color" because the bullet glyph lives in text content, not styling. WCAG 1.4.1. _(unit: `PaneHeader.test.tsx`)_
+- **SHELL-1.2-28** ✅ **Dirty dot announces "Modified" to screen readers (KB-032)** — the orange dot now carries `role="img"` + `aria-label="Modified"` so SR users get the state independently of the colour cue. WCAG 1.4.1. _(unit: `PaneHeader.test.tsx`)_
 
 ## 1.3 Footer
 
@@ -71,6 +73,7 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-12** ✅ **Divider hover highlight** — `hover:bg-blue-400` class present on divider.
 - **SHELL-1.4-13** ✅ **Split ratio persisted** — mouseUp writes ratio to localStorage under `storageKey`.
 - **SHELL-1.4-14** ❌ **Layout restored on directory load** — re-open known folder → previous pane layout is restored. Owned by `KnowledgeBaseInner` + File System Access directory picker; e2e Playwright test not yet written.
+- **SHELL-1.4-15** ✅ **Active pane carries an sr-only "Focused" label (KB-032 non-color signal)** — the focus border `<div>` for the active side wraps `<span class="sr-only">Focused</span>`; only one such label exists in the DOM at any time. Survives "disable browser CSS color" because screen readers read the text directly. WCAG 1.4.1. _(unit: `PaneManager.test.tsx`)_
 
 ## 1.5 Contexts (Toolbar / Footer)
 

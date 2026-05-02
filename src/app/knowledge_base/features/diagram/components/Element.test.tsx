@@ -48,3 +48,26 @@ describe('Element — flow role glow', () => {
     expect(endStyle).not.toContain('#22c55e')
   })
 })
+
+// KB-032 — non-color signals: text pill survives when CSS color is disabled.
+describe('Element — flow role text pill (KB-032 non-color signal)', () => {
+  it('DIAG-3.10-43 (KB-032): start role renders a "Start" pill', () => {
+    const { getByTestId } = render(<Element {...base} flowRole="start" />)
+    expect(getByTestId('flow-role-pill-n1').textContent).toBe('Start')
+  })
+
+  it('DIAG-3.10-43 (KB-032): end role renders an "End" pill', () => {
+    const { getByTestId } = render(<Element {...base} flowRole="end" />)
+    expect(getByTestId('flow-role-pill-n1').textContent).toBe('End')
+  })
+
+  it('DIAG-3.10-43 (KB-032): middle role does not render a pill', () => {
+    const { queryByTestId } = render(<Element {...base} flowRole="middle" />)
+    expect(queryByTestId('flow-role-pill-n1')).toBeNull()
+  })
+
+  it('DIAG-3.10-43 (KB-032): no flowRole means no pill', () => {
+    const { queryByTestId } = render(<Element {...base} />)
+    expect(queryByTestId('flow-role-pill-n1')).toBeNull()
+  })
+})

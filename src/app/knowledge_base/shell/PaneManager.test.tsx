@@ -256,6 +256,40 @@ describe('PaneManager — split rendering + focus border (SHELL-1.4-08)', () => 
     expect(borders.length).toBe(1)
   })
 
+  it('SHELL-1.4-15 (KB-032): focus border carries an sr-only "Focused" label for the active side only', () => {
+    const { container, rerender } = render(
+      <Wrapper>
+        <PaneManager
+          leftPane={{ filePath: 'a.md', fileType: 'document' }}
+          rightPane={{ filePath: 'b.md', fileType: 'diagram' }}
+          isSplit
+          focusedSide="left"
+          setFocusedSide={() => {}}
+          renderPane={() => <div>pane</div>}
+          emptyState={<div>empty</div>}
+        />
+      </Wrapper>,
+    )
+    let focusedLabels = container.querySelectorAll('.sr-only')
+    expect(Array.from(focusedLabels).filter((el) => el.textContent === 'Focused').length).toBe(1)
+
+    rerender(
+      <Wrapper>
+        <PaneManager
+          leftPane={{ filePath: 'a.md', fileType: 'document' }}
+          rightPane={{ filePath: 'b.md', fileType: 'diagram' }}
+          isSplit
+          focusedSide="right"
+          setFocusedSide={() => {}}
+          renderPane={() => <div>pane</div>}
+          emptyState={<div>empty</div>}
+        />
+      </Wrapper>,
+    )
+    focusedLabels = container.querySelectorAll('.sr-only')
+    expect(Array.from(focusedLabels).filter((el) => el.textContent === 'Focused').length).toBe(1)
+  })
+
   it('focus border moves to right pane when focusedSide=right', () => {
     const { container } = render(
       <Wrapper>

@@ -134,11 +134,13 @@ export default function PaneHeader({
                 }`}
                 data-testid="pane-title"
               >
-                {title}
+                {isDirty && showActions ? `• ${title}` : title}
               </h1>
             )}
             {isDirty && showActions && (
               <span
+                role="img"
+                aria-label="Modified"
                 className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0"
                 title="Unsaved changes"
                 data-testid="pane-title-dirty-dot"
