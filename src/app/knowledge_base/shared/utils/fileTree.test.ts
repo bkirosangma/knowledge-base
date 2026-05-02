@@ -48,16 +48,18 @@ function asRoot(dir: MockDir): FileSystemDirectoryHandle {
 // ── scanTree ───────────────────────────────────────────────────────────────
 
 describe('scanTree — flat root (FS-2.1-08)', () => {
-  it('FS-2.1-08: returns sorted files and folders, only .md and .json', async () => {
+  it('FS-2.1-08: returns sorted files and folders, only .md, .json, .svg, .alphatex', async () => {
     const root = new MockDir()
     seedFile(root, 'beta.md')
     seedFile(root, 'alpha.md')
     seedFile(root, 'flow.json')
     seedFile(root, 'ignored.txt')
     seedFile(root, 'image.png')
+    seedFile(root, 'chart.svg')
+    seedFile(root, 'intro.alphatex')
 
     const tree = await scanTree(asRoot(root), '')
-    expect(tree.map((n) => n.name)).toEqual(['alpha.md', 'beta.md', 'flow.json'])
+    expect(tree.map((n) => n.name)).toEqual(['alpha.md', 'beta.md', 'chart.svg', 'flow.json', 'intro.alphatex'])
     expect(tree.every((n) => n.type === 'file')).toBe(true)
   })
 
@@ -169,6 +171,23 @@ describe('scanTree — per-entry metadata (FS-2.1-11)', () => {
 
     const doc = tree.find((n) => n.name === 'doc.md')!
     expect(doc.fileType).toBe('document')
+  })
+
+  it('FS-2.1-11b: .svg gets fileType "svg" and .alphatex gets fileType "tab"', async () => {
+    const root = new MockDir()
+    seedFile(root, 'image.svg', 10)
+    seedFile(root, 'intro.alphatex', 20)
+
+    const tree = await scanTree(asRoot(root), '')
+    const svg = tree.find((n) => n.name === 'image.svg')!
+    expect(svg.fileType).toBe('svg')
+
+    const tab = tree.find((n) => n.name === 'intro.alphatex')!
+    expect(tab).toBeDefined()
+    expect(tab.fileType).toBe('tab')
+    expect(tab.type).toBe('file')
+    expect(tab.path).toBe('intro.alphatex')
+    expect(tab.lastModified).toBe(20)
   })
 
   it('folder entry carries dirHandle + children', async () => {
