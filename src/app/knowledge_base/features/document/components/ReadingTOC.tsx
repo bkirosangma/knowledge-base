@@ -110,7 +110,7 @@ export default function ReadingTOC({
       // Width gating happens above via `viewportWide` (1100px threshold) —
       // not Tailwind's `xl` (1280px) which would create a dead zone between
       // the two breakpoints where the JS says render but CSS hides.
-      className="flex-shrink-0 w-56 px-4 py-6 overflow-y-auto border-l border-slate-100 bg-white"
+      className="flex-shrink-0 w-56 px-4 py-6 overflow-y-auto border-l border-line bg-surface"
       aria-label="Table of contents"
     >
       <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 mb-2">

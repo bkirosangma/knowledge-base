@@ -14,6 +14,7 @@
 - **DOC-4.1-06** ✅ **200 ms debounce on serialize.** (Covered by DOC-4.5-24 in `MarkdownEditor.test.tsx`.)
 - **DOC-4.1-07** ✅ **Flush on blur.** (Covered by DOC-4.1-07 describe in `MarkdownEditor.test.tsx`.)
 - **DOC-4.1-08** ✅ **Flush on unmount.** (Covered by DOC-4.5-25 in `MarkdownEditor.test.tsx`.)
+- **DOC-4.1-09** 🧪 **Document pane chrome flips for dark theme (KB-037)** — when the app is in dark mode and a `.md` file is open, the loaded-file wrapper (`[data-pane-content="document"]`) paints `var(--surface)` (`#0f172a`) so the inherited prose body + headings (`var(--ink)` / `var(--ink-2)` → `#f1f5f9` / `#e2e8f0`) clear WCAG AA against the wrapper. The sibling `[data-testid="reading-toc"]` rail uses the same `--surface` background and `--line` border so it doesn't read as a bright stripe next to the dark prose. _(e2e: `documentDarkMode.spec.ts`, axe-core scan asserting zero `color-contrast` violations on the document pane subtree.)_
 
 ## 4.2 Tiptap Extensions (StarterKit + ecosystem)
 

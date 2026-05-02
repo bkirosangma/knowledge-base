@@ -150,7 +150,7 @@ export default function MarkdownPane({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white" data-pane-content="document">
+    <div className="flex flex-col h-full bg-surface" data-pane-content="document">
       <PaneHeader
         filePath={filePath}
         readOnly={readOnly}
