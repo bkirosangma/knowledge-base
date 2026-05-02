@@ -82,8 +82,10 @@ test.describe('Shell collapse — PaneTitle folded into PaneHeader (SHELL-1.12)'
     await input.fill('Renamed Diagram')
     await input.press('Enter')
 
-    // After Enter, the heading reflects the committed value.
-    await expect(page.getByTestId('pane-title')).toHaveText('Renamed Diagram')
+    // After Enter, the heading reflects the committed value. KB-032 prepends
+    // a "•" to the title text whenever the file is dirty, so the rename will
+    // surface as "• Renamed Diagram" — assert containment, not exact text.
+    await expect(page.getByTestId('pane-title')).toContainText('Renamed Diagram')
   })
 
   test('SHELL-1.12-03: Save and Discard appear next to the title in the breadcrumb', async ({ page }) => {

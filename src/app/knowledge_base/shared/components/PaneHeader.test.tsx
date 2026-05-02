@@ -203,6 +203,35 @@ describe('PaneHeader — dirty dot + Save / Discard', () => {
     expect(screen.getByTestId('pane-title-dirty-dot')).toBeTruthy()
   })
 
+  it('SHELL-1.2-27 (KB-032): title text prepends "•" when dirty + has Save/Discard', () => {
+    render(
+      <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="MyDoc" isDirty onSave={() => {}} onDiscard={() => {}} />,
+    )
+    expect(screen.getByTestId('pane-title').textContent).toBe('• MyDoc')
+  })
+
+  it('SHELL-1.2-27 (KB-032) negative: title text omits "•" when clean', () => {
+    render(
+      <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="MyDoc" isDirty={false} onSave={() => {}} onDiscard={() => {}} />,
+    )
+    expect(screen.getByTestId('pane-title').textContent).toBe('MyDoc')
+  })
+
+  it('SHELL-1.2-27 (KB-032) negative: title text omits "•" when actions are absent', () => {
+    render(
+      <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="MyDoc" isDirty />,
+    )
+    expect(screen.getByTestId('pane-title').textContent).toBe('MyDoc')
+  })
+
+  it('SHELL-1.2-28 (KB-032): dirty dot exposes aria-label="Modified" for screen readers', () => {
+    render(
+      <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" isDirty onSave={() => {}} onDiscard={() => {}} />,
+    )
+    const dot = screen.getByTestId('pane-title-dirty-dot')
+    expect(dot.getAttribute('aria-label')).toBe('Modified')
+  })
+
   it('dirty dot is suppressed when save/discard actions are absent', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" isDirty />,

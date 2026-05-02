@@ -133,6 +133,16 @@ function Element({
       onMouseLeave={() => { setIsHovered(false); onMouseLeave?.(id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
+      {(flowRole === 'start' || flowRole === 'end') && (
+        <span
+          data-testid={`flow-role-pill-${id}`}
+          className={`absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none pointer-events-none ${
+            flowRole === 'start' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+          }`}
+        >
+          {flowRole === 'start' ? 'Start' : 'End'}
+        </span>
+      )}
       {Icon && (
         <span className="mb-2" style={{ color: textColor ?? "#475569" }}>
           <Icon size={18} strokeWidth={1.5} />
