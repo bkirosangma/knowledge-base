@@ -335,7 +335,7 @@ const PANE_LAYOUT_KEY = "knowledge-base-pane-layout";
 
 interface SavedPaneEntry {
   filePath: string;
-  fileType: "diagram" | "document" | "graph" | "graphify" | "search" | "svgEditor";
+  fileType: "diagram" | "document" | "graph" | "graphify" | "search" | "svgEditor" | "tab";
   // PaneEntry.searchTarget is intentionally not part of this saved
   // shape — it's a one-shot transient intent (KB-010c) that should not
   // survive reload.
