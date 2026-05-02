@@ -54,6 +54,8 @@
 - **SHELL-1.3-06** 🟡 **Patch count updates on content growth** — same path; live assertion deferred to Playwright.
 - **SHELL-1.3-07** ✅ **Reset App clears state** — first click opens confirm popover; second click (confirm button) clears `localStorage` and calls `window.location.reload`; verified with `window.location` swap stub.
 - **SHELL-1.3-08** ✅ **Reset App confirmation** — `ConfirmPopover` with destructive variant wraps the Reset button; Escape dismisses without resetting; confirmed in `Footer.test.tsx`.
+- **SHELL-1.3-09** ✅ **"Last synced N s ago" chip is visible (KB-041)** — Footer renders a small `data-testid="last-synced-chip"` element when wrapped by `FileWatcherProvider`; reads `useFileWatcher().lastSyncedAt` and displays `"Last synced 0s ago"` immediately after mount. _(Footer.test.tsx)_
+- **SHELL-1.3-10** ✅ **Chip ticks up once per second (KB-041)** — after one second of real time, the chip text re-renders to `"Last synced 1s ago"`; after another second `"Last synced 2s ago"`. _(Footer.test.tsx, fake timers)_
 
 Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/ToolbarContext.test.tsx): pane-count (1 vs 2), focus propagation, mixed-type active-pane derivation, pane-type fallback to `"diagram"` when left is null.
 
@@ -134,12 +136,17 @@ Banner shown when a file changes on disk while the user has unsaved edits. See [
 
 ## 1.10 File Watcher
 
-Background polling primitive that manages a 5-second interval with named subscriber registry. See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx).
+Background polling primitive that manages a 5-second interval with named subscriber registry, with idle backoff to 30 s after 2 minutes of inactivity and round-robin subscriber staggering across 1-second slots (KB-041). See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx).
 
 - **SHELL-1.10-01** ✅ **Subscribers called on 5s interval** — after mounting `FileWatcherProvider`, registered subscribers fire every 5 seconds. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-02** ✅ **refresh() fires all subscribers immediately** — calling `refresh()` invokes all registered subscribers without waiting for the interval. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-02** ✅ **refresh() fires every subscriber on the same tick (no stagger)** — calling `refresh()` invokes all registered subscribers without waiting for the interval AND bypasses the 1-second slot stagger that applies to background polls. Verified with three subscribers: clicking refresh fires all three on the same tick. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-03** ✅ **unsubscribe removes subscriber** — calling `unsubscribe(id)` stops firing the subscriber for future ticks. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-04** ✅ **useFileWatcher throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-05** ✅ **Idle backoff to 30 s after 2 minutes (KB-041)** — with no `keydown`/`pointermove`/`scroll` for >120 s, the next poll is scheduled 30 seconds out instead of 5. Polling continues at 30 s cadence while idle. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-06** ✅ **Input resumes 5 s polling (KB-041)** — once idle and on the 30 s cadence, a `keydown`/`pointermove`/`scroll` event resets the cadence so the very next scheduled poll fires 5 seconds after the input. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-07** ✅ **Subscribers stagger across 1-second slots (KB-041)** — when a poll fires with N subscribers, only the slot-0 subscriber fires immediately; subsequent subscribers fire at +1 s, +2 s, … Verified with three subscribers: only one called at the poll instant, second one second later, third one second after that. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-08** ✅ **Stagger order rotates round-robin across cycles (KB-041)** — across two consecutive polls, the slot-0 subscriber rotates so no single subscriber is permanently last. With three subscribers (A, B, C): cycle 1 fires A→B→C, cycle 2 fires B→C→A. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-09** ✅ **`lastSyncedAt` exposed and updates per cycle (KB-041)** — context value includes `lastSyncedAt: number`; initialised at mount time and reset to `Date.now()` after each completed poll cycle. _(FileWatcherContext.test.tsx)_
 
 ## 1.11 Command Registry & Palette
 

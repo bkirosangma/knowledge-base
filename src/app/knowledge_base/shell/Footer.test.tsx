@@ -5,6 +5,7 @@ import Footer from './Footer'
 import { FooterProvider, useFooterContext, type DiagramFooterBridge } from './FooterContext'
 import { ToolbarProvider, useToolbarContext, type PaneType, type FocusedPane } from './ToolbarContext'
 import type { PaneEntry } from './PaneManager'
+import { FileWatcherProvider } from '../shared/context/FileWatcherContext'
 
 // Covers SHELL-1.3-01 through 1.3-08. 1.3-05/06 (live updates) are integration-level
 // and covered by Canvas/useZoom tests in later buckets.
@@ -42,8 +43,10 @@ function FooterHarness({
   return (
     <ToolbarProvider>
       <FooterProvider>
-        <Setup />
-        <Footer focusedEntry={focusedEntry} isSplit={isSplit} />
+        <FileWatcherProvider>
+          <Setup />
+          <Footer focusedEntry={focusedEntry} isSplit={isSplit} />
+        </FileWatcherProvider>
       </FooterProvider>
     </ToolbarProvider>
   )
@@ -185,5 +188,35 @@ describe('Footer — Reset App button (SHELL-1.3-07, SHELL-1.3-08)', () => {
     expect(screen.queryByText(/Clear all local state/)).toBeNull()
     expect(localStorage.getItem('dummy-key')).toBe('value')
     expect(reloadMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('Footer — Last synced chip (SHELL-1.3-09, SHELL-1.3-10)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('SHELL-1.3-09: renders "Last synced 0s ago" immediately on mount', () => {
+    render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
+    const chip = screen.getByTestId('last-synced-chip')
+    expect(chip).toBeTruthy()
+    expect(chip.textContent).toBe('Last synced 0s ago')
+  })
+
+  it('SHELL-1.3-10: chip ticks up once per second of wall time', async () => {
+    render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
+    expect(screen.getByTestId('last-synced-chip').textContent).toBe('Last synced 0s ago')
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(screen.getByTestId('last-synced-chip').textContent).toBe('Last synced 1s ago')
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(screen.getByTestId('last-synced-chip').textContent).toBe('Last synced 2s ago')
   })
 })
