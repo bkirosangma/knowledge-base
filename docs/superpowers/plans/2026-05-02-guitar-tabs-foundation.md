@@ -984,16 +984,16 @@ git commit -m "feat(tabs): inject TabRepository through RepositoryContext (TAB-0
 
 - [ ] **Step 1: Add a Features.md placeholder for tabs**
 
-The implementation appended `## 14. Guitar Tabs` to the end of `Features.md` (sections 11–13 were already taken). Match that placement.
+Add the new section as `## 11. Guitar Tabs` between §10 First-Run and the operational sections (Test Infrastructure / External Contracts / Notable Items, which renumber to §12-§14 to keep the user-facing feature numbering contiguous).
 
 Add a new section:
 
 ```markdown
-## 14. Guitar Tabs
+## 11. Guitar Tabs
 
 Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
 
-### 14.1 Foundation (TAB-001 → TAB-003)
+### 11.1 Foundation (TAB-001 → TAB-003)
 - ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; `AlphaTabEngine` implementation lands in TAB-004.
 - ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
 - ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`) — `.alphatex` files open a tab pane that currently renders `TabViewStub`.
