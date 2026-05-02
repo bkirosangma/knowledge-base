@@ -355,6 +355,8 @@ function KnowledgeBaseInner() {
       handleOpenDocument(path);
     } else if (path.endsWith(".svg")) {
       panes.openFile(path, "svgEditor");
+    } else if (path.endsWith(".alphatex")) {
+      panes.openFile(path, "tab");
     } else {
       panes.openFile(path, "diagram");
     }
