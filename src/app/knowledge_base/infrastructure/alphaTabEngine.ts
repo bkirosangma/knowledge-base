@@ -1,16 +1,18 @@
 /**
- * Real `TabEngine` implementation backed by `@coderline/alphatab`.
+ * `TabEngine` implementation backed by `@coderline/alphatab`.
  *
- * `mount()` does a dynamic `import()` so the ~1 MB alphatab chunk is
- * pulled in only when the user opens a tab pane — not at app boot. The
- * engine is instantiated synchronously by `useTabEngine` (cheap, just a
- * class), but no alphatab code runs until `mount()`.
+ * `mount()` does a dynamic `import()` so the alphatab chunk is pulled in
+ * only when the user opens a tab pane.
  *
- * TAB-004 ships with `enablePlayer = false`: the score renders, no
- * AudioContext is created, no SoundFont is fetched. TAB-005 flips the
- * flag and wires the soundfont URL from `alphaTabAssets.ts`.
+ * TAB-005 flips `enablePlayer` to `true` and wires the SoundFont URL.
+ * Playback methods translate to alphaTab's `play()` / `pause()` / `stop()`
+ * / `tickPosition` / `playbackSpeed` / `playbackRange`. Player events
+ * (`playerReady`, `playerStateChanged`, `playerPositionChanged`) are
+ * re-emitted on the engine's own event bus as `"ready"` / `"played"` /
+ * `"paused"` / `"tick"`.
  */
 import type {
+  BeatRange,
   MountOpts,
   TabEngine,
   TabEvent,
@@ -20,27 +22,48 @@ import type {
   TabSource,
   Unsubscribe,
 } from "../domain/tabEngine";
+import { SOUNDFONT_URL } from "./alphaTabAssets";
 
-type AlphaTabApiCtor = new (el: HTMLElement, settings: unknown) => AlphaTabApiInstance;
-interface AlphaTabApiInstance {
+interface AlphaTabSettingsLike {
+  player: { enablePlayer: boolean; soundFont: string };
+  core: { engine: string; logLevel: number };
+}
+
+interface AlphaTabApiLike {
   tex(text: string): void;
   renderTracks(): void;
   destroy(): void;
+  play(): boolean;
+  pause(): void;
+  stop(): void;
+  tickPosition: number;
+  playbackSpeed: number;
+  playbackRange: { startTick: number; endTick: number } | null;
+  isLooping: boolean;
   scoreLoaded: { on(handler: (score: unknown) => void): void };
   error: { on(handler: (err: Error) => void): void };
+  playerReady: { on(handler: () => void): void };
+  playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
+  playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
 }
+
+type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
+
+const PLAYBACK_SPEED_MIN = 0.25;
+const PLAYBACK_SPEED_MAX = 2.0;
+
+const PLAYER_STATE_PAUSED = 0;
+const PLAYER_STATE_PLAYING = 1;
 
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
-    const Settings = mod.Settings as new () => {
-      player: { enablePlayer: boolean; soundFont: string };
-      core: { engine: string; logLevel: number };
-    };
+    const Settings = mod.Settings as new () => AlphaTabSettingsLike;
     const ApiCtor = mod.AlphaTabApi as unknown as AlphaTabApiCtor;
 
     const settings = new Settings();
-    settings.player.enablePlayer = false; // TAB-005 flips this.
+    settings.player.enablePlayer = true;
+    settings.player.soundFont = SOUNDFONT_URL;
     settings.core.logLevel = 1;
 
     const api = new ApiCtor(container, settings);
@@ -55,9 +78,20 @@ class AlphaTabSession implements TabSession {
   private latestMetadata: TabMetadata | null = null;
   private disposed = false;
 
-  constructor(private api: AlphaTabApiInstance) {
+  constructor(private api: AlphaTabApiLike) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
     api.error.on((err) => this.emit({ event: "error", error: err }));
+    api.playerReady.on(() => this.emit({ event: "ready" }));
+    api.playerStateChanged.on((args) => {
+      if (args.state === PLAYER_STATE_PLAYING) {
+        this.emit({ event: "played" });
+      } else if (args.state === PLAYER_STATE_PAUSED) {
+        this.emit({ event: "paused" });
+      }
+    });
+    api.playerPositionChanged.on((args) => {
+      this.emit({ event: "tick", beat: args.currentTick });
+    });
   }
 
   async load(source: TabSource): Promise<TabMetadata> {
@@ -85,15 +119,28 @@ class AlphaTabSession implements TabSession {
     this.listeners.clear();
   }
 
-  // Playback methods — no-ops in TAB-004; TAB-005 wires them.
-  play(): void { /* no-op until TAB-005 */ }
-  pause(): void { /* no-op until TAB-005 */ }
-  stop(): void { /* no-op until TAB-005 */ }
-  seek(): void { /* no-op until TAB-005 */ }
-  setTempoFactor(): void { /* no-op until TAB-005 */ }
-  setLoop(): void { /* no-op until TAB-005 */ }
-  setMute(): void { /* no-op until TAB-005 */ }
-  setSolo(): void { /* no-op until TAB-005 */ }
+  play(): void { this.api.play(); }
+  pause(): void { this.api.pause(); }
+  stop(): void { this.api.stop(); }
+  seek(beat: number): void { this.api.tickPosition = beat; }
+
+  setTempoFactor(factor: number): void {
+    const clamped = Math.max(PLAYBACK_SPEED_MIN, Math.min(PLAYBACK_SPEED_MAX, factor));
+    this.api.playbackSpeed = clamped;
+  }
+
+  setLoop(range: BeatRange | null): void {
+    if (range === null) {
+      this.api.playbackRange = null;
+      this.api.isLooping = false;
+      return;
+    }
+    this.api.playbackRange = { startTick: range.start, endTick: range.end };
+    this.api.isLooping = true;
+  }
+
+  setMute(): void { /* TAB-009 multi-track */ }
+  setSolo(): void { /* TAB-009 multi-track */ }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {
     let set = this.listeners.get(event);
