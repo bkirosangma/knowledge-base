@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import Header from './Header'
 
-// Covers SHELL-1.2-18/19 (split toggle) + SHELL-1.12 dirty-stack indicator
-// (Phase 2 PR 2). Title editing, dirty dot, Save, and Discard moved into
-// each pane's `PaneHeader` row when the shell header was stripped — see
+// Covers SHELL-1.2-18/19 (split toggle) + SHELL-1.12 dirty-stack indicator.
+// Title editing, dirty dot, Save, and Discard moved into each pane's
+// `PaneHeader` row when the shell header was stripped — see
 // PaneHeader.test.tsx for SHELL-1.2-02..13 coverage.
 
 describe('Header — split view toggle', () => {

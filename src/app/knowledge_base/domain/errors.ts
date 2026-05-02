@@ -1,5 +1,5 @@
 /**
- * Typed error surface at the repository boundary (Phase 5c, 2026-04-19).
+ * Typed error surface at the repository boundary.
  *
  * Every repository operation — `DiagramRepository`, `DocumentRepository`,
  * `LinkIndexRepository`, `VaultConfigRepository`, and the `.archdesigner`

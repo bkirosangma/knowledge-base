@@ -10,8 +10,6 @@
  * `onConvert(newContent)` which is wired upstream to `updateContent`
  * + `history.onContentChange` so the dirty / save / undo plumbing all
  * fire normally.
- *
- * Phase 3 PR 2 (2026-04-26).
  */
 
 import React, { useMemo } from "react";

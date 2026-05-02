@@ -1,4 +1,4 @@
-/* ── Mobile shell (Phase 3 PR 3 / SHELL-1.14) ────────────────────────── */
+/* ── Mobile shell ───────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   /* Stop iOS Safari from overscroll-bouncing the whole page when the
    * Files / Read scroll area hits its top or bottom — the bottom-tab

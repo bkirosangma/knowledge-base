@@ -14,8 +14,6 @@
  * nodes so Playwright can drive node clicks without painting on a real
  * `<canvas>`. Uses the same `onSelectNode` handler as the canvas so
  * production and test paths share semantics.
- *
- * Phase 3 PR 2 (2026-04-26).
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";

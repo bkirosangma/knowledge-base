@@ -104,7 +104,7 @@ describe('DiagramView — smoke', () => {
     // Assert the pre-existing value survives a mount. This doesn't by itself
     // prove the useState initializer READ the value (nothing in this test
     // exercises the toggle path), but it pins the "mount doesn't reset the
-    // key" guarantee that Phase 1 must preserve.
+    // key" guarantee.
     expect(localStorage.getItem('properties-collapsed')).toBe('true')
     expect(container).toBeTruthy()
   })

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { ShellErrorProvider, useShellErrors } from './ShellErrorContext'
 import { FileSystemError } from '../domain/errors'
 
-// Covers SHELL-1.7-01..04 (typed error surface — Phase 5c, 2026-04-19).
+// Covers SHELL-1.7-01..04 (typed error surface).
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <ShellErrorProvider>{children}</ShellErrorProvider>

@@ -116,7 +116,7 @@ export function useLinkIndex() {
     // and rebuilds on demand. Other failures (permission / malformed /
     // unknown) also fall back to empty here rather than blocking app
     // boot; the re-thrown FileSystemError can be caught and reported by
-    // the boot wiring once Phase 5c's shell error surface is live.
+    // the boot wiring via the shell error surface.
     let loaded: LinkIndex | null = null;
     try {
       loaded = await readOrNull(() => repo.load());

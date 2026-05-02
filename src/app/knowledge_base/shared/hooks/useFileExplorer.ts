@@ -189,9 +189,9 @@ export function useFileExplorer() {
           diskJson = JSON.stringify(loaded, null, 2);
         }
       } catch (e) {
-        // Phase 5c: permission/malformed/unknown surfaces; absent file
-        // (readOrNull returned null) stays silent — that's treated as
-        // "fall through to draft" below.
+        // Permission/malformed/unknown failures surface here; absent
+        // file (readOrNull returned null) stays silent — that's treated
+        // as "fall through to draft" below.
         reportError(e, `Loading ${filePath}`);
         return null;
       }
@@ -602,9 +602,9 @@ export function useFileExplorer() {
         }
         await rescan();
       } catch (e) {
-        // Phase 5c: the handle is gone (folder moved / permission
-        // fully revoked). Report so the user knows we're not just
-        // being slow to respond; then reset to the no-folder state.
+        // The handle is gone (folder moved / permission fully revoked).
+        // Report so the user knows we're not just being slow to respond;
+        // then reset to the no-folder state.
         reportError(e, "Re-reading the vault folder");
         dirHandleRef.current = null;
         setTree([]);

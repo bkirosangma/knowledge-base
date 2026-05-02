@@ -77,7 +77,7 @@ function KnowledgeBaseInner() {
   const docManager = useDocuments();
   const linkManager = useLinkIndex();
   const searchManager = useVaultSearch();
-  // Phase 3 PR 3 — viewport detection drives mobile shell branching.
+  // Viewport detection drives mobile shell branching.
   const { isMobile } = useViewport();
   // KB-001 — File System Access API detection. Initial render assumes
   // supported so the SSR/client first paint match; the effect below
@@ -87,7 +87,7 @@ function KnowledgeBaseInner() {
   useEffect(() => {
     setIsFsAccessSupported("showDirectoryPicker" in window);
   }, []);
-  // Phase 3 PR 3 — offline cache for last 10 recents (best-effort).
+  // Offline cache for last 10 recents (best-effort).
   useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
   // KB-022: cached flatten of every file path in the vault. Stable
   // across renders that don't change the tree, so consumers (the
@@ -525,7 +525,7 @@ function KnowledgeBaseInner() {
   // ─── Track recents when active file changes ───
   // Skip the GRAPH_SENTINEL — the virtual graph pane has no on-disk file,
   // so pushing "__graph__" into Recents would render an unresolvable
-  // entry users can click. (Phase 3 PR 2.)
+  // entry users can click.
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
     if (path && path !== GRAPH_SENTINEL && path !== GRAPHIFY_SENTINEL && path !== SEARCH_SENTINEL) addToRecents(path);
@@ -579,7 +579,7 @@ function KnowledgeBaseInner() {
   }], [toggleFocusMode]);
   useRegisterCommands(focusModeCommands);
 
-  // ─── Theme (Phase 3 PR 1) ──────────────────────────────────────────────
+  // ─── Theme ────────────────────────────────────────────────────────────
   // `useTheme` needs RepositoryContext to persist the user's choice into
   // `vaultConfig.theme` and to read it back on first mount. We wrap the
   // rendered shell in a `ThemedShell` child component (defined below)
@@ -665,8 +665,8 @@ function KnowledgeBaseInner() {
     (async () => {
       const vaultRepo = createVaultConfigRepository(rootHandle);
       try {
-        // Phase 5c: readOrNull maps "not a vault folder" (no .archdesigner
-        // config) to null → we create one. Any other failure (permission,
+        // readOrNull maps "not a vault folder" (no .archdesigner config)
+        // to null → we create one. Any other failure (permission,
         // malformed) surfaces to the shell banner.
         const config = await readOrNull(() => vaultRepo.read());
         if (config) {
@@ -1027,10 +1027,10 @@ function KnowledgeBaseInner() {
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
         // On mobile, force focus-mode treatment so the markdown toolbar
-        // and Properties panel collapse — Phase 3 PR 3 §5 (reader-first
-        // mobile chrome).  The explorer/footer chrome focus-mode would
-        // also strip is already absent in MobileShell, so re-using the
-        // existing `focusMode` flag is the cleanest path.
+        // and Properties panel collapse for a reader-first mobile chrome.
+        // The explorer/footer chrome focus-mode would also strip is
+        // already absent in MobileShell, so re-using the existing
+        // `focusMode` flag is the cleanest path.
         focusMode={focusMode || isMobile}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
@@ -1359,7 +1359,7 @@ function KnowledgeBaseInner() {
  * the user's choice into `vaultConfig.theme` — the hook reads
  * `useContext(RepositoryContext)`, which is null at the level of
  * `KnowledgeBaseInner` because that component declares `RepositoryProvider`
- * itself. (Phase 3 PR 1, 2026-04-26.)
+ * itself.
  */
 function ThemedShell({
   children,

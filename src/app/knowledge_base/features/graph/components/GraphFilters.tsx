@@ -6,8 +6,7 @@
  *   - File-type filter (.md / .json checkboxes).
  *   - Orphans-only toggle (nodes with 0 connections).
  *
- * All chrome uses Phase-3 PR-1 design tokens — no hardcoded slate-* /
- * blue-*. Phase 3 PR 2 (2026-04-26).
+ * All chrome uses design tokens — no hardcoded slate-* / blue-*.
  */
 
 import React from "react";

@@ -11,8 +11,8 @@ import { FileSystemError } from '../../../domain/errors'
 // The integration blocks render under a real `RepositoryProvider` wrapping
 // a MockDir tree (end-to-end through the FSA impl). The seam block at the
 // bottom swaps in `StubRepositoryProvider` with a pure mock repo so hook
-// logic can be exercised without any FS mock — Phase 3e (2026-04-19) added
-// the context + stub specifically to enable this.
+// logic can be exercised without any FS mock — the context + stub were
+// added specifically to enable this.
 
 /** Seed a file at a deep path in the mock FS. */
 async function seedFile(root: MockDir, path: string, content: string) {
@@ -224,7 +224,7 @@ describe('DOC-4.11-17..19: discard()', () => {
   })
 })
 
-// Phase 3e test-seam demo — exercise hook logic without any FS mock.
+// Test-seam demo — exercise hook logic without any FS mock.
 // The StubRepositoryProvider accepts a Repositories bag built from pure
 // spies; consumers never see a FileSystemDirectoryHandle. Future consumer
 // tests that do not need FSA integration coverage should prefer this
@@ -273,9 +273,9 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
     expect(result.current.dirty).toBe(false)
   })
 
-  // Regression tests for the Phase 5c HIGH data-loss vectors from the audit.
+  // Regression tests for the HIGH data-loss vectors from the audit.
   // Each of these assertions FAILS on main — they guard the specific bugs
-  // Phase 5c fixes so a future regression surfaces in CI.
+  // the typed-error surface fixes so a future regression surfaces in CI.
 
   it('DOC-4.11-14 (regression): load failure does NOT silently set empty content — prevents save-over', async () => {
     // Simulate a load that throws (e.g. permission revoked mid-session)

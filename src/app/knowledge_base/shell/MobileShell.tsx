@@ -20,8 +20,7 @@ import { Tooltip } from "../shared/components/Tooltip";
 
 /**
  * Top-level mobile shell — replaces the desktop split-pane layout when
- * the viewport is at-or-below the 900 px breakpoint. Phase 3 PR 3
- * (SHELL-1.14, 2026-04-26).
+ * the viewport is at-or-below the 900 px breakpoint.
  *
  * Composition: thin Header strip + active tab content + BottomNav.
  * - Files tab: full-screen `<ExplorerPanel>`. Tapping a file auto-

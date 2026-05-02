@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Knowledge Base",
   description: "Local-first knowledge base with diagrams and documents",
-  // Phase 3 PR 3 (SHELL-1.15) — PWA manifest reference. The icon is an
-  // SVG (Lighthouse-acceptable) so we don't ship per-resolution PNGs.
+  // PWA manifest reference. The icon is an SVG (Lighthouse-acceptable)
+  // so we don't ship per-resolution PNGs.
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

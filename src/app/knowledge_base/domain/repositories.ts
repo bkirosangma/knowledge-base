@@ -6,13 +6,11 @@
  * System Access API + IndexedDB. Hooks and components depend on the
  * interfaces here, not on any particular FS impl.
  *
- * Phase 3a: LinkIndex + VaultConfig interfaces.
- * Phase 3b: DiagramRepository + DocumentRepository.
- * Phase 5c (2026-04-19): every method throws `FileSystemError` on any
- * failure (including "file not found"). Consumers that want the common
- * "absent file is not an error" ergonomic wrap the read in the domain
- * `readOrNull` helper; consumers that want to branch on error kind
- * try/catch and inspect `.kind`. The previous "return null on any
+ * Every method throws `FileSystemError` on any failure (including "file
+ * not found"). Consumers that want the common "absent file is not an
+ * error" ergonomic wrap the read in the domain `readOrNull` helper;
+ * consumers that want to branch on error kind try/catch and inspect
+ * `.kind`. The previous "return null on any
  * failure" contract was hiding data-loss bugs and has been removed.
  */
 

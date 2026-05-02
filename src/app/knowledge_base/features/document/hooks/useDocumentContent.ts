@@ -39,10 +39,10 @@ export interface DocumentPaneBridge {
  * Per-pane document content manager. Each DocumentView instance gets its
  * own content/dirty state, similar to how DiagramView manages diagram data.
  *
- * Routes every `.md` read/write through `useRepositories().document`
- * (Phase 3e, 2026-04-19). Phase 5c (2026-04-19) closes the load-fail
- * data-loss vector: a failing `.read()` no longer sets an empty
- * content — it records the classified error, leaves the prior content
+ * Routes every `.md` read/write through `useRepositories().document`.
+ * The typed-error surface closes the load-fail data-loss vector: a
+ * failing `.read()` no longer sets an empty content — it records the
+ * classified error, leaves the prior content
  * untouched (so the editor renders the last-good doc, or stays empty if
  * none), and refuses to `save()` while `loadError` is set. Callers
  * (`DocumentView` / `MarkdownPane`) read the returned `loadError` to
@@ -82,8 +82,8 @@ export function useDocumentContent(filePath: string | null) {
   const save = useCallback(async () => {
     const repo = documentRepoRef.current;
     if (!repo || !filePath) return;
-    // Phase 5c: if the most recent load failed, contentRef.current is
-    // the previous document's content (we no longer reset to empty on
+    // If the most recent load failed, contentRef.current is the
+    // previous document's content (we no longer reset to empty on
     // load failure). Refuse to save, otherwise we could overwrite a
     // real file with stale content.
     if (loadErrorRef.current) return;
@@ -111,10 +111,10 @@ export function useDocumentContent(filePath: string | null) {
     (async () => {
       const repo = documentRepoRef.current;
 
-      // Auto-save previous document if dirty. Phase 5c: failures surface
-      // to the shell banner instead of being silently dropped — the
-      // switch proceeds either way so the user isn't stuck on the old
-      // pane, but they see the error and can retry.
+      // Auto-save previous document if dirty. Failures surface to the
+      // shell banner instead of being silently dropped — the switch
+      // proceeds either way so the user isn't stuck on the old pane,
+      // but they see the error and can retry.
       // KB-002: a successful auto-save means the prev path no longer
       // has unsaved work, so its draft is now stale — clear it. On
       // failure leave the draft so a future reopen can restore.
@@ -186,8 +186,8 @@ export function useDocumentContent(filePath: string | null) {
   }, [filePath, reportError]);
 
   const updateContent = useCallback((markdown: string) => {
-    // Phase 5c: if the most recent load failed, edits are ignored so the
-    // user can't type into a stale buffer and save-over the real file.
+    // If the most recent load failed, edits are ignored so the user
+    // can't type into a stale buffer and save-over the real file.
     if (loadErrorRef.current) return;
     // Skip if content is identical — Tiptap can fire onUpdate for structural
     // normalizations (trailing nodes, decoration changes) that don't change

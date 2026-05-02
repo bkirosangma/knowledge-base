@@ -12,13 +12,12 @@ interface HeaderProps {
   /**
    * Paths of every file with unsaved edits across panes. Drives the
    * "N unsaved" dirty-stack indicator left of the ⌘K chip. Empty / undefined
-   * → indicator hidden. Phase 2 PR 2 (SHELL-1.12) reclaims header real-estate
-   * after PaneTitle was folded into the breadcrumb row.
+   * → indicator hidden. Reclaimed header real-estate after PaneTitle was
+   * folded into the breadcrumb row.
    */
   dirtyFiles?: ReadonlySet<string> | string[];
   /**
-   * Current theme — drives the sun/moon icon and `aria-pressed`. Phase 3
-   * PR 1 (2026-04-26).
+   * Current theme — drives the sun/moon icon and `aria-pressed`.
    */
   theme?: Theme;
   /**

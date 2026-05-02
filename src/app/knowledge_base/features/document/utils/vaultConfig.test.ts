@@ -55,7 +55,7 @@ describe('readVaultConfig', () => {
     expect(config.version).toBe('1.0')
   })
 
-  it('FS-2.2-03: throws not-found when .archdesigner is missing (Phase 5c)', async () => {
+  it('FS-2.2-03: throws not-found when .archdesigner is missing', async () => {
     await expect(readVaultConfig(asRootHandle(root))).rejects.toMatchObject({
       name: 'FileSystemError', kind: 'not-found',
     })
@@ -68,7 +68,7 @@ describe('readVaultConfig', () => {
     })
   })
 
-  it('FS-2.2-04: throws malformed when config.json is not valid JSON (Phase 5c)', async () => {
+  it('FS-2.2-04: throws malformed when config.json is not valid JSON', async () => {
     const configDir = await root.getDirectoryHandle('.archdesigner', { create: true })
     const fh = await configDir.getFileHandle('config.json', { create: true })
     const w = await fh.createWritable()
@@ -79,7 +79,7 @@ describe('readVaultConfig', () => {
     })
   })
 
-  it('FS-2.2-07: throws malformed when config parses but fails shape check (Phase 5c)', async () => {
+  it('FS-2.2-07: throws malformed when config parses but fails shape check', async () => {
     const configDir = await root.getDirectoryHandle('.archdesigner', { create: true })
     const fh = await configDir.getFileHandle('config.json', { create: true })
     const w = await fh.createWritable()
