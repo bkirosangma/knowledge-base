@@ -97,12 +97,18 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.6-04** ✅ **Right-side action slot renders** — `children` prop is rendered after the Read Mode toggle.
 - **SHELL-1.6-05** ✅ **PaneHeader title edit commits on Enter** — Enter blurs the input, which fires `onTitleChange` with the trimmed value if it differs from the original. Blur with whitespace-only or unchanged text does NOT commit. (Title row folded into PaneHeader on 2026-04-26.)
 - **SHELL-1.6-06** ✅ **PaneHeader title edit cancels on Escape** — Escape resets the draft to the current `title` prop and exits edit mode; `onTitleChange` is not called.
-- **SHELL-1.6-07** 🧪 **Empty state** — "No file open" placeholder sits in `PaneManager`, not `PaneHeader`. _(e2e: `e2e/goldenPath.spec.ts`)_
+- **SHELL-1.6-07** 🧪 **Empty state** — KB-045's `EmptyState` component sits in `PaneManager`'s empty-state slot, not `PaneHeader`; visible when both panes are null and a vault is open. _(e2e: `e2e/goldenPath.spec.ts`)_
 - **SHELL-1.6-08** 🧪 **KB-013 — root-file breadcrumb hidden** — opening a depth-1 file shows no `[data-testid="pane-breadcrumb"]`; opening a deeper file surfaces it with each segment as text. _(e2e: `paneChromeDensity.spec.ts`.)_
 - **SHELL-1.6-09** 🧪 **KB-013 — same-depth path switch keeps title within 4 px** — switching between two depth-2 files (`notes/a.md` ↔ `notes/b.md`) shifts the `[data-testid="pane-title"]` bounding box by less than 4 px on the x-axis. _(e2e: `paneChromeDensity.spec.ts`.)_
 - **SHELL-1.6-10** 🧪 **KB-013 — diagram toolbar collapses at compact width** — at 1024 px viewport, Live / Labels / Minimap inline buttons disappear; the `data-testid="diagram-toolbar-overflow-trigger"` button surfaces; clicking it reveals the three menu items. Zoom controls remain inline. _(e2e: `paneChromeDensity.spec.ts`.)_
 - **SHELL-1.6-11** ✅ **KB-013 — `DiagramToolbarOverflow` open/close + toggle behaviour** — unit-tested in `DiagramToolbarOverflow.test.tsx`: trigger opens/closes the menu, items fire their toggle and close, `aria-checked` reflects state, Escape closes.
 - **SHELL-1.6-12** 🧪 **KB-013 — explorer width is 240 px (was 260 px)** — `[data-testid="explorer-container"]` measures 240 px wide on a fresh vault open. _(e2e: `paneChromeDensity.spec.ts`.)_
+
+### KB-045 — Useful empty state
+
+- **SHELL-1.6-13** ✅ **`EmptyState` lists the canonical 5 shortcut chips (⌘K, ⌘N, ⌘S, ⌘., ⌘\\)** — order matches the KB-045 ticket; chips are documentation only (action wiring lives at the shell level). (Covered by `EmptyState.test.tsx`.)
+- **SHELL-1.6-14** ✅ **`EmptyState` shows up to 5 recent files; clicks route through `onSelectRecent`** — recents arrive sliced to 5 from `useRecentFiles`; clicking a row calls `handleSelectFile` which honours `.md` / `.json` / `.svg` routing. The empty case renders a "no recents yet" hint instead. (Covered by `EmptyState.test.tsx`.)
+- **SHELL-1.6-15** ✅ **`EmptyState` "New Note" button creates and opens an `untitled.md`** — host wires the click to `fileExplorer.createDocument("")` followed by `handleSelectFile`, so the new doc takes over the pane and the empty state unmounts. (Covered by `EmptyState.test.tsx` for the button → callback contract; `e2e/goldenPath.spec.ts` covers the visibility flip.)
 
 ## 1.7 Error Surface (Phase 5c)
 
