@@ -66,6 +66,25 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
   return { h, s: s * 100, l: l * 100 };
 }
 
+/**
+ * Token hex values for SVG attributes that can't read CSS variables (SVG
+ * `fill="…"` / `stroke="…"` parse colour literals only). Mirrors the
+ * `--surface` / `--line` definitions in `src/app/styles/tokens.css`.
+ *
+ * Use for the small/mid chrome inside diagram SVG (label backplates, line
+ * fallback strokes, etc.). For Tailwind class targets prefer the
+ * `bg-surface` / `border-line` utilities — they read CSS vars and flip
+ * automatically.
+ */
+export function tokenColors(theme: "light" | "dark"): {
+  surface: string;
+  line: string;
+} {
+  return theme === "dark"
+    ? { surface: "#0f172a", line: "#334155" }
+    : { surface: "#ffffff", line: "#e2e8f0" };
+}
+
 export function adaptUserColor(
   color: string,
   theme: "light" | "dark",

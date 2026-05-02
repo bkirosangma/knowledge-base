@@ -4,6 +4,8 @@ import React from "react";
 import DataLine from "./DataLine";
 import { isItemSelected } from "../utils/selectionUtils";
 import type { Connection, LineCurveAlgorithm, Selection } from "../types";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Line = any;
@@ -108,6 +110,10 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
     onOpenDocument,
   } = props;
 
+  const theme = useObservedTheme();
+  const { surface: surfaceColor } = tokenColors(theme);
+  const ghostColor = ghostLine ? adaptUserColor(ghostLine.color, theme) : null;
+
   return (
     <svg
       className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
@@ -170,9 +176,9 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
         const hasSnap = !!(draggingEndpoint?.snappedAnchor || creatingLine?.snappedAnchor);
         return (
           <g>
-            <line x1={ghostLine.fromPos.x} y1={ghostLine.fromPos.y} x2={ghostLine.toPos.x} y2={ghostLine.toPos.y} stroke={ghostLine.color} strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
-            <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
-            <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostLine.color : "white"} stroke={ghostLine.color} strokeWidth={2} />
+            <line x1={ghostLine.fromPos.x} y1={ghostLine.fromPos.y} x2={ghostLine.toPos.x} y2={ghostLine.toPos.y} stroke={ghostColor!} strokeWidth="2" strokeDasharray="6 4" opacity="0.7" />
+            <circle cx={ghostLine.toPos.x} cy={ghostLine.toPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostColor! : surfaceColor} stroke={ghostColor!} strokeWidth={2} />
+            <circle cx={ghostLine.fromPos.x} cy={ghostLine.fromPos.y} r={hasSnap ? 6 : 5} fill={hasSnap ? ghostColor! : surfaceColor} stroke={ghostColor!} strokeWidth={2} />
           </g>
         );
       })()}
