@@ -1,5 +1,5 @@
 import React from "react";
-import { useTheme } from "../../../shared/hooks/useTheme";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
 export type ResizeEdge = "left" | "right" | "top" | "bottom";
@@ -40,7 +40,7 @@ function Layer({
   isSelected,
   dimmed,
 }: LayerProps) {
-  const { theme } = useTheme();
+  const theme = useObservedTheme();
   const adaptedBg = adaptUserColor(bg, theme);
   const adaptedBorder = adaptUserColor(border, theme);
   const adaptedText = textColor ? adaptUserColor(textColor, theme) : undefined;

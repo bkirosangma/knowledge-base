@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 import DocInfoBadge from "./DocInfoBadge";
-import { useTheme } from "../../../shared/hooks/useTheme";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
 interface ElementProps {
@@ -82,7 +82,7 @@ function Element({
   const [isHovered, setIsHovered] = useState(false);
   const minH = w === 110 || w === 130 ? 60 : 70;
 
-  const { theme } = useTheme();
+  const theme = useObservedTheme();
   const adaptedBg = adaptUserColor(bgColor ?? "#ffffff", theme);
   const adaptedBorder = adaptUserColor(borderColor ?? "#e2e8f0", theme);
   const adaptedSubText = adaptUserColor(textColor ?? "#475569", theme);

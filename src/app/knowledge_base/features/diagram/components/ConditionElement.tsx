@@ -4,7 +4,7 @@ import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
 import DocInfoBadge from "./DocInfoBadge";
-import { useTheme } from "../../../shared/hooks/useTheme";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
 interface ConditionElementProps {
@@ -83,7 +83,7 @@ function ConditionElement({
   const path = getConditionPath(w, h, outCount);
   const anchors = getConditionAnchors(x, y, w, h, outCount, rotation);
 
-  const { theme } = useTheme();
+  const theme = useObservedTheme();
   const fill = adaptUserColor(bgColor ?? "#ffffff", theme);
   const stroke = adaptUserColor(borderColor ?? "#e2e8f0", theme);
   const text = adaptUserColor(textColor ?? "#1e293b", theme);
