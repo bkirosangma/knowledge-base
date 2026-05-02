@@ -61,6 +61,14 @@ describe("createTabRepository", () => {
     });
   });
 
+  it("read resolves files in nested subdirectories", async () => {
+    const repo = createTabRepository(dirHandle);
+    // The stub's getDirectoryHandle returns the same root handle, so
+    // "subdir/song.alphatex" resolves to the same backing store entry
+    // as the flat path. The point is to exercise the path-walking loop.
+    await expect(repo.read("subdir/song.alphatex")).resolves.toBe("\\title \"hi\"\n.");
+  });
+
   it("write persists the content (creates / overwrites)", async () => {
     const repo = createTabRepository(dirHandle);
     await repo.write("song.alphatex", "\\title \"new\"\n.");
