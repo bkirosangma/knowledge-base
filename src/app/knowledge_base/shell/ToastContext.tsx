@@ -1,15 +1,8 @@
 "use client";
 
-// Toast stack (KB-014).
-//
-// Up to MAX_TOASTS visible at once. A 4th `showToast` evicts the
-// oldest (FIFO). Each toast owns its own dismiss timer keyed by id, so
-// dismissals fire on schedule even when multiple toasts share the
-// stack at staggered times.
-//
-// Render order: bottom-up — newest at the bottom edge of the viewport,
-// older toasts stacking upwards. A small staggered translate-y entry
-// transition gives the stack a subtle motion cue.
+// Toast stack (KB-014). Up to MAX_TOASTS visible; FIFO eviction past
+// that. Each toast owns a dismiss timer keyed by id so timing survives
+// stack churn. Newest renders at the bottom edge.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -38,9 +31,8 @@ export function useToast(): ToastContextValue {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  // Per-toast dismiss timers keyed by id — independent of state, so
-  // FIFO eviction can clear the evicted toast's pending timer without
-  // re-scheduling the survivors.
+  // Per-toast dismiss timers — kept outside state so FIFO eviction can
+  // clear the evicted toast's timer without disturbing the survivors.
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const idRef = useRef(0);
 
@@ -58,10 +50,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const toast: Toast = { id, message, duration };
 
     setToasts((prev) => {
-      // FIFO eviction: drop the oldest if we'd otherwise exceed the cap.
-      // Clearing the evicted toast's timer here keeps `timersRef` in
-      // sync with the rendered stack and prevents a late dismiss firing
-      // for a toast that's already gone.
+      // FIFO eviction past the cap; clear the evicted toast's timer so
+      // a late dismiss can't fire against a toast that's already gone.
       let next = prev;
       while (next.length >= MAX_TOASTS) {
         const evicted = next[0];
@@ -80,10 +70,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [dismiss]);
 
   useEffect(() => {
-    // Snapshot the timer Map so the cleanup operates on a stable
-    // reference. The Map identity is constant for the provider's
-    // lifetime, but the lint rule doesn't know that and warns when a
-    // cleanup reads `ref.current` directly.
+    // Snapshot the Map so cleanup operates on a stable reference (lint
+    // warns when cleanup reads `ref.current` directly).
     const timers = timersRef.current;
     return () => {
       for (const t of timers.values()) clearTimeout(t);
@@ -102,17 +90,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           data-testid="toast-stack"
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 items-center"
         >
-          {/* Render oldest-at-top, newest-at-bottom. The stack lives at
-           *  the bottom edge of the viewport, so iterating in insertion
-           *  order naturally gives older items higher up. */}
+          {/* Iteration order matches insertion: oldest at top, newest
+           *  at bottom against the viewport edge. */}
           {toasts.map((t, i) => (
             <div
               key={t.id}
               data-testid="toast-item"
               data-toast-id={t.id}
               style={{
-                // Subtle stagger — newest fully prominent, older toasts
-                // dim slightly so the user's eye lands on the latest.
+                // Older toasts dim slightly so the eye lands on the latest.
                 opacity: 1 - (toasts.length - 1 - i) * 0.15,
                 transform: `translateY(${(toasts.length - 1 - i) * 2}px)`,
                 transitionProperty: "opacity, transform",

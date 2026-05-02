@@ -52,13 +52,10 @@ import MobileShell from "./shell/MobileShell";
 import ServiceWorkerRegister from "./shell/ServiceWorkerRegister";
 
 /**
- * Returns a new Set with `path` added (when `dirty`) or removed (when `!dirty`),
- * or the same Set when the operation is a no-op. Exported for unit tests.
- *
- * Used by per-pane dirty publishers in `KnowledgeBaseInner` (SHELL-1.12).
- * Each pane gets its own Set so the same file open in both panes is tracked
- * as two distinct publishers — preventing the right pane's mount from
- * clearing a path the left pane still owns.
+ * Returns a new Set with `path` added/removed, or the same Set when the
+ * op is a no-op. Per-pane publishers use one Set per side so the same
+ * file open in both panes can't have one pane's cleanup clear the other.
+ * Exported for unit tests.
  */
 export function updateDirtySet(prev: Set<string>, path: string, dirty: boolean): Set<string> {
   const has = prev.has(path);
@@ -79,27 +76,22 @@ function KnowledgeBaseInner() {
   const searchManager = useVaultSearch();
   // Viewport detection drives mobile shell branching.
   const { isMobile } = useViewport();
-  // KB-001 — File System Access API detection. Initial render assumes
-  // supported so the SSR/client first paint match; the effect below
-  // flips it on browsers that lack `showDirectoryPicker` (Firefox, Safari)
-  // and we render UnsupportedBrowserCard instead of the empty explorer.
+  // Initial state assumes supported so SSR/client first paint match;
+  // the effect flips it on Firefox/Safari to swap in UnsupportedBrowserCard.
   const [isFsAccessSupported, setIsFsAccessSupported] = useState<boolean>(true);
   useEffect(() => {
     setIsFsAccessSupported("showDirectoryPicker" in window);
   }, []);
   // Offline cache for last 10 recents (best-effort).
   useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
-  // KB-022: cached flatten of every file path in the vault. Stable
-  // across renders that don't change the tree, so consumers (the
-  // wiki-link router below; DocumentView via prop) avoid the per-render
-  // recursive walk the audit flagged.
+  // Cached flatten of every vault path; stable across non-tree renders so
+  // consumers (wiki-link router, DocumentView) skip a per-render walk.
   const allPaths = useAllPaths(fileExplorer.tree);
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
-  // ─── Tree subscriber: file-watcher events trigger quiet rescan ───
-  // Uses watcherRescan (not refresh) to avoid loading-state flash and
-  // permission re-check on every polling tick.
+  // Quiet rescan on watcher tick — `watcherRescan` (not `refresh`) skips
+  // the loading flash and permission re-check on every poll.
   useEffect(() => {
     subscribe("tree", fileExplorer.watcherRescan);
     return () => unsubscribe("tree");
@@ -121,14 +113,13 @@ function KnowledgeBaseInner() {
         if (count === 1) showToast("File reloaded from disk");
         else if (count > 1) showToast(`${count} files reloaded from disk`);
       } catch {
-        // Background scan errors are non-fatal — silently swallow so the
-        // subscriber failure doesn't block other watchers on this tick.
+        // Swallow — background scan failures must not block other watchers.
       }
     });
     return () => unsubscribe("background");
   }, [subscribe, unsubscribe, scan, showToast]);
 
-  // ─── Diagram bridge: DiagramView pushes its state here ───
+  // ─── Diagram / SVG / Document pane bridges ───
   const diagramBridgeRef = useRef<DiagramBridge | null>(null);
   const [diagramBridge, setDiagramBridge] = useState<DiagramBridge | null>(null);
   const handleDiagramBridge = useCallback((bridge: DiagramBridge) => {
@@ -136,29 +127,18 @@ function KnowledgeBaseInner() {
     setDiagramBridge(bridge);
   }, []);
 
-  // ─── SVG editor bridge ───
   const svgEditorBridgeRef = useRef<SVGEditorBridge | null>(null);
   const handleSVGEditorBridge = useCallback((bridge: SVGEditorBridge) => {
     svgEditorBridgeRef.current = bridge;
   }, []);
 
-  // ─── Document bridges: one per pane side ───
   const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
   const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
 
-  // ─── Open-document dirty tracker ───
-  // DiagramView already pushes dirty file paths into `fileExplorer.dirtyFiles`
-  // via `useDrafts.markDirty`; documents track dirty state locally inside
-  // `useDocumentContent`. This shell-level state bridges the document side so
-  // the global dirty-stack indicator in `Header` reflects every unsaved file
-  // across panes (SHELL-1.12, 2026-04-26).
-  //
-  // Per-pane publishers (SHELL-1.12, race-condition fix): each pane is its
-  // own publisher, keyed by side. The previous single Set<string> keyed only
-  // by filePath caused a race when the same file was open in both panes —
-  // the right pane's mount effect would fire `onDirtyChange(path, false)` and
-  // clear a path the left pane still owned. Splitting state by side keeps
-  // each pane's publish/cleanup scoped to itself; the Header takes the union.
+  // Document dirty state lives inside `useDocumentContent`; mirror it up
+  // so Header's dirty-stack indicator can union document + diagram drafts.
+  // Per-pane Sets (not one keyed only by path) so a file open in both
+  // panes can't have the right pane's cleanup clear the left pane's entry.
   const [leftDocDirty, setLeftDocDirty] = useState<Set<string>>(() => new Set());
   const [rightDocDirty, setRightDocDirty] = useState<Set<string>>(() => new Set());
   const handleLeftDocDirty = useCallback((filePath: string, dirty: boolean) => {
@@ -167,9 +147,8 @@ function KnowledgeBaseInner() {
   const handleRightDocDirty = useCallback((filePath: string, dirty: boolean) => {
     setRightDocDirty((prev) => updateDirtySet(prev, filePath, dirty));
   }, []);
-  // Combine diagram drafts + per-pane document dirty state for the Header badge.
-  // Same file open in both panes deduplicates to one entry — the badge counts
-  // distinct unsaved paths globally.
+  // Header badge counts distinct unsaved paths — same file in both panes
+  // collapses to one.
   const headerDirtyFiles = React.useMemo(() => {
     const out = new Set<string>(fileExplorer.dirtyFiles);
     for (const p of leftDocDirty) out.add(p);
@@ -177,11 +156,9 @@ function KnowledgeBaseInner() {
     return out;
   }, [fileExplorer.dirtyFiles, leftDocDirty, rightDocDirty]);
 
-  // KB-002 — global beforeunload guard. Trigger the browser's native
-  // "leave site?" dialog whenever any open file (document or diagram) has
-  // unsaved edits. The autosave-draft path persists the work to
-  // localStorage in parallel, so even if the user dismisses the dialog and
-  // closes the tab, edits survive across reload.
+  // beforeunload guard fires the browser's "leave site?" dialog when any
+  // file is dirty; autosave-draft persists in parallel so work survives
+  // even if the user dismisses the dialog.
   const headerDirtyCount = headerDirtyFiles.size;
   useEffect(() => {
     if (headerDirtyCount === 0) return;
@@ -200,10 +177,8 @@ function KnowledgeBaseInner() {
   const [explorerFilter, setExplorerFilter] = useState<ExplorerFilter>("all");
 
   // ─── Focus Mode (⌘.) ───
-  // Hides explorer + properties + footer + editor toolbar so only the
-  // document content + breadcrumb remain.  Saves the prior collapse state
-  // so toggling off restores whatever the user had before — never just
-  // "explorer back open" by default.
+  // Toggle remembers prior chrome state so exiting restores whatever the
+  // user had, not a default "explorer open".
   const [focusMode, setFocusMode] = useState(false);
   const focusRestoreRef = useRef<{ explorer: boolean; properties: boolean } | null>(null);
 
@@ -225,11 +200,8 @@ function KnowledgeBaseInner() {
     try { localStorage.setItem(SORT_PREFS_KEY, JSON.stringify({ field, direction, grouping })); } catch { /* ignore */ }
   }, []);
 
-  // Derived state from bridge (with safe defaults). Title / isDirty now live
-  // in each pane's `PaneHeader` row (folded from `PaneTitle` in SHELL-1.12,
-  // 2026-04-26) and don't need lifting to the shell — only the confirm-
-  // popover stays here because it's shell chrome that overlays the whole
-  // viewport.
+  // Title/isDirty are owned by each pane's `PaneHeader`; only the confirm
+  // popover lifts to the shell because it overlays the whole viewport.
   const confirmAction = diagramBridge?.confirmAction ?? null;
 
   // Fallback confirm state for file/folder deletion when no DiagramView is open.
@@ -281,9 +253,8 @@ function KnowledgeBaseInner() {
           (e) => reportError(e, `Updating link index after deleting ${path}`)
         );
       }
-      // Search index follows whichever path actually deletes the file —
-      // safe to call regardless of extension; removePath is a no-op for
-      // unindexed paths.
+      // `removePath` is a no-op for unindexed paths, so calling it
+      // unconditionally is safe.
       searchManager.removePath(path);
     } else {
       setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
@@ -291,7 +262,7 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
-    // Capture tree snapshot before the FS move triggers a rescan
+    // Snapshot tree before the FS move triggers a rescan.
     const tree = fileExplorer.tree;
     await diagramBridgeRef.current?.handleMoveItem(sourcePath, targetFolderPath);
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -337,7 +308,6 @@ function KnowledgeBaseInner() {
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle) return;
 
-    // Strip wiki-links from all backlink sources (deduplicated)
     const repo = createDocumentRepository(rootHandle);
     const seen = new Set<string>();
     for (const bl of linkManager.getBacklinksFor(docPath)) {
@@ -352,13 +322,8 @@ function KnowledgeBaseInner() {
       }
     }
 
-    // Remove from link index
     await linkManager.removeDocumentFromIndex(rootHandle, docPath);
-
-    // Delete the file via fileExplorer (handles drafts + localStorage)
     await fileExplorer.deleteFile(docPath);
-
-    // Remove from documents state
     docManager.removeDocument(docPath);
   }, [fileExplorer, linkManager, docManager]);
 
@@ -383,8 +348,8 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.dirHandleRef, docManager, handleOpenDocument, reportError]);
 
   // ─── File selection: route to correct pane type ───
-  // DiagramView auto-loads its file via useEffect on activeFile change,
-  // so we only need to open the pane here.
+  // DiagramView auto-loads on `activeFile` change, so opening the pane is
+  // all the shell needs to do.
   const handleSelectFile = useCallback((path: string) => {
     if (path.endsWith(".md")) {
       handleOpenDocument(path);
@@ -395,40 +360,26 @@ function KnowledgeBaseInner() {
     }
   }, [handleOpenDocument, panes]);
 
-  // Wiki-link targets (`[[name]]`) are usually written without an extension
-  // and are relative to the current document's folder — Obsidian-style. Use
-  // `resolveWikiLinkPath` (same helper `useLinkIndex` uses to build the link
-  // index) so the path inside `docs/architecture/foo.md` referencing
-  // `[[related-note]]` opens `docs/architecture/related-note.md`, not a
-  // non-existent root file. Falls back to an exact hit, `.md`, then `.json`
-  // so explicit paths and diagrams still work.
+  // Resolves `[[name]]` Obsidian-style: relative to the current document's
+  // folder first, then bare path, then root-level fallbacks. Same helper
+  // `useLinkIndex` uses to build the index, so the resolution matches.
   const handleNavigateWikiLink = useCallback(
     (path: string) => {
-      // KB-022: `allPaths` is the memoised flatten from `useAllPaths`.
-      // Building the Set per-click is fine — it's linear and click-rate
-      // is the user's typing speed at most.
       const set = new Set(allPaths);
-
       const activeFilePath = panes.activeEntry?.filePath ?? null;
       const docDir = activeFilePath
         ? activeFilePath.split("/").slice(0, -1).join("/")
         : "";
       const candidates: string[] = [];
-      // 1. Resolved relative to current doc directory (default .md).
       candidates.push(resolveWikiLinkPath(path, docDir));
-      // 2. Same resolution but for a diagram target.
       if (!/\.[a-z0-9]+$/i.test(path)) {
         const relDir = docDir ? `${docDir}/${path}` : path;
         candidates.push(`${relDir}.json`);
       }
-      // 3. Bare path as given (already has an extension, e.g. `foo.json`).
       candidates.push(path);
-      // 4. Append extensions at root for cases where the wiki-link is meant
-      //    as an absolute bare name and step 1 guessed wrong.
       if (!/\.[a-z0-9]+$/i.test(path)) {
         candidates.push(`${path}.md`, `${path}.json`);
       }
-
       const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
       handleSelectFile(resolved);
     },
@@ -462,14 +413,12 @@ function KnowledgeBaseInner() {
               if (rootHandle && docBridge.filePath) {
                 linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)
                   .catch((e) => reportError(e, `Updating link index for ${docBridge.filePath}`));
-                // Search reindex with the in-memory content — no FS round-trip
-                // needed since `save()` has already persisted it.
+                // Reindex with in-memory content — `save()` already persisted it.
                 searchManager.addDoc(docBridge.filePath, "doc", { body: docBridge.content });
               }
             });
           }
         }
-        // Always try to save diagram if there's an active diagram file
         if (!activeEntry || activeEntry.fileType === "diagram") {
           diagramBridgeRef.current?.onSave();
         }
@@ -484,7 +433,7 @@ function KnowledgeBaseInner() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        // Guard: don't fire when focus is inside an input, textarea, or contenteditable.
+        // Skip when typing in an input/textarea/contenteditable.
         const el = document.activeElement as HTMLElement | null;
         if (el) {
           const tag = el.tagName;
@@ -502,16 +451,15 @@ function KnowledgeBaseInner() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-        // Guard: don't steal from inputs/textareas/contenteditable
+        // Skip when typing in an input/textarea/contenteditable.
         const el = document.activeElement as HTMLElement | null;
         if (el) {
           const tag = el.tagName;
           if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return;
         }
         e.preventDefault();
-        // Expand explorer if collapsed
         if (explorerCollapsed) setExplorerCollapsed(false);
-        // Focus search after a tick (in case explorer was just expanded)
+        // Defer focus so the just-expanded explorer is mounted first.
         setTimeout(() => {
           explorerSearchRef.current?.focus();
           explorerSearchRef.current?.select();
@@ -523,9 +471,8 @@ function KnowledgeBaseInner() {
   }, [explorerCollapsed]);
 
   // ─── Track recents when active file changes ───
-  // Skip the GRAPH_SENTINEL — the virtual graph pane has no on-disk file,
-  // so pushing "__graph__" into Recents would render an unresolvable
-  // entry users can click.
+  // Virtual sentinels (graph/graphify/search) have no on-disk file, so
+  // pushing them into Recents would render unresolvable entries.
   useEffect(() => {
     const path = panes.activeEntry?.filePath;
     if (path && path !== GRAPH_SENTINEL && path !== GRAPHIFY_SENTINEL && path !== SEARCH_SENTINEL) addToRecents(path);
@@ -552,16 +499,14 @@ function KnowledgeBaseInner() {
     setFocusMode((prev) => {
       const next = !prev;
       if (next) {
-        // Entering — capture current chrome state so we can restore it.
+        // Properties state lives in DocumentView and isn't readable here,
+        // so we only capture explorer state on enter.
         focusRestoreRef.current = {
           explorer: explorerCollapsed,
-          properties: false, // properties state lives in DocumentView; we
-                             // can't read it here, so on exit we just leave
-                             // DocumentView's local state alone.
+          properties: false,
         };
         setExplorerCollapsed(true);
       } else {
-        // Exiting — restore explorer to whatever the user had.
         const prior = focusRestoreRef.current;
         if (prior) setExplorerCollapsed(prior.explorer);
         focusRestoreRef.current = null;
@@ -580,19 +525,16 @@ function KnowledgeBaseInner() {
   useRegisterCommands(focusModeCommands);
 
   // ─── Theme ────────────────────────────────────────────────────────────
-  // `useTheme` needs RepositoryContext to persist the user's choice into
-  // `vaultConfig.theme` and to read it back on first mount. We wrap the
-  // rendered shell in a `ThemedShell` child component (defined below)
-  // that lives INSIDE the `RepositoryProvider` and exposes `theme` +
-  // `toggleTheme` as props to the JSX subtree. The palette command + the
-  // ⌘⇧L global handler also live in `ThemedShell` so they fire against
-  // the same hook instance the data-theme attribute reads from.
+  // `useTheme` needs RepositoryContext to persist the user's choice; the
+  // palette command + ⌘⇧L handler live inside `ThemedShell` (below) so
+  // they fire against the same hook instance the data-theme attribute
+  // reads from.
 
-  // Raw ⌘. handler — guards against firing while typing in inputs/contenteditable
-  // exactly like the existing ⌘K and ⌘F handlers above.
+  // Raw ⌘. handler.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        // Skip when typing in an input/textarea/contenteditable.
         const el = document.activeElement as HTMLElement | null;
         if (el) {
           const tag = el.tagName;
@@ -613,7 +555,6 @@ function KnowledgeBaseInner() {
 
     const savedLayout = loadPaneLayout();
     if (savedLayout && (savedLayout.leftPane || savedLayout.rightPane)) {
-      // Validate saved files still exist in tree
       const allPaths = new Set<string>();
       const walk = (items: typeof fileExplorer.tree) => {
         for (const it of items) {
@@ -623,9 +564,8 @@ function KnowledgeBaseInner() {
       };
       walk(fileExplorer.tree);
 
-      // The graph pane has no on-disk file — the GRAPH_SENTINEL filePath
-      // won't be in `allPaths`, so we accept it explicitly. Other panes
-      // still validate against the tree to avoid restoring deleted files.
+      // Virtual sentinels (graph/graphify/search) bypass tree validation
+      // since they have no on-disk file; everything else must still exist.
       const isValidEntry = (e: PaneEntry | null): boolean =>
         !!e && (e.fileType === "graph" || e.fileType === "graphify" || e.fileType === "search" || allPaths.has(e.filePath));
       const validLeft = isValidEntry(savedLayout.leftPane) ? savedLayout.leftPane : null;
@@ -634,23 +574,18 @@ function KnowledgeBaseInner() {
       if (validLeft || validRight) {
         panes.restoreLayout(validLeft, validRight, savedLayout.focusedSide);
 
-        // Highlight the focused file in the explorer
         const focusedEntry = savedLayout.focusedSide === "right" && validRight ? validRight : validLeft;
         if (focusedEntry) fileExplorer.setActiveFile(focusedEntry.filePath);
 
-        // Restore last closed pane if present
         if (savedLayout.lastClosedPane) {
           panes.setLastClosedPane(savedLayout.lastClosedPane);
         }
-
-        // DocumentView instances auto-load content when they mount with a filePath
 
         if (fileExplorer.pendingFile) fileExplorer.clearPendingFile();
         return;
       }
     }
 
-    // No saved layout — fall back to single pending file
     if (fileExplorer.pendingFile) {
       handleSelectFile(fileExplorer.pendingFile);
       fileExplorer.clearPendingFile();
@@ -683,12 +618,9 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.directoryName]);
 
   // ─── Full link-index rebuild on first tree load ───
-  // loadIndex only restores the persisted snapshot. Files (md or diagram)
-  // never opened or saved this session are absent from the index, so their
-  // outbound wiki-links never produce backlink entries. This background
-  // rebuild scans every .md and .json path once per vault open so that all
-  // backlinks are correct immediately, without blocking the UI. Mirrors
-  // the manual Graph view "Refresh" trigger so behaviour is consistent.
+  // `loadIndex` only restores the snapshot; files never opened this
+  // session would otherwise miss their backlink entries. Runs once per
+  // vault open, in the background, mirroring the Graph "Refresh" trigger.
   const indexRebuildVaultRef = useRef<string | null>(null);
   useEffect(() => {
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -704,11 +636,9 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.tree, fileExplorer.directoryName]);
 
   // ─── Search index: bulk reindex on vault open / swap (KB-010b) ───
-  // Mirrors the link-index rebuild pattern above. On vault swap we clear
-  // first so paths from the previous vault aren't carried over. The
-  // initial walk is deliberately separate from the link-index walk —
-  // both touch FS once; combining them would couple two evolving
-  // subsystems for a 200-file saving the SearchPanel never asks back.
+  // Mirrors the link-index rebuild but stays a separate walk on purpose —
+  // combining the two would couple two evolving subsystems. Clears
+  // first so paths from the previous vault don't carry over.
   const searchInitVaultRef = useRef<string | null>(null);
   useEffect(() => {
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -724,8 +654,7 @@ function KnowledgeBaseInner() {
           const item = await readForSearchIndex(rootHandle, path);
           if (item) searchManager.addDoc(item.path, item.kind, item.fields);
         } catch {
-          // Per-file failures are non-fatal — the rest of the vault
-          // still indexes. ShellErrorContext wiring is deferred to 10c.
+          // Per-file failures are non-fatal; the rest of the vault still indexes.
         }
       }
     })();
@@ -733,16 +662,10 @@ function KnowledgeBaseInner() {
   }, [fileExplorer.tree, fileExplorer.directoryName, searchManager.ready]);
 
   // ─── Graph pane: open-graph + open-from-graph helpers ───
-  // Opening the graph from the palette: replace the focused pane with the
-  // virtual graph entry. (Same as `panes.openFile` for any other type —
-  // the sentinel just signals "no on-disk file".)
-  // Pin the openFile callback identity (it's already a useCallback inside
-  // usePaneManager, but `panes` itself is a fresh object every render —
-  // so depending on `panes` here would cause `handleOpenGraph` to flip
-  // identity each render, which would re-register the palette command
-  // every render and feedback-loop through `useRegisterCommands` ➜
-  // setVersion ➜ re-render. Pinning the individual callbacks gives us
-  // a stable identity for the cmd registration.
+  // Pinning individual `panes` callbacks (instead of depending on `panes`
+  // itself) keeps these handler identities stable. `panes` is a fresh
+  // object every render, so depending on it would re-register palette
+  // commands each render and feedback-loop through `useRegisterCommands`.
   const panesOpenFile = panes.openFile;
   const panesEnterSplit = panes.enterSplit;
   const panesSetFocusedSide = panes.setFocusedSide;
@@ -808,23 +731,16 @@ function KnowledgeBaseInner() {
     }
   }, [fileExplorer.dirHandleRef, panesOpenFile]);
 
-  // Click-from-graph: open the file in the OPPOSITE pane so the graph
-  // never gets replaced by the click. Three sub-cases:
-  //   (a) Single pane = graph → split: graph stays left, file opens right.
-  //   (b) Split with graph on focused side → flip focus to other side, then
-  //       openFile (which targets the focused pane).
-  //   (c) Split with graph on the unfocused side → openFile on the
-  //       currently focused (non-graph) side, no flip needed.
-  // Reads pane state via refs at call time to keep this callback identity
-  // stable across renders (otherwise GraphView's `onSelectNode` prop would
-  // flip every keystroke and the canvas would re-mount).
+  // Click-from-graph: open the file in the OPPOSITE pane so the graph is
+  // never replaced. Reads `panes` via a ref at call time — depending on
+  // `panes` directly would flip this callback every render and re-mount
+  // the GraphView canvas.
   const panesRef = useRef(panes);
   panesRef.current = panes;
   const handleSelectFromGraph = useCallback((path: string) => {
     const p = panesRef.current;
     const fileType: "document" | "diagram" = path.endsWith(".json") ? "diagram" : "document";
     if (!p.isSplit) {
-      // Case (a): keep graph on the left, open target on the right.
       panesEnterSplit(path, fileType);
       return;
     }
@@ -832,22 +748,17 @@ function KnowledgeBaseInner() {
       ? p.leftPane?.fileType === "graph"
       : p.rightPane?.fileType === "graph";
     if (focusedIsGraph) {
-      // Case (b): flip focus to non-graph side first, then open.
+      // Flip focus to non-graph side first; defer openFile a tick because
+      // `setFocusedSide` and `openFile` are both state setters.
       panesSetFocusedSide(p.focusedSide === "left" ? "right" : "left");
-      // openFile targets the (newly) focused side via state-after-flip;
-      // the next tick is fine because openFile is itself a state setter.
       setTimeout(() => panesOpenFile(path, fileType), 0);
       return;
     }
-    // Case (c): focused pane is already non-graph — straight open.
     panesOpenFile(path, fileType);
   }, [panesEnterSplit, panesSetFocusedSide, panesOpenFile]);
 
-  // Register the "Open Graph View" command + ⌘⇧G global handler.
-  // ⌘⇧G (instead of ⌘G) avoids colliding with the diagram editor's
-  // existing Ctrl+G shortcut that creates a flow from a multi-line
-  // selection (DIAG-3.14-05). Both shortcuts coexist cleanly because
-  // the modifier set is distinct.
+  // ⌘⇧G (not ⌘G) avoids colliding with the diagram editor's Ctrl+G
+  // multi-line→flow shortcut (DIAG-3.14-05).
   const openGraphCommands = useMemo(() => [{
     id: "view.open-graph",
     title: "Toggle Graph View",
@@ -1026,11 +937,8 @@ function KnowledgeBaseInner() {
         focused={focused}
         filePath={entry.filePath}
         dirHandleRef={fileExplorer.dirHandleRef}
-        // On mobile, force focus-mode treatment so the markdown toolbar
-        // and Properties panel collapse for a reader-first mobile chrome.
-        // The explorer/footer chrome focus-mode would also strip is
-        // already absent in MobileShell, so re-using the existing
-        // `focusMode` flag is the cleanest path.
+        // Force focus-mode on mobile so markdown toolbar + Properties panel
+        // collapse for a reader-first chrome.
         focusMode={focusMode || isMobile}
         onDocBridge={(bridge) => {
           if (side === "left") leftDocBridgeRef.current = bridge;
@@ -1055,9 +963,8 @@ function KnowledgeBaseInner() {
   }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleSVGEditorBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty, reportError]);
 
   // ─── Empty state when no file is open ───
-  // KB-012: when no vault is open, replace the "No file open" message
-  // with the FirstRunHero. The explorer's own "No folder open" UI on
-  // the left sidebar is unaffected per the audit-plan spec.
+  // FirstRunHero takes over only when no vault is open; the explorer's
+  // own "No folder open" sidebar UI is left alone.
   const noVaultOpen = !fileExplorer.directoryName && fileExplorer.tree.length === 0;
   const handleEmptyStateNewNote = useCallback(async () => {
     const created = await fileExplorer.createDocument("");
@@ -1077,12 +984,9 @@ function KnowledgeBaseInner() {
   );
 
   // ─── Mobile read pane content ───
-  // When the viewport collapses to MobileShell, the "Read" tab needs to
-  // display whatever the focused pane would normally show. We reuse the
-  // same renderPane that the desktop PaneManager uses; the diagram's
-  // touch hook activates because `isMobile && readOnly` is true on
-  // mobile boot (read-only is the default for both file types). Graph
-  // is handled inside MobileShell directly.
+  // Reuses the desktop `renderPane`; the diagram touch hook activates
+  // because `isMobile && readOnly` is true on mobile boot. Graph is
+  // handled inside MobileShell directly.
   const mobileReadPane = panes.activeEntry && panes.activeEntry.fileType !== "graph"
     ? renderPane(panes.activeEntry, true, panes.focusedSide)
     : null;
@@ -1133,9 +1037,8 @@ function KnowledgeBaseInner() {
               const rootHandle = fileExplorer.dirHandleRef.current;
               if (rootHandle) {
                 linkManager.updateDiagramLinks(rootHandle, result.path, []).catch(() => {});
-                // Empty diagram has no searchable text, but registering
-                // it ensures rename/delete operations have a path to
-                // reference before the user adds content.
+                // Register an empty entry so rename/delete have a path to
+                // reference before the user adds searchable content.
                 searchManager.addDoc(result.path, "diagram", {});
               }
             }
@@ -1285,9 +1188,8 @@ function KnowledgeBaseInner() {
         />
       </div>
 
-      {/* Global footer — reads info from the focused pane.  Unmounted in
-          Focus Mode so the document content fills the full vertical
-          space. */}
+      {/* Footer unmounts in Focus Mode so document content fills the
+          full vertical space. */}
       {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
@@ -1352,14 +1254,9 @@ function KnowledgeBaseInner() {
 }
 
 /**
- * Render-prop wrapper that mounts `useTheme` *inside* `RepositoryProvider`,
- * registers the palette command + ⌘⇧L global keyboard handler, and exposes
- * `{ theme, toggleTheme }` to the child render function. Lifting these into
- * a dedicated component is the only way `useTheme.setTheme` can persist
- * the user's choice into `vaultConfig.theme` — the hook reads
- * `useContext(RepositoryContext)`, which is null at the level of
- * `KnowledgeBaseInner` because that component declares `RepositoryProvider`
- * itself.
+ * Render-prop wrapper that mounts `useTheme` inside `RepositoryProvider`
+ * (the hook needs the context to persist into `vaultConfig.theme`), and
+ * registers the palette command + ⌘⇧L handler against that hook instance.
  */
 function ThemedShell({
   children,
@@ -1377,11 +1274,11 @@ function ThemedShell({
   }], [toggleTheme]);
   useRegisterCommands(themeCommands);
 
-  // Raw ⌘⇧L handler — same input/contenteditable guard pattern as the
-  // existing ⌘., ⌘K, ⌘F handlers.
+  // Raw ⌘⇧L handler.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
+        // Skip when typing in an input/textarea/contenteditable.
         const el = document.activeElement as HTMLElement | null;
         if (el) {
           const tag = el.tagName;
