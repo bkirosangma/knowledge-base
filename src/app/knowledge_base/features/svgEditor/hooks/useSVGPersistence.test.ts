@@ -60,6 +60,7 @@ function makeWrapper(opts: HarnessOpts) {
       read: opts.read ?? vi.fn().mockResolvedValue(EMPTY_SVG),
       write: opts.write ?? vi.fn().mockResolvedValue(undefined),
     },
+    tab: null,
     vaultConfig: null,
   };
   const reportError = opts.reportError ?? vi.fn();
