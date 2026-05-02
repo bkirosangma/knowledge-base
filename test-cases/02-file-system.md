@@ -104,6 +104,18 @@
 - **FS-2.3-54** ✅ **Create SVG unique-name fallback** — when `untitled.svg` already exists, `createSVG` generates `untitled-1.svg`. _(useFileExplorer.operations.test.tsx)_
 - **FS-2.3-55** ✅ **"SVG" entry in folder context menu New submenu** — right-clicking a folder and clicking New → SVG calls `onCreateSVG` with the folder path. _(ExplorerPanel.test.tsx)_
 
+### 2.3.i ARIA tree semantics & keyboard navigation
+- **FS-2.3-56** ✅ **Tree container has `role="tree"`** — the inner `[data-testid="explorer-tree"]` element exposes `role="tree"` so screen readers announce "tree, N items".
+- **FS-2.3-57** ✅ **Each row has `role="treeitem"` + `aria-level`** — every file and folder row carries `role="treeitem"` and `aria-level={depth+1}` (1-indexed per ARIA tree spec).
+- **FS-2.3-58** ✅ **Folder rows expose `aria-expanded`** — collapsed folder → `aria-expanded="false"`, expanded folder → `aria-expanded="true"`. File rows omit `aria-expanded`.
+- **FS-2.3-59** ✅ **Active row exposes `aria-selected="true"`** — folders use `selectedFolderPath`; files use `leftPaneFile`/`rightPaneFile` membership.
+- **FS-2.3-60** ✅ **Folder children wrapped in `role="group"`** — when a folder is expanded its child treeitems sit inside a `role="group"` wrapper.
+- **FS-2.3-61** ✅ **↓/↑ moves focus across visible rows** — Down arrow moves focus to the next visible treeitem (DFS over expanded folders); Up arrow moves to the previous visible treeitem.
+- **FS-2.3-62** ✅ **→ expands collapsed folder, then descends** — Right arrow on a collapsed folder expands it; Right arrow on an already-expanded folder moves focus to its first child.
+- **FS-2.3-63** ✅ **← collapses expanded folder, then ascends** — Left arrow on an expanded folder collapses it; Left arrow on a collapsed folder (or file) moves focus to the parent folder.
+- **FS-2.3-64** ✅ **Single tab stop on the tree** — the tree container itself carries `tabindex="0"` until focus enters; once a row is focused, exactly one treeitem has `tabindex="0"` and every other row has `tabindex="-1"`. Tabbing into the container forwards focus to the first visible row.
+- **FS-2.3-65** 🟡 **Arrow keys ignored while renaming** — implementation gates the tree-keydown handler against `e.target.closest("input,textarea")` so renaming-input arrow keys never fire navigation. Asserting this in jsdom is brittle (focus + key dispatch path differs from a real browser); covered by code review.
+
 ## 2.4 Confirmation Popover
 
 - **FS-2.4-01** ✅ **Mouse-anchored positioning** — `position: {x, y}` prop is applied as `left`/`top` inline styles on the root.
