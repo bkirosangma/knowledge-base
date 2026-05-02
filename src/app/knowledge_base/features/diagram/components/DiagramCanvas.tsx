@@ -276,7 +276,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       role="application"
       aria-label="Diagram canvas. Tab to walk nodes, arrows to move."
       data-testid="diagram-canvas-root"
-      className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-[#e8ecf0] relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
+      className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-surface-2 relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
       style={{ scrollbarWidth: "none" }}
       onMouseDown={(e) => {
         if (e.button === 0 && selection?.type === "flow") setSelection(null);
@@ -296,7 +296,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     >
       <CanvasLiveRegion selection={selection} nodes={nodes} layers={layerDefs} />
       {!activeFile ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e8ecf0] z-50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-2 z-50">
           <div className="flex flex-col items-center gap-3 text-mute">
             <MapIcon size={48} strokeWidth={1} className="text-mute" />
             <p className="text-sm font-medium">No file open</p>
