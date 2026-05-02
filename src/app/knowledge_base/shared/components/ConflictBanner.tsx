@@ -11,7 +11,8 @@ export default function ConflictBanner({
 }: ConflictBannerProps) {
   return (
     <div
-      role="alert"
+      role="status"
+      aria-live="polite"
       className="flex items-center gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-900 shrink-0"
     >
       <span className="flex-1">This file was changed outside the app.</span>

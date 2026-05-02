@@ -50,8 +50,12 @@ export default function Header({
 
   return (
     <div data-print-hide="true" className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-surface border-b border-line z-20">
-      {/* Left column — dirty-stack indicator (right-aligned next to chip) */}
-      <div className="flex items-center justify-end">
+      {/* Left column — dirty-stack indicator (right-aligned next to chip).
+       *  KB-035: wrapper is a polite status live region so the empty→
+       *  "N unsaved" transition is announced. Wrapper is always mounted
+       *  even when count is 0, so the announcement fires on every change.
+       */}
+      <div role="status" aria-live="polite" className="flex items-center justify-end">
         {dirtyCount > 0 && (
           <span
             data-testid="dirty-stack-indicator"

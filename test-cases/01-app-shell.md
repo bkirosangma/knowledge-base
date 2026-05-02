@@ -127,9 +127,10 @@ Lightweight info-level toast for transient user feedback (separate from the erro
 
 Banner shown when a file changes on disk while the user has unsaved edits. See [`src/app/knowledge_base/shared/components/ConflictBanner.tsx`](../src/app/knowledge_base/shared/components/ConflictBanner.tsx).
 
-- **SHELL-1.9-01** ✅ **Conflict message rendered with alert role** — `ConflictBanner` renders a `role="alert"` element containing "This file was changed outside the app." _(ConflictBanner.test.tsx)_
+- **SHELL-1.9-01** ✅ **Conflict banner is a polite status live region (KB-035)** — `ConflictBanner` renders a `role="status"` element with `aria-live="polite"` containing "This file was changed outside the app." Replaces the previous `role="alert"` so screen readers announce the message without interrupting; the audit found assertive announcements were excessive given the user can keep editing. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-02** ✅ **Reload from disk button calls handler** — clicking "Reload from disk" invokes the `onReload` callback exactly once. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-03** ✅ **Keep my edits button calls handler** — clicking "Keep my edits" invokes the `onKeep` callback exactly once. _(ConflictBanner.test.tsx)_
+- **SHELL-1.9-04** ✅ **Live region announces only the content message (KB-035)** — the visible content of the banner's status region is the message string (chrome buttons are inside the region but never change after first mount, so screen readers announce the message on appearance only). Verified by snapshotting the banner's accessible-name string. _(ConflictBanner.test.tsx)_
 
 ## 1.10 File Watcher
 
@@ -171,6 +172,7 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.12-06** ✅ **`hideTitleControls` dissolves title input + Save/Discard (Focus Mode)** — `PaneHeader` with `hideTitleControls` skips the title section entirely; breadcrumb, Read pill, and reading-time pill still render. _(unit: `PaneHeader.test.tsx`)_
 - **SHELL-1.12-07** ✅ **Header dirty-stack badge tooltip lists every dirty file** — the badge's `title` attribute concatenates every path in `dirtyFiles`; rendered with `bg-amber-50 text-amber-700 border border-amber-200` styling. _(unit: `Header.test.tsx`)_
 - **SHELL-1.12-08** ✅ **Per-pane dirty publishers prevent split-view race** — when the same `.md` is open in BOTH panes and only the LEFT pane is dirty, the global dirty-stack indicator still reports the file as unsaved. The right pane's mount (which fires `onDirtyChange(path, false)`) and unmount cleanup must not clear a path the left pane still owns. The shell tracks `leftDocDirty` and `rightDocDirty` as separate `Set<string>` publishers and unions them for the Header badge. _(unit: `knowledgeBase.dirty.test.tsx` — split-pane has no e2e harness; covered by Vitest unit test exercising the publish/cleanup contract)_
+- **SHELL-1.12-09** ✅ **Dirty-stack indicator is wrapped in a polite status live region (KB-035)** — the header column that hosts the amber pill is a `role="status"` element with `aria-live="polite"`. The wrapper is always present (even when no files are dirty), so the empty→"N unsaved" transition fires the live announcement on every dirty-count change. The text content "{N} unsaved" is what gets read; layout chrome stays empty until the count goes positive. _(unit: `Header.test.tsx`)_
 
 ## 1.13 Theme & Design Tokens (Phase 3 PR 1)
 
