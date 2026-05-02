@@ -120,15 +120,14 @@ export default function MobileShell(props: MobileShellProps) {
     tree,
   } = props;
 
-  // Default tab — "files" when nothing's open (boot state), else "read".
-  // Initialised lazily so we don't recompute on every render.
+  // Default to Files on boot, Read once a file is open.
   const [activeTab, setActiveTab] = useState<MobileTab>(() =>
     activeFilePath ? "read" : "files",
   );
 
-  // When the host opens a file (from anywhere), bias toward Read so the
-  // user sees the content land. Skip on first paint when activeFilePath
-  // is null (boot defaults to "files").
+  // Switch to Read when the host newly opens a file so the user sees the
+  // content land; the ref skips the first-paint case where activeFilePath
+  // arrives null and the Files tab is already correct.
   const hadFileRef = React.useRef<boolean>(!!activeFilePath);
   useEffect(() => {
     if (activeFilePath && !hadFileRef.current) {
@@ -139,10 +138,9 @@ export default function MobileShell(props: MobileShellProps) {
 
   const { setOpen: setPaletteOpen } = useCommandRegistry();
 
-  // ─── Selection wrappers — flip tab on action ───────────────────────
+  // ─── Selection wrappers — flip to Read first so the pane mounts visible.
   const handleSelectFileFromExplorer = React.useCallback(
     (path: string) => {
-      // Flip to Read first so the new pane mounts inside the visible tab.
       setActiveTab("read");
       onSelectFile(path);
     },
@@ -157,7 +155,6 @@ export default function MobileShell(props: MobileShellProps) {
     [onSelectFromGraph],
   );
 
-  // Empty state for Read tab — mostly hit on first launch.
   const readEmpty = (
     <div className="flex-1 flex flex-col items-center justify-center bg-surface-2 px-6 text-center">
       <p className="text-sm font-medium text-ink-2">No file open</p>
@@ -181,7 +178,6 @@ export default function MobileShell(props: MobileShellProps) {
     >
       {/* ─── Thin header ───────────────────────────────────────────── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-surface border-b border-line z-20">
-        {/* File name (or app name when nothing is open). */}
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <span
             className="text-sm font-semibold text-ink truncate"
@@ -201,7 +197,6 @@ export default function MobileShell(props: MobileShellProps) {
           )}
         </div>
 
-        {/* ⌘K → command palette (also reachable via the search button below). */}
         <Tooltip label="Search commands" placement="bottom">
           <button
             onClick={() => setPaletteOpen(true)}
