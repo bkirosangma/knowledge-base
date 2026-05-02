@@ -222,6 +222,13 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.15-05** ❌ **`useOfflineCache` opens `kb-files-v1` cache** — first run after directory pick writes recents into the bucket; `caches.has('kb-files-v1')` is true. Manual DevTools verification — automation requires a service-worker test harness.
 - **SHELL-1.15-06** ❌ **`useOfflineCache` reads recents at execution time** — closure does NOT capture the recents value at hook-mount; subsequent `localStorage` writes are honoured by the next refresh. Behaviour locked by `loadRecentsFromStorage()` call inside the timer/visibilitychange handlers.
 
+### KB-044 — App-shell cache
+
+- **SHELL-1.15-07** ✅ **`install` precaches the app shell** — `kb-static-v2` ends up containing `/`, `/manifest.json`, and `/icon.svg`; failures for entries that legitimately 404 in dev (e.g. `/index.html`) don't abort the install. (Covered by `serviceWorker.test.ts`.)
+- **SHELL-1.15-08** ✅ **Offline navigation falls back to the cached `/` shell** — when `fetch(navigationRequest)` rejects, the SW returns the cached request, then the cached `/`, then a 504. A successful online navigation also refreshes the cached `/` so the next offline boot serves the freshest shell. (Covered by `serviceWorker.test.ts`.)
+- **SHELL-1.15-09** ✅ **`/_next/static/*` is cache-first** — content-hashed bundles are stored on first fetch and read from cache on every subsequent request without touching the network. (Covered by `serviceWorker.test.ts`.)
+- **SHELL-1.15-10** 🚫 **DevTools "Offline" reload returns the app, not Chrome's offline page** — KB-044 stop condition; verified manually via Chrome DevTools network throttling.
+
 ## 1.16 Keyboard-Reachable Tooltip (KB-036)
 
 > 2026-05-02 — replacement for the native `title` attribute on icon buttons. `<Tooltip label="…">` in `shared/components/Tooltip.tsx` wraps a single child trigger, injects `aria-describedby` pointing at a real `[role="tooltip"]` bubble, and shows it via the `.kb-tooltip` rules in `src/app/styles/tooltip.css` on `:hover` and `:has(:focus-visible)` — no OS delay. Reuses the `.kb-table-toolbar button[data-tooltip]` pattern; disabled triggers suppress the bubble. The button keeps `aria-label` so screen-reader users hear the same string as their accessible name.
