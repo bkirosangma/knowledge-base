@@ -80,19 +80,17 @@ describe("useTabEngine", () => {
     expect(result.current.error?.message).toBe("parse fail");
   });
 
-  it("dispose() calls session.dispose and resets to 'idle'", async () => {
+  it("unmount triggers session.dispose via cleanup effect", async () => {
     const fakeSession = makeFakeSession();
     mountMock.mockResolvedValue(fakeSession);
-    const { result } = renderHook(() => useTabEngine());
+    const { result, unmount } = renderHook(() => useTabEngine());
     const container = document.createElement("div");
     await act(async () => {
       await result.current.mountInto(container, "x");
     });
-    await act(async () => {
-      result.current.dispose();
-    });
+    expect(disposeMock).not.toHaveBeenCalled();
+    unmount();
     expect(disposeMock).toHaveBeenCalledTimes(1);
-    expect(result.current.status).toBe("idle");
   });
 
   it("transitions to 'engine-load-error' when the dynamic import throws", async () => {

@@ -4,6 +4,8 @@ const renderTracksMock = vi.fn();
 const destroyMock = vi.fn();
 const texMock = vi.fn();
 
+let capturedSettings: { player: { enablePlayer: boolean }; core: { engine: string } } | null = null;
+
 vi.mock("@coderline/alphatab", () => {
   class FakeApi {
     settings: { player: { enablePlayer: boolean }; core: { engine: string } };
@@ -14,6 +16,7 @@ vi.mock("@coderline/alphatab", () => {
 
     constructor(public element: HTMLElement, settings: unknown) {
       this.settings = settings as typeof this.settings;
+      capturedSettings = this.settings;
       this.scoreLoaded = { on: (h) => { this.scoreHandlers.push(h); } };
       this.error = { on: (h) => { this.errorHandlers.push(h); } };
     }
@@ -41,17 +44,21 @@ describe("AlphaTabEngine", () => {
     renderTracksMock.mockReset();
     destroyMock.mockReset();
     texMock.mockReset();
+    capturedSettings = null;
     container = document.createElement("div");
     document.body.appendChild(container);
   });
 
   it("mount() instantiates AlphaTabApi with enablePlayer=false in TAB-004", async () => {
+    capturedSettings = null;
     const engine = new AlphaTabEngine();
     const session = await engine.mount(container, {
       initialSource: { kind: "alphatex", text: "\\title \"Hi\"\n." },
       readOnly: true,
     });
     expect(session).toBeDefined();
+    expect(capturedSettings).not.toBeNull();
+    expect(capturedSettings!.player.enablePlayer).toBe(false);
     expect(texMock).toHaveBeenCalledWith("\\title \"Hi\"\n.");
   });
 

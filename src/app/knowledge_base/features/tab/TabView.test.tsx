@@ -1,5 +1,3 @@
-"use client";
-
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,7 +6,6 @@ import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 
 const mountIntoMock = vi.fn();
-const disposeMock = vi.fn();
 let mockStatus: string = "idle";
 let mockMetadata: { title: string } | null = null;
 let mockError: Error | null = null;
@@ -19,7 +16,6 @@ vi.mock("./hooks/useTabEngine", () => ({
     metadata: mockMetadata,
     error: mockError,
     mountInto: mountIntoMock,
-    dispose: disposeMock,
   }),
 }));
 
@@ -47,7 +43,6 @@ function Wrap({ children, read = vi.fn().mockResolvedValue("\\title \"hi\"\n.") 
 describe("TabView", () => {
   beforeEach(() => {
     mountIntoMock.mockReset().mockResolvedValue(undefined);
-    disposeMock.mockReset();
     mockStatus = "idle";
     mockMetadata = null;
     mockError = null;

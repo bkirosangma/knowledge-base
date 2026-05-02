@@ -16,7 +16,6 @@ export interface UseTabEngine {
   metadata: TabMetadata | null;
   error: Error | null;
   mountInto: (container: HTMLElement, alphatex: string) => Promise<void>;
-  dispose: () => void;
 }
 
 /**
@@ -37,13 +36,6 @@ export function useTabEngine(): UseTabEngine {
     sessionRef.current?.dispose();
     sessionRef.current = null;
   }, []);
-
-  const dispose = useCallback(() => {
-    cleanup();
-    setStatus("idle");
-    setMetadata(null);
-    setError(null);
-  }, [cleanup]);
 
   const mountInto = useCallback(
     async (container: HTMLElement, alphatex: string) => {
@@ -80,5 +72,5 @@ export function useTabEngine(): UseTabEngine {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  return { status, metadata, error, mountInto, dispose };
+  return { status, metadata, error, mountInto };
 }

@@ -11,7 +11,6 @@ vi.mock("./features/tab/hooks/useTabEngine", () => ({
     metadata: null,
     error: null,
     mountInto: vi.fn().mockResolvedValue(undefined),
-    dispose: vi.fn(),
   }),
 }));
 
