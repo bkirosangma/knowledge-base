@@ -28,14 +28,14 @@
  *   - Everything else: network-first with cache fallback.
  */
 
-const CACHE = "kb-static-v2";
+const CACHE = "kb-static-v3";
 const FILES_CACHE = "kb-files-v1";
 
 // Precached on `install`. `/` is the app shell — Next 16 streams the same
 // route handler regardless of the deep URL, so a single cached entry is
 // enough to boot any path offline. /index.html is included as an alias so
 // hosts that resolve `/` to a static file still resolve from cache.
-const APP_SHELL = ["/", "/index.html", "/manifest.json", "/icon.svg"];
+const APP_SHELL = ["/", "/index.html", "/manifest.json", "/icon.svg", "/soundfonts/sonivox.sf2"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -71,6 +71,10 @@ self.addEventListener("activate", (event) => {
 
 function isHashedAsset(url) {
   return url.pathname.startsWith("/_next/static/");
+}
+
+function isSoundFont(url) {
+  return url.pathname.startsWith("/soundfonts/");
 }
 
 function isManifestOrIcon(url) {
@@ -129,6 +133,28 @@ self.addEventListener("fetch", (event) => {
               headers: { "content-type": "text/plain" },
             })
           );
+        }
+      }),
+    );
+    return;
+  }
+
+  // SoundFonts — cache-first. Big binary that never changes; one fetch
+  // serves every reload, online or offline. KB-044 lane extension.
+  if (isSoundFont(url)) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch {
+          return new Response("Offline and SoundFont not cached", {
+            status: 504,
+            headers: { "content-type": "text/plain" },
+          });
         }
       }),
     );
