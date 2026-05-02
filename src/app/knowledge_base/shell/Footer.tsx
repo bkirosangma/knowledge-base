@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, LayoutGrid, Network } from "lucide-react";
 import { useFooterContext } from "./FooterContext";
 import { useToolbarContext, GRAPH_SENTINEL } from "./ToolbarContext";
 import type { PaneEntry } from "./PaneManager";
 import ConfirmPopover from "../shared/components/explorer/ConfirmPopover";
+import { useFileWatcher } from "../shared/context/FileWatcherContext";
 
 interface FooterProps {
   focusedEntry: PaneEntry | null;
@@ -57,6 +58,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
               </span>
             </>
           )}
+          <LastSyncedChip />
           <button
             onClick={(e) => setResetConfirmPos({ x: e.clientX, y: e.clientY })}
             className="text-[11px] text-red-400 hover:text-red-600 font-mono cursor-pointer transition-colors"
@@ -80,5 +82,26 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
         />
       )}
     </div>
+  );
+}
+
+function LastSyncedChip() {
+  const { lastSyncedAt } = useFileWatcher();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const ago = Math.max(0, Math.floor((now - lastSyncedAt) / 1000));
+  return (
+    <span
+      data-testid="last-synced-chip"
+      className="text-[11px] text-mute font-mono"
+      title={`Last synced ${new Date(lastSyncedAt).toLocaleTimeString()}`}
+    >
+      Last synced {ago}s ago
+    </span>
   );
 }
