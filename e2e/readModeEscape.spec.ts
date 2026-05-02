@@ -93,8 +93,11 @@ test.describe('Read Mode Escape Hatch — Document', () => {
     await page.keyboard.press('a')
 
     // Toast should appear
-    await expect(page.getByRole('status')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByRole('status')).toContainText('Press E to edit')
+    // KB-035 added a permanent role="status" wrapper around the dirty-stack
+    // indicator, so scope to the toast container by testid to keep this
+    // assertion strict-mode safe.
+    await expect(page.getByTestId('toast-stack')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('toast-stack')).toContainText('Press E to edit')
   })
 
   test('DOC-4.12-12: Newly created document opens in edit mode', async ({ page }) => {
@@ -183,8 +186,11 @@ test.describe('Read Mode Escape Hatch — Diagram', () => {
     await page.keyboard.press('a')
 
     // Toast should appear with the hint text
-    await expect(page.getByRole('status')).toBeVisible({ timeout: 3000 })
-    await expect(page.getByRole('status')).toContainText('Press E to edit')
+    // KB-035 added a permanent role="status" wrapper around the dirty-stack
+    // indicator, so scope to the toast container by testid to keep this
+    // assertion strict-mode safe.
+    await expect(page.getByTestId('toast-stack')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('toast-stack')).toContainText('Press E to edit')
   })
 
   test('DIAG-3.17-13: Newly created diagram file opens in edit mode', async ({ page }) => {

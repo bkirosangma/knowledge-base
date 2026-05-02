@@ -61,4 +61,16 @@ describe('Header — dirty-stack indicator', () => {
     expect(title).toContain('a.md')
     expect(title).toContain('b.md')
   })
+
+  it('SHELL-1.12-09: dirty-stack wrapper is a polite status live region', () => {
+    // Wrapper present even when count is 0 so screen readers announce the
+    // 0→N transition. KB-035.
+    const { rerender } = render(<Header />)
+    const region = screen.getByRole('status')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+    expect(region.textContent).toBe('')
+
+    rerender(<Header dirtyFiles={new Set(['a.md'])} />)
+    expect(screen.getByRole('status').textContent).toBe('1 unsaved')
+  })
 })

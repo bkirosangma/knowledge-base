@@ -24,7 +24,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Split-view toggle** — enters / exits split pane mode; shows active state. Title editing, dirty dot, Save, and Discard live inside each pane's `PaneHeader` row (folded from the old `PaneTitle` strip on 2026-04-26 / SHELL-1.12).
 - ✅ **`Cmd/Ctrl+S` shortcut** — saves the focused pane (handler lives in `knowledgeBase.tsx`).
 - ✅ **⌘K trigger chip** — centered search-commands button in the header (3-column grid keeps it centred regardless of side content); clicking it opens the Command Palette. 220 px wide, muted placeholder text + `⌘K` badge.
-- ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty.
+- ✅ **Dirty-stack indicator** — small amber pill ("N unsaved") rendered to the left of the ⌘K chip when one or more files have unsaved edits. `data-testid="dirty-stack-indicator"`. Tooltip lists every dirty file path. Reads `fileExplorer.dirtyFiles` from the shell. Hidden when no files are dirty. The wrapping header column is a `role="status"` / `aria-live="polite"` live region (KB-035) so screen readers announce dirty-count changes; the wrapper is always mounted (the empty `<span>` slot stays in the DOM at 0 dirty) so 0→N and N→M transitions both fire announcements.
 - ✅ **Theme toggle** — sun/moon icon button right of the ⌘K chip (32 × 32, `aria-label="Toggle theme"`, `aria-pressed={theme === "dark"}`, `data-testid="theme-toggle"`). Clicking flips light/dark; persists via `vaultConfig.theme`. Phase 3 PR 1 (SHELL-1.13, 2026-04-26).
 
 ### 1.13 Theme & Design Tokens (Phase 3 PR 1)
@@ -92,7 +92,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Compact diagram toolbar** (KB-013) — at viewport widths `≤ COMPACT_BREAKPOINT_PX` (1100 px), the diagram toolbar's secondary toggles (Live, Labels, Minimap) collapse into a `⋯` overflow popover (`features/diagram/components/DiagramToolbarOverflow.tsx`). Zoom controls and the auto-arrange dropdown stay inline.
 - ✅ **Explorer default width 240 px** (KB-013) — reduced from 260 px so the right-pane reading area gains 20 px without the explorer feeling cramped at the new file-row width.
 - ✅ **Empty state** — "No file open" placeholder when both panes are null.
-- ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="alert"` banner with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). Wired into document and diagram panes by their respective file-watcher hooks.
+- ✅ **ConflictBanner** (`shared/components/ConflictBanner.tsx`) — disk-conflict UI shown when a file changes externally while the user has unsaved edits. Renders a `role="status"` / `aria-live="polite"` banner (KB-035, replaces the prior `role="alert"`) with two actions: "Reload from disk" (discard local edits, reload from FS) and "Keep my edits" (dismiss the conflict and stay with local content). The content message is the first child of the live region so screen readers read "This file was changed outside the app." before any button label. Wired into document and diagram panes by their respective file-watcher hooks.
 
 ---
 
@@ -332,7 +332,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Tab walks nodes in reading order** — Tab/Shift+Tab while the canvas is focused selects nodes sorted by `(layer.zIndex, y, x)`. Wraps at both ends.
 - ✅ **Arrow-key nudge** — ArrowUp/Down/Left/Right move the selected node by 8 px; +Shift = 1 px. Read-only diagrams ignore the keys.
 - ✅ **Enter opens inline label edit** — same target as a double-click, available from a Tab-selected node.
-- ✅ **Live-region announcement** — `<div aria-live="polite">` reads `Selected: <label>, layer <name>` whenever selection changes. (`role="status"` is reserved for the toast.)
+- ✅ **Live-region announcement** — `<div aria-live="polite">` reads `Selected: <label>, layer <name>` whenever selection changes. The diagram-canvas region intentionally omits `role="status"` to keep the canvas selection chatter from competing with the toast / dirty-stack / ConflictBanner status regions (KB-035).
 
 ---
 
