@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import ExplorerPanel from './ExplorerPanel'
 import type { TreeNode } from '../../hooks/useFileExplorer'
+import { MOBILE_BREAKPOINT_PX } from '../../hooks/useViewport'
 
 // Covers FS-2.3-01 through 2.3-20 (collapse, tree render, filter, file-click).
 // FS-2.3-21..37 (create/rename/delete/duplicate/move/drag) bottom out in
@@ -580,5 +581,67 @@ describe('ExplorerPanel — ARIA tree semantics & keyboard nav (KB-033)', () => 
     const activeId = tree.getAttribute('aria-activedescendant')
     expect(activeId).toBeTruthy()
     expect(document.getElementById(activeId!)?.textContent).toContain('docs')
+  })
+})
+
+describe('ExplorerPanel — mobile read-only scope (KB-040, FS-2.3-66/67)', () => {
+  const MOBILE_Q = `(max-width: ${MOBILE_BREAKPOINT_PX}px)`
+  let originalMatchMedia: typeof window.matchMedia | undefined
+
+  beforeEach(() => {
+    originalMatchMedia = window.matchMedia
+  })
+
+  afterEach(() => {
+    if (originalMatchMedia) {
+      window.matchMedia = originalMatchMedia
+    } else {
+      delete (window as unknown as { matchMedia?: unknown }).matchMedia
+    }
+  })
+
+  function installMatchMedia(isMobile: boolean) {
+    ;(window as unknown as { matchMedia: (q: string) => MediaQueryList }).matchMedia =
+      (q: string) => ({
+        matches: q === MOBILE_Q ? isMobile : false,
+        media: q,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+        onchange: null,
+      } as unknown as MediaQueryList)
+  }
+
+  it('FS-2.3-66: hides New Diagram / Document / Folder buttons when isMobile', () => {
+    installMatchMedia(true)
+    renderPanel({ directoryName: 'sample-vault' })
+    expect(screen.queryByLabelText('New Diagram')).toBeNull()
+    expect(screen.queryByLabelText('New Document')).toBeNull()
+    expect(screen.queryByLabelText('New Folder')).toBeNull()
+    // Browse-side affordances stay visible.
+    expect(screen.getByLabelText('Refresh explorer')).toBeTruthy()
+    expect(screen.getByLabelText('More actions')).toBeTruthy()
+  })
+
+  it('FS-2.3-66: keeps create buttons on desktop viewports', () => {
+    installMatchMedia(false)
+    renderPanel({ directoryName: 'sample-vault' })
+    expect(screen.getByLabelText('New Diagram')).toBeTruthy()
+    expect(screen.getByLabelText('New Document')).toBeTruthy()
+    expect(screen.getByLabelText('New Folder')).toBeTruthy()
+  })
+
+  it('FS-2.3-67: hides "Open different folder" when isMobile', () => {
+    installMatchMedia(true)
+    renderPanel({ directoryName: 'sample-vault' })
+    expect(screen.queryByLabelText('Open different folder')).toBeNull()
+  })
+
+  it('FS-2.3-67: keeps "Open different folder" on desktop viewports', () => {
+    installMatchMedia(false)
+    renderPanel({ directoryName: 'sample-vault' })
+    expect(screen.getByLabelText('Open different folder')).toBeTruthy()
   })
 })

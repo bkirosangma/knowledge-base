@@ -116,6 +116,10 @@
 - **FS-2.3-64** ✅ **Single tab stop on the tree** — the tree container itself carries `tabindex="0"` until focus enters; once a row is focused, exactly one treeitem has `tabindex="0"` and every other row has `tabindex="-1"`. Tabbing into the container forwards focus to the first visible row.
 - **FS-2.3-65** 🟡 **Arrow keys ignored while renaming** — implementation gates the tree-keydown handler against `e.target.closest("input,textarea")` so renaming-input arrow keys never fire navigation. Asserting this in jsdom is brittle (focus + key dispatch path differs from a real browser); covered by code review.
 
+### 2.3.j Mobile read-only scope (KB-040)
+- **FS-2.3-66** ✅ **Header create buttons hidden on mobile** — when `useViewport().isMobile` is `true`, the New Diagram / New Document / New Folder buttons in the explorer header are not rendered. Refresh and the dot menu remain. _(ExplorerPanel.test.tsx)_
+- **FS-2.3-67** ✅ **"Open different folder" button hidden on mobile** — the FolderOpen affordance next to the directory name is not rendered when `isMobile`; vault switching is desktop-only. _(ExplorerPanel.test.tsx)_
+
 ## 2.4 Confirmation Popover
 
 - **FS-2.4-01** ✅ **Mouse-anchored positioning** — `position: {x, y}` prop is applied as `left`/`top` inline styles on the root.
