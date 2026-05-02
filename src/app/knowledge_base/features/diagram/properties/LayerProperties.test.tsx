@@ -114,7 +114,7 @@ describe('LayerProperties — read-only mode (DIAG-3.13-03)', () => {
       />,
     )
     const writableRows = writable.container.querySelectorAll(
-      '.border-b.border-slate-100',
+      '.border-b.border-line',
     ).length
     writable.unmount()
 
@@ -125,7 +125,7 @@ describe('LayerProperties — read-only mode (DIAG-3.13-03)', () => {
       />,
     )
     const readOnlyRows = readOnly.container.querySelectorAll(
-      '.border-b.border-slate-100',
+      '.border-b.border-line',
     ).length
 
     expect(writableRows).toBeGreaterThan(0)

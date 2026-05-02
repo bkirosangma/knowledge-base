@@ -17,7 +17,7 @@ function FlowListItem({
   return (
     <button
       className={`block w-full text-left text-[12px] rounded px-1.5 py-0.5 transition-colors cursor-pointer ${
-        isExpanded ? "text-blue-700 bg-blue-50 font-medium" : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
+        isExpanded ? "text-accent bg-blue-50 font-medium" : "text-ink-2 hover:text-accent hover:bg-surface-2"
       }`}
       onClick={onToggle}
       onMouseEnter={() => onHover(flow.id)}
@@ -39,15 +39,15 @@ function FlowGroup({
 }) {
   const [expanded, setExpanded] = useState(true);
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className="border-b border-line last:border-b-0">
       <button
-        className="flex items-start py-1.5 w-full text-left hover:bg-slate-50 transition-colors cursor-pointer"
+        className="flex items-start py-1.5 w-full text-left hover:bg-surface-2 transition-colors cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-[96px] shrink-0">{label}</span>
-        <span className="flex items-center gap-1.5 text-[13px] text-slate-800 min-w-0">
+        <span className="text-[11px] font-semibold text-mute uppercase tracking-wider w-[96px] shrink-0">{label}</span>
+        <span className="flex items-center gap-1.5 text-[13px] text-ink min-w-0">
           {items.length}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-mute transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6"/></svg>
         </span>
       </button>
       {expanded && (
@@ -179,7 +179,7 @@ export function DiagramProperties({
                 <button
                   key={type}
                   className={`block w-full text-left text-[12px] rounded px-1.5 py-0.5 transition-colors cursor-pointer ${
-                    isExpanded ? "text-blue-700 bg-blue-50 font-medium" : "text-slate-600 hover:text-blue-600 hover:bg-slate-50"
+                    isExpanded ? "text-accent bg-blue-50 font-medium" : "text-ink-2 hover:text-accent hover:bg-surface-2"
                   }`}
                   onClick={() => {
                     const next = isExpanded ? null : type;
@@ -191,13 +191,13 @@ export function DiagramProperties({
                   onMouseLeave={() => { if (!expandedType) onHoverType?.(null); }}
                 >
                   <span className="truncate">{type}</span>
-                  <span className="text-[10px] text-slate-400 ml-1">({getNodesByType(nodes, type).length})</span>
+                  <span className="text-[10px] text-mute ml-1">({getNodesByType(nodes, type).length})</span>
                 </button>
               );
             })}
           </div>
           {expandedType && (
-            <div className="border-t border-slate-200 mt-1 pt-1">
+            <div className="border-t border-line mt-1 pt-1">
               <ExpandableListRow
                 label="Elements"
                 items={getNodesByType(nodes, expandedType).map((n) => ({ id: n.id, name: n.label }))}
@@ -205,7 +205,7 @@ export function DiagramProperties({
               />
               <div className="px-1 py-2">
                 <button
-                  className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                  className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
                   onClick={() => onSelectType?.(expandedType)}
                 >
                   Select All

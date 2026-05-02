@@ -53,7 +53,7 @@ export default function ReadingProgress({
   return (
     <div
       data-testid="reading-progress"
-      className="flex-shrink-0 h-0.5 bg-slate-100 relative overflow-hidden"
+      className="flex-shrink-0 h-0.5 bg-surface-2 relative overflow-hidden"
       role="progressbar"
       aria-label="Reading progress"
       aria-valuemin={0}
@@ -61,7 +61,7 @@ export default function ReadingProgress({
       aria-valuenow={Math.round(progress * 100)}
     >
       <div
-        className="h-full bg-amber-600 transition-[width] duration-150"
+        className="h-full bg-warn transition-[width] duration-150"
         style={{ width: `${progress * 100}%` }}
       />
     </div>

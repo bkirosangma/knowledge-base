@@ -26,12 +26,13 @@ export default function DocumentsSection({
           {unique.map((bl) => (
             <div
               key={`${bl.sourcePath}#${bl.section ?? ""}`}
-              className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs"
+              data-testid="reference-row"
+              className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-2 border border-line text-xs"
             >
               <FileText size={12} className="text-emerald-500 flex-shrink-0" />
               <button
                 onClick={() => onPreviewDocument?.(bl.sourcePath)}
-                className="text-blue-600 hover:underline truncate flex-1 text-left"
+                className="text-accent hover:underline truncate flex-1 text-left"
               >
                 {bl.sourcePath.split("/").pop()}
                 {bl.section ? ` #${bl.section}` : ""}
@@ -40,10 +41,10 @@ export default function DocumentsSection({
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-slate-400">No documents reference this diagram</p>
+        <p className="text-[11px] text-mute">No documents reference this diagram</p>
       )}
-      <p className="mt-1.5 text-[10px] text-slate-400">
-        Add references via <code className="bg-slate-100 px-0.5 rounded">[[wiki-links]]</code> in documents
+      <p className="mt-1.5 text-[10px] text-mute">
+        Add references via <code className="bg-surface-2 px-0.5 rounded">[[wiki-links]]</code> in documents
       </p>
     </Section>
   );
