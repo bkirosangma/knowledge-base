@@ -30,15 +30,15 @@ export default function CreateAttachDocModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-attach-title"
-        className="relative bg-white rounded-xl shadow-2xl w-[400px] p-6 flex flex-col gap-4"
+        className="relative bg-surface rounded-xl shadow-2xl w-[400px] p-6 flex flex-col gap-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="create-attach-title" className="text-sm font-semibold text-slate-800">
+        <h3 id="create-attach-title" className="text-sm font-semibold text-ink">
           Create &amp; Attach Document
         </h3>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-slate-600" htmlFor="new-doc-filename">
+          <label className="text-xs font-medium text-ink-2" htmlFor="new-doc-filename">
             Filename
           </label>
           <input
@@ -46,7 +46,7 @@ export default function CreateAttachDocModal({
             type="text"
             value={filename}
             onChange={(e) => setFilename(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             autoFocus
           />
         </div>
@@ -57,15 +57,15 @@ export default function CreateAttachDocModal({
             aria-label="Edit now"
             checked={editNow}
             onChange={(e) => setEditNow(e.target.checked)}
-            className="rounded border-slate-300 text-indigo-600"
+            className="rounded border-line text-indigo-600"
           />
-          <span className="text-sm text-slate-600">Edit now</span>
+          <span className="text-sm text-ink-2">Edit now</span>
         </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-surface-2 transition-colors"
           >
             Cancel
           </button>

@@ -14,7 +14,7 @@ export function LayerProperties({
   readOnly?: boolean;
 }) {
   const region = regions.find((r) => r.id === id);
-  if (!region) return <p className="text-xs text-slate-400">Layer not found.</p>;
+  if (!region) return <p className="text-xs text-mute">Layer not found.</p>;
 
   const layerNodes = nodes.filter((n) => n.layer === id);
   const nodeItems = layerNodes.map((n) => ({ id: n.id, name: n.label }));

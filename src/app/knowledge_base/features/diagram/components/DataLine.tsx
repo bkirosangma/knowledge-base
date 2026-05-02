@@ -1,5 +1,7 @@
 import React, { useRef, useCallback, useState } from "react";
 import DocInfoBadge from "./DocInfoBadge";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
 /** Interpolate a point along a polyline at parameter t (0..1) */
 export function interpolatePoints(points: { x: number; y: number }[], t: number): { x: number; y: number } {
@@ -110,7 +112,7 @@ interface DataLineProps {
 function DataLine({
   id,
   path,
-  color,
+  color: rawColor,
   isHovered,
   showLabels,
   onHoverStart,
@@ -136,6 +138,10 @@ function DataLine({
   documentPaths,
   onDocNavigate,
 }: DataLineProps) {
+  const theme = useObservedTheme();
+  const color = adaptUserColor(rawColor, theme);
+  const { surface: surfaceColor, line: lineFallback } = tokenColors(theme);
+
   const [isDraggingLabel, setIsDraggingLabel] = useState(false);
   const dragRef = useRef({ startT: labelPosition, points });
   dragRef.current.points = points;
@@ -229,7 +235,7 @@ function DataLine({
             cy={fromPos.y}
             r={isHovered ? 6 : 4}
             fill={isHovered ? color : "transparent"}
-            stroke={isHovered ? "white" : "transparent"}
+            stroke={isHovered ? surfaceColor : "transparent"}
             strokeWidth={1.5}
             style={{ pointerEvents: "none" }}
           />
@@ -238,7 +244,7 @@ function DataLine({
             cy={toPos.y}
             r={isHovered ? 6 : 4}
             fill={isHovered ? color : "transparent"}
-            stroke={isHovered ? "white" : "transparent"}
+            stroke={isHovered ? surfaceColor : "transparent"}
             strokeWidth={1.5}
             style={{ pointerEvents: "none" }}
           />
@@ -268,7 +274,7 @@ function DataLine({
             <circle
               key={`vtx-${i}`}
               cx={pt.x} cy={pt.y} r={3.5}
-              fill="white" stroke={color} strokeWidth={1.5}
+              fill={surfaceColor} stroke={color} strokeWidth={1.5}
               style={{ pointerEvents: "none" }}
             />
           ))}
@@ -286,9 +292,9 @@ function DataLine({
             width={label.length * 6.5 + 8}
             height={18}
             rx={4}
-            fill="white"
+            fill={surfaceColor}
             fillOpacity={0.9}
-            stroke={isSelected || isHovered ? color : "#e2e8f0"}
+            stroke={isSelected || isHovered ? color : lineFallback}
             strokeWidth={0.8}
           />
           <text

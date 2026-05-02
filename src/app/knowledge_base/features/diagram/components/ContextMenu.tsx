@@ -47,7 +47,7 @@ export default function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[160px]"
+      className="fixed z-[9999] bg-surface rounded-lg shadow-lg border border-line py-1 min-w-[160px]"
       style={{ left: x, top: y }}
     >
       {target.type === "element" && (
@@ -63,11 +63,11 @@ export default function ContextMenu({
       {target.type === "layer" && (
         <>
           <button
-            className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+            className={`${btnClass} text-ink-2 hover:bg-surface-2`}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => { onAddElement(); onClose(); }}
           >
-            <Box size={14} className="text-slate-400" />
+            <Box size={14} className="text-mute" />
             Add Element
           </button>
           <button
@@ -83,19 +83,19 @@ export default function ContextMenu({
       {target.type === "canvas" && (
         <>
           <button
-            className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+            className={`${btnClass} text-ink-2 hover:bg-surface-2`}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => { onAddElement(); onClose(); }}
           >
-            <Box size={14} className="text-slate-400" />
+            <Box size={14} className="text-mute" />
             Add Element
           </button>
           <button
-            className={`${btnClass} text-slate-700 hover:bg-slate-100`}
+            className={`${btnClass} text-ink-2 hover:bg-surface-2`}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => { onAddLayer(); onClose(); }}
           >
-            <Layers size={14} className="text-slate-400" />
+            <Layers size={14} className="text-mute" />
             Add Layer
           </button>
         </>

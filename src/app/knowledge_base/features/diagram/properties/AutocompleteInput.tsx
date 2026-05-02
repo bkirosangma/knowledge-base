@@ -56,13 +56,13 @@ export function AutocompleteInput({
   if (!editing) {
     return (
       <div
-        className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 cursor-text"
+        className="flex items-center py-1.5 border-b border-line last:border-b-0 cursor-text"
         onDoubleClick={() => setEditing(true)}
       >
-        <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-        <span className="text-[13px] text-slate-800 break-all min-w-0 flex-1">{value || <span className="text-slate-300 italic">None</span>}</span>
+        <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+        <span className="text-[13px] text-ink break-all min-w-0 flex-1">{value || <span className="text-mute italic">None</span>}</span>
         {onClear && value && (
-          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0 ml-1 cursor-pointer">
+          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-mute hover:text-mute transition-colors shrink-0 ml-1 cursor-pointer">
             <X size={12} strokeWidth={2} />
           </button>
         )}
@@ -71,12 +71,12 @@ export function AutocompleteInput({
   }
 
   return (
-    <div ref={containerRef} className="relative border-b border-slate-100 last:border-b-0">
+    <div ref={containerRef} className="relative border-b border-line last:border-b-0">
       <div className="flex items-center py-1.5">
-        <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+        <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
         <input
           ref={inputRef}
-          className={`text-[13px] text-slate-800 bg-slate-50 rounded px-1.5 py-0.5 outline-none min-w-0 flex-1 border ${error ? "border-red-400" : "border-slate-300"} focus:border-blue-400`}
+          className={`text-[13px] text-ink bg-surface-2 rounded px-1.5 py-0.5 outline-none min-w-0 flex-1 border ${error ? "border-red-400" : "border-slate-300"} focus:border-blue-400`}
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setError(false); }}
           onKeyDown={(e) => {
@@ -86,11 +86,11 @@ export function AutocompleteInput({
         />
       </div>
       {filtered.length > 0 && (
-        <div className="absolute left-[96px] right-0 top-full z-50 bg-white border border-slate-200 rounded shadow-lg max-h-[120px] overflow-y-auto">
+        <div className="absolute left-[96px] right-0 top-full z-50 bg-surface border border-line rounded shadow-lg max-h-[120px] overflow-y-auto">
           {filtered.map((s) => (
             <button
               key={s}
-              className="block w-full text-left text-[12px] text-slate-600 hover:bg-blue-50 hover:text-blue-700 px-2 py-1 transition-colors"
+              className="block w-full text-left text-[12px] text-ink-2 hover:bg-blue-50 hover:text-accent-2 px-2 py-1 transition-colors"
               onMouseDown={(e) => { e.preventDefault(); commit(s); }}
             >
               {s}

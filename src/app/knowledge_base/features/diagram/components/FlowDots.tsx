@@ -1,4 +1,6 @@
 import React from "react";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor } from "../utils/themeAdapter";
 
 const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggingEndpointId, draggingId, draggingLayerId, isLive, hoveredLineId, selectedLineIds }: {
   lines: { id: string; path: string; color: string; biDirectional?: boolean; flowDuration?: number }[];
@@ -11,6 +13,7 @@ const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggin
   hoveredLineId: string | null;
   selectedLineIds: string[];
 }) {
+  const theme = useObservedTheme();
   return (
     <svg
       className={`absolute pointer-events-none ${isZooming ? "paused-animations" : ""}`}
@@ -26,7 +29,7 @@ const FlowDots = React.memo(function FlowDots({ lines, world, isZooming, draggin
         const baseDur = line.flowDuration ?? 2.5;
         const dur = line.biDirectional ? baseDur * 2 : baseDur;
         return (
-          <circle key={line.id} r="4" fill={line.color}>
+          <circle key={line.id} r="4" fill={adaptUserColor(line.color, theme)}>
             <animateMotion
               dur={`${dur}s`}
               repeatCount="indefinite"

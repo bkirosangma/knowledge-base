@@ -120,17 +120,17 @@ export default function Canvas({ patches, children }: CanvasProps) {
         return (
           <div
             key={patch.id}
-            className="absolute bg-white border border-slate-200"
+            className="absolute bg-surface border border-line"
             style={{
               left: b.x - world.x,
               top: b.y - world.y,
               width: b.w,
               height: b.h,
               backgroundImage:
-                `linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-                 linear-gradient(to bottom, #e2e8f0 1px, transparent 1px),
-                 linear-gradient(to right, #f1f5f9 1px, transparent 1px),
-                 linear-gradient(to bottom, #f1f5f9 1px, transparent 1px)`,
+                `linear-gradient(to right, var(--line) 1px, transparent 1px),
+                 linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+                 linear-gradient(to right, var(--surface-2) 1px, transparent 1px),
+                 linear-gradient(to bottom, var(--surface-2) 1px, transparent 1px)`,
               backgroundSize: `${CANVAS_UNIT}px ${CANVAS_UNIT}px, ${CANVAS_UNIT}px ${CANVAS_UNIT}px, 10px 10px, 10px 10px`,
             }}
           />

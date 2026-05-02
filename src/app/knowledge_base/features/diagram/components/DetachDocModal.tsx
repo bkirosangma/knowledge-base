@@ -35,27 +35,27 @@ export default function DetachDocModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="detach-doc-title"
-        className="relative bg-white rounded-xl shadow-2xl w-[440px] p-6 flex flex-col gap-4"
+        className="relative bg-surface rounded-xl shadow-2xl w-[440px] p-6 flex flex-col gap-4"
         onClick={e => e.stopPropagation()}
       >
-        <h3 id="detach-doc-title" className="text-sm font-semibold text-slate-800">
+        <h3 id="detach-doc-title" className="text-sm font-semibold text-ink">
           Detach &ldquo;{filename}&rdquo;?
         </h3>
 
         {hasRefs && (
           <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            <p className="text-xs font-medium text-mute uppercase tracking-wide">
               Also referenced by
             </p>
             <ul className="flex flex-col gap-1">
               {attachments.map(a => (
-                <li key={`${a.entityType}-${a.entityId}`} className="text-xs text-slate-600">
-                  · {a.entityType} · {a.entityId} <span className="text-slate-400">(attached)</span>
+                <li key={`${a.entityType}-${a.entityId}`} className="text-xs text-ink-2">
+                  · {a.entityType} · {a.entityId} <span className="text-mute">(attached)</span>
                 </li>
               ))}
               {wikiBacklinks.map(path => (
-                <li key={path} className="text-xs text-slate-600">
-                  · {path.split("/").pop()} <span className="text-slate-400">(wiki-link)</span>
+                <li key={path} className="text-xs text-ink-2">
+                  · {path.split("/").pop()} <span className="text-mute">(wiki-link)</span>
                 </li>
               ))}
             </ul>
@@ -68,9 +68,9 @@ export default function DetachDocModal({
             aria-label="Also delete this document"
             checked={alsoDelete}
             onChange={e => setAlsoDelete(e.target.checked)}
-            className="rounded border-slate-300 text-red-600"
+            className="rounded border-line text-red-600"
           />
-          <span className="text-sm text-slate-600">Also delete this document</span>
+          <span className="text-sm text-ink-2">Also delete this document</span>
         </label>
 
         {alsoDelete && wikiBacklinks.length > 0 && (
@@ -92,7 +92,7 @@ export default function DetachDocModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-surface-2 transition-colors"
           >
             Cancel
           </button>

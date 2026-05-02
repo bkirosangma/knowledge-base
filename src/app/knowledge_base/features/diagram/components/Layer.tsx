@@ -1,4 +1,6 @@
 import React from "react";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor } from "../utils/themeAdapter";
 
 export type ResizeEdge = "left" | "right" | "top" | "bottom";
 
@@ -38,6 +40,11 @@ function Layer({
   isSelected,
   dimmed,
 }: LayerProps) {
+  const theme = useObservedTheme();
+  const adaptedBg = adaptUserColor(bg, theme);
+  const adaptedBorder = adaptUserColor(border, theme);
+  const adaptedText = textColor ? adaptUserColor(textColor, theme) : undefined;
+
   const handleResize = (edge: ResizeEdge, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -49,7 +56,7 @@ function Layer({
       <div
         data-testid={`layer-${id}`}
         className={`absolute rounded-xl border ${isSelected ? "border-blue-400 border-solid border-2" : "border-dashed"} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
-        style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", backgroundColor: bg, ...(!isSelected ? { borderColor: border } : {}) }}
+        style={{ left, width, top, height, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", backgroundColor: adaptedBg, ...(!isSelected ? { borderColor: adaptedBorder } : {}) }}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
             e.preventDefault();
@@ -91,7 +98,7 @@ function Layer({
       </div>
       <span
         className="absolute font-bold tracking-wider text-[11px] select-none overflow-hidden text-ellipsis whitespace-nowrap"
-        style={{ left: left + 12, top: top + 12, width: width - 24, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", color: textColor ?? "#334155" }}
+        style={{ left: left + 12, top: top + 12, width: width - 24, opacity: dimmed ? 0.55 : 1, transitionProperty: "opacity", transitionDuration: "150ms", transitionDelay: dimmed ? "0.15s" : "0s", color: adaptedText ?? adaptUserColor("#334155", theme) }}
         title={title}
         onMouseDown={(e) => {
           e.preventDefault();

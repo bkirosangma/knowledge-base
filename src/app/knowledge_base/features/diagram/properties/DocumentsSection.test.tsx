@@ -83,7 +83,7 @@ describe('DocumentsSection', () => {
         ]}
       />,
     )
-    const rows = container.querySelectorAll('.bg-slate-50')
+    const rows = container.querySelectorAll('[data-testid="reference-row"]')
     expect(rows.length).toBe(2)
   })
 
@@ -98,7 +98,7 @@ describe('DocumentsSection', () => {
         ]}
       />,
     )
-    const rows = container.querySelectorAll('.bg-slate-50')
+    const rows = container.querySelectorAll('[data-testid="reference-row"]')
     expect(rows.length).toBe(1)
   })
 

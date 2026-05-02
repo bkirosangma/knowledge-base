@@ -80,7 +80,7 @@ export function FlowProperties({
     ? (getDocumentReferences?.(detachTarget, { entityType: "flow", entityId: id }) ?? { attachments: [], wikiBacklinks: [] })
     : null;
 
-  if (!flow) return <p className="text-xs text-slate-400">Flow not found.</p>;
+  if (!flow) return <p className="text-xs text-mute">Flow not found.</p>;
 
   return (
     <>
@@ -121,11 +121,11 @@ export function FlowProperties({
         {(attachedDocs?.length ?? 0) > 0 ? (
           <div className="flex flex-col gap-1">
             {attachedDocs!.map(doc => (
-              <div key={doc.filename} className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-xs">
+              <div key={doc.filename} className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-2 border border-line text-xs">
                 <FileText size={12} className="text-indigo-400 flex-shrink-0" />
                 <button
                   onClick={() => onPreview?.(doc.filename)}
-                  className="text-blue-600 hover:underline truncate flex-1 text-left"
+                  className="text-accent hover:underline truncate flex-1 text-left"
                 >
                   {doc.filename.split("/").pop()}
                 </button>
@@ -133,7 +133,7 @@ export function FlowProperties({
                   <button
                     aria-label={`detach ${doc.filename}`}
                     onClick={() => setDetachTarget(doc.filename)}
-                    className="ml-auto text-slate-400 hover:text-red-500 transition-colors"
+                    className="ml-auto text-mute hover:text-red-500 transition-colors"
                   >
                     <X size={12} />
                   </button>
@@ -142,21 +142,21 @@ export function FlowProperties({
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-slate-400">No documents linked to this flow.</p>
+          <p className="text-[11px] text-mute">No documents linked to this flow.</p>
         )}
 
         {!readOnly && (
           <div className="flex gap-1.5 mt-2">
             <button
               onClick={() => onAttach?.()}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-ink-2 bg-surface border border-line hover:bg-surface-2 rounded-md transition-colors"
             >
               <Paperclip size={11} />
               Attach existing…
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-ink-2 bg-surface border border-line hover:bg-surface-2 rounded-md transition-colors"
             >
               <Plus size={11} />
               Create & attach new…

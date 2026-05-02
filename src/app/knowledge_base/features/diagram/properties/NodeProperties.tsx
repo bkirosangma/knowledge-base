@@ -81,7 +81,7 @@ export function NodeProperties({
     return items;
   }, [id, node, connections, nodes]);
 
-  if (!node) return <p className="text-xs text-slate-400">Node not found.</p>;
+  if (!node) return <p className="text-xs text-mute">Node not found.</p>;
 
   const Icon = node.icon;
   const iconName = (Icon as unknown as { displayName?: string }).displayName ?? Icon.name ?? "—";
@@ -190,38 +190,38 @@ export function NodeProperties({
         const inSource = inConn ? nodes.find((n) => n.id === inConn.from) : null;
         return (
           <Section title="Condition">
-            <div className="border-b border-slate-100 px-1.5 py-1">
+            <div className="border-b border-line px-1.5 py-1">
               <div className="text-[11px] font-semibold text-green-600 mb-0.5">In</div>
               {inSource ? (
-                <button className="text-[12px] text-slate-600 hover:text-blue-600 transition-colors cursor-pointer" onClick={() => onSelectNode?.(inSource.id)}>
+                <button className="text-[12px] text-ink-2 hover:text-accent transition-colors cursor-pointer" onClick={() => onSelectNode?.(inSource.id)}>
                   {inSource.label}
                 </button>
               ) : (
-                <span className="text-[11px] text-slate-400 italic">No connection</span>
+                <span className="text-[11px] text-mute italic">No connection</span>
               )}
             </div>
             {Array.from({ length: outCount }, (_, i) => {
               const anchorId = `cond-out-${i}`;
               const outConns = connections.filter((c) => c.from === id && c.fromAnchor === anchorId);
               return (
-                <div key={i} className="border-b border-slate-100 px-1.5 py-1 flex items-start gap-1">
+                <div key={i} className="border-b border-line px-1.5 py-1 flex items-start gap-1">
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] font-semibold text-amber-600">Out {i}</div>
                     {outConns.length > 0 ? outConns.map((c) => {
                       const target = nodes.find((n) => n.id === c.to);
                       return (
-                        <button key={c.id} className="block text-[12px] text-slate-600 hover:text-blue-600 truncate transition-colors cursor-pointer" onClick={() => onSelectNode?.(c.to)}>
+                        <button key={c.id} className="block text-[12px] text-ink-2 hover:text-accent truncate transition-colors cursor-pointer" onClick={() => onSelectNode?.(c.to)}>
                           {target?.label ?? c.to}
                         </button>
                       );
                     }) : (
-                      <span className="text-[11px] text-slate-400 italic">No connection</span>
+                      <span className="text-[11px] text-mute italic">No connection</span>
                     )}
                   </div>
                   {outCount > 2 && !readOnly && (
                     <Tooltip label="Delete anchor and its connections">
                       <button
-                        className="text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-0.5 cursor-pointer"
+                        className="text-mute hover:text-red-500 transition-colors shrink-0 mt-0.5 cursor-pointer"
                         onClick={() => onDeleteAnchor?.(id, i)}
                         aria-label="Delete anchor and its connections"
                       >
@@ -242,8 +242,8 @@ export function NodeProperties({
                 </button>
               </div>
             )}
-            <div className="flex items-center py-1.5 border-b border-slate-100">
-              <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Size</span>
+            <div className="flex items-center py-1.5 border-b border-line">
+              <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>Size</span>
               <div className="flex gap-0.5">
                 {([1, 2, 3, 4, 5] as const).map((s) => (
                   <button
@@ -251,8 +251,8 @@ export function NodeProperties({
                     disabled={readOnly}
                     className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       (node.conditionSize ?? 1) === s
-                        ? "bg-blue-100 text-blue-700 border border-blue-300"
-                        : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
+                        ? "bg-blue-100 text-accent border border-blue-300"
+                        : "bg-surface-2 text-mute border border-line hover:bg-surface-2"
                     }`}
                     onClick={() => onUpdate?.(id, { conditionSize: s })}
                   >
@@ -261,8 +261,8 @@ export function NodeProperties({
                 ))}
               </div>
             </div>
-            <div className="flex items-center py-1.5 border-b border-slate-100">
-              <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Rotation</span>
+            <div className="flex items-center py-1.5 border-b border-line">
+              <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>Rotation</span>
               <div className="flex items-center gap-1">
                 <div className="flex gap-0.5">
                   {[0, 90, 180, 270].map((deg) => (
@@ -271,8 +271,8 @@ export function NodeProperties({
                       disabled={readOnly}
                       className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         Math.round(node.rotation ?? 0) === deg
-                          ? "bg-blue-100 text-blue-700 border border-blue-300"
-                          : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
+                          ? "bg-blue-100 text-accent border border-blue-300"
+                          : "bg-surface-2 text-mute border border-line hover:bg-surface-2"
                       }`}
                       onClick={() => onUpdate?.(id, { rotation: deg })}
                     >
@@ -284,7 +284,7 @@ export function NodeProperties({
                   type="number"
                   min={0} max={359} step={1}
                   disabled={readOnly}
-                  className="w-12 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:border-blue-400 text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-12 text-[11px] text-ink-2 bg-surface-2 border border-line rounded px-1 py-0.5 outline-none focus:border-blue-400 text-center disabled:opacity-50 disabled:cursor-not-allowed"
                   value={Math.round(node.rotation ?? 0)}
                   onChange={(e) => {
                     const v = ((parseInt(e.target.value) || 0) % 360 + 360) % 360;

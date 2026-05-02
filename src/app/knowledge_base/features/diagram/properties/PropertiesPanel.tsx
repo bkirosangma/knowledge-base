@@ -95,16 +95,16 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
   if (collapsed) {
     return (
       <div
-        className={`flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+        className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
         style={{ width: hidden ? 0 : 36 }}
       >
         <Tooltip label="Expand properties">
           <button
             onClick={onToggleCollapse}
-            className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+            className="flex items-center justify-center px-2 py-3 border-b border-line hover:bg-surface-2 transition-colors"
             aria-label="Expand properties"
           >
-            <ChevronLeft size={16} className="text-slate-500" />
+            <ChevronLeft size={16} className="text-mute" />
           </button>
         </Tooltip>
       </div>
@@ -113,7 +113,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
 
   return (
     <div
-      className={`flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+      className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
       data-testid="properties-panel"
       style={{ width: hidden ? 0 : 280 }}
     >
@@ -121,18 +121,18 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
         <Tooltip label="Collapse properties">
           <button
             onClick={onToggleCollapse}
-            className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+            className="flex items-center gap-2 px-4 py-2.5 border-b border-line hover:bg-surface-2 transition-colors w-full"
             aria-label="Collapse properties"
           >
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-            <span className="text-[10px] text-slate-400 font-medium">{sectionLabel}</span>
-            <ChevronRight size={14} className="ml-auto text-slate-400" />
+            <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
+            <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
+            <ChevronRight size={14} className="ml-auto text-mute" />
           </button>
         </Tooltip>
       ) : (
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-          <span className="text-[10px] text-slate-400 font-medium">{sectionLabel}</span>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line">
+          <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
+          <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
         </div>
       )}
 
@@ -181,18 +181,18 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
           <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
         )}
         {selection?.type === "multi-node" && (
-          <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} elements selected</div>
+          <div className="text-sm text-mute italic py-4">{selection.ids.length} elements selected</div>
         )}
         {selection?.type === "multi-layer" && (
-          <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} layers selected</div>
+          <div className="text-sm text-mute italic py-4">{selection.ids.length} layers selected</div>
         )}
         {selection?.type === "multi-line" && (
           <div>
-            <div className="text-sm text-slate-500 italic py-4">{selection.ids.length} lines selected</div>
+            <div className="text-sm text-mute italic py-4">{selection.ids.length} lines selected</div>
             {!readOnly && (
               <div className="px-1">
                 <button
-                  className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                  className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
                   onClick={() => onCreateFlow?.(selection.ids)}
                 >
                   Create Flow

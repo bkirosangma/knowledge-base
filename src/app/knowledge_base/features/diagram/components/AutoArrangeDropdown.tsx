@@ -34,7 +34,7 @@ export default function AutoArrangeDropdown({
     <div ref={ref} className="relative">
       <Tooltip label="Auto Arrange" placement="bottom">
         <button
-          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          className="p-1.5 rounded-md text-mute hover:bg-surface-2 hover:text-ink-2 transition-colors"
           aria-label="Auto Arrange"
           onClick={() => setOpen(!open)}
         >
@@ -42,11 +42,11 @@ export default function AutoArrangeDropdown({
         </button>
       </Tooltip>
       {open && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
+        <div className="absolute top-full right-0 mt-1 bg-surface rounded-lg shadow-lg border border-line py-1 z-50 min-w-[210px]">
           {items.map((item) => (
             <button
               key={item.key}
-              className="block w-full text-left px-3 py-1.5 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
+              className="block w-full text-left px-3 py-1.5 text-[12px] text-ink-2 hover:bg-surface-2 transition-colors"
               onClick={() => { onSelect(item.key); setOpen(false); }}
             >
               {item.label}

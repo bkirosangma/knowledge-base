@@ -5,6 +5,8 @@ import { interpolatePoints, closestT } from "./DataLine";
 import { rectsOverlap } from "../utils/collisionUtils";
 import { isItemSelected } from "../utils/selectionUtils";
 import type { Connection, NodeData, Selection } from "../types";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
 interface SortedLine {
   id: string;
@@ -67,6 +69,9 @@ export default function DiagramLabelOverlay({
   const labelDragNodeRects = useRef<{ left: number; top: number; width: number; height: number }[]>([]);
   const labelLastValidT = useRef<number>(0.5);
   const [labelDragGhost, setLabelDragGhost] = useState<{ lineId: string; rawT: number } | null>(null);
+
+  const theme = useObservedTheme();
+  const { surface: surfaceColor, line: lineFallback } = tokenColors(theme);
 
   if (!show) return null;
   return (
@@ -155,9 +160,9 @@ export default function DiagramLabelOverlay({
               width={w}
               height={18}
               rx={4}
-              fill="white"
+              fill={surfaceColor}
               fillOpacity={0.9}
-              stroke={isSelected || isHovered ? line.color : "#e2e8f0"}
+              stroke={isSelected || isHovered ? adaptUserColor(line.color, theme) : lineFallback}
               strokeWidth={0.8}
             />
             <text
@@ -167,7 +172,7 @@ export default function DiagramLabelOverlay({
               fontSize="11"
               fontWeight="600"
               fontFamily="system-ui, sans-serif"
-              fill={line.color}
+              fill={adaptUserColor(line.color, theme)}
               style={{ pointerEvents: "none", userSelect: "none" }}
             >
               {line.label}
@@ -182,8 +187,8 @@ export default function DiagramLabelOverlay({
         const gw = ghostLineForLabel.label.length * 6.5 + 8;
         return (
           <g style={{ opacity: 0.35, pointerEvents: "none" }}>
-            <rect x={gpt.x - gw / 2} y={gpt.y - 10} width={gw} height={18} rx={4} fill="white" fillOpacity={0.9} stroke="#e2e8f0" strokeWidth={0.8} />
-            <text x={gpt.x} y={gpt.y + 3} textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="system-ui, sans-serif" fill={ghostLineForLabel.color} style={{ pointerEvents: "none", userSelect: "none" }}>{ghostLineForLabel.label}</text>
+            <rect x={gpt.x - gw / 2} y={gpt.y - 10} width={gw} height={18} rx={4} fill={surfaceColor} fillOpacity={0.9} stroke={lineFallback} strokeWidth={0.8} />
+            <text x={gpt.x} y={gpt.y + 3} textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="system-ui, sans-serif" fill={adaptUserColor(ghostLineForLabel.color, theme)} style={{ pointerEvents: "none", userSelect: "none" }}>{ghostLineForLabel.label}</text>
           </g>
         );
       })()}

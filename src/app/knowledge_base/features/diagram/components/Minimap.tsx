@@ -179,7 +179,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
     <div
       ref={minimapRef}
       data-testid="minimap"
-      className={`relative bg-white border border-slate-300 rounded-lg shadow-lg overflow-hidden origin-bottom-left ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`relative bg-surface border border-line rounded-lg shadow-lg overflow-hidden origin-bottom-left ${isDraggingIndicator ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ width: miniW, height: miniH, boxSizing: 'content-box', transition: 'transform 200ms ease-out, width 300ms ease-out, height 300ms ease-out', transform: isHovered ? 'scale(2)' : 'scale(1)' }}
       onMouseDown={handleMinimapMouseDown}
       onMouseEnter={() => setIsHovered(true)}
@@ -190,7 +190,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
         r.empty ? null : (
           <div
             key={r.id}
-            className="absolute rounded-sm bg-slate-100 border border-slate-200"
+            className="absolute rounded-sm bg-surface-2 border border-line"
             style={{
               left: (r.left - world.x) * scale,
               top: (r.top - world.y) * scale,
@@ -206,7 +206,7 @@ export default function Minimap({ world, viewportRef, regions, nodes, zoomRef }:
       {nodes.map((n) => (
         <div
           key={n.id}
-          className="absolute bg-slate-500 rounded-sm"
+          className="absolute bg-surface-20 rounded-sm"
           style={{
             left: (n.x - n.w / 2 - world.x) * scale,
             top: (n.y - 35 - world.y) * scale,

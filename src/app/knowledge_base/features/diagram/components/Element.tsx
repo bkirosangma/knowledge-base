@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 import DocInfoBadge from "./DocInfoBadge";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor } from "../utils/themeAdapter";
 
 interface ElementProps {
   id: string;
@@ -80,6 +82,21 @@ function Element({
   const [isHovered, setIsHovered] = useState(false);
   const minH = w === 110 || w === 130 ? 60 : 70;
 
+  const theme = useObservedTheme();
+  const adaptedBg = adaptUserColor(bgColor ?? "#ffffff", theme);
+  const adaptedBorder = adaptUserColor(borderColor ?? "#e2e8f0", theme);
+  const adaptedSubText = adaptUserColor(textColor ?? "#475569", theme);
+  const adaptedTitleText = adaptUserColor(textColor ?? "#1e293b", theme);
+  // Light-mode preserves the hex+alpha shorthand the title text uses for
+  // its muted line; dark-mode runs the adapter (HSL output) so we drop
+  // the alpha and let the inverted lightness do the work.
+  const adaptedMuted =
+    theme === "dark"
+      ? adaptUserColor(textColor ?? "#64748b", theme)
+      : textColor
+        ? `${textColor}99`
+        : "#64748b";
+
   useEffect(() => {
     const el = ref.current;
     if (!el || !onResize) return;
@@ -117,8 +134,8 @@ function Element({
         transitionProperty: "opacity",
         transitionDuration: "150ms",
         transitionDelay: dimmed ? "0.15s" : "0s",
-        backgroundColor: bgColor ?? "#ffffff",
-        borderColor: borderColor ?? "#e2e8f0",
+        backgroundColor: adaptedBg,
+        borderColor: adaptedBorder,
         boxShadow: flowRole === 'start'
           ? '0 0 0 2px #22c55e, 0 0 12px #22c55e80, 0 4px 15px rgb(0,0,0,0.06)'
           : flowRole === 'end'
@@ -144,20 +161,20 @@ function Element({
         </span>
       )}
       {Icon && (
-        <span className="mb-2" style={{ color: textColor ?? "#475569" }}>
+        <span className="mb-2" style={{ color: adaptedSubText }}>
           <Icon size={18} strokeWidth={1.5} />
         </span>
       )}
       <div
         className="font-semibold text-[13px] leading-tight"
-        style={{ color: textColor ?? "#1e293b" }}
+        style={{ color: adaptedTitleText }}
       >
         {label}
       </div>
       {showLabels && sub && (
         <div
           className="text-[10.5px] mt-1 font-medium tracking-tight"
-          style={{ color: textColor ? `${textColor}99` : "#64748b" }}
+          style={{ color: adaptedMuted }}
         >
           {sub}
         </div>

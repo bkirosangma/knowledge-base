@@ -12,7 +12,7 @@ export const KEY_COL = "w-[96px] shrink-0";
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-3">
-      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-0.5">{title}</div>
+      <div className="text-[10px] font-bold text-mute uppercase tracking-widest mb-1 px-0.5">{title}</div>
       <div>
         {children}
       </div>
@@ -22,9 +22,9 @@ export function Section({ title, children }: { title: string; children: React.Re
 
 export function Row({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-start py-1.5 border-b border-slate-100 last:border-b-0">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-      <span className="text-[13px] text-slate-800 break-all min-w-0">{value}</span>
+    <div className="flex items-start py-1.5 border-b border-line last:border-b-0">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+      <span className="text-[13px] text-ink break-all min-w-0">{value}</span>
     </div>
   );
 }
@@ -52,13 +52,13 @@ export function EditableRow({
   if (!editing) {
     return (
       <div
-        className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 cursor-text"
+        className="flex items-center py-1.5 border-b border-line last:border-b-0 cursor-text"
         onDoubleClick={() => setEditing(true)}
       >
-        <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-        <span className="text-[13px] text-slate-800 break-all min-w-0 flex-1">{value}</span>
+        <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+        <span className="text-[13px] text-ink break-all min-w-0 flex-1">{value}</span>
         {onClear && value && (
-          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0 ml-1 cursor-pointer">
+          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-mute hover:text-mute transition-colors shrink-0 ml-1 cursor-pointer">
             <X size={12} strokeWidth={2} />
           </button>
         )}
@@ -67,11 +67,11 @@ export function EditableRow({
   }
 
   return (
-    <div className="flex items-center py-1 border-b border-slate-100 last:border-b-0">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+    <div className="flex items-center py-1 border-b border-line last:border-b-0">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
       <input
         ref={inputRef}
-        className={`text-[13px] text-slate-800 bg-slate-50 border rounded px-1.5 py-0.5 outline-none w-full min-w-0 ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
+        className={`text-[13px] text-ink bg-surface-2 border rounded px-1.5 py-0.5 outline-none w-full min-w-0 ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
         value={draft}
         onChange={(e) => { setDraft(e.target.value); clearError(); }}
         onBlur={commit}
@@ -114,25 +114,25 @@ export function EditableIdRow({
   if (!editing) {
     return (
       <div
-        className="flex items-start py-1.5 border-b border-slate-100 last:border-b-0 cursor-text"
+        className="flex items-start py-1.5 border-b border-line last:border-b-0 cursor-text"
         onDoubleClick={() => setEditing(true)}
       >
-        <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-        <span className="text-[13px] text-slate-800 break-all min-w-0">
-          <span className="text-slate-400">{prefix}</span>{extractSuffix(value)}
+        <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+        <span className="text-[13px] text-ink break-all min-w-0">
+          <span className="text-mute">{prefix}</span>{extractSuffix(value)}
         </span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center py-1 border-b border-slate-100 last:border-b-0">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-      <div className={`flex items-center bg-slate-50 border rounded overflow-hidden min-w-0 w-full ${error ? "border-red-400" : "border-slate-300 focus-within:border-blue-400"}`}>
-        <span className="text-[13px] text-slate-400 pl-1.5 select-none">{prefix}</span>
+    <div className="flex items-center py-1 border-b border-line last:border-b-0">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+      <div className={`flex items-center bg-surface-2 border rounded overflow-hidden min-w-0 w-full ${error ? "border-red-400" : "border-slate-300 focus-within:border-blue-400"}`}>
+        <span className="text-[13px] text-mute pl-1.5 select-none">{prefix}</span>
         <input
           ref={inputRef}
-          className="text-[13px] text-slate-800 bg-transparent outline-none px-1 py-0.5 w-full min-w-0"
+          className="text-[13px] text-ink bg-transparent outline-none px-1 py-0.5 w-full min-w-0"
           value={draft}
           onChange={(e) => { setDraft(e.target.value); clearError(); }}
           onBlur={commit}
@@ -173,13 +173,13 @@ export function ListItem({
 
   return (
     <button
-      className="block w-full text-left text-[12px] text-slate-600 hover:text-blue-600 hover:bg-slate-50 rounded px-1.5 py-0.5 transition-colors cursor-pointer relative"
+      className="block w-full text-left text-[12px] text-ink-2 hover:text-accent hover:bg-surface-2 rounded px-1.5 py-0.5 transition-colors cursor-pointer relative"
       onClick={() => onSelect?.(item.id)}
       onMouseEnter={() => { showTooltip(); onHoverItem?.(item.id); }}
       onMouseLeave={() => { hideTooltip(); onHoverItem?.(null); }}
     >
       <span ref={nameRef} className="block truncate">{item.name}</span>
-      {item.sub && <span ref={subRef} className="block text-[10px] text-slate-400 truncate">{item.sub}</span>}
+      {item.sub && <span ref={subRef} className="block text-[10px] text-mute truncate">{item.sub}</span>}
       {tooltip && (
         <span className="absolute left-0 bottom-full mb-1 z-50 bg-slate-800 text-white text-[11px] rounded px-2 py-1 shadow-lg whitespace-pre-wrap max-w-[220px] pointer-events-none">
           {tooltip}
@@ -203,17 +203,17 @@ export function ExpandableListRow({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className="border-b border-line last:border-b-0">
       <button
-        className="flex items-start py-1.5 w-full text-left hover:bg-slate-50 transition-colors cursor-pointer"
+        className="flex items-start py-1.5 w-full text-left hover:bg-surface-2 transition-colors cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
-        <span className="flex items-center gap-1.5 text-[13px] text-slate-800 min-w-0">
+        <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+        <span className="flex items-center gap-1.5 text-[13px] text-ink min-w-0">
           {items.length}
           <ChevronRight
             size={12}
-            className={`text-slate-400 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+            className={`text-mute transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
           />
         </span>
       </button>
@@ -253,18 +253,18 @@ export function IconPickerRow({
   const CurrentIcon = currentIcon;
 
   return (
-    <div ref={ref} className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 relative">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Icon</span>
+    <div ref={ref} className="flex items-center py-1.5 border-b border-line last:border-b-0 relative">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>Icon</span>
       <button
-        className="flex items-center gap-1.5 text-[13px] text-slate-800 hover:text-blue-600 transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 text-[13px] text-ink hover:text-accent transition-colors cursor-pointer"
         onClick={() => setOpen(!open)}
       >
-        <CurrentIcon size={14} className="text-slate-600" strokeWidth={1.5} />
+        <CurrentIcon size={14} className="text-ink-2" strokeWidth={1.5} />
         {currentName}
-        <ChevronRight size={12} className={`text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+        <ChevronRight size={12} className={`text-mute transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 w-[248px] max-h-[280px] overflow-y-auto p-2">
+        <div className="absolute left-0 top-full mt-0.5 bg-surface border border-line rounded shadow-lg z-50 w-[248px] max-h-[280px] overflow-y-auto p-2">
           <div className="grid grid-cols-5 gap-1">
             {allNames.map((name) => {
               const Icon = getIcon(name)!;
@@ -274,7 +274,7 @@ export function IconPickerRow({
                   <button
                     aria-label={name}
                     className={`flex flex-col items-center gap-0.5 p-1.5 rounded transition-colors cursor-pointer ${
-                      isActive ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-600"
+                      isActive ? "bg-blue-50 text-accent ring-1 ring-blue-200" : "hover:bg-surface-2 text-ink-2"
                     }`}
                     onClick={() => {
                       const icon = getIcon(name);
@@ -314,8 +314,8 @@ export function ColorSchemeRow({
   onSelect: (scheme: typeof COLOR_SCHEMES[number]) => void;
 }) {
   return (
-    <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>Scheme</span>
+    <div className="flex items-center py-1.5 border-b border-line last:border-b-0">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>Scheme</span>
       <div className="flex items-center gap-1.5">
         {COLOR_SCHEMES.map((scheme) => {
           const colorSet = type === "line" ? null : scheme[type];
@@ -330,7 +330,7 @@ export function ColorSchemeRow({
             <Tooltip key={scheme.name} label={scheme.name}>
               <button
                 aria-label={scheme.name}
-                className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${isActive ? "ring-2 ring-blue-400 ring-offset-1 border-white" : "border-slate-200 hover:border-slate-400"}`}
+                className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${isActive ? "ring-2 ring-blue-400 ring-offset-1 border-white" : "border-line hover:border-slate-400"}`}
                 style={{ backgroundColor: swatchColor }}
                 onClick={() => onSelect(scheme)}
               />
@@ -365,19 +365,19 @@ export function ColorRow({
   }, [draft, value, onChange, finishEditing, showError]);
 
   return (
-    <div className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>{label}</span>
+    <div className="flex items-center py-1.5 border-b border-line last:border-b-0">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>{label}</span>
       <div className="flex items-center gap-2 min-w-0">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
-          className="w-6 h-6 rounded border border-slate-200 cursor-pointer p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-none"
+          className="w-6 h-6 rounded border border-line cursor-pointer p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-none"
         />
         {editing ? (
           <input
             ref={inputRef}
-            className={`text-[13px] text-slate-800 font-mono bg-slate-50 border rounded px-1.5 py-0.5 outline-none w-[80px] ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
+            className={`text-[13px] text-ink font-mono bg-surface-2 border rounded px-1.5 py-0.5 outline-none w-[80px] ${error ? "border-red-400" : "border-slate-300 focus:border-blue-400"}`}
             value={draft}
             onChange={(e) => { setDraft(e.target.value); clearError(); }}
             onBlur={commit}
@@ -385,7 +385,7 @@ export function ColorRow({
           />
         ) : (
           <span
-            className={`text-[13px] text-slate-600 font-mono${onChange ? " cursor-text" : ""}`}
+            className={`text-[13px] text-ink-2 font-mono${onChange ? " cursor-text" : ""}`}
             onDoubleClick={onChange ? () => setEditing(true) : undefined}
           >{value}</span>
         )}
@@ -420,24 +420,24 @@ export function DropdownRow<T extends string>({
   const selected = options.find((o) => o.value === value);
 
   return (
-    <div ref={ref} className="flex items-center py-1.5 border-b border-slate-100 last:border-b-0 relative">
-      <span className={`text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${KEY_COL}`}>
+    <div ref={ref} className="flex items-center py-1.5 border-b border-line last:border-b-0 relative">
+      <span className={`text-[11px] font-semibold text-mute uppercase tracking-wider ${KEY_COL}`}>
         {label}
       </span>
       <button
-        className="text-[13px] text-slate-800 hover:text-blue-600 transition-colors cursor-pointer flex items-center gap-1"
+        className="text-[13px] text-ink hover:text-accent transition-colors cursor-pointer flex items-center gap-1"
         onClick={() => setOpen(!open)}
       >
         {selected?.label ?? value}
-        <ChevronRight size={12} className={`text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+        <ChevronRight size={12} className={`text-mute transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-[96px] top-full mt-0.5 bg-white border border-slate-200 rounded shadow-lg z-50 min-w-[120px]">
+        <div className="absolute left-[96px] top-full mt-0.5 bg-surface border border-line rounded shadow-lg z-50 min-w-[120px]">
           {options.map((opt) => (
             <button
               key={opt.value}
-              className={`block w-full text-left px-3 py-1.5 text-[12px] hover:bg-slate-50 transition-colors cursor-pointer ${
-                opt.value === value ? "text-blue-600 font-semibold" : "text-slate-700"
+              className={`block w-full text-left px-3 py-1.5 text-[12px] hover:bg-surface-2 transition-colors cursor-pointer ${
+                opt.value === value ? "text-accent font-semibold" : "text-ink-2"
               }`}
               onClick={() => { onChange?.(opt.value); setOpen(false); }}
             >

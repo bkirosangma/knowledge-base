@@ -4,6 +4,8 @@ import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
 import DocInfoBadge from "./DocInfoBadge";
+import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
+import { adaptUserColor } from "../utils/themeAdapter";
 
 interface ConditionElementProps {
   id: string;
@@ -81,9 +83,10 @@ function ConditionElement({
   const path = getConditionPath(w, h, outCount);
   const anchors = getConditionAnchors(x, y, w, h, outCount, rotation);
 
-  const fill = bgColor ?? "#ffffff";
-  const stroke = borderColor ?? "#e2e8f0";
-  const text = textColor ?? "#1e293b";
+  const theme = useObservedTheme();
+  const fill = adaptUserColor(bgColor ?? "#ffffff", theme);
+  const stroke = adaptUserColor(borderColor ?? "#e2e8f0", theme);
+  const text = adaptUserColor(textColor ?? "#1e293b", theme);
 
   // Dynamic centroid positioning — triangle centroid is ~55% down from top in unrotated space
   // Rotate this offset around the center for arbitrary rotation
@@ -178,7 +181,7 @@ function ConditionElement({
         }}
       >
         {Icon && (
-          <span className="mb-1" style={{ color: textColor ?? "#475569" }}>
+          <span className="mb-1" style={{ color: adaptUserColor(textColor ?? "#475569", theme) }}>
             <Icon size={16} strokeWidth={1.5} />
           </span>
         )}
@@ -264,7 +267,7 @@ function ConditionElement({
         const hy = (inAnchor.y - y) + (len > 0.01 ? (dirY / len) * offset : -offset);
         return (
           <div
-            className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
+            className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-surface border border-line shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
             style={{
               left: `calc(50% + ${hx}px)`,
               top: `calc(50% + ${hy}px)`,
@@ -272,7 +275,7 @@ function ConditionElement({
             }}
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotationDragStart(id, e); }}
           >
-            <RotateCw size={12} className="text-slate-500" />
+            <RotateCw size={12} className="text-mute" />
           </div>
         );
       })()}
