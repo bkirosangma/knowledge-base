@@ -648,15 +648,27 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 
 ---
 
-## 11. Test & Verification Infrastructure
+## 11. Guitar Tabs
 
-### 11.1 Unit (Vitest)
+Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
+
+### 11.1 Foundation (TAB-001 → TAB-003)
+- ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; `AlphaTabEngine` implementation lands in TAB-004.
+- ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
+- ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`) — `.alphatex` files open a tab pane that currently renders `TabViewStub`.
+- ? **Real `TabView` + playback chrome** — pending TAB-004/TAB-005.
+
+---
+
+## 12. Test & Verification Infrastructure
+
+### 12.1 Unit (Vitest)
 - ✅ **`vitest` + `@vitest/ui` + `@vitest/coverage-v8`** configured (`vitest.config.ts`, `tsconfig.test.json`).
 - ✅ **jsdom** environment via `src/test/setup.ts` + `@testing-library/react` + `@testing-library/user-event` + `@testing-library/jest-dom`.
 - ✅ **Existing test**: `features/diagram/utils/gridSnap.test.ts`.
 - **Scripts**: `npm test`, `npm run test:run`, `npm run test:ui`, `npm run coverage`.
 
-### 11.2 End-to-End (Playwright)
+### 12.2 End-to-End (Playwright)
 - ✅ **`@playwright/test`** configured (`playwright.config.ts`).
 - ✅ **`PLAYWRIGHT_BASE_URL` env-var override** — when set, Playwright targets that URL and skips the built-in `npm run dev` webServer (useful for re-using an already-running local dev server).
 - ✅ **`e2e/app.spec.ts`** — pre-folder shell smoke suite: app mounts with zero errors; Geist font CSS vars present (SHELL-1.1-02); root container is a full-height flex column (SHELL-1.1-03); "No file open" empty state and "Open Folder" button render; Header title defaults to "Untitled".
@@ -667,17 +679,17 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 - ✅ **`e2e/documentGoldenPath.spec.ts`** — full document editor golden path: open `.md` vault, WYSIWYG content renders, `[[wiki-link]]` pill visible, Raw toggle round-trip, Cmd+S saves, dirty-flag cleared, file-switch autosave.
 - **Scripts**: `npm run test:e2e`, `npm run test:e2e:ui`.
 
-### 11.3 Tooling Hooks
+### 12.3 Tooling Hooks
 - ⚙️ **Build**: `next build` — Next.js 16 / React 19.
 - ⚙️ **Lint**: `eslint` with `eslint-config-next`.
 - ⚙️ **Type check**: strict TS 5 (`tsconfig.json`, `tsconfig.test.json`).
 
-### 11.4 Continuous Integration
+### 12.4 Continuous Integration
 - ⚙️ **GitHub Actions CI** (`.github/workflows/ci.yml`) — gates every PR into `main` and every push to `main` on unit tests (`npm run test:run`), e2e tests (`npm run test:e2e`), and build (`npm run build`). Uses Node version from `.nvmrc`, caches npm, installs Chromium for Playwright, uploads the HTML report as an artifact on failure. Lint is intentionally not gated (pre-existing lint errors deferred to Phase 1).
 
 ---
 
-## 12. External Contracts (for reference in test design)
+## 13. External Contracts (for reference in test design)
 
 - **File System Access API** — `showDirectoryPicker`, `FileSystemDirectoryHandle`, `FileSystemFileHandle`, `FileSystemWritableFileStream` (typings in `types/file-system.d.ts`). Only supported in Chromium-family browsers.
 - **Vault layout** — top-level `*.json` diagrams, `*.md` documents, hidden `.archdesigner/` config dir, `.<name>.history.json` sidecars, optional nested folders.
@@ -685,7 +697,7 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 
 ---
 
-## 13. Notable Items Worth Prioritising for Tests
+## 14. Notable Items Worth Prioritising for Tests
 
 1. **Grid snap** — already has a unit test; extend to round-trip.
 2. **Markdown round-trip** (`htmlToMarkdown` ∘ `markdownToHtml`) — tables, task lists, wiki-links, code fences, blockquotes.
@@ -699,15 +711,3 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 10. **Directory-scoped localStorage** — `scopedKey` behaviour when two vaults mounted in sequence.
 11. **Link index** — full rebuild idempotency, backlink reverse mapping, rename propagation.
 12. **Playwright smoke** — already exists; extend with folder-picker stub + basic diagram-create / doc-create flow (mindful of Preview-MCP's File System Access limit — see `MEMORY.md`).
-
----
-
-## 14. Guitar Tabs
-
-Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
-
-### 14.1 Foundation (TAB-001 → TAB-003)
-- ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; `AlphaTabEngine` implementation lands in TAB-004.
-- ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
-- ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`) — `.alphatex` files open a tab pane that currently renders `TabViewStub`.
-- ? **Real `TabView` + playback chrome** — pending TAB-004/TAB-005.
