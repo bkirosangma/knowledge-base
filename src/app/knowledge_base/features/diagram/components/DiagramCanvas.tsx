@@ -297,10 +297,10 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       <CanvasLiveRegion selection={selection} nodes={nodes} layers={layerDefs} />
       {!activeFile ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e8ecf0] z-50">
-          <div className="flex flex-col items-center gap-3 text-slate-400">
-            <MapIcon size={48} strokeWidth={1} className="text-slate-300" />
+          <div className="flex flex-col items-center gap-3 text-mute">
+            <MapIcon size={48} strokeWidth={1} className="text-mute" />
             <p className="text-sm font-medium">No file open</p>
-            <p className="text-xs text-slate-400">Open a file from the explorer to start editing</p>
+            <p className="text-xs text-mute">Open a file from the explorer to start editing</p>
           </div>
         </div>
       ) : (

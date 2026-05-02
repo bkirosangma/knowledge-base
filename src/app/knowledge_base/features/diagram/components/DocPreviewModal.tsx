@@ -126,7 +126,7 @@ export default function DocPreviewModal({
         aria-modal="true"
         aria-labelledby="doc-preview-title"
         style={{ width: modalWidth, left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
-        className="absolute bg-white rounded-xl shadow-2xl max-h-[78vh] flex flex-col overflow-hidden"
+        className="absolute bg-surface rounded-xl shadow-2xl max-h-[78vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Left resize handle */}
@@ -141,13 +141,13 @@ export default function DocPreviewModal({
         />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surface-2 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <FileText size={16} className="text-indigo-500 flex-shrink-0" />
             <span
               ref={filenameRef}
               id="doc-preview-title"
-              className="text-sm font-semibold text-slate-800 truncate"
+              className="text-sm font-semibold text-ink truncate"
               title={filenameTruncated ? filename : undefined}
             >
               {filename}
@@ -173,7 +173,7 @@ export default function DocPreviewModal({
             <button
               aria-label="Close preview"
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-mute hover:bg-surface-2 hover:text-ink-2 transition-colors"
             >
               <X size={16} />
             </button>
@@ -183,12 +183,12 @@ export default function DocPreviewModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
           {html === null && !error && (
-            <div className="flex items-center justify-center py-16 text-slate-400">
+            <div className="flex items-center justify-center py-16 text-mute">
               <Loader2 role="status" aria-label="Loading document" size={20} className="animate-spin" />
             </div>
           )}
           {error && (
-            <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+            <div className="flex items-center justify-center py-16 text-sm text-mute">
               Could not load document.
             </div>
           )}

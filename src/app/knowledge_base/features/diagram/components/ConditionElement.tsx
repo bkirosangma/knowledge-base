@@ -264,7 +264,7 @@ function ConditionElement({
         const hy = (inAnchor.y - y) + (len > 0.01 ? (dirY / len) * offset : -offset);
         return (
           <div
-            className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
+            className="absolute flex items-center justify-center w-6 h-6 rounded-full bg-surface border border-line shadow-sm hover:bg-blue-50 hover:border-blue-400 cursor-grab z-20 transition-colors"
             style={{
               left: `calc(50% + ${hx}px)`,
               top: `calc(50% + ${hy}px)`,
@@ -272,7 +272,7 @@ function ConditionElement({
             }}
             onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotationDragStart(id, e); }}
           >
-            <RotateCw size={12} className="text-slate-500" />
+            <RotateCw size={12} className="text-mute" />
           </div>
         );
       })()}

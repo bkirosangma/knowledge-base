@@ -120,7 +120,7 @@ export default function Canvas({ patches, children }: CanvasProps) {
         return (
           <div
             key={patch.id}
-            className="absolute bg-white border border-slate-200"
+            className="absolute bg-surface border border-line"
             style={{
               left: b.x - world.x,
               top: b.y - world.y,

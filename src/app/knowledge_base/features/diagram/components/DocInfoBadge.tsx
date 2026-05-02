@@ -38,12 +38,12 @@ export default function DocInfoBadge({ color, position, documentPaths, onNavigat
         i
       </div>
       {showDropdown && documentPaths.length > 1 && (
-        <div className="absolute top-6 left-0 bg-white rounded shadow-lg border border-slate-200 py-1 min-w-[140px] z-30">
+        <div className="absolute top-6 left-0 bg-surface rounded shadow-lg border border-line py-1 min-w-[140px] z-30">
           {documentPaths.map(path => (
             <button
               key={path}
               onClick={(e) => { e.stopPropagation(); onNavigate(path); setShowDropdown(false); }}
-              className="block w-full text-left px-3 py-1 text-xs hover:bg-blue-50 text-blue-600 truncate"
+              className="block w-full text-left px-3 py-1 text-xs hover:bg-blue-50 text-accent truncate"
             >
               {path.split("/").pop()}
             </button>

@@ -102,7 +102,7 @@ export default function QuickInspector({
       {/* Floating pill toolbar */}
       <div
         data-testid="quick-inspector"
-        className="fixed z-[55] flex items-center gap-0.5 bg-white rounded-full shadow-lg border border-slate-200 px-1"
+        className="fixed z-[55] flex items-center gap-0.5 bg-surface rounded-full shadow-lg border border-line px-1"
         style={{ left, top, transform: "translateX(-50%)", height: TOOLBAR_HEIGHT }}
       >
         {/* Color button */}
@@ -112,15 +112,15 @@ export default function QuickInspector({
             aria-label="Change color"
             aria-haspopup="true"
             aria-expanded={showColorPopover}
-            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors relative"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-2 transition-colors relative"
             onClick={() => setShowColorPopover((v) => !v)}
           >
             {/* Small filled circle showing current colour */}
             <span
-              className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full border border-slate-300"
+              className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full border border-line"
               style={{ backgroundColor: currentColor }} // dynamic — must be inline
             />
-            <Palette size={15} className="text-slate-600" />
+            <Palette size={15} className="text-ink-2" />
           </button>
         </Tooltip>
 
@@ -128,38 +128,38 @@ export default function QuickInspector({
         <Tooltip label="Edit label">
           <button
             aria-label="Edit label"
-            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-2 transition-colors"
             onClick={() => onLabelEdit(nodeId)}
           >
-            <Pencil size={15} className="text-slate-600" />
+            <Pencil size={15} className="text-ink-2" />
           </button>
         </Tooltip>
 
         {/* Divider */}
-        <div className="border-l border-slate-200 h-5 mx-0.5" />
+        <div className="border-l border-line h-5 mx-0.5" />
 
         {/* Connect button — mousedown, not click, to start drag immediately */}
         <Tooltip label="Connect">
           <button
             aria-label="Connect to another node"
-            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-2 transition-colors"
             onMouseDown={(e) => onStartConnect(nodeId, "e", e)}
           >
-            <Link2 size={15} className="text-slate-600" />
+            <Link2 size={15} className="text-ink-2" />
           </button>
         </Tooltip>
 
         {/* Divider */}
-        <div className="border-l border-slate-200 h-5 mx-0.5" />
+        <div className="border-l border-line h-5 mx-0.5" />
 
         {/* Duplicate button */}
         <Tooltip label="Duplicate">
           <button
             aria-label="Duplicate node"
-            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-2 transition-colors"
             onClick={() => onDuplicate(nodeId)}
           >
-            <Copy size={15} className="text-slate-600" />
+            <Copy size={15} className="text-ink-2" />
           </button>
         </Tooltip>
 
@@ -180,7 +180,7 @@ export default function QuickInspector({
         <div
           ref={popoverRef}
           data-testid="quick-inspector-color-popover"
-          className="fixed z-[56] bg-white rounded-lg shadow-md border border-slate-200 p-2"
+          className="fixed z-[56] bg-surface rounded-lg shadow-md border border-line p-2"
           style={{
             // Position below the colour button — dynamic, must be inline
             left,
@@ -199,7 +199,7 @@ export default function QuickInspector({
                     className={`w-8 h-8 rounded-md border-2 cursor-pointer transition-all ${
                       isActive
                         ? "ring-2 ring-blue-400 ring-offset-1 border-white"
-                        : "border-slate-200 hover:border-slate-400"
+                        : "border-line hover:border-slate-400"
                     }`}
                     style={{ backgroundColor: scheme.fill }} // dynamic — must be inline
                     onClick={() => handleSchemeClick(scheme)}
@@ -212,7 +212,7 @@ export default function QuickInspector({
           {/* "Other…" — triggers native color picker */}
           <button
             aria-label="Pick custom color"
-            className="w-full text-[11px] text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded px-1.5 py-1 transition-colors border border-dashed border-slate-300 cursor-pointer flex items-center justify-center gap-1"
+            className="w-full text-[11px] text-mute hover:text-ink-2 hover:bg-surface-2 rounded px-1.5 py-1 transition-colors border border-dashed border-line cursor-pointer flex items-center justify-center gap-1"
             onClick={() => nativeColorRef.current?.click()}
           >
             Other…
