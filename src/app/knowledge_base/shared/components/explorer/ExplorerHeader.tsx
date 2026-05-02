@@ -10,6 +10,7 @@ import type { ExplorerFilter } from "../../utils/types";
 import type { SortField, SortDirection, SortGrouping } from "./ExplorerPanel";
 import type { ContextMenuState } from "./TreeNodeRow";
 import { Tooltip } from "../Tooltip";
+import { useViewport } from "../../hooks/useViewport";
 
 const sortBtnClass =
   "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-ink-2 hover:bg-surface-2";
@@ -83,6 +84,7 @@ export default function ExplorerHeader({
   handleGroupingClick,
   onOpenFolder,
 }: ExplorerHeaderProps) {
+  const { isMobile } = useViewport();
   return (
     <>
       {/* Directory header — also a drop target for moving to root */}
@@ -107,7 +109,7 @@ export default function ExplorerHeader({
               ? <><span className="text-mute font-normal">{directoryName} / </span>{selectedFolderPath.split("/").pop()}</>
               : directoryName}
           </span>
-          {onOpenFolder && (
+          {onOpenFolder && !isMobile && (
             <Tooltip label="Open different folder">
               <button
                 onClick={onOpenFolder}
@@ -131,35 +133,39 @@ export default function ExplorerHeader({
           </Tooltip>
         </div>
 
-        {/* Row 2 — create + refresh icons */}
+        {/* Row 2 — create + refresh icons. KB-040: create surfaces hidden on mobile. */}
         <div className="flex items-center gap-0.5 mt-1">
-          <Tooltip label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
-            <button
-              onClick={() => handleCreateFile(selectedFolderPath ?? "")}
-              className="p-1 hover:bg-surface-2 rounded transition-colors"
-              aria-label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            >
-              <FilePlus size={14} className="text-mute" />
-            </button>
-          </Tooltip>
-          <Tooltip label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
-            <button
-              onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
-              className="p-1 hover:bg-surface-2 rounded transition-colors"
-              aria-label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            >
-              <FileText size={14} className="text-mute" />
-            </button>
-          </Tooltip>
-          <Tooltip label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
-            <button
-              onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
-              className="p-1 hover:bg-surface-2 rounded transition-colors"
-              aria-label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            >
-              <FolderPlus size={14} className="text-mute" />
-            </button>
-          </Tooltip>
+          {!isMobile && (
+            <>
+              <Tooltip label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+                <button
+                  onClick={() => handleCreateFile(selectedFolderPath ?? "")}
+                  className="p-1 hover:bg-surface-2 rounded transition-colors"
+                  aria-label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+                >
+                  <FilePlus size={14} className="text-mute" />
+                </button>
+              </Tooltip>
+              <Tooltip label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+                <button
+                  onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
+                  className="p-1 hover:bg-surface-2 rounded transition-colors"
+                  aria-label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+                >
+                  <FileText size={14} className="text-mute" />
+                </button>
+              </Tooltip>
+              <Tooltip label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+                <button
+                  onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
+                  className="p-1 hover:bg-surface-2 rounded transition-colors"
+                  aria-label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+                >
+                  <FolderPlus size={14} className="text-mute" />
+                </button>
+              </Tooltip>
+            </>
+          )}
           <Tooltip label="Refresh">
             <button
               onClick={onRefresh}

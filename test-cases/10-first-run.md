@@ -17,6 +17,7 @@
 - **FIRSTRUN-10.1-06** ✅ **Both buttons disabled while seeding** — prevents double-clicks during the picker → write → scan window.
 - **FIRSTRUN-10.1-07** ✅ **Error banner surfaces seed failures** — a thrown error during seeding renders an `[role=alert]` element with the message; idle state otherwise.
 - **FIRSTRUN-10.1-08** ✅ **"What's a vault?" disclosure toggles a 3-bullet explainer** — collapsed by default, opens on click, closes on second click.
+- **FIRSTRUN-10.1-09** ✅ **Mobile browsing notice (KB-040)** — when `useViewport().isMobile` is `true`, the hero shows a small notice (`[data-testid="first-run-mobile-notice"]`, `role="note"`) telling the user that creating new files and switching vaults is desktop-only ("Mobile is for browsing"). The notice scopes the message to creation + vault-switching to match what KB-040 actually disables (FS-2.3-66/67); it does not claim editing of existing files is blocked. Hidden on desktop viewports.
 
 ## FIRSTRUN-10.2 Sample vault loader (`seedSampleVault.ts`)
 

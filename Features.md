@@ -134,6 +134,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **⌘F shortcut** — global `keydown` handler in `knowledgeBase.tsx`; when focus is not in an input/textarea/contenteditable, prevents default and focuses the explorer search input (expands the sidebar first if collapsed). Also registered as a "Go to file…" command in the Command Palette (⌘K) under the Navigation group. `shared/hooks/useRecentFiles.ts`.
 - ✅ **Recents group** — collapsible "Recents" section above the file tree showing the last 10 opened files (most recent first), deduplicated by path, persisted to `localStorage` under `kb-recents`. Collapse state resets to open on reload. Hidden when empty. `shared/hooks/useRecentFiles.ts`, `knowledgeBase.tsx`.
 - ✅ **Unsaved changes group** — "Unsaved changes" section (no collapse) showing all currently-dirty files; hidden when clean. Clicking an entry opens the file. `shared/components/explorer/ExplorerPanel.tsx`.
+- ✅ **Mobile create/switch gating** (KB-040) — when `useViewport().isMobile` is true, `ExplorerHeader` hides the New Diagram / New Document / New Folder create buttons and the "Open different folder" affordance. Refresh, sort, filter, and the existing tree (browse + open files) remain. The first-run hero surfaces a paired notice scoping the message to creation + vault-switching only (see §10.1). Editing existing files via context-menu actions and DocumentView/DiagramView is unchanged on mobile by this ticket.
 
 ### 2.4 Confirmation Popover
 `shared/components/explorer/ConfirmPopover.tsx`
@@ -636,6 +637,7 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 - ✅ **Hero replaces the right-pane empty state when no vault is open** — gated by `!directoryName && tree.length === 0`. The explorer's own "no folder open" UI on the left remains as-is per the audit-plan brief.
 - ✅ **Two CTAs** — primary "Open Vault" (calls the existing picker via `useFileExplorer.openFolder`) and secondary "Try with sample vault" (calls `useFileExplorer.openFolderWithSeed` with the bundled-vault seeder).
 - ✅ **"What's a vault?" disclosure** — collapsed by default, expands to a 3-bullet explainer covering the FS Access API, the file-shape conventions, and the index folder.
+- ✅ **Mobile browsing notice** (KB-040) — when `useViewport().isMobile` is true the hero renders a small `role="note"` (`[data-testid="first-run-mobile-notice"]`) telling the user that creating new files and switching vaults is desktop-only ("Mobile is for browsing"). Pairs with §2.3's mobile gating that hides the explorer create surfaces; the notice deliberately does not claim existing-file editing is blocked.
 
 ### 10.2 Sample vault
 `public/sample-vault/`

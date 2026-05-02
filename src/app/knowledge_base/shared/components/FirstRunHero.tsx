@@ -5,8 +5,9 @@
 // the left is unaffected per the spec.
 
 import React, { useState } from "react";
-import { Folder, Sparkles, ChevronDown } from "lucide-react";
+import { Folder, Sparkles, ChevronDown, Smartphone } from "lucide-react";
 import { seedSampleVault } from "./seedSampleVault";
+import { useViewport } from "../hooks/useViewport";
 
 export interface FirstRunHeroProps {
   /** Show the native picker and open the chosen folder. Wired to
@@ -27,6 +28,7 @@ type Status =
 export default function FirstRunHero({ onOpenFolder, onOpenWithSeed }: FirstRunHeroProps) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [showAbout, setShowAbout] = useState(false);
+  const { isMobile } = useViewport();
 
   const handleSample = async () => {
     setStatus({ kind: "seeding" });
@@ -102,6 +104,22 @@ export default function FirstRunHero({ onOpenFolder, onOpenWithSeed }: FirstRunH
             className="text-sm rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2"
           >
             {status.message}
+          </div>
+        )}
+
+        {isMobile && (
+          <div
+            role="note"
+            data-testid="first-run-mobile-notice"
+            className="flex items-start gap-2 text-xs rounded-md border border-line bg-surface px-3 py-2 text-mute"
+          >
+            <Smartphone size={14} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <p className="m-0 leading-relaxed">
+              <span className="font-semibold text-ink-2">Mobile is for browsing.</span>{" "}
+              Creating new files and switching vaults is desktop-only.
+              Open this app on a larger screen for the full authoring
+              experience.
+            </p>
           </div>
         )}
 
