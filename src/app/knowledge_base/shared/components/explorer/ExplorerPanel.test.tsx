@@ -441,3 +441,144 @@ describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
     expect(breadcrumb?.textContent).toContain('my-vault /')
   })
 })
+
+describe('ExplorerPanel — ARIA tree semantics & keyboard nav (KB-033)', () => {
+  const sampleTree = () => [
+    folder('docs', 'docs', [
+      file('inside.md', 'docs/inside.md', 'document'),
+      folder('nested', 'docs/nested', [
+        file('deep.md', 'docs/nested/deep.md', 'document'),
+      ]),
+    ]),
+    file('top.json', 'top.json', 'diagram'),
+  ]
+
+  it('FS-2.3-56: tree container has role="tree"', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = screen.getByRole('tree')
+    expect(tree).toBeTruthy()
+    expect(tree.getAttribute('data-testid')).toBe('explorer-tree')
+  })
+
+  it('FS-2.3-57: every row has role="treeitem" with aria-level', () => {
+    renderPanel({ tree: sampleTree() })
+    // Expand 'docs' to surface depth-2 rows.
+    fireEvent.click(screen.getAllByText('docs')[0])
+    const items = screen.getAllByRole('treeitem')
+    // Every item carries an aria-level attribute.
+    for (const item of items) {
+      const lvl = item.getAttribute('aria-level')
+      expect(lvl).toBeTruthy()
+      expect(Number(lvl)).toBeGreaterThanOrEqual(1)
+    }
+    // Depth-1 rows: 'docs' folder + 'top.json' file.
+    const lvl1 = items.filter((el) => el.getAttribute('aria-level') === '1')
+    expect(lvl1.length).toBe(2)
+    // Depth-2 rows: 'inside.md' file + 'nested' folder under 'docs'.
+    const lvl2 = items.filter((el) => el.getAttribute('aria-level') === '2')
+    expect(lvl2.length).toBe(2)
+  })
+
+  it('FS-2.3-58: folder rows expose aria-expanded; file rows do not', () => {
+    renderPanel({ tree: sampleTree() })
+    // First top-level row is the 'docs' folder (folders-first sort).
+    const docsItem = screen.getAllByRole('treeitem')[0]
+    expect(docsItem.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(screen.getAllByText('docs')[0])
+    expect(docsItem.getAttribute('aria-expanded')).toBe('true')
+    const fileItem = screen.getAllByRole('treeitem').find((el) => el.getAttribute('aria-level') === '1' && el.textContent?.includes('top.json'))!
+    expect(fileItem.hasAttribute('aria-expanded')).toBe(false)
+  })
+
+  it('FS-2.3-59: active file row exposes aria-selected="true"', () => {
+    renderPanel({ tree: sampleTree(), leftPaneFile: 'top.json' })
+    const fileItem = screen.getAllByRole('treeitem').find((el) => el.textContent?.includes('top.json'))!
+    expect(fileItem.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('FS-2.3-60: expanded folder children sit inside role="group"', () => {
+    const { container } = renderPanel({ tree: sampleTree() })
+    fireEvent.click(screen.getAllByText('docs')[0])
+    const group = container.querySelector('[role="group"]')
+    expect(group).toBeTruthy()
+    expect(within(group as HTMLElement).getByText('inside.md')).toBeTruthy()
+  })
+
+  // Focus enters the tree via the container's tabIndex=0 single tab stop, which
+  // forwards to the first visible row. Helper mirrors that flow for keyboard tests.
+  function enterTree() {
+    const tree = screen.getByRole('tree')
+    fireEvent.focus(tree)
+    return tree
+  }
+
+  // The active row is announced via aria-activedescendant on the tree container,
+  // which points at the row's id. This helper resolves the active row element.
+  function activeRow() {
+    const tree = screen.getByRole('tree')
+    const id = tree.getAttribute('aria-activedescendant')
+    if (!id) return null
+    return document.getElementById(id)
+  }
+
+  it('FS-2.3-61: ArrowDown moves focus to the next visible row', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = enterTree()
+    fireEvent.keyDown(tree, { key: 'ArrowDown' })
+    expect(activeRow()?.textContent).toContain('top.json')
+  })
+
+  it('FS-2.3-62: ArrowRight on a collapsed folder expands it', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = enterTree()
+    expect(screen.queryByText('inside.md')).toBeNull()
+    fireEvent.keyDown(tree, { key: 'ArrowRight' })
+    expect(screen.getByText('inside.md')).toBeTruthy()
+  })
+
+  it('FS-2.3-62: ArrowRight on an already-expanded folder focuses its first child', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = enterTree()
+    fireEvent.keyDown(tree, { key: 'ArrowRight' }) // expands docs
+    fireEvent.keyDown(tree, { key: 'ArrowRight' }) // moves to first child (folders-first → 'nested')
+    expect(activeRow()?.getAttribute('aria-level')).toBe('2')
+  })
+
+  it('FS-2.3-63: ArrowLeft on an expanded folder collapses it', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = enterTree()
+    fireEvent.keyDown(tree, { key: 'ArrowRight' })
+    expect(screen.getByText('inside.md')).toBeTruthy()
+    fireEvent.keyDown(tree, { key: 'ArrowLeft' })
+    expect(screen.queryByText('inside.md')).toBeNull()
+  })
+
+  it('FS-2.3-63: ArrowLeft on a child row moves focus to the parent folder', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = enterTree()
+    fireEvent.keyDown(tree, { key: 'ArrowRight' }) // expand docs
+    fireEvent.keyDown(tree, { key: 'ArrowDown' })  // active = inside.md
+    fireEvent.keyDown(tree, { key: 'ArrowLeft' })  // up to docs
+    expect(activeRow()?.getAttribute('aria-level')).toBe('1')
+  })
+
+  it('FS-2.3-64: tree container is the single tab stop; rows have no tabindex', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = screen.getByRole('tree')
+    expect(tree.getAttribute('tabindex')).toBe('0')
+    const items = screen.getAllByRole('treeitem')
+    for (const item of items) {
+      expect(item.hasAttribute('tabindex')).toBe(false)
+    }
+  })
+
+  it('FS-2.3-64: focusing the tree sets aria-activedescendant to the first visible row', () => {
+    renderPanel({ tree: sampleTree() })
+    const tree = screen.getByRole('tree')
+    expect(tree.getAttribute('aria-activedescendant')).toBeNull()
+    fireEvent.focus(tree)
+    const activeId = tree.getAttribute('aria-activedescendant')
+    expect(activeId).toBeTruthy()
+    expect(document.getElementById(activeId!)?.textContent).toContain('docs')
+  })
+})

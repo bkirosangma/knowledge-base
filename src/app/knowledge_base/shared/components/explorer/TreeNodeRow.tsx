@@ -32,6 +32,12 @@ export interface TreeNodeRowProps {
   leftPaneFile: string | null;
   rightPaneFile: string | null;
 
+  // ARIA active-descendant. The tree container owns DOM focus; this prop just
+  // tells each row whether it is the keyboard-active row so we can paint the
+  // visual ring. The `id` prop feeds the container's aria-activedescendant.
+  activeDescendantPath: string | null;
+  rowIdFor: (path: string) => string;
+
   // Sort state (for recursive child ordering)
   sortField: SortField;
   sortDirection: SortDirection;
@@ -103,6 +109,8 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
     dirtyFiles,
     leftPaneFile,
     rightPaneFile,
+    activeDescendantPath,
+    rowIdFor,
     sortField,
     sortDirection,
     sortGrouping,
@@ -135,11 +143,19 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
 
   if (node.type === "folder") {
     const isExpanded = expandedFolders.has(node.path);
+    const isActiveDescendant = activeDescendantPath === node.path;
     return (
-      <div key={node.path}>
+      <React.Fragment key={node.path}>
         <div
+          id={rowIdFor(node.path)}
+          role="treeitem"
+          aria-level={depth + 1}
+          aria-expanded={isExpanded}
+          aria-selected={isSelected || undefined}
           data-tree-node
           className={`group flex items-center gap-1 py-1 cursor-pointer text-xs select-none ${
+            isActiveDescendant ? "ring-1 ring-blue-400 ring-inset" : ""
+          } ${
             isDragOver ? "bg-blue-50 text-ink-2 outline outline-1 outline-blue-300 outline-dashed" :
             isSelected ? "bg-blue-50 text-accent" : "text-ink-2 hover:bg-surface-2"
           }`}
@@ -200,81 +216,98 @@ export default function TreeNodeRow(props: TreeNodeRowProps) {
             </>
           )}
         </div>
-        {isExpanded && node.children && sortTreeNodes(node.children, sortField, sortDirection, sortGrouping).map((child) => (
-          <TreeNodeRow key={child.path} {...props} node={child} depth={depth + 1} />
-        ))}
-      </div>
+        {isExpanded && node.children && (
+          <div role="group">
+            {sortTreeNodes(node.children, sortField, sortDirection, sortGrouping).map((child) => (
+              <TreeNodeRow key={child.path} {...props} node={child} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </React.Fragment>
     );
   }
 
   // File node
   const dirty = dirtyFiles.has(node.path);
+  const isFileActive = leftPaneFile === node.path || rightPaneFile === node.path;
+  const isFileActiveDescendant = activeDescendantPath === node.path;
+  if (isEditing) {
+    return (
+      <div
+        key={node.path}
+        id={rowIdFor(node.path)}
+        role="treeitem"
+        aria-level={depth + 1}
+        aria-selected={isFileActive || undefined}
+        className="flex items-center gap-1.5 py-1"
+        style={{ paddingLeft: indent + 22 }}
+      >
+        {node.fileType === "document"
+          ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
+          : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+        }
+        <input
+          ref={editInputRef}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+            if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
+          }}
+          className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
+        />
+      </div>
+    );
+  }
   return (
-    <div key={node.path}>
-      {isEditing ? (
-        <div
-          className="flex items-center gap-1.5 py-1"
-          style={{ paddingLeft: indent + 22 }}
-        >
-          {node.fileType === "document"
-            ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-            : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-          }
-          <input
-            ref={editInputRef}
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") { setEditingPath(null); setEditValue(""); }
-            }}
-            className="flex-1 text-xs px-1 py-0.5 border border-blue-400 rounded outline-none bg-white min-w-0"
-          />
-        </div>
-      ) : (
-        <div
-          data-tree-node
-          className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
-            leftPaneFile === node.path && rightPaneFile === node.path
-              ? "bg-gradient-to-r from-blue-50 to-green-50 text-accent"
-              : leftPaneFile === node.path
-                ? "bg-blue-50 text-accent"
-                : rightPaneFile === node.path
-                  ? "bg-green-50 text-green-600"
-                  : "text-ink-2 hover:bg-surface-2"
-          } ${dirty ? "font-semibold" : ""}`}
-          style={{ paddingLeft: indent + 22 }}
-          onClick={() => {
-            if (node.fileType === "document" && onSelectDocument) {
-              onSelectDocument(node.path);
-            } else {
-              onSelectFile(node.path);
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setContextMenu({ x: e.clientX, y: e.clientY, type: "file", path: node.path, name: node.name });
-          }}
-          draggable
-          onDragStart={(e) => handleDragStart(e, node.path, "file")}
-        >
-          {node.fileType === "document"
-            ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
-            : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
-          }
-          <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
-          <div className="ml-auto flex items-center gap-0.5 pr-1">
-            <HoverBtn onClick={() => startRename(node.path, node.name, "file")} title="Rename">
-              <Pencil size={13} className="text-mute hover:text-ink-2" />
-            </HoverBtn>
-            <HoverBtn onClick={() => onDuplicateFile(node.path)} title="Duplicate">
-              <Copy size={13} className="text-mute hover:text-ink-2" />
-            </HoverBtn>
-          </div>
-        </div>
-      )}
+    <div
+      key={node.path}
+      id={rowIdFor(node.path)}
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-selected={isFileActive || undefined}
+      data-tree-node
+      className={`group w-full flex items-center gap-1.5 py-1 text-left text-xs transition-colors cursor-pointer ${
+        isFileActiveDescendant ? "ring-1 ring-blue-400 ring-inset" : ""
+      } ${
+        leftPaneFile === node.path && rightPaneFile === node.path
+          ? "bg-gradient-to-r from-blue-50 to-green-50 text-accent"
+          : leftPaneFile === node.path
+            ? "bg-blue-50 text-accent"
+            : rightPaneFile === node.path
+              ? "bg-green-50 text-green-600"
+              : "text-ink-2 hover:bg-surface-2"
+      } ${dirty ? "font-semibold" : ""}`}
+      style={{ paddingLeft: indent + 22 }}
+      onClick={() => {
+        if (node.fileType === "document" && onSelectDocument) {
+          onSelectDocument(node.path);
+        } else {
+          onSelectFile(node.path);
+        }
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY, type: "file", path: node.path, name: node.name });
+      }}
+      draggable
+      onDragStart={(e) => handleDragStart(e, node.path, "file")}
+    >
+      {node.fileType === "document"
+        ? <FileText size={16} className="text-emerald-500 flex-shrink-0" />
+        : <FileJson size={16} className="text-blue-500 flex-shrink-0" />
+      }
+      <span className="truncate flex-1">{dirty ? "* " : ""}{node.name}</span>
+      <div className="ml-auto flex items-center gap-0.5 pr-1">
+        <HoverBtn onClick={() => startRename(node.path, node.name, "file")} title="Rename">
+          <Pencil size={13} className="text-mute hover:text-ink-2" />
+        </HoverBtn>
+        <HoverBtn onClick={() => onDuplicateFile(node.path)} title="Duplicate">
+          <Copy size={13} className="text-mute hover:text-ink-2" />
+        </HoverBtn>
+      </div>
     </div>
   );
 }

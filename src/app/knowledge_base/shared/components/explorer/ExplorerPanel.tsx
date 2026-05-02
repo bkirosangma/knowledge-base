@@ -97,6 +97,16 @@ export default function ExplorerPanel({
   const [sortSubMenuOpen, setSortSubMenuOpen] = useState(false);
   const [newSubMenuOpen, setNewSubMenuOpen] = useState(false);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  // KB-033: ARIA tree active descendant. Focus stays on the role="tree"
+  // container; arrow-key nav updates this state which feeds aria-activedescendant
+  // and a visual ring on the active row. We deliberately do *not* move DOM focus
+  // to individual rows — that would interfere with focus elsewhere in the shell.
+  const [activeDescendantPath, setActiveDescendantPath] = useState<string | null>(null);
+  const treeIdRef = useRef(`kb-tree-${Math.random().toString(36).slice(2, 8)}`);
+  const rowIdFor = useCallback(
+    (path: string) => `${treeIdRef.current}-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+    []
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +222,71 @@ export default function ExplorerPanel({
       return next;
     });
   }, []);
+
+  // Flat list of visible tree rows (DFS, skipping unexpanded folders' children).
+  // Used by arrow-key navigation and roving tabindex.
+  const visibleNodes = useMemo(() => {
+    const out: Array<{ path: string; type: "file" | "folder"; parentPath: string | null }> = [];
+    function walk(nodes: TreeNode[], parentPath: string | null) {
+      for (const n of nodes) {
+        out.push({ path: n.path, type: n.type, parentPath });
+        if (n.type === "folder" && expandedFolders.has(n.path) && n.children) {
+          walk(sortTreeNodes(n.children, sortField, sortDirection, sortGrouping), n.path);
+        }
+      }
+    }
+    walk(filteredTree, null);
+    return out;
+  }, [filteredTree, expandedFolders, sortField, sortDirection, sortGrouping]);
+
+  const handleTreeKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const tgt = e.target as HTMLElement | null;
+    if (tgt && tgt.closest("input,textarea")) return;
+    if (visibleNodes.length === 0) return;
+    const current = activeDescendantPath;
+    const idx = current ? visibleNodes.findIndex((n) => n.path === current) : -1;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const nextIdx = idx < 0 ? 0 : Math.min(idx + 1, visibleNodes.length - 1);
+      setActiveDescendantPath(visibleNodes[nextIdx].path);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prevIdx = idx <= 0 ? 0 : idx - 1;
+      setActiveDescendantPath(visibleNodes[prevIdx].path);
+    } else if (e.key === "ArrowRight") {
+      if (idx < 0) return;
+      const node = visibleNodes[idx];
+      if (node.type !== "folder") return;
+      e.preventDefault();
+      if (!expandedFolders.has(node.path)) {
+        toggleFolder(node.path);
+      } else {
+        const child = visibleNodes[idx + 1];
+        if (child && child.parentPath === node.path) setActiveDescendantPath(child.path);
+      }
+    } else if (e.key === "ArrowLeft") {
+      if (idx < 0) return;
+      const node = visibleNodes[idx];
+      e.preventDefault();
+      if (node.type === "folder" && expandedFolders.has(node.path)) {
+        toggleFolder(node.path);
+      } else if (node.parentPath) {
+        setActiveDescendantPath(node.parentPath);
+      }
+    }
+  }, [activeDescendantPath, visibleNodes, expandedFolders, toggleFolder]);
+
+  // When focus enters the tree container, default the active descendant to the
+  // first visible row if none is set yet.
+  const handleTreeFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (visibleNodes.length === 0) return;
+    setActiveDescendantPath((prev) => {
+      if (prev && visibleNodes.some((n) => n.path === prev)) return prev;
+      return visibleNodes[0].path;
+    });
+  }, [visibleNodes]);
 
   const handleCreateFile = useCallback(async (parentPath: string = "") => {
     if (parentPath) setExpandedFolders((prev) => new Set(prev).add(parentPath));
@@ -349,6 +424,8 @@ export default function ExplorerPanel({
       dirtyFiles={dirtyFiles}
       leftPaneFile={leftPaneFile}
       rightPaneFile={rightPaneFile}
+      activeDescendantPath={activeDescendantPath}
+      rowIdFor={rowIdFor}
       sortField={sortField}
       sortDirection={sortDirection}
       sortGrouping={sortGrouping}
@@ -559,7 +636,16 @@ export default function ExplorerPanel({
                     )}
                   </div>
                 ) : (
-                  <div className="py-1" data-testid="explorer-tree">
+                  <div
+                    className="py-1"
+                    data-testid="explorer-tree"
+                    role="tree"
+                    aria-label="File explorer"
+                    tabIndex={0}
+                    aria-activedescendant={activeDescendantPath ? rowIdFor(activeDescendantPath) : undefined}
+                    onFocus={handleTreeFocus}
+                    onKeyDown={handleTreeKeyDown}
+                  >
                     {isLoading ? (
                       <div className="px-3 py-4 text-xs text-mute text-center">Scanning...</div>
                     ) : tree.length === 0 ? (
