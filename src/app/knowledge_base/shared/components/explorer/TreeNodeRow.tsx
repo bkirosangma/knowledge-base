@@ -9,6 +9,7 @@ import {
 import type { TreeNode } from "../../hooks/useFileExplorer";
 import type { SortField, SortDirection, SortGrouping } from "./ExplorerPanel";
 import { sortTreeNodes } from "./explorerTreeUtils";
+import { Tooltip } from "../Tooltip";
 
 export interface ContextMenuState {
   x: number;
@@ -81,15 +82,16 @@ function HoverBtn({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      className="p-0.5 rounded hover:bg-line opacity-0 group-hover:opacity-100 transition-opacity"
-      title={title}
-      aria-label={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {children}
-    </button>
+    <Tooltip label={title}>
+      <button
+        className="p-0.5 rounded hover:bg-line opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label={title}
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 

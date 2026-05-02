@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ComponentType } from "re
 import { useEditableState } from "../../../shared/hooks/useEditableState";
 import { ChevronRight, X } from "lucide-react";
 import { getIcon, getIconNames } from "../utils/iconRegistry";
+import { Tooltip } from "../../../shared/components/Tooltip";
 import type { RegionBounds } from "../types";
 
 export type { RegionBounds };
@@ -269,21 +270,22 @@ export function IconPickerRow({
               const Icon = getIcon(name)!;
               const isActive = name === currentName;
               return (
-                <button
-                  key={name}
-                  title={name}
-                  className={`flex flex-col items-center gap-0.5 p-1.5 rounded transition-colors cursor-pointer ${
-                    isActive ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-600"
-                  }`}
-                  onClick={() => {
-                    const icon = getIcon(name);
-                    if (icon) onSelect?.(icon);
-                    setOpen(false);
-                  }}
-                >
-                  <Icon size={16} strokeWidth={1.5} />
-                  <span className="text-[8px] leading-tight truncate w-full text-center">{name}</span>
-                </button>
+                <Tooltip key={name} label={name}>
+                  <button
+                    aria-label={name}
+                    className={`flex flex-col items-center gap-0.5 p-1.5 rounded transition-colors cursor-pointer ${
+                      isActive ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-600"
+                    }`}
+                    onClick={() => {
+                      const icon = getIcon(name);
+                      if (icon) onSelect?.(icon);
+                      setOpen(false);
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={1.5} />
+                    <span className="text-[8px] leading-tight truncate w-full text-center">{name}</span>
+                  </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -325,13 +327,14 @@ export function ColorSchemeRow({
               && currentColors.border === colorSet.border
               && currentColors.text === colorSet.text;
           return (
-            <button
-              key={scheme.name}
-              title={scheme.name}
-              className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${isActive ? "ring-2 ring-blue-400 ring-offset-1 border-white" : "border-slate-200 hover:border-slate-400"}`}
-              style={{ backgroundColor: swatchColor }}
-              onClick={() => onSelect(scheme)}
-            />
+            <Tooltip key={scheme.name} label={scheme.name}>
+              <button
+                aria-label={scheme.name}
+                className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-all ${isActive ? "ring-2 ring-blue-400 ring-offset-1 border-white" : "border-slate-200 hover:border-slate-400"}`}
+                style={{ backgroundColor: swatchColor }}
+                onClick={() => onSelect(scheme)}
+              />
+            </Tooltip>
           );
         })}
       </div>

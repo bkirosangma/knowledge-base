@@ -86,22 +86,22 @@ describe('ExplorerPanel — directory header bar', () => {
   it('renders the directory name and action buttons', () => {
     renderPanel({ directoryName: 'sample-vault' })
     expect(screen.getByText('sample-vault')).toBeTruthy()
-    expect(screen.getByTitle('New Diagram')).toBeTruthy()
-    expect(screen.getByTitle('New Folder')).toBeTruthy()
-    expect(screen.getByTitle('Refresh')).toBeTruthy()
-    expect(screen.getByTitle('More actions')).toBeTruthy()
+    expect(screen.getByLabelText('New Diagram')).toBeTruthy()
+    expect(screen.getByLabelText('New Folder')).toBeTruthy()
+    expect(screen.getByLabelText('Refresh explorer')).toBeTruthy()
+    expect(screen.getByLabelText('More actions')).toBeTruthy()
   })
 
   it('clicking Refresh fires onRefresh', () => {
     const onRefresh = vi.fn()
     renderPanel({ onRefresh })
-    fireEvent.click(screen.getByTitle('Refresh'))
+    fireEvent.click(screen.getByLabelText('Refresh explorer'))
     expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 
   it('Refresh icon gains the spinner animation class when isLoading', () => {
     const { container } = renderPanel({ isLoading: true })
-    const refreshBtn = screen.getByTitle('Refresh')
+    const refreshBtn = screen.getByLabelText('Refresh explorer')
     const svg = within(refreshBtn).getByText('', { selector: 'svg' }).parentElement
       // fallback: query by class
     const anim = container.querySelector('svg.animate-spin')
@@ -112,21 +112,21 @@ describe('ExplorerPanel — directory header bar', () => {
   it('clicking New Diagram calls onCreateFile with empty parent', () => {
     const onCreateFile = vi.fn(async () => null)
     renderPanel({ onCreateFile })
-    fireEvent.click(screen.getByTitle('New Diagram'))
+    fireEvent.click(screen.getByLabelText('New Diagram'))
     expect(onCreateFile).toHaveBeenCalledWith('')
   })
 
   it('clicking New Folder calls onCreateFolder with empty parent', () => {
     const onCreateFolder = vi.fn(async () => null)
     renderPanel({ onCreateFolder })
-    fireEvent.click(screen.getByTitle('New Folder'))
+    fireEvent.click(screen.getByLabelText('New Folder'))
     expect(onCreateFolder).toHaveBeenCalledWith('')
   })
 
   it('FS-2.3-44: clicking New Document calls onCreateDocument with empty parent', () => {
     const onCreateDocument = vi.fn(async () => null)
     renderPanel({ onCreateDocument })
-    fireEvent.click(screen.getByTitle('New Document'))
+    fireEvent.click(screen.getByLabelText('New Document'))
     expect(onCreateDocument).toHaveBeenCalledWith('')
   })
 })
@@ -429,7 +429,7 @@ describe('ExplorerPanel — folder selection (FS-2.3-46..48)', () => {
     const tree = [folder('alpha', 'alpha', [])]
     renderPanel({ tree, onCreateFile })
     fireEvent.click(screen.getAllByText('alpha')[0])
-    fireEvent.click(screen.getByTitle('New Diagram in alpha'))
+    fireEvent.click(screen.getByLabelText('New Diagram in alpha'))
     expect(onCreateFile).toHaveBeenCalledWith('alpha')
   })
 

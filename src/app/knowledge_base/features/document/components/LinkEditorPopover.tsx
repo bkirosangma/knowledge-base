@@ -13,6 +13,7 @@ import type { Editor } from "@tiptap/react";
 import { getMarkRange } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { Link2Off, FolderOpen } from "lucide-react";
+import { Tooltip } from "../../../shared/components/Tooltip";
 import { FolderPicker } from "./FolderPicker";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
@@ -366,14 +367,16 @@ export function LinkEditorPopover({
           autoComplete="off"
         />
         {isWiki && tree && tree.length > 0 && (
-          <button
-            type="button"
-            title="Browse files"
-            onMouseDown={(e) => { e.preventDefault(); setShowPicker((v) => !v); }}
-            className={`shrink-0 p-1 rounded hover:bg-slate-100 ${showPicker ? "text-blue-500" : "text-slate-400 hover:text-slate-600"}`}
-          >
-            <FolderOpen size={13} />
-          </button>
+          <Tooltip label="Browse files">
+            <button
+              type="button"
+              aria-label="Browse files"
+              onMouseDown={(e) => { e.preventDefault(); setShowPicker((v) => !v); }}
+              className={`shrink-0 p-1 rounded hover:bg-slate-100 ${showPicker ? "text-blue-500" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              <FolderOpen size={13} />
+            </button>
+          </Tooltip>
         )}
       </div>
       {isWiki && showPicker && tree && tree.length > 0 && (
@@ -408,16 +411,18 @@ export function LinkEditorPopover({
         />
       </div>
       <div className="flex justify-end mt-1.5">
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onUnlink}
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 px-2 py-0.5 rounded hover:bg-slate-50"
-          title={isWiki ? "Remove wiki-link" : "Remove link"}
-        >
-          <Link2Off size={12} />
-          {unlinkLabel}
-        </button>
+        <Tooltip label={isWiki ? "Remove wiki-link" : "Remove link"}>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onUnlink}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 px-2 py-0.5 rounded hover:bg-slate-50"
+            aria-label={isWiki ? "Remove wiki-link" : "Remove link"}
+          >
+            <Link2Off size={12} />
+            {unlinkLabel}
+          </button>
+        </Tooltip>
       </div>
       {isWiki && allDocPaths && allDocPaths.length > 0 && (
         <datalist id={datalistId}>

@@ -6,6 +6,7 @@ import { Settings } from "lucide-react";
 import type { RawGraphifyNode, RawGraphifyLink, RawGraphifyData, RawHyperedge } from "../hooks/useRawGraphify";
 import { edgeColor, RELATION_COLORS_DARK, RELATION_COLORS_LIGHT } from "../graphifyColors";
 import { DEFAULT_PHYSICS, PHYSICS_SLIDERS, type PhysicsConfig } from "../graphifyPhysics";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 export type { PhysicsConfig };
 
@@ -524,19 +525,20 @@ export default function GraphifyCanvas({
 
       {/* Physics settings — top-right overlay */}
       <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-10">
-        <button
-          onClick={() => setPhysicsOpen(v => !v)}
-          className="rounded-lg p-1.5"
-          style={{
-            background: isDark ? "rgba(15,23,42,0.78)" : "rgba(255,255,255,0.88)",
-            backdropFilter: "blur(4px)",
-            border: isDark ? "none" : "1px solid rgba(148,163,184,0.35)",
-          }}
-          title="Graph physics"
-          aria-label="Toggle physics settings"
-        >
-          <Settings size={13} style={{ color: isDark ? "#94a3b8" : "#64748b" }} />
-        </button>
+        <Tooltip label="Graph physics">
+          <button
+            onClick={() => setPhysicsOpen(v => !v)}
+            className="rounded-lg p-1.5"
+            style={{
+              background: isDark ? "rgba(15,23,42,0.78)" : "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(4px)",
+              border: isDark ? "none" : "1px solid rgba(148,163,184,0.35)",
+            }}
+            aria-label="Toggle physics settings"
+          >
+            <Settings size={13} style={{ color: isDark ? "#94a3b8" : "#64748b" }} />
+          </button>
+        </Tooltip>
         {physicsOpen && (
           <div
             className="rounded-lg px-3 py-2 w-48"

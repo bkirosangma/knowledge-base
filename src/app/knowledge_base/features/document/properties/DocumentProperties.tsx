@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Hash, Clock, Link2, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import HistoryPanel from "../../../shared/components/HistoryPanel";
+import { Tooltip } from "../../../shared/components/Tooltip";
 import type { HistoryEntry } from "../../../shared/utils/historyPersistence";
 import UnlinkedMentions from "../components/UnlinkedMentions";
 
@@ -63,13 +64,15 @@ export default function DocumentProperties({
   if (collapsed) {
     return (
       <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 36 }}>
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
-          title="Expand properties"
-        >
-          <ChevronLeft size={16} className="text-slate-500" />
-        </button>
+        <Tooltip label="Expand properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center justify-center px-2 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors"
+            aria-label="Expand properties"
+          >
+            <ChevronLeft size={16} className="text-slate-500" />
+          </button>
+        </Tooltip>
       </div>
     );
   }
@@ -78,14 +81,16 @@ export default function DocumentProperties({
     return (
       <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 280 }}>
         {onToggleCollapse ? (
-          <button
-            onClick={onToggleCollapse}
-            className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
-            title="Collapse properties"
-          >
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-            <ChevronRight size={14} className="ml-auto text-slate-400" />
-          </button>
+          <Tooltip label="Collapse properties">
+            <button
+              onClick={onToggleCollapse}
+              className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+              aria-label="Collapse properties"
+            >
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+              <ChevronRight size={14} className="ml-auto text-slate-400" />
+            </button>
+          </Tooltip>
         ) : (
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
             <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
@@ -102,15 +107,17 @@ export default function DocumentProperties({
     <div className="flex-shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden" style={{ width: 280 }}>
       {/* Header */}
       {onToggleCollapse ? (
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
-          title="Collapse properties"
-        >
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
-          <span className="text-xs text-slate-400 truncate">{filename}</span>
-          <ChevronRight size={14} className="ml-auto text-slate-400 flex-shrink-0" />
-        </button>
+        <Tooltip label="Collapse properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 hover:bg-slate-50 transition-colors w-full"
+            aria-label="Collapse properties"
+          >
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>
+            <span className="text-xs text-slate-400 truncate">{filename}</span>
+            <ChevronRight size={14} className="ml-auto text-slate-400 flex-shrink-0" />
+          </button>
+        </Tooltip>
       ) : (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200">
           <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Properties</span>

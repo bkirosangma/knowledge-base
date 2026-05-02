@@ -4,7 +4,7 @@ import { seedWithNode, seedWithNodeAndLayer, seedWithWideNodes } from './helpers
 
 // Covers DIAG-3.3-01/02/06
 // Requires data-testid="minimap" and data-testid="minimap-viewport" on Minimap.tsx.
-// Minimap toggle button has title="Toggle minimap".
+// Minimap toggle button has aria-label="Toggle minimap".
 
 async function setupFs(page: Page, seed: Record<string, string>) {
   await page.addInitScript(installMockFS)

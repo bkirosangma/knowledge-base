@@ -103,7 +103,7 @@ describe('MarkdownEditor — Raw mode toggle (DOC-4.5-02, 4.5-03)', () => {
 describe('MarkdownEditor — Undo / Redo state (DOC-4.5-05)', () => {
   it('DOC-4.5-05: Redo is disabled when there\'s nothing to redo', async () => {
     renderEditor({ content: '' })
-    const redoBtn = await screen.findByTitle('Redo') as HTMLButtonElement
+    const redoBtn = await screen.findByLabelText('Redo') as HTMLButtonElement
     expect(redoBtn.disabled).toBe(true)
   })
 
@@ -123,7 +123,7 @@ describe('MarkdownEditor — Heading buttons (DOC-4.5-06, 4.5-07)', () => {
     const { container } = renderEditor({ content: 'plain paragraph' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
 
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Heading 2')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Heading 2')) })
     await waitFor(() => {
       expect(container.querySelector('h2')).not.toBeNull()
     })
@@ -136,7 +136,7 @@ describe('MarkdownEditor — Heading buttons (DOC-4.5-06, 4.5-07)', () => {
     // TBtn renders an `active` visual via a background colour class
     // (`bg-blue-100`). The toolbar re-renders on every transaction so the
     // active state should reflect the current selection.
-    const h1Btn = screen.getByTitle('Heading 1')
+    const h1Btn = screen.getByLabelText('Heading 1')
     // Need to place the cursor inside the heading content; do a mousedown
     // on ProseMirror to trigger a selection update.
     const pm = proseMirror(container)
@@ -159,7 +159,7 @@ describe('MarkdownEditor — Inline mark buttons (DOC-4.5-08)', () => {
     renderEditor({ content: 'hello' })
     await waitFor(() => expect(document.querySelector('.ProseMirror')).not.toBeNull())
     for (const title of ['Bold', 'Italic', 'Strikethrough', 'Inline code']) {
-      const btn = screen.getByTitle(title) as HTMLButtonElement
+      const btn = screen.getByLabelText(title) as HTMLButtonElement
       expect(btn).toBeTruthy()
       expect(btn.disabled).toBe(false)
     }
@@ -178,7 +178,7 @@ describe('MarkdownEditor — Block-level toggles (DOC-4.5-12)', () => {
   it('Bullet list button converts a paragraph into <ul><li>', async () => {
     const { container } = renderEditor({ content: 'an item' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Bullet list')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Bullet list')) })
     await waitFor(() => {
       expect(container.querySelector('ul li')).not.toBeNull()
     })
@@ -187,7 +187,7 @@ describe('MarkdownEditor — Block-level toggles (DOC-4.5-12)', () => {
   it('Numbered list button produces <ol><li>', async () => {
     const { container } = renderEditor({ content: 'an item' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Numbered list')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Numbered list')) })
     await waitFor(() => {
       expect(container.querySelector('ol li')).not.toBeNull()
     })
@@ -196,7 +196,7 @@ describe('MarkdownEditor — Block-level toggles (DOC-4.5-12)', () => {
   it('Blockquote button wraps the current paragraph in <blockquote>', async () => {
     const { container } = renderEditor({ content: 'a quote' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Blockquote')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Blockquote')) })
     await waitFor(() => {
       expect(container.querySelector('blockquote')).not.toBeNull()
     })
@@ -205,7 +205,7 @@ describe('MarkdownEditor — Block-level toggles (DOC-4.5-12)', () => {
   it('Code block button produces a <pre><code>', async () => {
     const { container } = renderEditor({ content: 'some code' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Code block')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Code block')) })
     await waitFor(() => {
       expect(container.querySelector('pre code')).not.toBeNull()
     })
@@ -218,7 +218,7 @@ describe('MarkdownEditor — Horizontal rule (DOC-4.5-17)', () => {
   it('DOC-4.5-17: Horizontal rule button inserts an <hr>', async () => {
     const { container } = renderEditor({ content: 'paragraph before' })
     await waitFor(() => expect(proseMirror(container)).not.toBeNull())
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Horizontal rule')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Horizontal rule')) })
     await waitFor(() => {
       expect(container.querySelector('hr')).not.toBeNull()
     })
@@ -251,7 +251,7 @@ describe('MarkdownEditor — blur flush (DOC-4.1-07)', () => {
     onChange.mockClear()
 
     // Queue a debounced onChange via a toolbar button.
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Heading 2')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Heading 2')) })
     // Timer is running (200 ms); onChange should NOT have fired yet.
     expect(onChange).not.toHaveBeenCalled()
 
@@ -273,7 +273,7 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     // Drive a real ProseMirror transaction via a toolbar button (DOM-level text
     // insertion is not observed by ProseMirror in JSDOM). Heading 2 on a
     // paragraph is a reliable, side-effect-free transaction that fires onUpdate.
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Heading 2')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Heading 2')) })
 
     // Wait past the 200 ms debounce for onChange to fire.
     await new Promise((r) => setTimeout(r, 300))
@@ -290,7 +290,7 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
     await waitFor(() => expect(document.querySelector('.ProseMirror')).not.toBeNull())
 
     // Drive a transaction to queue a pending debounced onChange.
-    await act(async () => { fireEvent.mouseDown(screen.getByTitle('Heading 2')) })
+    await act(async () => { fireEvent.mouseDown(screen.getByLabelText('Heading 2')) })
 
     // Unmount before the 200ms debounce fires. The useEffect cleanup flushes
     // synchronously via editor.off("blur", flush) + flush().

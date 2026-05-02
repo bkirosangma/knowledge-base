@@ -3,6 +3,7 @@
 import React from "react";
 import { LayoutGrid } from "lucide-react";
 import type { ArrangeAlgorithm } from "../utils/autoArrange";
+import { Tooltip } from "../../../shared/components/Tooltip";
 
 export type { ArrangeAlgorithm };
 
@@ -31,13 +32,15 @@ export default function AutoArrangeDropdown({
 
   return (
     <div ref={ref} className="relative">
-      <button
-        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-        title="Auto Arrange"
-        onClick={() => setOpen(!open)}
-      >
-        <LayoutGrid size={16} />
-      </button>
+      <Tooltip label="Auto Arrange" placement="bottom">
+        <button
+          className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          aria-label="Auto Arrange"
+          onClick={() => setOpen(!open)}
+        >
+          <LayoutGrid size={16} />
+        </button>
+      </Tooltip>
       {open && (
         <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[210px]">
           {items.map((item) => (

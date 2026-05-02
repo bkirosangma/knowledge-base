@@ -15,18 +15,18 @@ describe('Header — split view toggle', () => {
 
   it('split toggle renders when onToggleSplit is provided (isSplit=false)', () => {
     render(<Header onToggleSplit={() => {}} isSplit={false} />)
-    expect(screen.getByTitle('Split view')).toBeTruthy()
+    expect(screen.getByLabelText('Enter split view')).toBeTruthy()
   })
 
   it('title changes to "Exit split view" when isSplit=true', () => {
     render(<Header onToggleSplit={() => {}} isSplit />)
-    expect(screen.getByTitle('Exit split view')).toBeTruthy()
+    expect(screen.getByLabelText('Exit split view')).toBeTruthy()
   })
 
   it('SHELL-1.2-18/19: clicking split toggle fires onToggleSplit', () => {
     const onToggleSplit = vi.fn()
     render(<Header onToggleSplit={onToggleSplit} />)
-    fireEvent.click(screen.getByTitle('Split view'))
+    fireEvent.click(screen.getByLabelText('Enter split view'))
     expect(onToggleSplit).toHaveBeenCalledTimes(1)
   })
 })

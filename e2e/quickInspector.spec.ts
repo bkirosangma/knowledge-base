@@ -76,8 +76,8 @@ test.describe('Canvas Quick Inspector', () => {
     // Count nodes before deletion
     await expect(page.locator('[data-testid="node-n1"]')).toBeVisible()
 
-    // Click the delete button (title="Delete") inside the inspector
-    await page.locator('[data-testid="quick-inspector"] button[title="Delete"]').click()
+    // Click the delete button inside the inspector (aria-label set in QuickInspector).
+    await page.locator('[data-testid="quick-inspector"] button[aria-label="Delete node"]').click()
 
     // Node must be gone
     await expect(page.locator('[data-testid="node-n1"]')).not.toBeVisible()
@@ -95,14 +95,14 @@ test.describe('Canvas Quick Inspector', () => {
     await expect(page.locator('[data-testid="quick-inspector"]')).toBeVisible()
 
     // Open the colour popover
-    await page.locator('[data-testid="quick-inspector"] button[title="Change colour"]').click()
+    await page.locator('[data-testid="quick-inspector"] button[aria-label="Change color"]').click()
 
     // Wait for the swatch popover to appear — scope to the popover testid to avoid
     // conflicting with the Properties Panel's colour scheme swatches
     const popover = page.locator('[data-testid="quick-inspector-color-popover"]')
     await expect(popover).toBeVisible()
 
-    const oceanSwatch = popover.locator('button[title="Ocean"]')
+    const oceanSwatch = popover.locator('button[aria-label="Ocean"]')
     await expect(oceanSwatch).toBeVisible()
 
     // Click the Ocean swatch — bg should update to Ocean fill #eff6ff

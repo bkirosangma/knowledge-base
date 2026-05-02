@@ -65,7 +65,7 @@ test.describe('SVG editor — persistence', () => {
     // @svgedit/svgcanvas library binds to the wrapper div for its
     // mousedown/move/up handlers; `page.mouse` lands on the wrapper and
     // the events propagate down correctly.
-    await page.getByTitle('Rectangle (R)').click()
+    await page.getByLabel('Rectangle (R)').click()
     const box = await canvas.boundingBox()
     if (!box) throw new Error('canvas has no layout box')
     await page.mouse.move(box.x + 80, box.y + 80)

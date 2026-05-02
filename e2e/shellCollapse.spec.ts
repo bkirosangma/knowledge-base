@@ -100,8 +100,8 @@ test.describe('Shell collapse — PaneTitle folded into PaneHeader (SHELL-1.12)'
     await input.press('Enter')
 
     // Save + Discard live in the same PaneHeader row as the breadcrumb.
-    const saveBtn = page.getByTitle(/^Save/)
-    const discardBtn = page.getByTitle('Discard changes')
+    const saveBtn = page.getByRole('button', { name: /^save/i })
+    const discardBtn = page.getByLabel('Discard changes')
     await expect(saveBtn).toBeVisible()
     await expect(discardBtn).toBeVisible()
     await expect(saveBtn).toBeEnabled()

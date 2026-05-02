@@ -243,24 +243,24 @@ describe('PaneHeader — dirty dot + Save / Discard', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" hasActiveFile isDirty={false} onSave={() => {}} onDiscard={() => {}} />,
     )
-    expect((screen.getByTitle(/Save/) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByTitle('Discard changes') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole("button", { name: /^save/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Discard changes') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('SHELL-1.2-12: Save and Discard become enabled when dirty and has active file', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" hasActiveFile isDirty onSave={() => {}} onDiscard={() => {}} />,
     )
-    expect((screen.getByTitle(/Save/) as HTMLButtonElement).disabled).toBe(false)
-    expect((screen.getByTitle('Discard changes') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole("button", { name: /^save/i }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByLabelText('Discard changes') as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('stays disabled when hasActiveFile is false, even if dirty', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" isDirty hasActiveFile={false} onSave={() => {}} onDiscard={() => {}} />,
     )
-    expect((screen.getByTitle(/Save/) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByTitle('Discard changes') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole("button", { name: /^save/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Discard changes') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('clicking Save triggers onSave', () => {
@@ -268,7 +268,7 @@ describe('PaneHeader — dirty dot + Save / Discard', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" hasActiveFile isDirty onSave={onSave} onDiscard={() => {}} />,
     )
-    fireEvent.click(screen.getByTitle(/Save/))
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }))
     expect(onSave).toHaveBeenCalledTimes(1)
   })
 
@@ -277,7 +277,7 @@ describe('PaneHeader — dirty dot + Save / Discard', () => {
     render(
       <PaneHeader filePath="a.md" readOnly={false} onToggleReadOnly={() => {}} title="x" hasActiveFile isDirty onSave={() => {}} onDiscard={onDiscard} />,
     )
-    fireEvent.click(screen.getByTitle('Discard changes'))
+    fireEvent.click(screen.getByLabelText('Discard changes'))
     expect(onDiscard).toHaveBeenCalledTimes(1)
   })
 

@@ -9,6 +9,7 @@ import {
 import type { ExplorerFilter } from "../../utils/types";
 import type { SortField, SortDirection, SortGrouping } from "./ExplorerPanel";
 import type { ContextMenuState } from "./TreeNodeRow";
+import { Tooltip } from "../Tooltip";
 
 const sortBtnClass =
   "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors text-ink-2 hover:bg-surface-2";
@@ -107,61 +108,67 @@ export default function ExplorerHeader({
               : directoryName}
           </span>
           {onOpenFolder && (
-            <button
-              onClick={onOpenFolder}
-              className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
-              title="Open different folder"
-              aria-label="Open different folder"
-            >
-              <FolderOpen size={14} className="text-mute" />
-            </button>
+            <Tooltip label="Open different folder">
+              <button
+                onClick={onOpenFolder}
+                className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
+                aria-label="Open different folder"
+              >
+                <FolderOpen size={14} className="text-mute" />
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
-            className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
-            title="More actions"
-            aria-label="More actions"
-            aria-haspopup="menu"
-            aria-expanded={dotMenuOpen}
-          >
-            <EllipsisVertical size={14} className="text-mute" />
-          </button>
+          <Tooltip label="More actions">
+            <button
+              onClick={() => { setDotMenuOpen((v) => !v); setSortSubMenuOpen(false); }}
+              className="p-1 hover:bg-surface-2 rounded transition-colors flex-shrink-0"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={dotMenuOpen}
+            >
+              <EllipsisVertical size={14} className="text-mute" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Row 2 — create + refresh icons */}
         <div className="flex items-center gap-0.5 mt-1">
-          <button
-            onClick={() => handleCreateFile(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-surface-2 rounded transition-colors"
-            title={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            aria-label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-          >
-            <FilePlus size={14} className="text-mute" />
-          </button>
-          <button
-            onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-surface-2 rounded transition-colors"
-            title={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            aria-label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-          >
-            <FileText size={14} className="text-mute" />
-          </button>
-          <button
-            onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
-            className="p-1 hover:bg-surface-2 rounded transition-colors"
-            title={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-            aria-label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
-          >
-            <FolderPlus size={14} className="text-mute" />
-          </button>
-          <button
-            onClick={onRefresh}
-            className="p-1 hover:bg-surface-2 rounded transition-colors"
-            title="Refresh"
-            aria-label="Refresh explorer"
-          >
-            <RefreshCw size={14} className={`text-mute ${isLoading ? "animate-spin" : ""}`} />
-          </button>
+          <Tooltip label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+            <button
+              onClick={() => handleCreateFile(selectedFolderPath ?? "")}
+              className="p-1 hover:bg-surface-2 rounded transition-colors"
+              aria-label={`New Diagram${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            >
+              <FilePlus size={14} className="text-mute" />
+            </button>
+          </Tooltip>
+          <Tooltip label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+            <button
+              onClick={() => handleCreateDocument(selectedFolderPath ?? "")}
+              className="p-1 hover:bg-surface-2 rounded transition-colors"
+              aria-label={`New Document${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            >
+              <FileText size={14} className="text-mute" />
+            </button>
+          </Tooltip>
+          <Tooltip label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}>
+            <button
+              onClick={() => handleCreateFolder(selectedFolderPath ?? "")}
+              className="p-1 hover:bg-surface-2 rounded transition-colors"
+              aria-label={`New Folder${selectedFolderPath ? ` in ${selectedFolderPath.split("/").pop()}` : ""}`}
+            >
+              <FolderPlus size={14} className="text-mute" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Refresh">
+            <button
+              onClick={onRefresh}
+              className="p-1 hover:bg-surface-2 rounded transition-colors"
+              aria-label="Refresh explorer"
+            >
+              <RefreshCw size={14} className={`text-mute ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          </Tooltip>
 
           {/* 3-dot dropdown menu */}
           {dotMenuOpen && (

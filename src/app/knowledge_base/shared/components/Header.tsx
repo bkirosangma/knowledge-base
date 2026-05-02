@@ -2,6 +2,7 @@ import React from "react";
 import { Columns2, Moon, Sun } from "lucide-react";
 import { useCommandRegistry } from "../context/CommandRegistry";
 import type { Theme } from "../hooks/useTheme";
+import { Tooltip } from "./Tooltip";
 
 interface HeaderProps {
   /** Whether split mode is on. */
@@ -69,48 +70,51 @@ export default function Header({
       </div>
 
       {/* Centre column — ⌘K trigger chip */}
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-3 px-3 py-1 w-[220px] rounded-lg border border-line bg-surface-2 text-mute hover:bg-surface hover:text-ink-2 transition-all text-xs"
-        title="Open command palette (⌘K)"
-        aria-label="Search commands"
-        data-testid="command-palette-trigger"
-      >
-        <span className="flex-1 text-left">Search commands…</span>
-        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-line bg-surface text-mute leading-none">
-          ⌘K
-        </kbd>
-      </button>
+      <Tooltip label="Open command palette (⌘K)" placement="bottom">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-3 px-3 py-1 w-[220px] rounded-lg border border-line bg-surface-2 text-mute hover:bg-surface hover:text-ink-2 transition-all text-xs"
+          aria-label="Search commands"
+          data-testid="command-palette-trigger"
+        >
+          <span className="flex-1 text-left">Search commands…</span>
+          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-line bg-surface text-mute leading-none">
+            ⌘K
+          </kbd>
+        </button>
+      </Tooltip>
 
       {/* Right column — theme toggle + split toggle */}
       <div className="flex items-center justify-start gap-1.5">
         {onToggleTheme && (
-          <button
-            onClick={onToggleTheme}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-mute hover:bg-surface-2 hover:text-ink-2 transition-colors"
-            title={theme === "dark" ? "Switch to light theme (⌘⇧L)" : "Switch to dark theme (⌘⇧L)"}
-            aria-label="Toggle theme"
-            aria-pressed={theme === "dark"}
-            data-testid="theme-toggle"
-          >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
+          <Tooltip label={theme === "dark" ? "Switch to light theme (⌘⇧L)" : "Switch to dark theme (⌘⇧L)"} placement="bottom">
+            <button
+              onClick={onToggleTheme}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-mute hover:bg-surface-2 hover:text-ink-2 transition-colors"
+              aria-label="Toggle theme"
+              aria-pressed={theme === "dark"}
+              data-testid="theme-toggle"
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </Tooltip>
         )}
         {onToggleSplit && (
-          <button
-            onClick={onToggleSplit}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
-              isSplit
-                ? "bg-surface shadow-sm text-blue-600 border-line"
-                : "bg-surface-2 text-mute hover:text-ink-2 border-line"
-            }`}
-            title={isSplit ? "Exit split view" : "Split view"}
-            aria-label={isSplit ? "Exit split view" : "Enter split view"}
-            aria-pressed={isSplit}
-          >
-            <Columns2 size={13} />
-            <span className="hidden xl:inline">Split</span>
-          </button>
+          <Tooltip label={isSplit ? "Exit split view" : "Split view"} placement="bottom">
+            <button
+              onClick={onToggleSplit}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ${
+                isSplit
+                  ? "bg-surface shadow-sm text-blue-600 border-line"
+                  : "bg-surface-2 text-mute hover:text-ink-2 border-line"
+              }`}
+              aria-label={isSplit ? "Exit split view" : "Enter split view"}
+              aria-pressed={isSplit}
+            >
+              <Columns2 size={13} />
+              <span className="hidden xl:inline">Split</span>
+            </button>
+          </Tooltip>
         )}
       </div>
     </div>

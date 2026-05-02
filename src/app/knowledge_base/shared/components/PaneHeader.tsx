@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ChevronRight, Lock, LockOpen, Save, RotateCcw } from "lucide-react";
+import { Tooltip } from "./Tooltip";
 
 interface PaneHeaderProps {
   /** Full file path; rendered as a "/"-separated breadcrumb. */
@@ -149,30 +150,32 @@ export default function PaneHeader({
           </div>
 
           {onDiscard && (
-            <button
-              onClick={onDiscard}
-              disabled={!hasActiveFile || !isDirty}
-              className={`p-1 rounded-md transition-colors flex-shrink-0 ${
-                hasActiveFile && isDirty ? "text-mute hover:bg-surface-2 hover:text-ink-2" : "text-mute opacity-40 cursor-not-allowed"
-              }`}
-              title="Discard changes"
-              aria-label="Discard changes"
-            >
-              <RotateCcw size={13} />
-            </button>
+            <Tooltip label="Discard changes">
+              <button
+                onClick={onDiscard}
+                disabled={!hasActiveFile || !isDirty}
+                className={`p-1 rounded-md transition-colors flex-shrink-0 ${
+                  hasActiveFile && isDirty ? "text-mute hover:bg-surface-2 hover:text-ink-2" : "text-mute opacity-40 cursor-not-allowed"
+                }`}
+                aria-label="Discard changes"
+              >
+                <RotateCcw size={13} />
+              </button>
+            </Tooltip>
           )}
           {onSave && (
-            <button
-              onClick={onSave}
-              disabled={!hasActiveFile || !isDirty}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition-colors flex-shrink-0 ${
-                hasActiveFile && isDirty ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-surface-2 text-mute cursor-not-allowed"
-              }`}
-              title="Save (⌘S)"
-            >
-              <Save size={12} />
-              Save
-            </button>
+            <Tooltip label="Save (⌘S)">
+              <button
+                onClick={onSave}
+                disabled={!hasActiveFile || !isDirty}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold transition-colors flex-shrink-0 ${
+                  hasActiveFile && isDirty ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-surface-2 text-mute cursor-not-allowed"
+                }`}
+              >
+                <Save size={12} />
+                Save
+              </button>
+            </Tooltip>
           )}
         </>
       )}
@@ -180,20 +183,21 @@ export default function PaneHeader({
       {!showTitleSection && <div className="flex-1" />}
 
       {!hideReadOnlyToggle && (
-        <button
-          onClick={onToggleReadOnly}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border flex-shrink-0 ${
-            readOnly
-              ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
-              : "bg-surface-2 text-ink-2 hover:text-ink border-line"
-          }`}
-          title={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-          aria-pressed={readOnly}
-          aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
-        >
-          {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
-          <span>{readOnly ? "Read" : "Edit"}</span>
-        </button>
+        <Tooltip label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}>
+          <button
+            onClick={onToggleReadOnly}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border flex-shrink-0 ${
+              readOnly
+                ? "bg-amber-100 text-amber-800 border-amber-300 shadow-sm"
+                : "bg-surface-2 text-ink-2 hover:text-ink border-line"
+            }`}
+            aria-pressed={readOnly}
+            aria-label={readOnly ? "Exit Read Mode" : "Enter Read Mode"}
+          >
+            {readOnly ? <Lock size={13} /> : <LockOpen size={13} />}
+            <span>{readOnly ? "Read" : "Edit"}</span>
+          </button>
+        </Tooltip>
       )}
 
       {readOnly && readingTimeMinutes != null && readingTimeMinutes > 0 && (

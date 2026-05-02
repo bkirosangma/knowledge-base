@@ -73,13 +73,13 @@ describe('DIAG-3.16-10: HistoryPanel lists entries', () => {
 
   it('disables Undo when canUndo=false', () => {
     render(<HistoryPanel {...baseProps({ canUndo: false })} />)
-    const undo = screen.getByTitle('Undo (Cmd+Z)')
+    const undo = screen.getByLabelText('Undo (Cmd+Z)')
     expect((undo as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('enables Undo when canUndo=true', () => {
     render(<HistoryPanel {...baseProps({ canUndo: true, onUndo: vi.fn() })} />)
-    const undo = screen.getByTitle('Undo (Cmd+Z)')
+    const undo = screen.getByLabelText('Undo (Cmd+Z)')
     expect((undo as HTMLButtonElement).disabled).toBe(false)
   })
 })
@@ -101,7 +101,7 @@ describe('DIAG-3.16-11: HistoryPanel click reverts to entry', () => {
     const onUndo = vi.fn()
     const entries = makeEntries(2)
     render(<HistoryPanel {...baseProps({ entries, currentIndex: 1, savedIndex: 0, canUndo: true, onUndo })} />)
-    fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
+    fireEvent.click(screen.getByLabelText('Undo (Cmd+Z)'))
     expect(onUndo).toHaveBeenCalledTimes(1)
   })
 
@@ -109,7 +109,7 @@ describe('DIAG-3.16-11: HistoryPanel click reverts to entry', () => {
     const onRedo = vi.fn()
     const entries = makeEntries(2)
     render(<HistoryPanel {...baseProps({ entries, currentIndex: 0, savedIndex: 0, canRedo: true, onRedo })} />)
-    fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
+    fireEvent.click(screen.getByLabelText('Redo (Cmd+Shift+Z)'))
     expect(onRedo).toHaveBeenCalledTimes(1)
   })
 

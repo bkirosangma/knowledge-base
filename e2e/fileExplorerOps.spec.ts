@@ -120,10 +120,13 @@ test.describe('File explorer — rename operations', () => {
     await page.getByText('original.md').first().click()
     await expect(page.locator('.ProseMirror').first()).toBeVisible({ timeout: 5000 })
 
-    // Right-click → Rename. Use getByText to avoid strict mode: hover buttons
-    // also have accessible name "Rename" via title attr but contain no text.
+    // Right-click → Rename. The context-menu item is the only button with
+    // visible "Rename" text content; HoverBtn icons share the accessible
+    // name via aria-label but have no text body, and the KB-036 Tooltip
+    // bubbles render as `[role="tooltip"]` <span>s rather than buttons —
+    // so a `button:has-text("Rename")` locator targets the menu item only.
     await rightClickFile(page, 'original.md')
-    await page.getByText('Rename').click()
+    await page.locator('button:has-text("Rename")').click()
 
     // The file name in the tree becomes an input
     const renameInput = page.locator('input[value="original.md"]').first()
@@ -158,7 +161,7 @@ test.describe('File explorer — rename operations', () => {
 
     // Rename target.md → renamed.md
     await rightClickFile(page, 'target.md')
-    await page.getByText('Rename').click()
+    await page.locator('button:has-text("Rename")').click()
     const renameInput = page.locator('input[value="target.md"]').first()
     await expect(renameInput).toBeVisible({ timeout: 3000 })
     await renameInput.selectText()

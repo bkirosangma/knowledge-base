@@ -43,13 +43,13 @@ test.describe('Document read-only mode', () => {
     await openFile(page, 'note.md')
 
     // Toolbar is visible in edit mode — verify Bold button exists
-    await expect(page.getByTitle('Bold')).toBeVisible()
+    await expect(page.getByLabel('Bold')).toBeVisible()
 
     // Click the lock button to enter read-only mode
     await page.getByRole('button', { name: 'Enter Read Mode' }).click()
 
     // Toolbar should be gone
-    await expect(page.getByTitle('Bold')).not.toBeVisible()
+    await expect(page.getByLabel('Bold')).not.toBeVisible()
   })
 
   test('DOC-4.12-04: read-only editor is not content-editable', async ({ page }) => {
@@ -73,11 +73,11 @@ test.describe('Document read-only mode', () => {
     await openFile(page, 'note.md')
 
     await page.getByRole('button', { name: 'Enter Read Mode' }).click()
-    await expect(page.getByTitle('Bold')).not.toBeVisible()
+    await expect(page.getByLabel('Bold')).not.toBeVisible()
 
     // Exit read-only
     await page.getByRole('button', { name: 'Exit Read Mode' }).click()
-    await expect(page.getByTitle('Bold')).toBeVisible()
+    await expect(page.getByLabel('Bold')).toBeVisible()
   })
 })
 

@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react";
 import { Undo2, Redo2, ChevronDown, ChevronRight } from "lucide-react";
 import type { HistoryEntry } from "../utils/historyPersistence";
+import { Tooltip } from "./Tooltip";
 
 interface HistoryPanelProps {
   entries: HistoryEntry<unknown>[];
@@ -72,22 +73,26 @@ export default function HistoryPanel({
       {!collapsed && (
         <>
           <div className="flex items-center gap-1 px-3 pb-1.5 flex-shrink-0">
-            <button
-              onClick={onUndo}
-              disabled={!canUndo || readOnly}
-              className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Undo (Cmd+Z)"
-            >
-              <Undo2 size={14} className="text-slate-600" />
-            </button>
-            <button
-              onClick={onRedo}
-              disabled={!canRedo || readOnly}
-              className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Redo (Cmd+Shift+Z)"
-            >
-              <Redo2 size={14} className="text-slate-600" />
-            </button>
+            <Tooltip label="Undo (Cmd+Z)">
+              <button
+                onClick={onUndo}
+                disabled={!canUndo || readOnly}
+                aria-label="Undo (Cmd+Z)"
+                className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Undo2 size={14} className="text-slate-600" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Redo (Cmd+Shift+Z)">
+              <button
+                onClick={onRedo}
+                disabled={!canRedo || readOnly}
+                aria-label="Redo (Cmd+Shift+Z)"
+                className="p-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Redo2 size={14} className="text-slate-600" />
+              </button>
+            </Tooltip>
           </div>
 
           <div ref={listRef} className="overflow-y-auto flex-shrink-0 max-h-[200px]">

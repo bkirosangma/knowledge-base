@@ -214,7 +214,7 @@ test.describe('LinkEditorPopover — browse button', () => {
     await expect(page.getByText('URL').first()).toBeVisible({ timeout: 3000 })
 
     // Browse button (folder icon) should NOT be visible for plain links
-    await expect(page.getByTitle('Browse files')).not.toBeVisible()
+    await expect(page.getByLabel('Browse files')).not.toBeVisible()
   })
 
   test('DOC-4.7-16: clicking the browse button on a wiki-link opens the FolderPicker inline', async ({ page }) => {
@@ -232,10 +232,10 @@ test.describe('LinkEditorPopover — browse button', () => {
     await expect(page.getByText('Path').first()).toBeVisible({ timeout: 3000 })
 
     // Browse button should be visible
-    await expect(page.getByTitle('Browse files')).toBeVisible()
+    await expect(page.getByLabel('Browse files')).toBeVisible()
 
     // Click browse to open FolderPicker
-    await page.getByTitle('Browse files').click()
+    await page.getByLabel('Browse files').click()
 
     // FolderPicker panel appears inline (shows "Root" header)
     await expect(page.getByText('Root').first()).toBeVisible({ timeout: 3000 })
@@ -255,7 +255,7 @@ test.describe('LinkEditorPopover — browse button', () => {
     await expect(page.getByText('Path').first()).toBeVisible({ timeout: 3000 })
 
     // Open browse picker
-    await page.getByTitle('Browse files').click()
+    await page.getByLabel('Browse files').click()
     await expect(page.getByText('Root').first()).toBeVisible({ timeout: 3000 })
 
     // Click new-target.md in the picker (scope to FolderPicker container to avoid sidebar)

@@ -95,5 +95,5 @@ test('top-level Header renders only the Split toggle before any file is open', a
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
   await expect(page.locator('input[value="Untitled"]')).toHaveCount(0)
-  await expect(page.locator('button[title="Split view"]').first()).toBeVisible()
+  await expect(page.locator('button[aria-label="Enter split view"]').first()).toBeVisible()
 })
