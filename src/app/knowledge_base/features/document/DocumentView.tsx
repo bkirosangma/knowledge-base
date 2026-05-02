@@ -8,7 +8,7 @@ import type { DocumentPaneBridge } from "./hooks/useDocumentContent";
 import type { useLinkIndex } from "./hooks/useLinkIndex";
 import type { TreeNode } from "../../shared/hooks/useFileExplorer";
 import { useAllPaths, LINKABLE_EXTENSIONS } from "../../shared/hooks/useAllPaths";
-import { getFirstHeading } from "./utils/getFirstHeading";
+import { useDerivedDocumentTitle } from "./hooks/useDerivedDocumentTitle";
 import { useDocumentHistory } from "../../shared/hooks/useDocumentHistory";
 import { useDocumentKeyboardShortcuts } from "./hooks/useDocumentKeyboardShortcuts";
 import { useDocumentFileWatcher } from "./hooks/useDocumentFileWatcher";
@@ -20,8 +20,6 @@ import { useShellErrors } from "../../shell/ShellErrorContext";
 import { useRepositories } from "../../shell/RepositoryContext";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
-
-const TITLE_DEBOUNCE_MS = 250;
 
 export type { DocumentPaneBridge };
 
@@ -91,20 +89,14 @@ export default function DocumentView({
   }, [showToast]);
   const [discardConfirmPos, setDiscardConfirmPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Debounced H1 / first-line derivation. `content` changes on every
-  // keystroke; re-rendering the PaneHeader title that often is wasteful, and
-  // the user doesn't need instant title sync — 250 ms settles nicely once
-  // they pause. File-name fallback keeps the pane header populated before
-  // the first H1.
+  // Debounced H1 / first-line derivation. The hook coalesces keystrokes
+  // behind a 250 ms timeout AND short-circuits when the first 200 chars
+  // of `content` haven't changed since the last parse (KB-043), so the
+  // pane header doesn't pay for `getFirstHeading` on every tail edit of
+  // a long document. File-name fallback keeps the title populated before
+  // the first H1 lands.
   const fileBase = filePath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
-  const [derivedTitle, setDerivedTitle] = useState(() => getFirstHeading(content) || fileBase);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const heading = getFirstHeading(content);
-      setDerivedTitle(heading || fileBase);
-    }, TITLE_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [content, fileBase]);
+  const derivedTitle = useDerivedDocumentTitle(content, fileBase);
 
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;

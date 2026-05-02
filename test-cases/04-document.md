@@ -311,6 +311,7 @@
 - **DOC-4.13-14** 🚫 **Code-fenced H1s are not excluded** — documented limitation. `getFirstHeading("\`\`\`\n# not a real heading\n\`\`\`\n\n# Real One")` returns `"not a real heading"` because the parser doesn't track fences. Callers are expected to keep their H1 outside code blocks; covered here so future work doesn't change it by accident.
 - **DOC-4.13-15** 🟡 **Debounce settles title after ~250 ms** — `DocumentView` schedules `setDerivedTitle(getFirstHeading(content))` inside a `setTimeout(250 ms)` and clears the pending timer on every keystroke, so the pane header stops churning while the user is typing and catches up once they pause. Code reviewed; dedicated timer-based test integration.
 - **DOC-4.13-16** 🟡 **File-name fallback when body yields empty** — when `getFirstHeading` returns `""` (brand-new doc, whitespace-only body), `DocumentView` falls back to the `.md` basename so the pane title is never empty in the UI. Code reviewed; integration test
+- **DOC-4.13-17** ✅ **Prefix-skip avoids re-parsing on tail-only edits (KB-043)** — `useDerivedDocumentTitle` caches `(content.slice(0, 200), heading)`; when the prefix is unchanged the debounced tick reuses the cached heading without calling `getFirstHeading` again. A fallback (filename) change still resolves through the cache so a file switch with a coincidentally identical prefix flips the title to the new basename. (Covered by `useDerivedDocumentTitle.test.ts`.)
 
 ## 4.14 Document Keyboard Shortcuts
 `features/document/hooks/useDocumentKeyboardShortcuts.ts`
