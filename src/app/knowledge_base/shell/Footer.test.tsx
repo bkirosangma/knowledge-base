@@ -219,4 +219,14 @@ describe('Footer — Last synced chip (SHELL-1.3-09, SHELL-1.3-10)', () => {
     })
     expect(screen.getByTestId('last-synced-chip').textContent).toBe('Last synced 2s ago')
   })
+
+  it('SHELL-1.3-11: chip title uses a locale-stable 24-hour format (hydration-safe)', () => {
+    // Lock the wall clock so the formatted timestamp is deterministic.
+    vi.setSystemTime(new Date('2026-05-02T17:10:01Z'))
+    render(<FooterHarness focusedEntry={docEntry} isSplit={false} />)
+    const chip = screen.getByTestId('last-synced-chip')
+    // Time zone differs across CI runners, so we can't pin the absolute
+    // string — but we can pin the *format*: HH:MM:SS, no AM/PM.
+    expect(chip.title).toMatch(/^Last synced \d{2}:\d{2}:\d{2}$/)
+  })
 })

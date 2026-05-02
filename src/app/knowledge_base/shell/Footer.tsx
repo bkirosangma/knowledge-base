@@ -87,19 +87,47 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
 
 function LastSyncedChip() {
   const { lastSyncedAt } = useFileWatcher();
-  const [now, setNow] = useState(() => Date.now());
+  // SSR + first paint render a stable 0s value with no time-derived
+  // attributes; otherwise both `lastSyncedAt` and `Date.now()` (initialised
+  // independently on server vs. client) produce a hydration mismatch on
+  // the chip body and `title`. The mounted flag flips once on the client
+  // so the live timer takes over post-hydration.
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState<number>(lastSyncedAt);
 
   useEffect(() => {
+    setMounted(true);
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
+  if (!mounted) {
+    return (
+      <span
+        data-testid="last-synced-chip"
+        className="text-[11px] text-mute font-mono"
+      >
+        Last synced 0s ago
+      </span>
+    );
+  }
+
   const ago = Math.max(0, Math.floor((now - lastSyncedAt) / 1000));
+  // `en-GB` 24-hour format is locale-stable so dev-server SSR (which
+  // defaults to `en-US` 12-hour format) and the browser produce the
+  // same string for the title once hydrated.
+  const stamp = new Date(lastSyncedAt).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
   return (
     <span
       data-testid="last-synced-chip"
       className="text-[11px] text-mute font-mono"
-      title={`Last synced ${new Date(lastSyncedAt).toLocaleTimeString()}`}
+      title={`Last synced ${stamp}`}
     >
       Last synced {ago}s ago
     </span>
