@@ -39,6 +39,11 @@ describe("TabToolbar", () => {
     expect(screen.getByRole("button", { name: /play/i })).toBeDisabled();
   });
 
+  it("stop is disabled when isAudioReady is false", () => {
+    render(<TabToolbar {...makeProps({ isAudioReady: false })} />);
+    expect(screen.getByRole("button", { name: /stop/i })).toBeDisabled();
+  });
+
   it("stop button calls onStop on click", async () => {
     const onStop = vi.fn();
     render(<TabToolbar {...makeProps({ onStop })} />);

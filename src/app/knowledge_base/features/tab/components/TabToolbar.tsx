@@ -54,8 +54,9 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
       <button
         type="button"
         onClick={onStop}
+        disabled={!isAudioReady}
         aria-label="Stop"
-        className="rounded border border-line px-3 py-1 hover:bg-line/20"
+        className="rounded border border-line px-3 py-1 hover:bg-line/20 disabled:opacity-50"
       >
         Stop
       </button>
