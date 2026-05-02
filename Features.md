@@ -652,11 +652,13 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 
 Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
 
-### 11.1 Foundation (TAB-001 → TAB-003)
-- ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; `AlphaTabEngine` implementation lands in TAB-004.
+### 11.1 Foundation (TAB-001 → TAB-004)
+- ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; implemented by `AlphaTabEngine`.
 - ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
-- ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`) — `.alphatex` files open a tab pane that currently renders `TabViewStub`.
-- ? **Real `TabView` + playback chrome** — pending TAB-004/TAB-005.
+- ⚙️ **`AlphaTabEngine`** (`src/app/knowledge_base/infrastructure/alphaTabEngine.ts`) — implements `TabEngine` via lazy `import("@coderline/alphatab")` inside `mount()`; renders alphaTex score; `enablePlayer = false` until TAB-005 wires playback.
+- ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`, `shared/utils/fileTree.ts`) — `.alphatex` files are visible in the explorer and open a tab pane.
+- ✅ **`TabView`** (`src/app/knowledge_base/features/tab/TabView.tsx`) — pane shell that mounts the engine via `useTabEngine` + `useTabContent`; loading / canvas / engine-load-error chrome; source-parse failures route to `ShellErrorContext`. Stubbed `TabViewStub` deleted in TAB-004.
+- ? **Playback chrome (toolbar, audio context)** — pending TAB-005.
 
 ---
 
