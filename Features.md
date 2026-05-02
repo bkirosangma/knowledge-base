@@ -502,7 +502,8 @@ Built on Tiptap v3 with StarterKit. Enabled child marks/nodes: headings H1–H6,
 - ✅ **Nodes** — every `.md` and `.json` file in the vault tree (orphans included). Color: emerald-700 (`var(--accent)`) for documents, slate-500 (`var(--mute)`) for diagrams. Tokens re-read on theme flips so dark mode keeps the right contrast.
 - ✅ **Edges** — wiki-link references derived from `linkIndex.documents[*].outboundLinks + sectionLinks`, deduplicated per (source, target) pair. Color: `var(--line)`.
 - ✅ **Node click → opens in opposite pane** — graph stays mounted (single pane → split with target on right; split with graph focused → flip focus then open). Replacement of the graph by the click is never possible.
-- ✅ **Filters** — `GraphFilters` left rail (folder multi-select, file-type checkboxes, orphans-only toggle).
+- ✅ **Filters** — `GraphFilters` left rail (folder multi-select, file-type checkboxes, orphans-only toggle, recent-only toggle).
+- ✅ **Node-count guard (KB-042)** — when the filtered set exceeds `GRAPH_NODE_GUARD_THRESHOLD` (300) the canvas is replaced by `GraphPlaceholder` with two quick filters ("Show recent only" → `filters.recentOnly`, plus a hint pointing at the folder rail) and an explicit "Render anyway" escape hatch. The escape hatch is session-scoped (resets on pane unmount) so the guard re-engages after the next vault open.
 - ✅ **Layout cache** — `vaultConfig.graph.layout` (Record<filePath, {x,y}>) persists post-simulation positions. `onEngineStop` debounces (500 ms) before write; cached layout merges into nodes on next mount.
 - ✅ **Layout-restore tolerance** — `__graph__` sentinel bypasses the tree-validity check in pane-layout restore so the graph survives reloads.
 - ✅ **Accessible debug list** — hidden `<ul data-testid="graph-debug-list">` mirrors visible nodes; gives Playwright a clickable surface and screen-readers a fallback list.

@@ -49,6 +49,10 @@ export default function GraphFilters({ allFolders, filters, onChange }: GraphFil
     onChange({ ...filters, orphansOnly: !filters.orphansOnly });
   };
 
+  const toggleRecent = () => {
+    onChange({ ...filters, recentOnly: !filters.recentOnly });
+  };
+
   return (
     <aside
       className="flex-shrink-0 w-56 border-r border-line bg-surface flex flex-col overflow-y-auto"
@@ -83,7 +87,7 @@ export default function GraphFilters({ allFolders, filters, onChange }: GraphFil
 
       <section className="px-3 py-3 border-b border-line">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-mute mb-2">
-          Orphans
+          Activity
         </h2>
         <label className="flex items-center gap-2 text-sm text-ink-2 py-1 cursor-pointer">
           <input
@@ -94,6 +98,16 @@ export default function GraphFilters({ allFolders, filters, onChange }: GraphFil
             data-testid="graph-filter-orphans"
           />
           <span>Orphans only</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink-2 py-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filters.recentOnly}
+            onChange={toggleRecent}
+            aria-label="Show only the most recently modified files"
+            data-testid="graph-filter-recent-only"
+          />
+          <span>Recent only</span>
         </label>
       </section>
 
