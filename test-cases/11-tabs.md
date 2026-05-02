@@ -41,16 +41,42 @@ Replaces `TabViewStub` with a real `TabView` that mounts `AlphaTabEngine` and re
 - **TAB-11.2-08** ❌ **External file change while pane is open triggers `ConflictBanner`** — the file-watcher signal is the same as docs/diagrams use; the tab pane subscribes through the existing hook.
 - **TAB-11.2-09** ✅ **Closing the pane disposes the session** — `session.dispose()` runs in cleanup; subsequent re-open creates a fresh session (no audio context leak). _(unit: useTabEngine.test.tsx — "unmount triggers session.dispose via cleanup effect".)_
 - **TAB-11.2-10** ❌ **Re-opening the same file after close re-renders identically** — content + scroll position not in scope; just file content fidelity.
-- **TAB-11.2-11** ❌ **Dark-mode toggle (⌘⇧L) flips the canvas without refresh** — `useObservedTheme()` feeds the engine's colour settings; canvas background, staff lines, and notes all swap on toggle.
+- **TAB-11.2-11** 🟡 **Dark-mode toggle (⌘⇧L) flips the canvas without refresh** — `useObservedTheme()` feeds the engine's colour settings; canvas background, staff lines, and notes all swap on toggle. _(unit: TabView.test.tsx — implicit via session.render() call when theme changes; no visual snapshot.)_
 - **TAB-11.2-12** ❌ **Tab pane H1 derives from `\title` directive** — falls back to the file basename if `\title` is absent.
 - **TAB-11.2-13** ❌ **Wiki-link parser recognises `// references:` lines in the kb-meta block** — `useLinkIndex` indexes outbound links from `.alphatex`. (May land alongside TAB-011; track here for traceability.)
 - **TAB-11.2-14** 🧪 **Open + render flow end-to-end** — Playwright drives a vault with one `.alphatex` fixture: open from explorer → canvas mounts → `data-testid="tab-view-canvas"` visible. Audio assertion is "AudioContext was created", not actual sound. _(e2e: e2e/tab.spec.ts.)_
 
 ---
 
+## 11.3 Playback chrome (TAB-005)
+
+Toolbar transport (play/pause/stop/tempo/loop), engine playback methods, SoundFont vendoring + service-worker cache. Shipped 2026-05-03.
+
+- **TAB-11.3-01** ✅ **`mount()` configures `enablePlayer = true` and the SoundFont URL** — `settings.player.enablePlayer === true`, `settings.player.soundFont === "/soundfonts/sonivox.sf2"`. _(unit: alphaTabEngine.test.ts — "mount() configures enablePlayer=true and the SoundFont URL".)_
+- **TAB-11.3-02** ✅ **Session play/pause/stop delegate to the alphatab API** — three independent test cases verify each call site. _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-03** ✅ **Session seek writes `tickPosition`** — _(unit: alphaTabEngine.test.ts — "session.seek(beat) sets api.tickPosition".)_
+- **TAB-11.3-04** ✅ **`setTempoFactor` clamps to 0.25..2.0** — out-of-range values are silently clamped. _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-05** ✅ **`setLoop` applies `playbackRange` + `isLooping`** — null clears both. _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-06** ✅ **Engine `playerReady` event re-emits as `"ready"` on the session bus** — _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-07** ✅ **`playerStateChanged` emits `"played"` / `"paused"` based on the alphatab state value** — _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-08** ✅ **`playerPositionChanged` emits `"tick"` with `currentTick`** — _(unit: alphaTabEngine.test.ts.)_
+- **TAB-11.3-09** ✅ **`useTabEngine.playerStatus` reflects engine `played` / `paused` events** — _(unit: useTabEngine.test.tsx.)_
+- **TAB-11.3-10** ✅ **`useTabEngine.currentTick` reflects engine `tick` events** — _(unit: useTabEngine.test.tsx.)_
+- **TAB-11.3-11** ✅ **`useTabEngine.isAudioReady` flips true on `ready`** — _(unit: useTabEngine.test.tsx.)_
+- **TAB-11.3-12** ✅ **`useTabPlayback.toggle()` flips between play/pause based on `playerStatus`** — _(unit: useTabPlayback.test.tsx.)_
+- **TAB-11.3-13** ✅ **`useTabPlayback.play()` is a no-op when `isAudioReady` is false and sets `audioBlocked = true`** — _(unit: useTabPlayback.test.tsx.)_
+- **TAB-11.3-14** ✅ **`TabToolbar` play button is disabled until `isAudioReady`** — _(unit: TabToolbar.test.tsx.)_
+- **TAB-11.3-15** ✅ **`TabToolbar` tempo dropdown calls `onSetTempoFactor` with the chosen factor** — _(unit: TabToolbar.test.tsx.)_
+- **TAB-11.3-16** ✅ **`TabToolbar` loop checkbox toggles `onSetLoop` with a range vs null** — _(unit: TabToolbar.test.tsx.)_
+- **TAB-11.3-17** ✅ **`TabView` mounts the toolbar when status is `ready`** — _(unit: TabView.test.tsx.)_
+- **TAB-11.3-18** ✅ **`TabView` does not mount the toolbar in `engine-load-error` state** — _(unit: TabView.test.tsx.)_
+- **TAB-11.3-19** 🧪 **TabToolbar mounts alongside the canvas in a real browser** — Playwright opens an `.alphatex` file and confirms `tab-toolbar` testid + Play button are both visible. Click-and-verify of audio start was relaxed because alphatab's SoundFont/`playerReady` flow doesn't complete in headless Chromium within Playwright's timeout. _(e2e: e2e/tab.spec.ts.)_
+- **TAB-11.3-20** ❌ **Service-worker cache hit on second load** — `/soundfonts/sonivox.sf2` served from cache without a network request after first fetch. (Manual / future Lighthouse audit.)
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.3 Playback chrome** (TAB-005) — play/pause/scrub/loop/speed/count-in.
 - **§11.4 `.gp` import** (TAB-006) — drag-drop + palette command, save-as `.alphatex`.
 - **§11.5 Properties panel** (TAB-007 / TAB-007a) — tuning/capo/key/tempo + section attachments via `DocumentsSection`.
 - **§11.6 Vault search** (TAB-011) — title/artist/key/tuning indexed; lyrics body when `\lyrics` directive present.

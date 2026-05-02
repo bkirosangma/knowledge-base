@@ -652,13 +652,26 @@ Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 
 Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor in M2 (TAB-008+). See [`docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`](docs/superpowers/specs/2026-05-02-guitar-tabs-design.md).
 
-### 11.1 Foundation (TAB-001 → TAB-004)
+### 11.1 Foundation (TAB-001 → TAB-005)
 - ⚙️ **`TabEngine` domain interface** (`src/app/knowledge_base/domain/tabEngine.ts`) — engine-agnostic contract for mount/load/playback/edit; implemented by `AlphaTabEngine`.
 - ⚙️ **`TabRepository`** (`src/app/knowledge_base/infrastructure/tabRepo.ts`) — FSA-backed read/write of `.alphatex` text; provided through `RepositoryContext`.
-- ⚙️ **`AlphaTabEngine`** (`src/app/knowledge_base/infrastructure/alphaTabEngine.ts`) — implements `TabEngine` via lazy `import("@coderline/alphatab")` inside `mount()`; renders alphaTex score; `enablePlayer = false` until TAB-005 wires playback.
+- ⚙️ **`AlphaTabEngine`** (`src/app/knowledge_base/infrastructure/alphaTabEngine.ts`) — implements `TabEngine` via lazy `import("@coderline/alphatab")` inside `mount()`; renders alphaTex score; `enablePlayer = true` (TAB-005); SoundFont served from `/soundfonts/sonivox.sf2`.
 - ⚙️ **`"tab"` PaneType + routing** (`src/app/knowledge_base/shell/ToolbarContext.tsx`, `knowledgeBase.tsx:handleSelectFile`, `shared/utils/fileTree.ts`) — `.alphatex` files are visible in the explorer and open a tab pane.
-- ✅ **`TabView`** (`src/app/knowledge_base/features/tab/TabView.tsx`) — pane shell that mounts the engine via `useTabEngine` + `useTabContent`; loading / canvas / engine-load-error chrome; source-parse failures route to `ShellErrorContext`. Stubbed `TabViewStub` deleted in TAB-004.
-- ? **Playback chrome (toolbar, audio context)** — pending TAB-005.
+- ✅ **`TabView`** (`src/app/knowledge_base/features/tab/TabView.tsx`) — pane shell mounting `TabToolbar` + `TabCanvas`; loading / canvas / engine-load-error chrome; theme push via `useObservedTheme()`; source-parse failures route to `ShellErrorContext`.
+
+### 11.2 Playback chrome (TAB-005)
+- ✅ **Transport controls** (`features/tab/components/TabToolbar.tsx`) — play/pause toggle, stop, tempo dropdown (50%–150%), loop checkbox. Audio-blocked hint surfaces when play is attempted before the SoundFont is ready.
+- ⚙️ **`useTabPlayback` hook** (`features/tab/hooks/useTabPlayback.ts`) — wraps `TabSession` callables with null-safe no-ops and audio-blocked tracking.
+- ⚙️ **Engine playback wiring** — `play()` / `pause()` / `stop()` / `seek(tick)` / `setTempoFactor(0.25..2)` / `setLoop(range|null)` translate to alphatab. Player events (`playerReady`, `playerStateChanged`, `playerPositionChanged`) re-emit on the engine bus as `"ready"` / `"played"` / `"paused"` / `"tick"`.
+- ⚙️ **SoundFont vendoring** (`public/soundfonts/sonivox.sf2`) — 1.35 MB Sonivox GM SoundFont copied from `node_modules/@coderline/alphatab/dist/soundfont/`. Service worker (`public/sw.js`) precaches the file and serves cache-first under `/soundfonts/*` (KB-044 lane extension; `kb-static-v3`).
+- ⚙️ **Live theme adaptation** — `TabView` calls `session.render()` whenever `useObservedTheme()` reports a theme flip; alphatab re-paints the score with current chrome settings.
+
+### 11.3 Pending
+- ? **Properties panel** (tuning / capo / key / tempo / sections + attachments) — TAB-007 / TAB-007a.
+- ? **`.gp` import** — TAB-006.
+- ? **Vault search** (titles / artist / key / tuning) — TAB-011.
+- ? **Mobile gating** (read-only + playback only) — TAB-012.
+- ? **Editor (M2)** — TAB-008+.
 
 ---
 
