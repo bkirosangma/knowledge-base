@@ -20,6 +20,7 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 | 8 | `SEARCH` | Vault Search (KB-010) | [08-search.md](08-search.md) |
 | 9 | `EXPORT` | Export (KB-011) — diagram → SVG / PNG, document → print | [09-export.md](09-export.md) |
 | 10 | `FIRSTRUN` | First-run experience (KB-012) — hero + sample vault | [10-first-run.md](10-first-run.md) |
+| 14 | `TAB` | Guitar Tabs (`.alphatex`, `TabEngine`, `TabRepository`, viewer + editor) | [14-tabs.md](14-tabs.md) |
 
 ---
 
