@@ -38,6 +38,9 @@ class FakeApi {
   constructor(public element: HTMLElement, settings: unknown) {
     this.settings = settings as typeof this.settings;
     capturedSettings = this.settings;
+    // Tests need to fire events on the constructed instance from outside;
+    // exposing it via a module-level ref is the simplest fixture pattern.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     fakeApiInstance = this;
   }
   tex(text: string) {
