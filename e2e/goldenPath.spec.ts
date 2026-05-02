@@ -114,14 +114,17 @@ test.describe('Golden path — pane swaps + Header reflects active file', () => 
     await expect(saveBtn).toBeDisabled()
   })
 
-  test('empty "No file open" state disappears once a file is opened', async ({ page }) => {
+  test('empty-state pane disappears once a file is opened (KB-045)', async ({ page }) => {
     await setupFs(page, { 'note.md': '# Hello' })
     await openFolder(page)
-    // Before clicking, the emptyState is visible.
-    await expect(page.getByText('No file open')).toBeVisible()
+    // Before clicking, the EmptyState (KB-045 replacement for the
+    // generic "No file open" copy) is visible with its shortcut/recents
+    // chrome.
+    await expect(page.getByTestId('empty-state')).toBeVisible()
+    await expect(page.getByTestId('empty-state-new-note')).toBeVisible()
 
     await page.getByText('note.md').first().click()
-    // Once a doc is open, the empty-state copy is gone.
-    await expect(page.getByText('No file open')).toHaveCount(0)
+    // Once a doc is open, the empty-state pane is unmounted.
+    await expect(page.getByTestId('empty-state')).toHaveCount(0)
   })
 })

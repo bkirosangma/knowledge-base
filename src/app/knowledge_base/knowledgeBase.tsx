@@ -5,6 +5,7 @@ import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
 import UnsupportedBrowserCard from "./shared/components/UnsupportedBrowserCard";
 import FirstRunHero from "./shared/components/FirstRunHero";
+import EmptyState from "./shared/components/EmptyState";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
@@ -1058,19 +1059,21 @@ function KnowledgeBaseInner() {
   // with the FirstRunHero. The explorer's own "No folder open" UI on
   // the left sidebar is unaffected per the audit-plan spec.
   const noVaultOpen = !fileExplorer.directoryName && fileExplorer.tree.length === 0;
+  const handleEmptyStateNewNote = useCallback(async () => {
+    const created = await fileExplorer.createDocument("");
+    if (created) handleSelectFile(created);
+  }, [fileExplorer, handleSelectFile]);
   const emptyState = noVaultOpen ? (
     <FirstRunHero
       onOpenFolder={fileExplorer.openFolder}
       onOpenWithSeed={fileExplorer.openFolderWithSeed}
     />
   ) : (
-    <div className="flex-1 flex items-center justify-center bg-surface-2">
-      <div className="flex flex-col items-center gap-3 text-mute">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-mute opacity-60"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
-        <p className="text-sm font-medium">No file open</p>
-        <p className="text-xs text-mute">Open a file from the explorer to start editing</p>
-      </div>
-    </div>
+    <EmptyState
+      recents={recentFiles}
+      onSelectRecent={handleSelectFile}
+      onCreateNote={handleEmptyStateNewNote}
+    />
   );
 
   // ─── Mobile read pane content ───
