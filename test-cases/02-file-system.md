@@ -143,6 +143,7 @@
 - **FS-2.5-06** ✅ **Create-new button prompts** — toggles to an input field with autofocus; Enter or clicking `Create` invokes `onCreate(path)` + `onClose`.
 - **FS-2.5-07** ✅ **Create-new normalises extension** — path without `.md` auto-appends `.md` before calling `onCreate`; path already ending in `.md` passes through unchanged.
 - **FS-2.5-08** ✅ **Cancel closes without attach** — backdrop click, X button, and the close button all call `onClose`. Escape in the create input reverts to the toggle (does NOT call `onClose` or `onCreate`). Empty/whitespace create names are rejected (no `onCreate`/`onClose`).
+- **FS-2.5-09** ✅ **Create row gated on `onCreate`** — when the consumer omits `onCreate`, the entire create section is not rendered (no "Create new document" toggle button). Replaces the prior silent-no-op behavior in `TabView` before vault open. _(unit: `DocumentPicker.test.tsx`.)_
 
 ## 2.6 Boundary Error Surface (Phase 5c)
 

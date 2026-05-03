@@ -199,6 +199,22 @@ describe('DocumentPicker — create flow', () => {
     expect(onCreate).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  // FS-2.5-09: Create row only renders when the consumer wires onCreate.
+  // Pre-fix: the row showed even when the create handler would no-op
+  // (e.g. TabView before vault open) — clicking did nothing, masking the
+  // missing wireup. Now `onCreate` is optional and the section is gated.
+  it('Create row is not rendered when onCreate is undefined', () => {
+    render(
+      <DocumentPicker
+        allDocPaths={['a.md']}
+        attachedPaths={[]}
+        onAttach={() => {}}
+        onClose={() => {}}
+      />,
+    )
+    expect(screen.queryByText('Create new document')).toBeNull()
+  })
 })
 
 function fileCreateFlow() {

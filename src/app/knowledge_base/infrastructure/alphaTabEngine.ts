@@ -55,6 +55,10 @@ const PLAYBACK_SPEED_MAX = 2.0;
 const PLAYER_STATE_PAUSED = 0;
 const PLAYER_STATE_PLAYING = 1;
 
+// alphaTab LogLevel.Info (upstream default). Debug=1 was carry-over from
+// TAB-004 and was too noisy in the browser console once playback shipped.
+const LOG_LEVEL_INFO = 2;
+
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
@@ -64,7 +68,7 @@ export class AlphaTabEngine implements TabEngine {
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
-    settings.core.logLevel = 1;
+    settings.core.logLevel = LOG_LEVEL_INFO;
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(api);
