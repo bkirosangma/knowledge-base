@@ -298,3 +298,72 @@ describe('fullRebuild (DOC-4.10-11/12)', () => {
     expect(index!.documents['missing.md']).toBeUndefined()
   })
 })
+
+describe('fullRebuild — .alphatex tabs (TAB-011)', () => {
+  it('TAB-11.6-04: indexes outbound wiki-links from a tab\'s // references: line', async () => {
+    // Use absolute wiki-link paths (/…) so resolveWikiLinkPath anchors at vault root
+    // regardless of the tab's directory (songs/). See resolveWikiLinkPath — leading /
+    // strips the slash and resolves from vault root.
+    await seedFile(root, 'songs/wonderwall.alphatex',
+      `\\title "Wonderwall"\n` +
+      `// references: [[/notes/song-history.md]] [[/diagrams/chord-tree.json]]\n` +
+      `. r.4 |`,
+    );
+    await seedFile(root, 'notes/song-history.md', '# History');
+    await seedFile(root, 'diagrams/chord-tree.json', '{"title":"chords","layers":[],"nodes":[],"connections":[]}');
+
+    const { result } = renderHook(() => useLinkIndex());
+    const index = await act(async () =>
+      result.current.fullRebuild(asRoot(root), [
+        'songs/wonderwall.alphatex',
+        'notes/song-history.md',
+        'diagrams/chord-tree.json',
+      ]),
+    );
+
+    expect(index.documents['songs/wonderwall.alphatex'].outboundLinks).toEqual([
+      { targetPath: 'notes/song-history.md', type: 'document' },
+      { targetPath: 'diagrams/chord-tree.json', type: 'diagram' },
+    ]);
+  });
+
+  it('TAB-11.6-05: ignores // lines that aren\'t // references: in a tab', async () => {
+    await seedFile(root, 'a.alphatex',
+      `\\title "X"\n` +
+      `// some other comment [[ignored.md]]\n` +
+      `// references: [[real.md]]\n`,
+    );
+
+    const { result } = renderHook(() => useLinkIndex());
+    const index = await act(async () =>
+      result.current.fullRebuild(asRoot(root), ['a.alphatex']),
+    );
+
+    expect(index.documents['a.alphatex'].outboundLinks).toEqual([
+      { targetPath: 'real.md', type: 'document' },
+    ]);
+  });
+
+  it('TAB-11.6-06: backlinks from .md → .alphatex resolve via the wiki-link parser', async () => {
+    await seedFile(root, 'songs/wonderwall.alphatex',
+      `\\title "Wonderwall"\n. r.4 |`,
+    );
+    await seedFile(root, 'notes/about.md',
+      // Use absolute path (/songs/…) so the link resolves to vault root, not
+      // relative to notes/ (which would give notes/songs/wonderwall.alphatex).
+      'See [[/songs/wonderwall.alphatex]] for the tab.',
+    );
+
+    const { result } = renderHook(() => useLinkIndex());
+    const index = await act(async () =>
+      result.current.fullRebuild(asRoot(root), [
+        'songs/wonderwall.alphatex',
+        'notes/about.md',
+      ]),
+    );
+
+    expect(index.documents['notes/about.md'].outboundLinks).toEqual([
+      { targetPath: 'songs/wonderwall.alphatex', type: 'tab' },
+    ]);
+  });
+});
