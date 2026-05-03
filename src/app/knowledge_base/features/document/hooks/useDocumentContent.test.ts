@@ -238,6 +238,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       linkIndex: null,
       svg: null,
       tab: null,
+      tabRefs: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -323,6 +324,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       linkIndex: null,
       svg: null,
       tab: null,
+      tabRefs: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -374,6 +376,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       linkIndex: null,
       svg: null,
       tab: null,
+      tabRefs: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
@@ -423,6 +426,7 @@ describe('useDocumentContent — loadedPath field', () => {
       linkIndex: null,
       svg: null,
       tab: null,
+      tabRefs: null,
       vaultConfig: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {

@@ -26,6 +26,7 @@ function wrap(children: ReactNode) {
           attachment: null, document: null, diagram: null,
           linkIndex: null, svg: null, vaultConfig: null,
           tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
+          tabRefs: null,
         }}
       >
         {children}

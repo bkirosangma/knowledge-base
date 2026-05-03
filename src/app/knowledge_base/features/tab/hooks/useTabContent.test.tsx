@@ -13,7 +13,7 @@ function renderWithTab(
   const stub: Repositories = {
     attachment: null, document: null, diagram: null,
     linkIndex: null, svg: null, vaultConfig: null,
-    tab: tab as Repositories["tab"],
+    tab: tab as Repositories["tab"], tabRefs: null,
   };
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(StubRepositoryProvider, { value: stub, children });
@@ -52,7 +52,7 @@ describe("useTabContent", () => {
     const stub: Repositories = {
       attachment: null, document: null, diagram: null,
       linkIndex: null, svg: null, vaultConfig: null,
-      tab: { read, write } as Repositories["tab"],
+      tab: { read, write } as Repositories["tab"], tabRefs: null,
     };
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(StubRepositoryProvider, { value: stub, children });

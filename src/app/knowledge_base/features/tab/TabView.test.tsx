@@ -67,7 +67,7 @@ function Wrap({ children, read = vi.fn().mockResolvedValue("\\title \"hi\"\n.") 
         value={{
           attachment: null, document: null, diagram: null,
           linkIndex: null, svg: null, vaultConfig: null,
-          tab: { read, write: vi.fn() },
+          tab: { read, write: vi.fn() }, tabRefs: null,
         }}
       >
         {children}
@@ -151,7 +151,7 @@ describe("TabView", () => {
           value={{
             attachment: null, document: null, diagram: null,
             linkIndex: null, svg: null, vaultConfig: null,
-            tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
+            tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() }, tabRefs: null,
           }}
         >
           <TabView filePath="bad.alphatex" />
