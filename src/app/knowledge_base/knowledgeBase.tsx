@@ -45,7 +45,7 @@ import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
-import { CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
+import { Command, CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 import { useTheme } from "./shared/hooks/useTheme";
@@ -68,6 +68,32 @@ export function updateDirtySet(prev: Set<string>, path: string, dirty: boolean):
   if (dirty) next.add(path);
   else next.delete(path);
   return next;
+}
+
+/**
+ * TAB-012 T2 — pure builder for the `tabs.import-gp` palette command.
+ *
+ * Extracted so the gating rule "hide on mobile (KB-040 stance: no
+ * editor → no point in importing)" can be unit-tested without
+ * spinning up KnowledgeBaseInner.
+ *
+ * The `useMemo` deps array in the shell MUST include `isMobile`;
+ * without it the closure goes stale on viewport rotation/resize and
+ * the gate breaks.
+ */
+export function buildImportGpCommands(args: {
+  gpImport: { pickFile: () => void };
+  directoryName: string | null;
+  isMobile: boolean;
+}): Command[] {
+  return [{
+    id: "tabs.import-gp",
+    title: "Import Guitar Pro file…",
+    group: "File",
+    // KB-040: hide on mobile (no editor → no point in importing).
+    when: () => !args.isMobile && args.directoryName !== null,
+    run: () => args.gpImport.pickFile(),
+  }];
 }
 
 function KnowledgeBaseInner() {
@@ -841,13 +867,14 @@ function KnowledgeBaseInner() {
     tab: tabRepoForImport,
     onImported: handleTabImported,
   });
-  const importGpCommands = useMemo(() => [{
-    id: "tabs.import-gp",
-    title: "Import Guitar Pro file…",
-    group: "File",
-    when: () => fileExplorer.directoryName !== null,
-    run: () => gpImport.pickFile(),
-  }], [gpImport, fileExplorer.directoryName]);
+  const importGpCommands = useMemo(
+    () => buildImportGpCommands({
+      gpImport,
+      directoryName: fileExplorer.directoryName,
+      isMobile,
+    }),
+    [gpImport, fileExplorer.directoryName, isMobile],
+  );
   useRegisterCommands(importGpCommands);
 
   useEffect(() => {
