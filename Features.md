@@ -693,8 +693,17 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ⚙️ **`TabReferencesList`** (`src/app/knowledge_base/features/tab/properties/TabReferencesList.tsx`) — small presentational component used twice per panel for the merge / de-dupe / detach UX.
 - ⚙️ **`TabPaneContext`** (`src/app/knowledge_base/knowledgeBase.tabRouting.helper.tsx`) — wireup-context interface forwarded to `TabView` from the parent shell. All fields optional so unit tests calling `renderTabPaneEntry(entry)` continue to render a bare TabView.
 
-### 11.7 Pending
-- ? **Mobile gating** (read-only + playback only) — TAB-012.
+### 11.7 Mobile (TAB-012)
+
+KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, ≤900px).
+
+- ✅ **`TabView` mounts read-only on mobile.** `KnowledgeBaseInner` injects `readOnly: isMobile` into `TabPaneContext` via the pure `buildTabPaneContext` helper (`knowledgeBase.tabRouting.helper.tsx`). `TabProperties` already suppresses Attach affordances and `TabReferencesList` suppresses detach when `readOnly` is true (TAB-007a).
+- ✅ **`tabs.import-gp` palette command hidden on mobile.** The pure `buildImportGpCommands` helper (`knowledgeBase.tsx`) returns a `when:` predicate gated on `!isMobile && directoryName !== null`; `isMobile` is in the `useMemo` deps so viewport flips re-evaluate.
+- ✅ **Editor lazy-load marker.** `TabView` carries a TAB-008 stub comment so any future editor surface is wrapped in `next/dynamic({ ssr: false })` and gated on `!readOnly` — keeps the editor chunk out of the mobile bundle from day one.
+- ⚙️ **Files-tab routing.** `MobileShell.onSelectFile(path)` already routes `.alphatex` via `panes.openFile(path, "tab")` (no change in TAB-012).
+
+### 11.8 Pending
+
 - ? **Editor (M2)** — TAB-008+.
 
 ---

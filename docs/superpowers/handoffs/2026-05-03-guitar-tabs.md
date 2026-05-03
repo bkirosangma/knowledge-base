@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (after TAB-007a merged; TAB-012 is next).
+**Last updated:** 2026-05-03 (TAB-007a merged via PR #108; TAB-012 PR #109 open on `plan/guitar-tabs-mobile`).
 
 ---
 
@@ -66,9 +66,10 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | (handoff refresh) | Post-TAB-007 handoff update | [#105](https://github.com/bkirosangma/knowledge-base/pull/105) | ✅ Merged |
 | TAB-011 | Vault search + wiki-link integration (`alphatexHeader`, `tabFields`, `buildTabEntry`, `handleTabImported`) | [#106](https://github.com/bkirosangma/knowledge-base/pull/106) | ✅ Merged |
 | (handoff refresh) | Post-TAB-011 handoff update | [#107](https://github.com/bkirosangma/knowledge-base/pull/107) | ✅ Merged |
-| TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | 🚧 In flight |
+| TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | ✅ Merged |
+| TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | 🚧 In flight |
 
-**TAB-012** is the next ticket. The TAB-007a PR ([#108](https://github.com/bkirosangma/knowledge-base/pull/108)) is in flight on branch `plan/guitar-tabs-properties-cross-refs`.
+After TAB-012 merges, **M1 (viewer ship-point) is complete** — natural pause-and-evaluate boundary per the spec.
 
 ---
 
@@ -78,7 +79,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 | Ticket | Title | Effort | Dependencies | Status |
 |---|---|---|---|---|
-| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | ❌ Not started — **next** |
+| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | 🚧 PR #109 |
 
 After this, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
 
@@ -184,6 +185,7 @@ docs/superpowers/
   plans/2026-05-03-guitar-tabs-search-links.md   ← TAB-011
   plans/2026-05-03-tab-cross-references.md       ← TAB-007a
   specs/2026-05-03-tab-cross-references-design.md ← TAB-007a
+  plans/2026-05-03-guitar-tabs-mobile.md         ← TAB-012
   handoffs/2026-05-03-guitar-tabs.md             ← THIS doc — session resume + ticket status
 ```
 
@@ -211,40 +213,18 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-012: Mobile read-only + playback** — branch not yet created. 2-day ticket. Last M1 ticket — after this, M1 = "viewer ship-point" complete. No dependencies block it (TAB-005 playback shipped long ago).
+**TAB-012: Mobile read-only + playback** — `plan/guitar-tabs-mobile` is in flight. Last M1 ticket — after this, M1 = "viewer ship-point" complete.
 
-Bootstrap:
-- `git checkout main && git pull --ff-only`
-- `git checkout -b plan/guitar-tabs-mobile`
+Read the plan first: [`docs/superpowers/plans/2026-05-03-guitar-tabs-mobile.md`](../plans/2026-05-03-guitar-tabs-mobile.md). It carries the full T1–T6 task list, verified pre-implementation context, acceptance criteria, and risk register. Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Mobile (KB-040 stance)" (~L294) and "Acceptance for M1 ship" (~L450).
 
-Spec section to read in `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`:
-- **"Mobile (KB-040 stance)"** (~L260): defines the mobile contract — read-only + playback only.
-  - Files tab: `.alphatex` files visible alongside docs and diagrams.
-  - Read tab: `TabView` mounts in `readOnly` mode. Toolbar shows play/pause/loop/scrub. Editor surface is dropped from the bundle (`next/dynamic` lazy import only on desktop).
-  - Properties panel: sections + tuning shown read-only. (TAB-007a's Attach affordances and detach buttons must auto-hide via the existing `readOnly` flag — already wired.)
-  - **No "Create new tab" button on mobile** — matches `.md` / `.json` mobile gating.
+**TL;DR scope:**
+- T1: inject `readOnly: useViewport().isMobile` into `TabPaneContext` at the `renderTabPaneEntry` call site in `knowledgeBase.tsx`.
+- T2: gate `tabs.import-gp` palette command on `!isMobile` (and add `isMobile` to the `useMemo` deps — without it the closure goes stale on rotation).
+- T3: stub comment in `TabView.tsx` signposting TAB-008 to lazy-load its editor via `next/dynamic({ ssr: false })`.
+- T4 + T5: `Features.md` §11.7 Mobile (push Pending → §11.8); `test-cases/11-tabs.md` §11.8 with TAB-11.8-01 → -08.
+- T6 (best-effort): `e2e/tabsMobile.spec.ts` mobile-viewport smoke.
 
-Patterns to mirror (grep first):
-- `useResponsive` / `useIsMobile` hooks if they exist; otherwise check how `.md` / `.json` mobile gating is implemented today (search `mobile` and `isMobile` in `src/app/knowledge_base/shell/` and palette command files).
-- The "Create new" palette commands for documents and diagrams — find the spot that gates them on mobile and add a sibling gate for `.alphatex`.
-- `TabView`'s `readOnly` prop already exists (TAB-007a) and threads through to `TabProperties` to suppress chrome — verify it actually suppresses the toolbar's edit-only affordances when set (none today, since TAB-008 editor isn't built yet — this is the contract for when TAB-008 lands).
-
-Ship target:
-- `TabView` accepts/respects `readOnly` end-to-end on mobile (Files-tab routing always passes `readOnly={isMobile}`).
-- "Create new tab" palette command gated off on mobile (parallel to `.md` / `.json`).
-- Mobile bundle size: `next/dynamic` lazy import on the editor surface (which doesn't exist yet — drop in a marker comment so TAB-008 picks it up).
-- `Features.md` §11.7 → new §11.7 Mobile entry (push Pending to §11.8 if Mobile-Editor distinction matters; otherwise keep as §11.7).
-- `test-cases/11-tabs.md` §11.8 (next free) for mobile gating cases.
-
-Out of scope:
-- Editor surfaces (TAB-008+).
-- Touch-first UX overhaul of toolbar (defer if TAB-005's existing transport works adequately on touch).
-- Mobile-specific keyboard shortcut adjustments.
-
-Brainstorm decisions to confirm:
-1. **`isMobile` source of truth.** Existing hook? Viewport-based vs UA sniff? Pick one and reuse.
-2. **`readOnly` propagation.** Does Files-tab routing already know `isMobile`? Where does the flag flow into `renderTabPaneEntry`?
-3. **Bundle exclusion.** `next/dynamic` with `{ ssr: false }` is the default for client-only chunks. Editor doesn't exist yet — leave a clear stub for TAB-008 rather than building infra for vapor.
+**Resolved brainstorm decisions:** `useViewport()` from `src/app/knowledge_base/shared/hooks/useViewport.ts` (≤900px). `readOnly` flow: `KnowledgeBaseInner` → `TabPaneContext` → `TabView` → `TabProperties`. Editor lazy-load is forward-looking — the TAB-008 surface doesn't exist yet, so just a marker comment.
 
 ---
 
