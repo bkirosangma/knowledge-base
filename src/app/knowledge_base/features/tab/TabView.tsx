@@ -11,6 +11,7 @@ import { useTabPlayback } from "./hooks/useTabPlayback";
 import { TabProperties } from "./properties/TabProperties";
 import type { DocumentMeta } from "../document/types";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
+import DocumentPicker from "../../shared/components/DocumentPicker";
 
 const noopMigrate = () => {};
 
@@ -33,8 +34,12 @@ export interface TabViewProps {
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
+  getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
+  allDocPaths?: string[];
+  rootHandle?: FileSystemDirectoryHandle | null;
   onMigrateAttachments?: (
     filePath: string,
     migrations: { from: string; to: string }[],
@@ -47,8 +52,12 @@ export function TabView({
   backlinks,
   readOnly,
   onPreviewDocument,
-  onOpenDocPicker,
   onDetachDocument,
+  onAttachDocument,
+  onCreateDocument,
+  getDocumentsForEntity,
+  allDocPaths,
+  rootHandle,
   onMigrateAttachments,
 }: TabViewProps) {
   const { content, loadError } = useTabContent(filePath);
@@ -101,6 +110,10 @@ export function TabView({
     if (status !== "ready" || !session) return;
     session.render();
   }, [theme, status, session]);
+
+  const [pickerTarget, setPickerTarget] = useState<
+    { type: "tab" | "tab-section"; id: string } | null
+  >(null);
 
   useTabSectionSync(
     filePath,
@@ -165,9 +178,29 @@ export function TabView({
         backlinks={backlinks}
         readOnly={readOnly}
         onPreviewDocument={onPreviewDocument}
-        onOpenDocPicker={onOpenDocPicker}
+        onOpenDocPicker={onAttachDocument ? (type, id) => setPickerTarget({ type, id }) : undefined}
         onDetachDocument={onDetachDocument}
       />
+      {pickerTarget && onAttachDocument && (
+        <DocumentPicker
+          allDocPaths={allDocPaths ?? []}
+          attachedPaths={
+            getDocumentsForEntity
+              ? getDocumentsForEntity(pickerTarget.type, pickerTarget.id).map((d) => d.filename)
+              : []
+          }
+          onAttach={(path) => {
+            onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+          }}
+          onCreate={async (path) => {
+            if (rootHandle && onCreateDocument) {
+              await onCreateDocument(rootHandle, path);
+              onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+            }
+          }}
+          onClose={() => setPickerTarget(null)}
+        />
+      )}
     </div>
   );
 }

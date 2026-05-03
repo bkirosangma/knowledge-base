@@ -997,7 +997,34 @@ function KnowledgeBaseInner() {
     }
 
     if (entry.fileType === "tab") {
-      return renderTabPaneEntry(entry);
+      return renderTabPaneEntry(entry, {
+        documents: docManager.documents,
+        backlinks: entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : [],
+        onPreviewDocument: (docPath) => handleOpenDocument(docPath),
+        onAttachDocument: (docPath, entityType, entityId) => {
+          docManager.attachDocument(
+            docPath,
+            entityType as "tab" | "tab-section",
+            entityId,
+          );
+        },
+        onDetachDocument: (docPath, entityType, entityId) => {
+          docManager.detachDocument(docPath, entityType, entityId);
+        },
+        onCreateDocument: async (rootHandle, path) => {
+          try {
+            await docManager.createDocument(rootHandle, path);
+          } catch (e) {
+            reportError(e, `Creating ${path}`);
+          }
+        },
+        getDocumentsForEntity: docManager.getDocumentsForEntity,
+        allDocPaths: docManager.collectDocPaths(fileExplorer.tree),
+        rootHandle: fileExplorer.dirHandleRef.current,
+        onMigrateAttachments: (path, migrations) => {
+          docManager.migrateAttachments(path, migrations);
+        },
+      });
     }
 
     return (

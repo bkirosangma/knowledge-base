@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { DocumentMeta } from "../document/types";
+import type { TabMetadata } from "../../domain/tabEngine";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
@@ -8,7 +9,7 @@ import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 
 const mountIntoMock = vi.fn();
 let mockStatus: string = "idle";
-const baseMetadata = {
+const baseMetadata: TabMetadata = {
   title: "hi",
   tempo: 120,
   timeSignature: { numerator: 4, denominator: 4 },
@@ -19,7 +20,7 @@ const baseMetadata = {
   totalBeats: 0,
   durationSeconds: 0,
 };
-let mockMetadata: typeof baseMetadata | null = null;
+let mockMetadata: TabMetadata | null = null;
 let mockError: Error | null = null;
 
 vi.mock("./hooks/useTabEngine", () => ({
@@ -217,6 +218,59 @@ describe("TabView", () => {
     );
     expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
     localStorage.removeItem("properties-collapsed");
+  });
+});
+
+describe("TabView — DocumentPicker integration", () => {
+  beforeEach(() => {
+    mountIntoMock.mockReset().mockResolvedValue(undefined);
+    mockStatus = "idle";
+    mockMetadata = null;
+    mockError = null;
+  });
+
+  it("opens DocumentPicker when section Attach is clicked, calls onAttachDocument on pick", async () => {
+    const onAttachDocument = vi.fn();
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    const user = userEvent.setup();
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onAttachDocument={onAttachDocument}
+          getDocumentsForEntity={() => []}
+          allDocPaths={["notes/intro-theory.md"]}
+        />
+      </Wrap>,
+    );
+    await user.click(screen.getByTestId("attach-section-intro"));
+    // DocumentPicker is now mounted — find the document button and click it
+    const docButton = await screen.findByRole("button", { name: /intro-theory\.md/i });
+    await user.click(docButton);
+    expect(onAttachDocument).toHaveBeenCalledWith(
+      "notes/intro-theory.md",
+      "tab-section",
+      "tabs/song.alphatex#intro",
+    );
+  });
+
+  it("does not render DocumentPicker when onAttachDocument is not provided", async () => {
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+        />
+      </Wrap>,
+    );
+    // No attach button should be rendered since onAttachDocument is absent
+    expect(screen.queryByTestId("attach-section-intro")).not.toBeInTheDocument();
   });
 });
 
