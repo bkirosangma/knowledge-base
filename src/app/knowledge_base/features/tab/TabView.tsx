@@ -195,12 +195,14 @@ export function TabView({
           onAttach={(path) => {
             onAttachDocument(path, pickerTarget.type, pickerTarget.id);
           }}
-          onCreate={async (path) => {
-            if (rootHandle && onCreateDocument) {
-              await onCreateDocument(rootHandle, path);
-              onAttachDocument(path, pickerTarget.type, pickerTarget.id);
-            }
-          }}
+          onCreate={
+            rootHandle && onCreateDocument
+              ? async (path) => {
+                  await onCreateDocument(rootHandle, path);
+                  onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+                }
+              : undefined
+          }
           onClose={() => setPickerTarget(null)}
         />
       )}

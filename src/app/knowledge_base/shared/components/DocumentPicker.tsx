@@ -9,7 +9,10 @@ interface DocumentPickerProps {
   allDocPaths: string[];
   attachedPaths: string[];        // already attached to this entity
   onAttach: (path: string) => void;
-  onCreate: (path: string) => void;
+  // Optional: when omitted, the Create row is hidden. Consumers that lack
+  // a usable rootHandle / create handler should pass undefined so the
+  // affordance doesn't lie about what's possible.
+  onCreate?: (path: string) => void;
   onClose: () => void;
 }
 
@@ -86,46 +89,48 @@ export default function DocumentPicker({
         </div>
 
         {/* Create new */}
-        <div className="px-4 py-2 border-t border-slate-200">
-          {showCreate ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                autoFocus
-                value={newDocName}
-                onChange={e => setNewDocName(e.target.value)}
-                placeholder="docs/new-document.md"
-                className="flex-1 text-xs px-2 py-1.5 border border-slate-200 rounded outline-none focus:border-blue-400"
-                onKeyDown={e => {
-                  if (e.key === "Enter" && newDocName.trim()) {
-                    const path = newDocName.endsWith(".md") ? newDocName : `${newDocName}.md`;
-                    onCreate(path);
-                    onClose();
-                  }
-                  if (e.key === "Escape") setShowCreate(false);
-                }}
-              />
+        {onCreate && (
+          <div className="px-4 py-2 border-t border-slate-200">
+            {showCreate ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={newDocName}
+                  onChange={e => setNewDocName(e.target.value)}
+                  placeholder="docs/new-document.md"
+                  className="flex-1 text-xs px-2 py-1.5 border border-slate-200 rounded outline-none focus:border-blue-400"
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newDocName.trim()) {
+                      const path = newDocName.endsWith(".md") ? newDocName : `${newDocName}.md`;
+                      onCreate(path);
+                      onClose();
+                    }
+                    if (e.key === "Escape") setShowCreate(false);
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (newDocName.trim()) {
+                      const path = newDocName.endsWith(".md") ? newDocName : `${newDocName}.md`;
+                      onCreate(path);
+                      onClose();
+                    }
+                  }}
+                  className="text-xs px-2 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Create
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={() => {
-                  if (newDocName.trim()) {
-                    const path = newDocName.endsWith(".md") ? newDocName : `${newDocName}.md`;
-                    onCreate(path);
-                    onClose();
-                  }
-                }}
-                className="text-xs px-2 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700"
               >
-                Create
+                <Plus size={12} /> Create new document
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700"
-            >
-              <Plus size={12} /> Create new document
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

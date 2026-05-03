@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (TAB-007a merged via PR #108; TAB-012 PR #109 open on `plan/guitar-tabs-mobile`).
+**Last updated:** 2026-05-03 (TAB-012 merged via PR #109 — **M1 viewer ship-point complete**; parked items #1, #2, #13 closed via skill fix + `plan/tabs-parked-cleanup-1`).
 
 ---
 
@@ -67,21 +67,18 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-011 | Vault search + wiki-link integration (`alphatexHeader`, `tabFields`, `buildTabEntry`, `handleTabImported`) | [#106](https://github.com/bkirosangma/knowledge-base/pull/106) | ✅ Merged |
 | (handoff refresh) | Post-TAB-011 handoff update | [#107](https://github.com/bkirosangma/knowledge-base/pull/107) | ✅ Merged |
 | TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | ✅ Merged |
-| TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | 🚧 In flight |
+| TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | ✅ Merged |
+| (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | `plan/tabs-parked-cleanup-1` | 🚧 In flight |
 
-After TAB-012 merges, **M1 (viewer ship-point) is complete** — natural pause-and-evaluate boundary per the spec.
+**M1 (viewer ship-point) is complete.** Natural pause-and-evaluate boundary per the spec.
 
 ---
 
 ## Remaining tickets
 
-### M1 viewer ship-point (remaining)
+### M1 viewer ship-point — ✅ Complete
 
-| Ticket | Title | Effort | Dependencies | Status |
-|---|---|---|---|---|
-| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | 🚧 PR #109 |
-
-After this, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
+All M1 tickets merged (TAB-001 → TAB-007a + TAB-011 + TAB-012). Mobile read-only + playback shipped via PR #109. Natural pause-and-evaluate boundary reached.
 
 ### M2 editor ship-point
 
@@ -98,8 +95,8 @@ After this, M1 = "viewer ship-point" complete. Natural pause-and-evaluate bounda
 
 These were flagged during reviews and intentionally deferred. The user explicitly asked to **revisit after all TAB tickets ship** — surface them at the M1 ship boundary or whenever the user invokes `/knowledge-base guitar-tabs` and sees fallout.
 
-1. **`~/.claude/skills/knowledge-base/commands/guitar-tabs.md` bug list** — see memory `project_guitar_tabs_skill_bugs.md`. Three `%` → `//` syntax sites (will break alphaTab parsing if the skill output is followed verbatim), tuning-direction comment flip, and a link-index claim that's overstated until TAB-011 ships.
-2. **`alphaTabEngine.ts` logLevel = 1 (Debug)** — was already in the TAB-004 baseline; reviewer flagged in TAB-005 review as an Important-Minor cleanup. Set to `2` (Info) or import the named constant. One-line change.
+1. **~~`~/.claude/skills/knowledge-base/commands/guitar-tabs.md` bug list~~** — _Closed by post-M1 skill fix (commit `2d81e4d` in `~/.claude/skills/knowledge-base`)_: 4 `%`→`//` sites fixed, tuning comment flipped low→high with corrected example pitches, link-index claim refined to "single `// references:` line", validation hook section flipped to active tense.
+2. **~~`alphaTabEngine.ts` logLevel = 1 (Debug)~~** — _Closed by `plan/tabs-parked-cleanup-1`_: replaced with named constant `LOG_LEVEL_INFO = 2` matching the existing `PLAYER_STATE_*` style. Test asserts the value.
 3. **`useGpImport`'s `opts` memo churn (M1 from TAB-006 review)** — final TAB-006 fix in commit `7e0dbd5` already addressed this via the ref pattern; nothing left to do, leaving here as a note.
 4. **e2e for the GP import flow (TAB-11.4-06)** — currently ❌. Driving native file picker in headless Chromium needs a custom mock layer. Defer until there's a clean fixture pattern.
 5. **Playwright `clicking Play` smoke (TAB-11.3-19)** — currently 🧪 but relaxed: only asserts the toolbar mounts; SoundFont readiness doesn't fire in headless Chromium within timeout. Could be tightened by mocking `playerReady` or using a tiny SoundFont fixture.
@@ -110,7 +107,7 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 10. **`REFERENCES_LINE` regex duplicated in two sites** — `infrastructure/alphatexHeader.ts` and `features/document/hooks/useLinkIndex.ts` both define `/^\s*\/\/\s*references\s*:\s*(.*)$/gim`. Two lines of repetition isn't worth a shared module; if a third caller appears, hoist to `alphatexHeader.ts` and re-export.
 11. **Audit diagram flow rename/delete attachment integrity** — flow ids are stable so rename is safe by construction, but deletion may leave orphan `attachedTo` entries (no cleanup hook visible in `DiagramView`). Triggered by user request during TAB-007a brainstorm; spec a fix once tabs ship.
 12. **Side-car stable section ids for tabs** — TAB-007a's position-based section-rename reconciliation (`useTabSectionSync`) breaks if the user renames *and* reorders sections in the same save. True stability requires persisting a `name → stableId` map per tab (e.g., `tabs/song.alphatex.refs.json`) so renames survive reorder. Targets TAB-008/M2 when the editor lands and renames become first-class.
-13. **`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing** — when `rootHandle` or `onCreateDocument` is unwired, clicking "Create" inside the picker does nothing (no toast, no error). In production this only matters before vault open, but it could mask wireup regressions. Either gate the Create row in `DocumentPicker` or surface a `reportError` from the no-op branch. Surfaced in T9 review.
+13. **~~`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing~~** — _Closed by `plan/tabs-parked-cleanup-1`_: `onCreate` is now optional on `DocumentPicker` and the row is gated on its presence. Both consumers (`TabView`, `DiagramOverlays`) pass `onCreate` only when their prerequisites are wired. New test FS-2.5-09.
 
 ---
 
@@ -213,18 +210,20 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-012: Mobile read-only + playback** — `plan/guitar-tabs-mobile` is in flight. Last M1 ticket — after this, M1 = "viewer ship-point" complete.
+**M1 ship-point reached.** TAB-012 merged via PR #109; the parked-cleanup branch (`plan/tabs-parked-cleanup-1`) is in flight to close items #1, #2, #13 plus the handoff refresh. After it merges, M2 begins.
 
-Read the plan first: [`docs/superpowers/plans/2026-05-03-guitar-tabs-mobile.md`](../plans/2026-05-03-guitar-tabs-mobile.md). It carries the full T1–T6 task list, verified pre-implementation context, acceptance criteria, and risk register. Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Mobile (KB-040 stance)" (~L294) and "Acceptance for M1 ship" (~L450).
+**M2 entry — TAB-008: Editor v1** (~2 weeks; the largest single ticket on the roadmap). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Editor v1" / "M2 ship-point" sections. No plan written yet — start with `superpowers:brainstorming`, then `superpowers:writing-plans` to a new `docs/superpowers/plans/2026-05-XX-guitar-tabs-editor.md`.
 
-**TL;DR scope:**
-- T1: inject `readOnly: useViewport().isMobile` into `TabPaneContext` at the `renderTabPaneEntry` call site in `knowledgeBase.tsx`.
-- T2: gate `tabs.import-gp` palette command on `!isMobile` (and add `isMobile` to the `useMemo` deps — without it the closure goes stale on rotation).
-- T3: stub comment in `TabView.tsx` signposting TAB-008 to lazy-load its editor via `next/dynamic({ ssr: false })`.
-- T4 + T5: `Features.md` §11.7 Mobile (push Pending → §11.8); `test-cases/11-tabs.md` §11.8 with TAB-11.8-01 → -08.
-- T6 (best-effort): `e2e/tabsMobile.spec.ts` mobile-viewport smoke.
+**Scope reminders for the brainstorm:**
+- Click-to-place fret on the rendered staff (alphaTab API: hit-testing notes / inserting via `applyEdit`).
+- Keyboard shortcuts for techniques (h/p/b/~ etc.).
+- Techniques toolbar (UI surface to choose technique + apply to selection).
+- Undo/redo plumbed through `TabEngine.applyEdit` (the engine method already exists; the editor sits on top).
+- Marker comment in `TabView.tsx` (TAB-012 T3) signposted that the editor must be lazy-loaded via `next/dynamic({ ssr: false })`. **Do not** put the editor inline in the lazily-loaded `TabView` chunk; it should be a sibling chunk loaded only when `!readOnly`.
 
-**Resolved brainstorm decisions:** `useViewport()` from `src/app/knowledge_base/shared/hooks/useViewport.ts` (≤900px). `readOnly` flow: `KnowledgeBaseInner` → `TabPaneContext` → `TabView` → `TabProperties`. Editor lazy-load is forward-looking — the TAB-008 surface doesn't exist yet, so just a marker comment.
+**Open follow-up #12** ("side-car stable section ids for tabs") explicitly targets TAB-008 — surface it in the brainstorm so renames + reorders survive the editor's first save.
+
+**Other parked items still relevant (read before starting):** #4, #5 (e2e fixture patterns), #6 (`properties-collapsed` localStorage key — likely time to consolidate as the editor adds another panel), #11 (diagram attachment integrity audit — the user-explicit one still open).
 
 ---
 

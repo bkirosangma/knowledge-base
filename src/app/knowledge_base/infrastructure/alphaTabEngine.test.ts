@@ -9,7 +9,7 @@ const stopMock = vi.fn();
 
 let capturedSettings: {
   player: { enablePlayer: boolean; soundFont: string };
-  core: { engine: string };
+  core: { engine: string; logLevel: number };
 } | null = null;
 
 let fakeApiInstance: FakeApi | null = null;
@@ -90,6 +90,9 @@ describe("AlphaTabEngine", () => {
     expect(capturedSettings).not.toBeNull();
     expect(capturedSettings!.player.enablePlayer).toBe(true);
     expect(capturedSettings!.player.soundFont).toBe("/soundfonts/sonivox.sf2");
+    // alphaTab LogLevel.Info — Debug=1 was carried over from TAB-004 and was
+    // too noisy in the browser console once playback shipped.
+    expect(capturedSettings!.core.logLevel).toBe(2);
     expect(texMock).toHaveBeenCalledWith("\\title \"Hi\"\n.");
   });
 

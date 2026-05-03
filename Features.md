@@ -149,7 +149,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Attach-to-entity modal** — attaches Markdown docs to diagram entities (root, node, connection, flow, type). `'flow'` entity type now fully wired with UI.
 - ✅ **Search filter** — input filters the list.
 - ✅ **Hide already-attached** — excludes docs already on the entity.
-- ✅ **Create-new-document shortcut** — prompts for a `.md` path and creates it inline.
+- ✅ **Create-new-document shortcut** — prompts for a `.md` path and creates it inline. The Create row is hidden when the consumer omits `onCreate` (e.g. a tab pane before vault open) so the affordance never lies about what's possible.
 
 ---
 

@@ -469,13 +469,16 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
           onAttach={(path) => {
             onAttachDocument(path, pickerTarget.type, pickerTarget.id);
           }}
-          onCreate={async (path) => {
-            const rootHandle = fileExplorer.dirHandleRef.current;
-            if (rootHandle) {
-              await onCreateDocument(rootHandle, path);
-              onAttachDocument(path, pickerTarget.type, pickerTarget.id);
-            }
-          }}
+          onCreate={
+            fileExplorer.dirHandleRef.current
+              ? async (path) => {
+                  const rootHandle = fileExplorer.dirHandleRef.current;
+                  if (!rootHandle) return;
+                  await onCreateDocument(rootHandle, path);
+                  onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+                }
+              : undefined
+          }
           onClose={() => setPickerTarget(null)}
         />
       )}
