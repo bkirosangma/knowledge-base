@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (TAB-012 merged via PR #109 — **M1 viewer ship-point complete**; parked items #1, #2, #13 closed via skill fix + `plan/tabs-parked-cleanup-1`).
+**Last updated:** 2026-05-04 (TAB-008 Editor v1 PR in flight on `plan/guitar-tabs-editor` — M2 ship-point underway; parked items #6 + #12 closed by TAB-008).
 
 ---
 
@@ -68,9 +68,10 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | (handoff refresh) | Post-TAB-011 handoff update | [#107](https://github.com/bkirosangma/knowledge-base/pull/107) | ✅ Merged |
 | TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | ✅ Merged |
 | TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | ✅ Merged |
-| (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | `plan/tabs-parked-cleanup-1` | 🚧 In flight |
+| (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | [#110](https://github.com/bkirosangma/knowledge-base/pull/110) | ✅ Merged |
+| **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, per-op undo/redo with real pre-state captures, sidecar (`<file>.alphatex.refs.json`) for stable section ids, lazy editor chunk, Edit/Read toggle, Selected-note details subsection, parked #6 consolidation | `plan/guitar-tabs-editor` | 🚧 PR in flight |
 
-**M1 (viewer ship-point) is complete.** Natural pause-and-evaluate boundary per the spec.
+**M2 (editor ship-point) is now in flight.** TAB-008 is the largest single ticket on the roadmap (~2 weeks; 33 commits across 22 plan tasks + 4 critical post-review fixes; 1881 unit tests).
 
 ---
 
@@ -78,16 +79,16 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 ### M1 viewer ship-point — ✅ Complete
 
-All M1 tickets merged (TAB-001 → TAB-007a + TAB-011 + TAB-012). Mobile read-only + playback shipped via PR #109. Natural pause-and-evaluate boundary reached.
+All M1 tickets merged (TAB-001 → TAB-007a + TAB-011 + TAB-012). Mobile read-only + playback shipped via PR #109. Parked-cleanup landed via PR #110.
 
-### M2 editor ship-point
+### M2 editor ship-point — 🚧 In flight
 
-| Ticket | Title | Effort | Dependencies |
+| Ticket | Title | Effort | Status |
 |---|---|---|---|
-| **TAB-008** | Editor v1 — click-to-place fret, keyboard shortcuts, techniques toolbar, undo/redo through `applyEdit` | ~2 weeks | TAB-007 |
-| **TAB-009** | Multi-track + multi-voice editing | 1 week | TAB-008 |
-| **TAB-009a** | Track-level attachment surface (folds into TAB-009) | 1 day | TAB-009 |
-| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | 2 days | TAB-008 |
+| **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, undo/redo, section-id sidecar, lazy chunk | ~2 weeks | 🚧 PR in flight on `plan/guitar-tabs-editor` |
+| **TAB-009** | Multi-track + multi-voice editing | 1 week | ⏳ Next after TAB-008 merges |
+| **TAB-009a** | Track-level attachment surface (folds into TAB-009) | 1 day | Depends on TAB-009 |
+| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | 2 days | Depends on TAB-008 |
 
 ---
 
@@ -100,14 +101,18 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 3. **`useGpImport`'s `opts` memo churn (M1 from TAB-006 review)** — final TAB-006 fix in commit `7e0dbd5` already addressed this via the ref pattern; nothing left to do, leaving here as a note.
 4. **e2e for the GP import flow (TAB-11.4-06)** — currently ❌. Driving native file picker in headless Chromium needs a custom mock layer. Defer until there's a clean fixture pattern.
 5. **Playwright `clicking Play` smoke (TAB-11.3-19)** — currently 🧪 but relaxed: only asserts the toolbar mounts; SoundFont readiness doesn't fire in headless Chromium within timeout. Could be tightened by mocking `playerReady` or using a tiny SoundFont fixture.
-6. **Shared `"properties-collapsed"` localStorage key duplicated across panes** — surfaced in TAB-007 review. Diagram has it as a named constant in `useDiagramLayoutState.ts`; `DocumentView.tsx` and now `TabView.tsx` inline the literal. Toggling collapse on one pane carries to the others (which may even be desired). Pre-existing pattern; collapse into one shared constant when a fourth pane joins or when changing the key.
+6. **~~Shared `"properties-collapsed"` localStorage key duplicated across panes~~** — _Closed by TAB-008 T9_: `shared/constants/paneStorage.ts` exports `PROPERTIES_COLLAPSED_KEY`; DocumentView, useDiagramLayoutState, and TabView all import from there.
 7. **~~`key={section.name}` in `TabProperties`~~** — _Closed by TAB-007a_: deterministic kebab-case section ids via `getSectionIds` are now the React key.
 8. **`linkManager.fullRebuild` walks every file on every GP import** — TAB-011 ships with O(N) re-index per import. Acceptable today (vault sizes ~hundreds of files); a single-file `updateTabLinks()` helper mirroring `updateDocumentLinks()` is the natural follow-up if this ever shows up in profiles.
 9. **`\lyrics` extraction is single-line only** — `parseAlphatexHeader` captures only the quoted-string form. AlphaTab's grammar supports multi-string `\lyrics` blocks (one per bar) and per-track `\lyrics t N "…"`. Acceptable for indexing (first stanza usually contains the chorus/title line); extend the parser if real fixtures show this gap.
 10. **`REFERENCES_LINE` regex duplicated in two sites** — `infrastructure/alphatexHeader.ts` and `features/document/hooks/useLinkIndex.ts` both define `/^\s*\/\/\s*references\s*:\s*(.*)$/gim`. Two lines of repetition isn't worth a shared module; if a third caller appears, hoist to `alphatexHeader.ts` and re-export.
 11. **Audit diagram flow rename/delete attachment integrity** — flow ids are stable so rename is safe by construction, but deletion may leave orphan `attachedTo` entries (no cleanup hook visible in `DiagramView`). Triggered by user request during TAB-007a brainstorm; spec a fix once tabs ship.
-12. **Side-car stable section ids for tabs** — TAB-007a's position-based section-rename reconciliation (`useTabSectionSync`) breaks if the user renames *and* reorders sections in the same save. True stability requires persisting a `name → stableId` map per tab (e.g., `tabs/song.alphatex.refs.json`) so renames survive reorder. Targets TAB-008/M2 when the editor lands and renames become first-class.
+12. **~~Side-car stable section ids for tabs~~** — _Closed by TAB-008_: `<file>.alphatex.refs.json` persists `stableId → currentName` (lazy creation on first edit). `tabRefsRepo` reads/writes; `resolveSectionIds` consumes; `updateSidecarOnEdit` reconciles on `set-section`/`add-bar`/`remove-bar` ops. `useTabSectionSync` skips position-based reconciliation when a sidecar exists.
 13. **~~`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing~~** — _Closed by `plan/tabs-parked-cleanup-1`_: `onCreate` is now optional on `DocumentPicker` and the row is gated on its presence. Both consumers (`TabView`, `DiagramOverlays`) pass `onCreate` only when their prerequisites are wired. New test FS-2.5-09.
+14. **alphaTab Bravura font 404 in dev/playwright** — TAB-008's e2e tab-editor smoke at `e2e/tabEditor.spec.ts` is `test.fixme()` because alphaTab resolves Bravura music fonts relative to its dynamic-import chunk path (`/_next/static/chunks/font/...`) which the dev server doesn't serve. Fix: copy `node_modules/@coderline/alphatab/dist/font/Bravura.{woff2,woff,otf,svg,eot}` to `public/font/` and set `settings.core.fontDirectory = "/font/"` in `alphaTabEngine.ts` (mirrors the SoundFont pattern at `public/soundfonts/`). Affects: viewer rendering quality in Playwright + dev (production may already work via Next.js bundling — verify). Open as TAB-013 or fold into TAB-009.
+15. **Bend/slide keyboard cycle deferred** — TAB-008 acceptance D5 specified "press `S` cycles slide-up → slide-down → off" and "repeated `B` cycles bend amounts". Shipped only "press once → apply default" + Properties panel adjustment. Open as TAB-008b polish ticket.
+16. **Editor canvas overlay uses fixed 32×18px cell geometry** — `TabEditorCanvasOverlay` doesn't track alphaTab's actual rendered staff position; cursor highlight will misalign on wrapped staves or non-trivial bar widths. Acceptable for short single-track tabs. Replace with alphaTab-driven hit-testing (`beatMouseDown` event already verified in T0) or per-render geometry probing.
+17. **`useTabContent` `dirty` state crosses file boundaries** — switching files while dirty leaves `dirty=true` from the prior file's edit because no path-change reset effect. Pending debounced flush correctly writes to the original path (closure captures it), but the UI shows the new file as dirty. Add a `useEffect` keyed on `filePath` that resets `dirty` / `saveError` / cancels pending timer.
 
 ---
 
@@ -183,6 +188,9 @@ docs/superpowers/
   plans/2026-05-03-tab-cross-references.md       ← TAB-007a
   specs/2026-05-03-tab-cross-references-design.md ← TAB-007a
   plans/2026-05-03-guitar-tabs-mobile.md         ← TAB-012
+  specs/2026-05-04-guitar-tabs-editor-design.md  ← TAB-008
+  plans/2026-05-04-guitar-tabs-editor.md         ← TAB-008 (22 tasks T0..T21)
+  plans/2026-05-04-guitar-tabs-editor-verification.md ← TAB-008 T0 alphaTab API findings
   handoffs/2026-05-03-guitar-tabs.md             ← THIS doc — session resume + ticket status
 ```
 
@@ -210,20 +218,24 @@ docs/superpowers/
 
 ## Next Action
 
-**M1 ship-point reached.** TAB-012 merged via PR #109; the parked-cleanup branch (`plan/tabs-parked-cleanup-1`) is in flight to close items #1, #2, #13 plus the handoff refresh. After it merges, M2 begins.
+**TAB-008 PR is in flight on `plan/guitar-tabs-editor`.** Once merged: rebase + delete branch, then proceed to **TAB-009: Multi-track + multi-voice editing** (~1 week). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Editor v1" / "M2 ship-point" sections (TAB-009 row).
 
-**M2 entry — TAB-008: Editor v1** (~2 weeks; the largest single ticket on the roadmap). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Editor v1" / "M2 ship-point" sections. No plan written yet — start with `superpowers:brainstorming`, then `superpowers:writing-plans` to a new `docs/superpowers/plans/2026-05-XX-guitar-tabs-editor.md`.
+**TAB-009 scope reminders for the brainstorm:**
+- Track add/remove (currently single-track only across the engine, applyEdit, cursor, and overlay).
+- Per-track tuning (currently only top-level `metadata.tuning`).
+- Per-track capo.
+- Multi-voice editing (alphaTab supports two voices per bar).
+- Track-level attachments (TAB-009a folds in here per the spec).
+- Cursor's `trackIndex` field already exists in `useTabCursor` but only `trackIndex=0` is supported in the editor today.
 
-**Scope reminders for the brainstorm:**
-- Click-to-place fret on the rendered staff (alphaTab API: hit-testing notes / inserting via `applyEdit`).
-- Keyboard shortcuts for techniques (h/p/b/~ etc.).
-- Techniques toolbar (UI surface to choose technique + apply to selection).
-- Undo/redo plumbed through `TabEngine.applyEdit` (the engine method already exists; the editor sits on top).
-- Marker comment in `TabView.tsx` (TAB-012 T3) signposted that the editor must be lazy-loaded via `next/dynamic({ ssr: false })`. **Do not** put the editor inline in the lazily-loaded `TabView` chunk; it should be a sibling chunk loaded only when `!readOnly`.
+**Recommended ordering for TAB-009 plan:**
+1. Engine: extend `applyEdit` for `set-track-tuning` / `set-track-capo` (both ops already declared in `TabEditOp`); add `add-track` / `remove-track` if needed.
+2. UI: track switcher / track-list panel; cursor scoped to active track.
+3. Properties: per-track panel content.
 
-**Open follow-up #12** ("side-car stable section ids for tabs") explicitly targets TAB-008 — surface it in the brainstorm so renames + reorders survive the editor's first save.
+**Parked items relevant to TAB-009:** #11 (diagram attachment integrity audit — still open and user-explicit), #14 (Bravura font fix — could fold into TAB-009 to enable e2e tab tests at the same time as multi-track ones), #16 (overlay geometry — multi-track will surface the misalignment more visibly).
 
-**Other parked items still relevant (read before starting):** #4, #5 (e2e fixture patterns), #6 (`properties-collapsed` localStorage key — likely time to consolidate as the editor adds another panel), #11 (diagram attachment integrity audit — the user-explicit one still open).
+**Optional polish ticket (TAB-008b)** — items #15 (bend/slide cycle), #17 (dirty cross-file state reset), and the I3 cosmetic typing cleanup. Only worth opening if a user trips on them.
 
 ---
 
