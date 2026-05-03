@@ -124,3 +124,21 @@ export type Technique =
   | "tremolo"   | "tap"      | "harmonic";
 
 export type NoteDuration = 1 | 2 | 4 | 8 | 16 | 32 | 64;
+
+/**
+ * Pure function: derive a kebab-case slug from a tab section name.
+ * Used as the stable id portion of `tab-section` entity references.
+ *
+ * Rules: lowercase, strip diacritics to ASCII, collapse non-alphanumeric
+ * runs to a single hyphen, trim leading/trailing hyphens. Empty / all-
+ * punctuation input returns the literal "section" so callers always get
+ * a non-empty id (collisions are then resolved by `getSectionIds`).
+ */
+export function slugifySectionName(name: string): string {
+  const ascii = name.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+  const slug = ascii
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "section";
+}
