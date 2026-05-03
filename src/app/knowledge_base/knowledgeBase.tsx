@@ -731,6 +731,8 @@ function KnowledgeBaseInner() {
         }
       }
       panesOpenFile(result.path, "diagram", nodeId ? { searchTarget: { nodeId } } : undefined);
+    } else if (result.kind === "tab") {
+      panesOpenFile(result.path, "tab");
     } else {
       panesOpenFile(result.path, "document");
     }
