@@ -55,15 +55,38 @@ type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => 
 interface NoteShape {
   fret: number;
   string: number;
+  // Technique flags — all optional because they start uninitialised on a fresh Note.
+  isHammerPullOrigin?: boolean;
+  bendType?: number;
+  bendPoints?: Array<{ value: number; offset: number }> | null;
+  slideOutType?: number;
+  isTieDestination?: boolean;
+  isGhost?: boolean;
+  vibrato?: number;
+  isLetRing?: boolean;
+  isPalmMute?: boolean;
+  harmonicType?: number;
+  // Parent beat reference — alphaTab sets this when the note is added to a beat.
+  beat?: BeatShape;
 }
 
 /** Minimal structural shape for alphaTab Beat used in applyEdit mutations. */
 interface BeatShape {
   duration: number;
   notes: NoteShape[];
+  tap?: boolean;
+  tremoloSpeed?: number | null;
   addNote(note: NoteShape): void;
   removeNote(note: NoteShape): void;
 }
+
+/** Per-technique apply / remove mutators, built once after the dynamic import. */
+interface TechniqueMutator {
+  apply(note: NoteShape): void;
+  remove(note: NoteShape): void;
+}
+
+type TechniqueMutatorMap = Record<string, TechniqueMutator>;
 
 /** Minimal structural shape for walking a Score to its beats. */
 interface ScoreShape {
@@ -76,6 +99,94 @@ interface ScoreShape {
       }>;
     }>;
   }>;
+}
+
+/**
+ * Build a frozen map of apply/remove mutators for each Technique value.
+ * Called once after the alphaTab dynamic import so enum values are available.
+ *
+ * Bend uses Guitar-Pro scale: 50 = ½-step, 100 = 1 full step.
+ * BendPoints = [{offset:0, value:0}, {offset:60, value:50}] for a default ½-step bend.
+ *
+ * hammer-on and pull-off share `isHammerPullOrigin`; alphaTab resolves the
+ * direction from pitch at render time, so a single flag covers both.
+ *
+ * tremolo and tap are Beat-level properties accessed via `note.beat` because
+ * alphaTab's Note model has no tremolo/tap field of its own.
+ */
+function buildTechniqueMutators(
+  enums: {
+    BendType: { None: number; Bend: number };
+    SlideOutType: { None: number; Shift: number };
+    VibratoType: { None: number; Slight: number };
+    HarmonicType: { None: number; Natural: number };
+    Duration: { Eighth: number };
+  },
+  BendPointCtor: new (offset?: number, value?: number) => { offset: number; value: number },
+): TechniqueMutatorMap {
+  const { BendType, SlideOutType, VibratoType, HarmonicType, Duration } = enums;
+
+  return Object.freeze({
+    "hammer-on": {
+      apply:  (n) => { n.isHammerPullOrigin = true; },
+      remove: (n) => { n.isHammerPullOrigin = false; },
+    },
+    // pull-off shares isHammerPullOrigin — alphaTab resolves direction from pitch at render.
+    "pull-off": {
+      apply:  (n) => { n.isHammerPullOrigin = true; },
+      remove: (n) => { n.isHammerPullOrigin = false; },
+    },
+    "bend": {
+      apply: (n) => {
+        n.bendType = BendType.Bend;
+        // Default ½-step bend: Guitar-Pro scale (50 = ½ step, 100 = full step).
+        n.bendPoints = [new BendPointCtor(0, 0), new BendPointCtor(60, 50)];
+      },
+      remove: (n) => {
+        n.bendType = BendType.None;
+        n.bendPoints = null;
+      },
+    },
+    "slide": {
+      apply:  (n) => { n.slideOutType = SlideOutType.Shift; },
+      remove: (n) => { n.slideOutType = SlideOutType.None; },
+    },
+    "tie": {
+      apply:  (n) => { n.isTieDestination = true; },
+      remove: (n) => { n.isTieDestination = false; },
+    },
+    "ghost": {
+      apply:  (n) => { n.isGhost = true; },
+      remove: (n) => { n.isGhost = false; },
+    },
+    "vibrato": {
+      apply:  (n) => { n.vibrato = VibratoType.Slight; },
+      remove: (n) => { n.vibrato = VibratoType.None; },
+    },
+    "let-ring": {
+      apply:  (n) => { n.isLetRing = true; },
+      remove: (n) => { n.isLetRing = false; },
+    },
+    "palm-mute": {
+      apply:  (n) => { n.isPalmMute = true; },
+      remove: (n) => { n.isPalmMute = false; },
+    },
+    // tremolo is Beat-level in alphaTab (note.beat.tremoloSpeed).
+    // Use the deprecated tremoloSpeed setter — simpler than constructing TremoloPickingEffect.
+    "tremolo": {
+      apply:  (n) => { if (n.beat) n.beat.tremoloSpeed = Duration.Eighth; },
+      remove: (n) => { if (n.beat) n.beat.tremoloSpeed = null; },
+    },
+    // tap is Beat-level in alphaTab (note.beat.tap).
+    "tap": {
+      apply:  (n) => { if (n.beat) n.beat.tap = true; },
+      remove: (n) => { if (n.beat) n.beat.tap = false; },
+    },
+    "harmonic": {
+      apply:  (n) => { n.harmonicType = HarmonicType.Natural; },
+      remove: (n) => { n.harmonicType = HarmonicType.None; },
+    },
+  } satisfies TechniqueMutatorMap);
 }
 
 const PLAYBACK_SPEED_MIN = 0.25;
@@ -95,6 +206,16 @@ export class AlphaTabEngine implements TabEngine {
     const ApiCtor = mod.AlphaTabApi as unknown as AlphaTabApiCtor;
     // Captured so AlphaTabSession can construct new Note instances for set-fret.
     const NoteCtor = mod.model.Note as unknown as new () => NoteShape;
+    // Captured for buildTechniqueMutators — enums are part of the lazy chunk.
+    const BendPointCtor = mod.model.BendPoint as unknown as new (offset?: number, value?: number) => { offset: number; value: number };
+    const enums = {
+      BendType:     mod.model.BendType     as { None: number; Bend: number },
+      SlideOutType: mod.model.SlideOutType as { None: number; Shift: number },
+      VibratoType:  mod.model.VibratoType  as { None: number; Slight: number },
+      HarmonicType: mod.model.HarmonicType as { None: number; Natural: number },
+      Duration:     mod.model.Duration     as { Eighth: number },
+    };
+    const techniqueMutators = buildTechniqueMutators(enums, BendPointCtor);
 
     const settings = new Settings();
     settings.player.enablePlayer = true;
@@ -102,7 +223,7 @@ export class AlphaTabEngine implements TabEngine {
     settings.core.logLevel = LOG_LEVEL_INFO;
 
     const api = new ApiCtor(container, settings);
-    const session = new AlphaTabSession(api, NoteCtor);
+    const session = new AlphaTabSession(api, NoteCtor, techniqueMutators);
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
   }
@@ -117,6 +238,7 @@ class AlphaTabSession implements TabSession {
   constructor(
     private api: AlphaTabApiLike,
     private NoteCtor: new () => NoteShape,
+    private techniqueMutators: TechniqueMutatorMap,
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
     api.error.on((err) => this.emit({ event: "error", error: err }));
@@ -214,6 +336,15 @@ class AlphaTabSession implements TabSession {
       case "set-duration":
         this.applySetDuration(op);
         break;
+      case "add-technique":
+        this.applyTechnique(op, "apply");
+        break;
+      case "remove-technique":
+        this.applyTechnique(
+          op as unknown as Extract<TabEditOp, { type: "add-technique" }>,
+          "remove",
+        );
+        break;
       default:
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
@@ -251,6 +382,17 @@ class AlphaTabSession implements TabSession {
     // op.duration numeric values match alphaTab's Duration enum values exactly
     // (1=Whole, 2=Half, 4=Quarter, 8=Eighth, 16=Sixteenth, 32=ThirtySecond, 64=SixtyFourth)
     beat.duration = op.duration as unknown as number;
+  }
+
+  private applyTechnique(
+    op: Extract<TabEditOp, { type: "add-technique" }>,
+    mode: "apply" | "remove",
+  ): void {
+    const beat = locateBeat(this.latestScore!, op.beat);
+    if (!beat) throw new Error(`Beat ${op.beat} not found`);
+    const note = beat.notes.find((n) => n.string === op.string);
+    if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
+    this.techniqueMutators[op.technique][mode](note);
   }
 }
 

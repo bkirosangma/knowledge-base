@@ -129,6 +129,40 @@ function getBeatDuration(session: any, beatIndex: number): number {
   return beat.duration as number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findNote(session: any, beatIndex: number, stringNum: number): any {
+  const beat = findBeat(session, beatIndex);
+  if (!beat) throw new Error(`Beat ${beatIndex} not found`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return beat.notes.find((n: any) => n.string === stringNum) ?? null;
+}
+
+/**
+ * Read the appropriate flag from the note for the given technique.
+ * Returns boolean (true = technique is active).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteHasTechnique(session: any, beatIndex: number, stringNum: number, technique: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const note = findNote(session, beatIndex, stringNum) as any;
+  if (!note) throw new Error(`Note at beat ${beatIndex} string ${stringNum} not found`);
+  switch (technique) {
+    case "hammer-on": return note.isHammerPullOrigin === true;
+    case "pull-off":  return note.isHammerPullOrigin === true;
+    case "bend":      return note.bendType !== 0 && note.bendType != null;
+    case "slide":     return note.slideOutType !== 0 && note.slideOutType != null;
+    case "tie":       return note.isTieDestination === true;
+    case "ghost":     return note.isGhost === true;
+    case "vibrato":   return note.vibrato !== 0 && note.vibrato != null;
+    case "let-ring":  return note.isLetRing === true;
+    case "palm-mute": return note.isPalmMute === true;
+    case "tremolo":   return note.beat?.tremoloSpeed != null;
+    case "tap":       return note.beat?.tap === true;
+    case "harmonic":  return note.harmonicType !== 0 && note.harmonicType != null;
+    default:          throw new Error(`Unknown technique: ${technique}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -222,6 +256,88 @@ describe("AlphaTabSession.applyEdit", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       session.applyEdit({ type: "set-tempo" as any, beat: 0, bpm: 120 }),
     ).toThrow(/Unsupported op/i);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Technique ops (add-technique / remove-technique)
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // NOTE: The fixture `:4 5.6 0.6 0.6 0.6` uses AlphaTex notation where
+  // `fret.string` orders from the high-E string (1) upward.  alphaTab stores
+  // the note internally with string=1 (the lowest string index from the top).
+  // All technique tests therefore target string=1 which is where beat 0's note
+  // actually lives in the parsed Score.
+  // The "throws when note does not exist" test uses string=99 (absent).
+  // ---------------------------------------------------------------------------
+
+  it("add-technique sets the technique flag on the targeted note (hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(true);
+  });
+
+  it("remove-technique clears the flag (hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
+    session.applyEdit({ type: "remove-technique", beat: 0, string: 1, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(false);
+  });
+
+  it("bend applies a default ½-step bend", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend" });
+    const note = findNote(session, 0, 1);
+    expect(note.bendType).toBeTruthy();
+    expect(note.bendPoints![1].value).toBe(50);
+  });
+
+  it("slide applies slide-up by default", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
+    expect(findNote(session, 0, 1).slideOutType).toBeTruthy();
+  });
+
+  it("throws when the targeted note does not exist", () => {
+    expect(() =>
+      session.applyEdit({ type: "add-technique", beat: 0, string: 99, technique: "hammer-on" }),
+    ).toThrow(/note/i);
+  });
+
+  it("add-technique pull-off sets isHammerPullOrigin (same flag as hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "pull-off" });
+    expect(getNoteHasTechnique(session, 0, 1, "pull-off")).toBe(true);
+  });
+
+  it("add-technique ghost sets isGhost on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "ghost" });
+    expect(getNoteHasTechnique(session, 0, 1, "ghost")).toBe(true);
+  });
+
+  it("add-technique let-ring sets isLetRing on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "let-ring" });
+    expect(getNoteHasTechnique(session, 0, 1, "let-ring")).toBe(true);
+  });
+
+  it("add-technique palm-mute sets isPalmMute on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "palm-mute" });
+    expect(getNoteHasTechnique(session, 0, 1, "palm-mute")).toBe(true);
+  });
+
+  it("add-technique vibrato sets vibrato on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "vibrato" });
+    expect(getNoteHasTechnique(session, 0, 1, "vibrato")).toBe(true);
+  });
+
+  it("add-technique harmonic sets harmonicType on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "harmonic" });
+    expect(getNoteHasTechnique(session, 0, 1, "harmonic")).toBe(true);
+  });
+
+  it("add-technique tap sets beat.tap on the note's parent beat", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tap" });
+    expect(getNoteHasTechnique(session, 0, 1, "tap")).toBe(true);
+  });
+
+  it("add-technique tremolo sets beat.tremoloSpeed on the note's parent beat", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tremolo" });
+    expect(getNoteHasTechnique(session, 0, 1, "tremolo")).toBe(true);
   });
 
   it("emits exactly one 'loaded' event per applyEdit call", () => {
