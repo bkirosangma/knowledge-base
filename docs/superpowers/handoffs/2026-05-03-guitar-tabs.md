@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (after TAB-006 + handoff merged; TAB-007 in-flight).
+**Last updated:** 2026-05-03 (after TAB-007 merged; TAB-011 is next).
 
 ---
 
@@ -62,8 +62,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-005 | Playback chrome (toolbar + audio + SoundFont + theme push) | [#101](https://github.com/bkirosangma/knowledge-base/pull/101) | ✅ Merged |
 | TAB-006 | Guitar Pro `.gp` import (palette command) | [#102](https://github.com/bkirosangma/knowledge-base/pull/102) | ✅ Merged |
 | (handoff doc) | Session resume checklist + protocols | [#103](https://github.com/bkirosangma/knowledge-base/pull/103) | ✅ Merged |
+| TAB-007 | Properties panel — read-only metadata view (`TabProperties`) | [#104](https://github.com/bkirosangma/knowledge-base/pull/104) | ✅ Merged |
 
-**TAB-007** is in-flight on `plan/guitar-tabs-properties-panel`.
+**TAB-011** is the next ticket. No Guitar-Tabs branch is currently in-flight.
 
 ---
 
@@ -73,12 +74,11 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 | Ticket | Title | Effort | Dependencies | Status |
 |---|---|---|---|---|
-| **TAB-007** | Properties panel — read-only metadata view (tuning / capo / key / tempo / sections) | 2 days | TAB-004 | 🟡 In-flight |
-| **TAB-007a** | Tab properties cross-references (whole-file + section attachments via `DocumentsSection`; `// references:` link-index integration) | 2 days | TAB-007, TAB-011 | ❌ Not started |
-| **TAB-011** | Vault search + wiki-link integration (titles / artist / key / tuning indexed; `.alphatex` outbound links resolve) | 1 day | TAB-004 | ❌ Not started |
+| **TAB-011** | Vault search + wiki-link integration (titles / artist / key / tuning indexed; `.alphatex` outbound links resolve) | 1 day | TAB-004 | ❌ Not started — **next** |
+| **TAB-007a** | Tab properties cross-references (whole-file + section attachments via `DocumentsSection`; `// references:` link-index integration) | 2 days | TAB-007, TAB-011 | ❌ Not started — blocked by TAB-011 |
 | **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | ❌ Not started |
 
-After all four, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
+After all three, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
 
 ### M2 editor ship-point
 
@@ -100,6 +100,8 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 3. **`useGpImport`'s `opts` memo churn (M1 from TAB-006 review)** — final TAB-006 fix in commit `7e0dbd5` already addressed this via the ref pattern; nothing left to do, leaving here as a note.
 4. **e2e for the GP import flow (TAB-11.4-06)** — currently ❌. Driving native file picker in headless Chromium needs a custom mock layer. Defer until there's a clean fixture pattern.
 5. **Playwright `clicking Play` smoke (TAB-11.3-19)** — currently 🧪 but relaxed: only asserts the toolbar mounts; SoundFont readiness doesn't fire in headless Chromium within timeout. Could be tightened by mocking `playerReady` or using a tiny SoundFont fixture.
+6. **Shared `"properties-collapsed"` localStorage key duplicated across panes** — surfaced in TAB-007 review. Diagram has it as a named constant in `useDiagramLayoutState.ts`; `DocumentView.tsx` and now `TabView.tsx` inline the literal. Toggling collapse on one pane carries to the others (which may even be desired). Pre-existing pattern; collapse into one shared constant when a fourth pane joins or when changing the key.
+7. **`key={section.name}` in `TabProperties` is not stable for duplicate section names** — TAB-007a will introduce deterministic kebab-case section IDs (per spec) and replace the React key with the stable id.
 
 ---
 
@@ -131,12 +133,14 @@ src/app/knowledge_base/
     tabRepo.ts                     ← FSA-backed TabRepository factory
     gpToAlphatex.ts                ← Pure conversion utility (TAB-006)
   features/tab/
-    TabView.tsx                    ← Pane shell — mounts TabToolbar + TabCanvas, reports parse errors
+    TabView.tsx                    ← Pane shell — flex-row: TabToolbar + TabCanvas (canvas column) + TabProperties (panel column with collapse persistence)
     components/
       TabCanvas.tsx                ← forwardRef host div for AlphaTab to mount into
       TabToolbar.tsx               ← play/pause/stop/tempo/loop transport
+    properties/
+      TabProperties.tsx            ← TAB-007 read-only metadata panel (title/artist/tuning/capo/key/tempo/time-signature/sections/tracks/duration)
     hooks/
-      useTabEngine.ts              ← Engine + session lifecycle; surfaces playerStatus, currentTick, isAudioReady, session
+      useTabEngine.ts              ← Engine + session lifecycle; surfaces playerStatus, currentTick, isAudioReady, session, metadata
       useTabContent.ts             ← Reads .alphatex via useRepositories().tab
       useTabPlayback.ts            ← Wraps TabSession callables with null-safe no-ops + audioBlocked tracking
       useGpImport.ts               ← TAB-006 import flow (above-provider — accepts tab as prop)
@@ -149,14 +153,15 @@ public/
   soundfonts/sonivox.sf2           ← 1.35 MB Sonivox GM SoundFont
   sw.js                            ← Service worker; cache-first lane for /soundfonts/*; kb-static-v3
 test-cases/
-  11-tabs.md                       ← TAB-11.x case catalog (54 cases; mirrors Features.md §11)
-Features.md                        ← §11 Guitar Tabs (subsections §11.1 Foundation, §11.2 Playback, §11.3 .gp import, §11.4 Pending)
+  11-tabs.md                       ← TAB-11.x case catalog (62 cases; mirrors Features.md §11)
+Features.md                        ← §11 Guitar Tabs (subsections §11.1 Foundation, §11.2 Playback, §11.3 .gp import, §11.4 Properties panel, §11.5 Pending)
 docs/superpowers/
   specs/2026-05-02-guitar-tabs-design.md         ← Source of truth design spec
   plans/2026-05-02-guitar-tabs-foundation.md     ← TAB-001..TAB-003
   plans/2026-05-02-guitar-tabs-viewer.md         ← TAB-004
   plans/2026-05-03-guitar-tabs-playback.md       ← TAB-005
   plans/2026-05-03-guitar-tabs-gp-import.md      ← TAB-006
+  plans/2026-05-03-guitar-tabs-properties-panel.md ← TAB-007
   handoffs/2026-05-03-guitar-tabs.md             ← THIS doc — session resume + ticket status
 ```
 
@@ -184,26 +189,38 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-007: Properties panel** — currently in-flight on branch `plan/guitar-tabs-properties-panel`.
+**TAB-011: Vault search + wiki-link integration** — branch not yet created. 1-day ticket. Unblocks TAB-007a.
 
-If you're resuming and the branch already has commits, run `git checkout plan/guitar-tabs-properties-panel && git log --oneline main..HEAD` to see what's done. Otherwise:
-- `git checkout main && git pull --ff-only`.
-- `git checkout -b plan/guitar-tabs-properties-panel`.
+Bootstrap:
+- `git checkout main && git pull --ff-only`
+- `git checkout -b plan/guitar-tabs-search-links`
 
-Spec section to read: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Cross-references between tabs and other vault content" + the `TabMetadata` shape from `domain/tabEngine.ts`. Note that TAB-007a (cross-refs) is a tightly-coupled follow-up — depending on time, the plan may bundle both into a single shipping unit, but the spec sized them separately.
+Spec sections to read in `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`:
+- "Outbound: wiki-links from tabs to anything" (~L309) — `useLinkIndex` gets a parser entry for `.alphatex` that scrapes `[[…]]` from any line beginning with `//` (the alphaTex line-comment marker). The convention site is the `// references: [[a]] [[b]]` block in the alphaTex header.
+- "Vault search" (~L357) — `searchManager.addDoc(path, "tab", { title, artist, key, tuning: tuning.join(" "), tracks: tracks.map(t => t.name).join(", "), body: lyrics })`. Hits open the file in the tab pane.
 
-Patterns to mirror:
-- `features/diagram/components/DiagramProperties.tsx` — most similar surface (metadata panel for a structured file type).
-- `features/document/components/DocumentProperties.tsx` — simpler, properties-side panel with read-only fields.
-- `features/diagram/components/DocumentsSection.tsx` — reused as-is for the section-attachments view in TAB-007a.
-- `useTabEngine().metadata` — already exposes title / artist / tempo / tracks / sections via the `"loaded"` event. The properties panel reads from there.
+> **alphaTex comment marker is `//`, NOT `%`.** The skill at `~/.claude/skills/knowledge-base/commands/guitar-tabs.md` is wrong about this in three places (see Open follow-up item #1) — do not let it leak into TAB-011 code or fixtures.
 
-Key decisions to settle in the brainstorm:
-1. **Pane chrome vs. inline panel.** Diagram + Document use a slide-out side panel ('PropertiesPanel.tsx'). Tab should match.
-2. **Track list visibility.** TAB-007 is single-track read-only; multi-track UI is TAB-009. Show only the first track's metadata for now.
-3. **Section list.** Each `\section "<name>"` becomes a row. Section IDs are deterministic kebab-case slugs (`"Verse 1"` → `"verse-1"`) per spec — that's the anchor TAB-007a will attach docs to.
+Patterns to mirror (grep first to confirm exact API):
+- `searchManager.addDoc` call sites for `.md` and `.json` — find where on-save indexing fires for documents and diagrams; mirror the call shape for `kind: "tab"` from the same lifecycle hook (likely a save-time effect or repo-write callback).
+- `useLinkIndex` parser registry — find the existing `.md` (and any `.json`) parser entry and add a `.alphatex` entry that scans only lines beginning with `//` for `[[…]]` tokens.
+- File-open handler that resolves a wiki-link click — confirm `.alphatex` targets route into the tab pane via the existing `handleSelectFile` (TAB-11.1-01 already routes by extension).
 
-Ship target: a Properties panel that shows tuning, capo, key, tempo, time signature, and a section list — all reading from `useTabEngine().metadata`. No editing, no attachments, no wiki-links — those are TAB-007a / TAB-008.
+Key questions to settle in the brainstorm (don't pre-decide):
+1. **When does the tab get indexed?** On every successful `tabRepo.read` / save? Or do we need a side-channel (e.g. `useTabContent`) to push into `searchManager` whenever a tab loads or saves? Mirror whichever lifecycle the doc + diagram repos use.
+2. **What does `searchManager` know about tabs today?** If tabs aren't a known `kind`, the addition may be one-line; if `searchManager` has typed kinds, this needs a small union extension + UI affordance for the result row's pane target.
+3. **Lyrics extraction.** alphaTex `\lyrics` directive is the source for `body`. Confirm parser surface for it; if not yet in `TabMetadata`, decide whether to extend the metadata or lift lyrics directly from the alphaTex source string.
+4. **Backlinks display.** TAB-011 only ships the *index* — surfacing backlinks in the tab properties panel is TAB-007a. Don't render anything in `TabProperties` here.
+
+Ship target:
+- A tab loaded into the pane is searchable by title / artist / key / tuning / track names / lyrics (when present) via the global vault search.
+- Wiki-links inside a `// references: [[…]]` line in `.alphatex` resolve via `useLinkIndex` and open targets in the opposite pane.
+- New test cases under `test-cases/11-tabs.md` §11.6 (next free section number; do NOT renumber existing) plus `Features.md` §11 update naming the search + link surfaces. Approx 4–8 cases.
+
+Out of scope (do not creep):
+- Properties-panel backlinks UI (TAB-007a).
+- Doc-side `attachedTo` for `"tab"` / `"tab-section"` (TAB-007a).
+- Inbound `tab` results showing up on mobile (TAB-012 may reshape this).
 
 ---
 
