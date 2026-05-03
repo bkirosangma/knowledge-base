@@ -67,18 +67,18 @@ describe("useGpImport", () => {
     expect(onImported).toHaveBeenCalledWith("song.alphatex");
   });
 
-  it("strips a multi-segment path to just the basename", async () => {
+  it("preserves multi-segment basenames before the GP extension", async () => {
     vi.mocked(gpToAlphatex).mockResolvedValue("alphatex");
     const write = vi.fn().mockResolvedValue(undefined);
     const onImported = vi.fn();
     const { result } = renderHook(() => useGpImport({ onImported }), {
       wrapper: ({ children }) => <Wrap write={write}>{children}</Wrap>,
     });
-    const file = makeFile("solo.gp7", [9]);
+    const file = makeFile("my.song.gp5", [9]);
     await act(async () => {
       await result.current.importBytes(file);
     });
-    expect(write).toHaveBeenCalledWith("solo.alphatex", "alphatex");
+    expect(write).toHaveBeenCalledWith("my.song.alphatex", "alphatex");
   });
 
   it("handles .gp3/.gp4/.gp5/.gp7 by stripping any of those extensions", async () => {

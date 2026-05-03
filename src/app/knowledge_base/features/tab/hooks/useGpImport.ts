@@ -51,10 +51,14 @@ export function useGpImport(opts: UseGpImportOptions): UseGpImport {
     input.type = "file";
     input.accept = ACCEPT_ATTR;
     input.style.display = "none";
+    const cleanup = () => {
+      if (input.parentNode) document.body.removeChild(input);
+    };
+    input.addEventListener("cancel", cleanup, { once: true });
     input.addEventListener("change", () => {
+      cleanup();
       const file = input.files?.[0];
-      document.body.removeChild(input);
-      if (!file) return; // user cancelled
+      if (!file) return;
       void importBytes(file);
     }, { once: true });
     document.body.appendChild(input);
