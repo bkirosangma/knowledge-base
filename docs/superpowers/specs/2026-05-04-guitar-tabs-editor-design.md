@@ -216,7 +216,7 @@ Mirrors `useDocumentContent` exactly: dirty flag in `useTabContent`, debounced `
 
 ### Test cases
 
-New `TAB-11.8-NN` IDs added to `test-cases/11-tabs.md` covering:
+New `TAB-11.9-NN` IDs added to `test-cases/11-tabs.md` (§11.9 Editor v1) covering:
 
 - Cursor placement, navigation, multi-digit fret entry, Esc clears.
 - Each technique toggle (8) + each duration shortcut (6).
