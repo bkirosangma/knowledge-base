@@ -142,3 +142,19 @@ export function slugifySectionName(name: string): string {
     .replace(/^-+|-+$/g, "");
   return slug || "section";
 }
+
+/**
+ * Derive deterministic, collision-free section ids from `TabMetadata.sections`.
+ * Output array is 1:1 with input. Duplicate slugs receive `-2`, `-3`, …
+ * suffixes in order of appearance — stable across re-runs given identical
+ * input.
+ */
+export function getSectionIds(sections: { name: string }[]): string[] {
+  const counts = new Map<string, number>();
+  return sections.map((s) => {
+    const base = slugifySectionName(s.name);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    return seen === 0 ? base : `${base}-${seen + 1}`;
+  });
+}
