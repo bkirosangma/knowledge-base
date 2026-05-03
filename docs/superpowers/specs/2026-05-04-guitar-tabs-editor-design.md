@@ -23,8 +23,8 @@ Ship the first interactive editor for `.alphatex` tabs: click any cell on the re
 - Click any string at any beat → cursor highlights the cell.
 - Number keys 0–9 set fret value. Multi-digit values auto-commit on next non-digit keystroke or after 500 ms.
 - Arrow keys / Tab / Shift+Tab move the cursor between cells. Esc clears selection.
-- `Alt+1` … `Alt+6` set the active duration (`Alt+1` = whole, `Alt+2` = half, `Alt+3` = quarter, `Alt+4` = eighth, `Alt+5` = sixteenth, `Alt+6` = thirty-second). The active duration is what new fret entries get tagged with. Bare `1`–`6` always mean fret values — durations require the modifier to disambiguate from fret entry. The toolbar's six duration buttons remain the primary discoverable surface; the keyboard shortcuts are power-user accelerators.
-- Technique keys H, P, B, S, T, ~, P-M (Shift+M), L-R (Shift+L) toggle a technique on the cell at the cursor. `T` toggles tie. B and S apply default parameters; per-note adjustments live in the Properties panel.
+- `Q W E R T Y` set the active duration (`Q` = whole, `W` = half, `E` = quarter, `R` = eighth, `T` = sixteenth, `Y` = thirty-second). The active duration is what new fret entries get tagged with. Bare `1`–`6` always mean fret values — duration shortcuts use letter keys to keep the keyspaces fully separate. The toolbar's six duration buttons remain the primary discoverable surface (with the letter shown as a tooltip); the keyboard shortcuts are power-user accelerators.
+- Technique keys H (hammer-on), P (pull-off), B (bend), S (slide), L (tie), `~` (vibrato), Shift+M (palm-mute), Shift+L (let-ring) toggle a technique on the cell at the cursor. Tie uses `L` (bare) rather than `T` because `T` is the sixteenth-note duration shortcut; `L` mirrors Guitar Pro and doesn't collide with let-ring (`Shift+L`). B and S apply default parameters; per-note adjustments live in the Properties panel.
 - ⌘Z / Ctrl+Z undo; ⌘⇧Z / Ctrl+Y redo. History is per committed `TabEditOp`, ring-buffered to ~200 frames.
 - Save is debounced (`DRAFT_DEBOUNCE_MS` = 500 ms, mirroring `useDocumentContent`) via the existing `tabRepo.write` path; dirty marker shows in the toolbar.
 - Section renames in the editor produce a sidecar (`<file>.alphatex.refs.json`) so cross-references survive rename + reorder in the same save.
@@ -69,7 +69,7 @@ The editor chunk loads only when `effectiveReadOnly === false`, where `effective
 A second toolbar row sits below the existing `TabToolbar` (transport / tempo / loop) when edit mode is on. It carries:
 
 - 6 duration buttons (whole / half / quarter / eighth / sixteenth / thirty-second).
-- 8 technique toggles (H, P, B, S, T, ~, P-M, L-R).
+- 8 technique toggles (H, P, B, S, L, ~, P-M, L-R) — letter shown as a tooltip on each button.
 - Undo / redo.
 
 Hidden in read-only mode. Mirrors the industry pattern (Songsterr / Guitar Pro / MuseScore) and stays predictable + testable.
@@ -248,4 +248,4 @@ New `TAB-11.8-NN` IDs added to `test-cases/11-tabs.md` covering:
 2. ~~Confirm `AlphaTexExporter` exists.~~ **Resolved during brainstorm** — `alphaTab.d.ts:3706` declares `class AlphaTexExporter extends ScoreExporter`; exported at line 8288.
 3. Confirm in-place Score mutation is safe; otherwise budget `score.clone()` per edit. (Runtime behaviour, not API surface — settle empirically when implementing the first op.)
 4. Confirm alphaTab exposes a beat / note hit-test API for click-to-cursor; if not, the canvas overlay computes cell positions from the Score's bar index + render geometry.
-5. macOS `Option`+digit produces special characters by default (Option+1 = ¡, Option+2 = ™, etc.). The keyboard handler must `preventDefault()` on the `keydown` event before the browser's input-method-editor processes it. Verify the canvas overlay's keyboard handler is on `keydown` (not `keypress`) and intercepts before browser default. Test on actual macOS during implementation.
+5. Confirm the canvas overlay's keyboard handler runs on `keydown` (not `keypress`) and intercepts the bare-letter shortcuts before any input-method-editor or accessibility consumer downstream. Standard for browser keyboard handling, but worth verifying the overlay is correctly focused so the shortcuts fire.
