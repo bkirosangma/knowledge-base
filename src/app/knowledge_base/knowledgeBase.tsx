@@ -801,7 +801,7 @@ function KnowledgeBaseInner() {
   );
   const gpImport = useGpImport({
     tab: tabRepoForImport,
-    onImported: (path) => handleSelectFile(path),
+    onImported: handleSelectFile,
   });
   const importGpCommands = useMemo(() => [{
     id: "tabs.import-gp",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { TabRepository } from "../../../domain/repositories";
 import { gpToAlphatex } from "../../../infrastructure/gpToAlphatex";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
@@ -10,35 +10,41 @@ const ACCEPT_ATTR = GP_EXTENSIONS.map((e) => `.${e}`).join(",");
 
 export interface UseGpImportOptions {
   /** Tab repository to write the converted .alphatex into. May be null
-   *  before a vault is opened — the hook no-ops in that state and surfaces
-   *  the error via ShellErrorContext if the user invokes import anyway. */
+   *  before a vault is opened. */
   tab: TabRepository | null;
-  /** Called with the new vault-relative path after a successful import.
-   *  Caller is responsible for opening the file in a pane. */
+  /** Called with the new vault-relative path after a successful import. */
   onImported: (path: string) => void;
 }
 
 export interface UseGpImport {
-  /** Open a file picker, then convert + write + notify on the chosen file. */
   pickFile: () => void;
-  /** Internal entry point — exposed for unit tests + the file-picker callback. */
   importBytes: (file: File) => Promise<void>;
 }
 
 /**
  * Drives the Guitar Pro import flow: file picker → bytes → alphaTex →
  * vault write → caller-supplied onImported. Errors at any stage route
- * through `ShellErrorContext` (same path docs/diagrams use); user cancel
- * returns silently.
+ * through `ShellErrorContext`; user cancel returns silently.
+ *
+ * Identity discipline:
+ * - `onImported` is stashed in a ref so caller-supplied arrow functions
+ *   don't churn `importBytes`'s memo deps.
+ * - The returned `{ pickFile, importBytes }` is wrapped in `useMemo` so
+ *   the hook is safe to depend on directly in caller `useMemo`/effect
+ *   dep arrays (the palette command registration does this).
  *
  * Note on positioning: this hook is consumed in `knowledgeBase.tsx`'s
  * `KnowledgeBaseInner`, which sits ABOVE `RepositoryProvider` in the
  * React tree. We can't call `useRepositories()` here — the caller passes
- * the `TabRepository` in. (Per `project_repository_context_deferred.md`:
- * peers-and-above-the-provider keep inline; consumers below use the hook.)
+ * the `TabRepository` in.
  */
 export function useGpImport(opts: UseGpImportOptions): UseGpImport {
-  const { tab, onImported } = opts;
+  const { tab } = opts;
+  const onImportedRef = useRef(opts.onImported);
+  useEffect(() => {
+    onImportedRef.current = opts.onImported;
+  }, [opts.onImported]);
+
   const { reportError } = useShellErrors();
 
   const importBytes = useCallback(async (file: File): Promise<void> => {
@@ -49,11 +55,11 @@ export function useGpImport(opts: UseGpImportOptions): UseGpImport {
       const alphaTex = await gpToAlphatex(bytes);
       const targetPath = deriveAlphatexPath(file.name);
       await tab.write(targetPath, alphaTex);
-      onImported(targetPath);
+      onImportedRef.current(targetPath);
     } catch (e) {
       reportError(e, `Importing ${file.name}`);
     }
-  }, [tab, reportError, onImported]);
+  }, [tab, reportError]);
 
   const pickFile = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -75,7 +81,10 @@ export function useGpImport(opts: UseGpImportOptions): UseGpImport {
     input.click();
   }, [importBytes]);
 
-  return { pickFile, importBytes };
+  return useMemo<UseGpImport>(
+    () => ({ pickFile, importBytes }),
+    [pickFile, importBytes],
+  );
 }
 
 /**

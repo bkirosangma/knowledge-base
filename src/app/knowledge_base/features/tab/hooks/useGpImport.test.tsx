@@ -128,4 +128,21 @@ describe("useGpImport", () => {
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(onImported).not.toHaveBeenCalled();
   });
+
+  it("returns a stable object reference across renders when deps don't change", () => {
+    const tab = makeTab();
+    const onImported = vi.fn();
+    // Use a stable context value so reportError identity doesn't change between
+    // renders and corrupt the identity-stability assertion.
+    const stableValue = { current: null, reportError: vi.fn(), dismiss: vi.fn() };
+    const StableWrap = ({ children }: { children: ReactNode }) => (
+      <StubShellErrorProvider value={stableValue}>{children}</StubShellErrorProvider>
+    );
+    const { result, rerender } = renderHook(() => useGpImport({ tab, onImported }), {
+      wrapper: StableWrap,
+    });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
+  });
 });
