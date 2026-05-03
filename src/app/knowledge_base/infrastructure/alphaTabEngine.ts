@@ -61,6 +61,8 @@ interface NoteShape {
 interface BeatShape {
   duration: number;
   notes: NoteShape[];
+  addNote(note: NoteShape): void;
+  removeNote(note: NoteShape): void;
 }
 
 /** Minimal structural shape for walking a Score to its beats. */
@@ -216,10 +218,13 @@ class AlphaTabSession implements TabSession {
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
 
+    // Re-derive metadata before renderScore so we can return it synchronously.
+    // renderScore will fire scoreLoaded → handleScoreLoaded → emit("loaded").
+    // No explicit emit here — that would produce a duplicate loaded event.
+    const metadata = scoreToMetadata(this.latestScore);
+    this.latestMetadata = metadata;
     this.api.renderScore(this.latestScore);
-    this.latestMetadata = scoreToMetadata(this.latestScore);
-    this.emit({ event: "loaded", metadata: this.latestMetadata });
-    return this.latestMetadata;
+    return metadata;
   }
 
   private applySetFret(op: Extract<TabEditOp, { type: "set-fret" }>): void {
@@ -227,7 +232,7 @@ class AlphaTabSession implements TabSession {
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const existing = beat.notes.find((n) => n.string === op.string);
     if (op.fret === null) {
-      if (existing) beat.notes = beat.notes.filter((n) => n !== existing);
+      if (existing) beat.removeNote(existing);
       return;
     }
     if (existing) {
@@ -236,7 +241,7 @@ class AlphaTabSession implements TabSession {
       const note = new this.NoteCtor();
       note.string = op.string;
       note.fret = op.fret;
-      beat.notes.push(note);
+      beat.addNote(note);
     }
   }
 

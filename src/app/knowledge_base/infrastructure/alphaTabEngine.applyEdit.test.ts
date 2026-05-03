@@ -62,6 +62,10 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
     stop() {}
     renderScore(score: unknown) {
       this.renderScoreMock(score);
+      // Mirror production: renderScore re-fires scoreLoaded, which triggers
+      // handleScoreLoaded → emit("loaded").  Without this the fake is a no-op
+      // and the double-emit bug goes undetected.
+      this.scoreLoaded.fire(score);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -218,5 +222,14 @@ describe("AlphaTabSession.applyEdit", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       session.applyEdit({ type: "set-tempo" as any, beat: 0, bpm: 120 }),
     ).toThrow(/Unsupported op/i);
+  });
+
+  it("emits exactly one 'loaded' event per applyEdit call", () => {
+    const loadedEvents: unknown[] = [];
+    session.on("loaded", (e: unknown) => loadedEvents.push(e));
+    // Clear any events captured during beforeEach setup
+    loadedEvents.length = 0;
+    session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: 12 });
+    expect(loadedEvents).toHaveLength(1);
   });
 });
