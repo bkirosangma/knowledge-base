@@ -113,6 +113,30 @@ Read-only side panel surfacing `useTabEngine().metadata` (title, artist, tempo, 
 
 ---
 
+## 11.7 Cross-references (TAB-007a)
+
+Tab properties cross-references: whole-file + per-section explicit attachments and wiki-link backlinks. Section-rename reconciliation. Read-only suppression of the attachment chrome.
+
+- **TAB-11.7-01** ✅ **`slugifySectionName` derives kebab-case slug** — empty / punctuation-only input falls back to `"section"`. _(unit: `tabEngine.slugify.test.ts`.)_
+- **TAB-11.7-02** ✅ **`getSectionIds` resolves duplicate slugs with `-2`/`-3` suffixes** — order-stable. _(unit: `tabEngine.getSectionIds.test.ts`.)_
+- **TAB-11.7-03** ✅ **`useDocuments.migrateAttachments` rewrites `tab-section` ids on file** — only matching `${filePath}#${old}` entries change; other paths/types untouched. _(unit: `useDocuments.test.ts`.)_
+- **TAB-11.7-04** ✅ **`useTabSectionSync` emits position-aligned migrations on rename** — trailing deletions emit nothing (orphan-by-design). _(unit: `useTabSectionSync.test.tsx`.)_
+- **TAB-11.7-05** ✅ **`useTabSectionSync` resets cache on `filePath` change** — first observation per file is a baseline. _(unit: `useTabSectionSync.test.tsx`.)_
+- **TAB-11.7-06** ✅ **`TabReferencesList` renders empty state when no rows** — _(unit: `TabReferencesList.test.tsx`.)_
+- **TAB-11.7-07** ✅ **`TabReferencesList` distinguishes attachment vs backlink rows** — different icon, attachment-only `[detach]` button. _(unit: `TabReferencesList.test.tsx`.)_
+- **TAB-11.7-08** ✅ **`TabReferencesList` de-duplicates by `sourcePath` with attachment winning over backlink** — _(unit: `TabReferencesList.test.tsx`.)_
+- **TAB-11.7-09** ✅ **`TabReferencesList` hides detach when `readOnly`** — _(unit: `TabReferencesList.test.tsx`.)_
+- **TAB-11.7-10** ✅ **`TabProperties` shows file-level "Whole-file references" listing `tab`-typed attachments** — _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.7-11** ✅ **`TabProperties` per-section "References" sub-list keyed by deterministic `tab-section` id** — _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.7-12** ✅ **`TabProperties` Attach affordance opens picker with composite `${filePath}#${sectionId}`** — file-level uses `entityType="tab"`, `entityId=filePath`. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.7-13** ✅ **`TabProperties` hides every Attach affordance when `readOnly`** — _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.7-14** ✅ **`TabProperties` renders duplicate section names with deterministic suffixed ids** — both rows mount, no React key collision. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.7-15** ✅ **`TabView` propagates documents + backlinks to `TabProperties`** — _(unit: `TabView.test.tsx`.)_
+- **TAB-11.7-16** ✅ **`TabView` invokes `onMigrateAttachments` when section renames between metadata snapshots** — _(unit: `TabView.test.tsx`.)_
+- **TAB-11.7-17** ✅ **`TabView` opens DocumentPicker on Attach click and forwards `onAttachDocument` with composite id** — _(unit: `TabView.test.tsx`.)_
+
+---
+
 ## Future sections (added with their owning ticket)
 
 - **§11.7 Properties panel attachments** (TAB-007a) — section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block.
