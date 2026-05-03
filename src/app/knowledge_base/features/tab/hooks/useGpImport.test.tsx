@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
 import { ReactNode } from "react";
-import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../../shell/ShellErrorContext";
 import { useGpImport } from "./useGpImport";
 
@@ -10,26 +9,23 @@ vi.mock("../../../infrastructure/gpToAlphatex", () => ({
 }));
 import { gpToAlphatex } from "../../../infrastructure/gpToAlphatex";
 
+function makeTab() {
+  return {
+    read: vi.fn().mockResolvedValue(""),
+    write: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 function Wrap({
   children,
-  write = vi.fn().mockResolvedValue(undefined) as (tabPath: string, content: string) => Promise<void>,
   reportError = vi.fn() as (e: unknown, context?: string) => void,
 }: {
   children: ReactNode;
-  write?: (tabPath: string, content: string) => Promise<void>;
   reportError?: (e: unknown, context?: string) => void;
 }) {
   return (
     <StubShellErrorProvider value={{ current: null, reportError, dismiss: vi.fn() }}>
-      <StubRepositoryProvider
-        value={{
-          attachment: null, document: null, diagram: null,
-          linkIndex: null, svg: null, vaultConfig: null,
-          tab: { read: vi.fn().mockResolvedValue(""), write },
-        }}
-      >
-        {children}
-      </StubRepositoryProvider>
+      {children}
     </StubShellErrorProvider>
   );
 }
@@ -51,10 +47,10 @@ describe("useGpImport", () => {
 
   it("converts the picked file and writes a sibling .alphatex via TabRepository", async () => {
     vi.mocked(gpToAlphatex).mockResolvedValue("\\title \"Hi\"\n.");
-    const write = vi.fn().mockResolvedValue(undefined);
+    const tab = makeTab();
     const onImported = vi.fn();
-    const { result } = renderHook(() => useGpImport({ onImported }), {
-      wrapper: ({ children }) => <Wrap write={write}>{children}</Wrap>,
+    const { result } = renderHook(() => useGpImport({ tab, onImported }), {
+      wrapper: Wrap,
     });
 
     const file = makeFile("song.gp", [1, 2, 3]);
@@ -63,49 +59,48 @@ describe("useGpImport", () => {
     });
 
     expect(gpToAlphatex).toHaveBeenCalledTimes(1);
-    expect(write).toHaveBeenCalledWith("song.alphatex", "\\title \"Hi\"\n.");
+    expect(tab.write).toHaveBeenCalledWith("song.alphatex", "\\title \"Hi\"\n.");
     expect(onImported).toHaveBeenCalledWith("song.alphatex");
   });
 
   it("preserves multi-segment basenames before the GP extension", async () => {
     vi.mocked(gpToAlphatex).mockResolvedValue("alphatex");
-    const write = vi.fn().mockResolvedValue(undefined);
+    const tab = makeTab();
     const onImported = vi.fn();
-    const { result } = renderHook(() => useGpImport({ onImported }), {
-      wrapper: ({ children }) => <Wrap write={write}>{children}</Wrap>,
+    const { result } = renderHook(() => useGpImport({ tab, onImported }), {
+      wrapper: Wrap,
     });
     const file = makeFile("my.song.gp5", [9]);
     await act(async () => {
       await result.current.importBytes(file);
     });
-    expect(write).toHaveBeenCalledWith("my.song.alphatex", "alphatex");
+    expect(tab.write).toHaveBeenCalledWith("my.song.alphatex", "alphatex");
   });
 
   it("handles .gp3/.gp4/.gp5/.gp7 by stripping any of those extensions", async () => {
     vi.mocked(gpToAlphatex).mockResolvedValue("x");
-    const write = vi.fn().mockResolvedValue(undefined);
     const onImported = vi.fn();
     for (const ext of ["gp3", "gp4", "gp5", "gp7"]) {
-      write.mockClear();
-      const { result } = renderHook(() => useGpImport({ onImported }), {
-        wrapper: ({ children }) => <Wrap write={write}>{children}</Wrap>,
+      const tab = makeTab();
+      const { result } = renderHook(() => useGpImport({ tab, onImported }), {
+        wrapper: Wrap,
       });
       const file = makeFile(`song.${ext}`, [1]);
       await act(async () => {
         await result.current.importBytes(file);
       });
-      expect(write).toHaveBeenCalledWith("song.alphatex", "x");
+      expect(tab.write).toHaveBeenCalledWith("song.alphatex", "x");
       cleanup();
     }
   });
 
   it("routes a conversion failure through ShellErrorContext", async () => {
     vi.mocked(gpToAlphatex).mockRejectedValue(new Error("Unsupported format"));
-    const write = vi.fn();
+    const tab = makeTab();
     const reportError = vi.fn();
     const onImported = vi.fn();
-    const { result } = renderHook(() => useGpImport({ onImported }), {
-      wrapper: ({ children }) => <Wrap write={write} reportError={reportError}>{children}</Wrap>,
+    const { result } = renderHook(() => useGpImport({ tab, onImported }), {
+      wrapper: ({ children }) => <Wrap reportError={reportError}>{children}</Wrap>,
     });
     const file = makeFile("broken.gp", [0]);
     await act(async () => {
@@ -113,17 +108,18 @@ describe("useGpImport", () => {
     });
     expect(reportError).toHaveBeenCalledTimes(1);
     expect(reportError.mock.calls[0][0].message).toBe("Unsupported format");
-    expect(write).not.toHaveBeenCalled();
+    expect(tab.write).not.toHaveBeenCalled();
     expect(onImported).not.toHaveBeenCalled();
   });
 
   it("routes a write failure through ShellErrorContext", async () => {
     vi.mocked(gpToAlphatex).mockResolvedValue("alphatex");
-    const write = vi.fn().mockRejectedValue(new Error("permission denied"));
+    const tab = makeTab();
+    tab.write.mockRejectedValue(new Error("permission denied"));
     const reportError = vi.fn();
     const onImported = vi.fn();
-    const { result } = renderHook(() => useGpImport({ onImported }), {
-      wrapper: ({ children }) => <Wrap write={write} reportError={reportError}>{children}</Wrap>,
+    const { result } = renderHook(() => useGpImport({ tab, onImported }), {
+      wrapper: ({ children }) => <Wrap reportError={reportError}>{children}</Wrap>,
     });
     const file = makeFile("a.gp", [1]);
     await act(async () => {

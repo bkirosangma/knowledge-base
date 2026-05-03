@@ -12,6 +12,7 @@ import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
+import { createTabRepository } from "./infrastructure/tabRepo";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -790,7 +791,16 @@ function KnowledgeBaseInner() {
   }], [handleToggleSearchPanel]);
   useRegisterCommands(openSearchCommands);
 
+  // Inline TabRepository — `KnowledgeBaseInner` sits above the
+  // RepositoryProvider, so we can't useRepositories() here. The factory
+  // is cheap; the duplicate alongside the provider's internal call is
+  // acceptable per `project_repository_context_deferred.md`.
+  const tabRepoForImport = useMemo(
+    () => fileExplorer.rootHandle ? createTabRepository(fileExplorer.rootHandle) : null,
+    [fileExplorer.rootHandle],
+  );
   const gpImport = useGpImport({
+    tab: tabRepoForImport,
     onImported: (path) => handleSelectFile(path),
   });
   const importGpCommands = useMemo(() => [{

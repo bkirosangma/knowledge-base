@@ -1,14 +1,18 @@
 "use client";
 
 import { useCallback } from "react";
+import type { TabRepository } from "../../../domain/repositories";
 import { gpToAlphatex } from "../../../infrastructure/gpToAlphatex";
-import { useRepositories } from "../../../shell/RepositoryContext";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
 
 const GP_EXTENSIONS = ["gp", "gp3", "gp4", "gp5", "gp7"];
 const ACCEPT_ATTR = GP_EXTENSIONS.map((e) => `.${e}`).join(",");
 
 export interface UseGpImportOptions {
+  /** Tab repository to write the converted .alphatex into. May be null
+   *  before a vault is opened — the hook no-ops in that state and surfaces
+   *  the error via ShellErrorContext if the user invokes import anyway. */
+  tab: TabRepository | null;
   /** Called with the new vault-relative path after a successful import.
    *  Caller is responsible for opening the file in a pane. */
   onImported: (path: string) => void;
@@ -26,9 +30,15 @@ export interface UseGpImport {
  * vault write → caller-supplied onImported. Errors at any stage route
  * through `ShellErrorContext` (same path docs/diagrams use); user cancel
  * returns silently.
+ *
+ * Note on positioning: this hook is consumed in `knowledgeBase.tsx`'s
+ * `KnowledgeBaseInner`, which sits ABOVE `RepositoryProvider` in the
+ * React tree. We can't call `useRepositories()` here — the caller passes
+ * the `TabRepository` in. (Per `project_repository_context_deferred.md`:
+ * peers-and-above-the-provider keep inline; consumers below use the hook.)
  */
 export function useGpImport(opts: UseGpImportOptions): UseGpImport {
-  const { tab } = useRepositories();
+  const { tab, onImported } = opts;
   const { reportError } = useShellErrors();
 
   const importBytes = useCallback(async (file: File): Promise<void> => {
@@ -39,11 +49,11 @@ export function useGpImport(opts: UseGpImportOptions): UseGpImport {
       const alphaTex = await gpToAlphatex(bytes);
       const targetPath = deriveAlphatexPath(file.name);
       await tab.write(targetPath, alphaTex);
-      opts.onImported(targetPath);
+      onImported(targetPath);
     } catch (e) {
       reportError(e, `Importing ${file.name}`);
     }
-  }, [tab, reportError, opts]);
+  }, [tab, reportError, onImported]);
 
   const pickFile = useCallback(() => {
     if (typeof document === "undefined") return;
