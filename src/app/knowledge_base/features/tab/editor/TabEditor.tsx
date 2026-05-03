@@ -9,6 +9,7 @@ import { useSelectedNoteDetails } from "./hooks/useSelectedNoteDetails";
 import { TabEditorToolbar } from "./TabEditorToolbar";
 import { TabEditorCanvasOverlay } from "./TabEditorCanvasOverlay";
 import type { PreState } from "../editHistory/inverseOf";
+import { findBeat, findNote, findBarByBeat } from "./scoreNavigation";
 
 export interface TabEditorProps {
   filePath: string;
@@ -43,20 +44,42 @@ export default function TabEditor({
   /**
    * captureState — read pre-state for inverse-op generation.
    *
-   * TODO (follow-up): For full correctness, walk the score to read the
-   * actual current fret/duration/tempo before the mutation, mirroring the
-   * locateBeat helper in alphaTabEngine.ts. For T19 the approximate values
-   * below are acceptable — the e2e smoke does not exercise undo/redo.
+   * Walks the live score object to capture the real value BEFORE the mutation
+   * so that undo restores the actual prior state (not a hardcoded sentinel).
    */
-  const captureState = useCallback((_op: TabEditOp): PreState => {
-    switch (_op.type) {
-      case "set-fret":     return { fret: null } as PreState;
-      case "set-duration": return { duration: 4 } as PreState;
-      case "set-tempo":    return { bpm: 120 } as PreState;
-      case "set-section":  return { name: null } as PreState;
-      default:             return {} as PreState;
+  const captureState = useCallback((op: TabEditOp): PreState => {
+    // Score is typed as unknown; helpers in scoreNavigation.ts use `any` internally.
+    const s = score as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    switch (op.type) {
+      case "set-fret": {
+        const note = s ? findNote(s, op.beat, op.string) : null;
+        return { fret: note ? (note.fret as number) : null } as PreState;
+      }
+      case "set-duration": {
+        const beat = s ? findBeat(s, op.beat) : null;
+        return { duration: beat ? (beat.duration as number) : 4 } as PreState;
+      }
+      case "set-tempo": {
+        const bar = s ? findBarByBeat(s, op.beat) : null;
+        const auto = bar?.tempoAutomations?.[0];
+        return { bpm: auto ? (auto.value as number) : 120 } as PreState;
+      }
+      case "set-section": {
+        const bar = s ? findBarByBeat(s, op.beat) : null;
+        return { name: bar?.section?.text ?? null } as PreState;
+      }
+      case "set-track-tuning": {
+        const track = s?.tracks?.[parseInt(op.trackId, 10)];
+        return { tuning: track?.staves?.[0]?.tuning?.slice() ?? [] } as PreState;
+      }
+      case "set-track-capo": {
+        const track = s?.tracks?.[parseInt(op.trackId, 10)];
+        return { fret: track?.staves?.[0]?.capo ?? 0 } as PreState;
+      }
+      default:
+        return {} as PreState;
     }
-  }, []);
+  }, [score]);
 
   const dispatch = useCallback((op: TabEditOp): void => {
     if (!session) return;
