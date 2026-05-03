@@ -88,15 +88,48 @@ interface TechniqueMutator {
 
 type TechniqueMutatorMap = Record<string, TechniqueMutator>;
 
+/** Minimal structural shape for a MasterBar used in structural ops. */
+interface MasterBarShape {
+  section: SectionShape | null | undefined;
+  tempoAutomations: AutomationShape[];
+  index: number;
+}
+
+/** Minimal structural shape for a Section marker. */
+interface SectionShape {
+  text: string;
+  marker: string;
+}
+
+/** Minimal structural shape for an Automation entry. */
+interface AutomationShape {
+  type: number;
+  value: number;
+  isLinear: boolean;
+  ratioPosition: number;
+}
+
+/** Minimal structural shape for a Bar used in add/remove ops. */
+interface BarShape {
+  voices: Array<{
+    beats: BeatShape[];
+    addBeat(beat: BeatShape): void;
+  }>;
+  addVoice(voice: BarShapeVoice): void;
+}
+
+/** Voice shape for constructing new bars. */
+interface BarShapeVoice {
+  beats: BeatShape[];
+  addBeat(beat: BeatShape): void;
+}
+
 /** Minimal structural shape for walking a Score to its beats. */
 interface ScoreShape {
+  masterBars: MasterBarShape[];
   tracks: Array<{
     staves: Array<{
-      bars: Array<{
-        voices: Array<{
-          beats: BeatShape[];
-        }>;
-      }>;
+      bars: Array<BarShape>;
     }>;
   }>;
 }
@@ -120,7 +153,7 @@ function buildTechniqueMutators(
     SlideOutType: { None: number; Shift: number };
     VibratoType: { None: number; Slight: number };
     HarmonicType: { None: number; Natural: number };
-    Duration: { Eighth: number };
+    Duration: { Eighth: number; Quarter: number };
   },
   BendPointCtor: new (offset?: number, value?: number) => { offset: number; value: number },
 ): TechniqueMutatorMap {
@@ -213,9 +246,19 @@ export class AlphaTabEngine implements TabEngine {
       SlideOutType: mod.model.SlideOutType as { None: number; Shift: number },
       VibratoType:  mod.model.VibratoType  as { None: number; Slight: number },
       HarmonicType: mod.model.HarmonicType as { None: number; Natural: number },
-      Duration:     mod.model.Duration     as { Eighth: number },
+      Duration:     mod.model.Duration     as { Eighth: number; Quarter: number },
     };
     const techniqueMutators = buildTechniqueMutators(enums, BendPointCtor);
+
+    // Structural op constructors — captured here so they live inside the lazy chunk.
+    const MasterBarCtor  = mod.model.MasterBar  as unknown as new () => MasterBarShape;
+    const SectionCtor    = mod.model.Section    as unknown as new () => SectionShape;
+    const BarCtor        = mod.model.Bar        as unknown as new () => BarShape;
+    const VoiceCtor      = mod.model.Voice      as unknown as new () => BarShapeVoice;
+    const BeatCtor       = mod.model.Beat       as unknown as new () => BeatShape;
+    const AutomationCtor = mod.model.Automation as unknown as new () => AutomationShape;
+    const AutomationType = mod.model.AutomationType as { Tempo: number };
+    const DurationEnum   = mod.model.Duration   as { Quarter: number };
 
     const settings = new Settings();
     settings.player.enablePlayer = true;
@@ -223,7 +266,12 @@ export class AlphaTabEngine implements TabEngine {
     settings.core.logLevel = LOG_LEVEL_INFO;
 
     const api = new ApiCtor(container, settings);
-    const session = new AlphaTabSession(api, NoteCtor, techniqueMutators);
+    const session = new AlphaTabSession(
+      api,
+      NoteCtor,
+      techniqueMutators,
+      { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum },
+    );
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
   }
@@ -239,6 +287,16 @@ class AlphaTabSession implements TabSession {
     private api: AlphaTabApiLike,
     private NoteCtor: new () => NoteShape,
     private techniqueMutators: TechniqueMutatorMap,
+    private structCtors: {
+      MasterBarCtor:  new () => MasterBarShape;
+      SectionCtor:    new () => SectionShape;
+      BarCtor:        new () => BarShape;
+      VoiceCtor:      new () => BarShapeVoice;
+      BeatCtor:       new () => BeatShape;
+      AutomationCtor: new () => AutomationShape;
+      AutomationType: { Tempo: number };
+      DurationEnum:   { Quarter: number };
+    },
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
     api.error.on((err) => this.emit({ event: "error", error: err }));
@@ -345,6 +403,18 @@ class AlphaTabSession implements TabSession {
           "remove",
         );
         break;
+      case "set-tempo":
+        this.applySetTempo(op);
+        break;
+      case "set-section":
+        this.applySetSection(op);
+        break;
+      case "add-bar":
+        this.applyAddBar(op);
+        break;
+      case "remove-bar":
+        this.applyRemoveBar(op);
+        break;
       default:
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
@@ -394,6 +464,96 @@ class AlphaTabSession implements TabSession {
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
     this.techniqueMutators[op.technique][mode](note);
   }
+
+  private applySetTempo(op: Extract<TabEditOp, { type: "set-tempo" }>): void {
+    const score = this.latestScore!;
+    const barIdx = locateBarIndex(score, op.beat);
+    if (barIdx === -1) throw new Error(`Beat ${op.beat} not found`);
+    const masterBar = score.masterBars[barIdx];
+    // Replace (not push) so repeated calls stay idempotent — one automation per bar.
+    // Note: score.tempo is derived from masterBars[0].tempoAutomations[0].value, so
+    // setting bar 0 also updates the score-level tempo reflected in metadata.
+    const { AutomationCtor, AutomationType } = this.structCtors;
+    const automation = new AutomationCtor();
+    automation.type = AutomationType.Tempo;
+    automation.value = op.bpm;
+    automation.isLinear = false;
+    automation.ratioPosition = 0;
+    masterBar.tempoAutomations = [automation];
+  }
+
+  private applySetSection(op: Extract<TabEditOp, { type: "set-section" }>): void {
+    const score = this.latestScore!;
+    const barIdx = locateBarIndex(score, op.beat);
+    if (barIdx === -1) throw new Error(`Beat ${op.beat} not found`);
+    const masterBar = score.masterBars[barIdx];
+    if (op.name === null) {
+      masterBar.section = null;
+    } else {
+      const { SectionCtor } = this.structCtors;
+      const section = new SectionCtor();
+      section.text = op.name;
+      section.marker = op.name;
+      masterBar.section = section;
+    }
+  }
+
+  private applyAddBar(op: Extract<TabEditOp, { type: "add-bar" }>): void {
+    const score = this.latestScore!;
+    const barIdx = locateBarIndex(score, op.afterBeat);
+    if (barIdx === -1) throw new Error(`Beat ${op.afterBeat} not found`);
+    const { MasterBarCtor, BarCtor, VoiceCtor, BeatCtor, DurationEnum } = this.structCtors;
+
+    // Insert a new MasterBar after the targeted bar.
+    const newMasterBar = new MasterBarCtor();
+    score.masterBars.splice(barIdx + 1, 0, newMasterBar);
+
+    // For every track and every staff, insert a new Bar with one rest Beat.
+    for (const track of score.tracks) {
+      for (const staff of track.staves) {
+        const newBar = new BarCtor();
+        const newVoice = new VoiceCtor();
+        const newBeat = new BeatCtor();
+        // Quarter rest — notes.length === 0 means isRest === true at render time.
+        (newBeat as unknown as { duration: number }).duration = DurationEnum.Quarter;
+        newVoice.addBeat(newBeat);
+        newBar.addVoice(newVoice);
+        staff.bars.splice(barIdx + 1, 0, newBar);
+      }
+    }
+  }
+
+  private applyRemoveBar(op: Extract<TabEditOp, { type: "remove-bar" }>): void {
+    const score = this.latestScore!;
+    if (score.masterBars.length === 1) {
+      throw new Error("Cannot remove the only bar in a score");
+    }
+    const barIdx = locateBarIndex(score, op.beat);
+    if (barIdx === -1) throw new Error(`Beat ${op.beat} not found`);
+
+    score.masterBars.splice(barIdx, 1);
+    for (const track of score.tracks) {
+      for (const staff of track.staves) {
+        staff.bars.splice(barIdx, 1);
+      }
+    }
+  }
+}
+
+/**
+ * Walk tracks[0] → staves[0] → bars and return the zero-based bar index that
+ * contains the given global beat index.  Returns -1 if not found.
+ * Single-track scope: tracks[0] only.
+ */
+function locateBarIndex(score: ScoreShape, globalBeatIndex: number): number {
+  let counter = 0;
+  const bars = score.tracks[0].staves[0].bars;
+  for (let i = 0; i < bars.length; i++) {
+    const beatCount = bars[i].voices[0].beats.length;
+    if (globalBeatIndex < counter + beatCount) return i;
+    counter += beatCount;
+  }
+  return -1;
 }
 
 /**

@@ -137,6 +137,29 @@ function findNote(session: any, beatIndex: number, stringNum: number): any {
   return beat.notes.find((n: any) => n.string === stringNum) ?? null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findScore(session: any): any {
+  const score = session.latestScore;
+  if (!score) throw new Error("No score on session");
+  return score;
+}
+
+/**
+ * Return the global beat index of the first beat in barIdx (0-based).
+ * Walks tracks[0]→staves[0]→bars[0..barIdx-1] summing beat counts.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getFirstBeatOfBar(session: any, barIdx: number): number {
+  const score = findScore(session);
+  const bars = score.tracks[0].staves[0].bars;
+  let counter = 0;
+  for (let i = 0; i < barIdx; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    counter += bars[i].voices[0].beats.length;
+  }
+  return counter;
+}
+
 /**
  * Read the appropriate flag from the note for the given technique.
  * Returns boolean (true = technique is active).
@@ -254,7 +277,7 @@ describe("AlphaTabSession.applyEdit", () => {
   it("throws for unsupported op type", () => {
     expect(() =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      session.applyEdit({ type: "set-tempo" as any, beat: 0, bpm: 120 }),
+      session.applyEdit({ type: "totally-unknown-op" as any, beat: 0 }),
     ).toThrow(/Unsupported op/i);
   });
 
@@ -347,5 +370,46 @@ describe("AlphaTabSession.applyEdit", () => {
     loadedEvents.length = 0;
     session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: 12 });
     expect(loadedEvents).toHaveLength(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Structural ops: set-tempo, set-section, add-bar, remove-bar
+  // ---------------------------------------------------------------------------
+
+  it("set-tempo writes a tempo automation at the targeted beat", () => {
+    session.applyEdit({ type: "set-tempo", beat: 0, bpm: 140 });
+    const meta = session.applyEdit({ type: "set-tempo", beat: 0, bpm: 140 }); // idempotent
+    expect(meta.tempo).toBe(140);
+  });
+
+  it("set-section adds a section name to the bar containing the beat", () => {
+    session.applyEdit({ type: "set-section", beat: 0, name: "Intro" });
+    const score = findScore(session);
+    expect(score.masterBars[0].section?.text).toBe("Intro");
+  });
+
+  it("set-section with name=null removes the section marker", () => {
+    session.applyEdit({ type: "set-section", beat: 0, name: "Intro" });
+    session.applyEdit({ type: "set-section", beat: 0, name: null });
+    expect(findScore(session).masterBars[0].section).toBeFalsy();
+  });
+
+  it("add-bar appends a master bar after the target beat's bar", () => {
+    const before = findScore(session).masterBars.length;
+    session.applyEdit({ type: "add-bar", afterBeat: 0 });
+    expect(findScore(session).masterBars.length).toBe(before + 1);
+  });
+
+  it("remove-bar drops the master bar containing the beat", () => {
+    session.applyEdit({ type: "add-bar", afterBeat: 0 });
+    const before = findScore(session).masterBars.length;
+    session.applyEdit({ type: "remove-bar", beat: getFirstBeatOfBar(session, 1) });
+    expect(findScore(session).masterBars.length).toBe(before - 1);
+  });
+
+  it("remove-bar refuses to drop the only bar in a track", () => {
+    expect(() =>
+      session.applyEdit({ type: "remove-bar", beat: 0 }),
+    ).toThrow(/last bar|only bar/i);
   });
 });
