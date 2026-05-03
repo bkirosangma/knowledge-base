@@ -51,6 +51,7 @@ next-env.d.ts
 
 src/app/architecture_designer/data
 src/app/knowledge_base/data
+src/app/knowledge_base/infrastructure/__scratch__/
 graphify-out
 CLAUDE.md
 .claude
