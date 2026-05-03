@@ -15,6 +15,15 @@
 
 **Critical convention to honour:** alphaTex line-comment marker is `//`, NOT `%`. Spec L309 confirms. The user's `~/.claude/skills/knowledge-base/commands/guitar-tabs.md` file uses `%` in three places — *do not* let that wrong syntax leak into any code, fixture, or test in this plan.
 
+**alphaTex grammar verified against the emitter** (`node_modules/@coderline/alphatab/dist/alphaTab.core.mjs` `AlphaTexExporter` + `AlphaTexPrinter._writeMetaData` → `AlphaTexWriter.writeString` → `Environment.quoteJsonString`):
+
+- The exporter writes directive string arguments as **double-quoted JSON strings** (`\title "Foo"`, `\artist "Bar"`, `\track "Lead"`, `\lyrics "..."`).
+- The alphaTex *parser* also accepts single-quoted strings (the alphaTab docs show `api.tex("\\title 'Test' . 3.3.4")`), so users hand-writing `.alphatex` files may use either form. Our parser must accept both.
+- `\tuning` is a space-separated list of pitch tokens (`E5 B4 G4 D4 A3 E3`), no quoting.
+- `\tempo` takes a number.
+- `\lyrics` is a single quoted string at the score-metadata level — *not* multi-line. (Per-bar lyric syllables are a separate concept and not the directive captured by this header parser.)
+- The line-comment grammar is `// ...` to end of line. The convention `// references: [[…]] [[…]]` is project-specific (KB) and lives inside that comment.
+
 ---
 
 ## File Structure
@@ -147,13 +156,22 @@ describe("parseAlphatexHeader", () => {
     const src = `\\title "X"\n\\track "Bass"\n\\track "Drums"\n\\track "Guitar"\n. r.4 |`;
     expect(parseAlphatexHeader(src).trackNames).toEqual(["Bass", "Drums", "Guitar"]);
   });
+
+  it("accepts single-quoted directive values (alphaTex parser docs use them)", () => {
+    const src = `\\title 'Wonderwall'\n\\artist 'Oasis'\n\\track 'Acoustic'\n\\lyrics 'Today'\n. r.4 |`;
+    const out = parseAlphatexHeader(src);
+    expect(out.title).toBe("Wonderwall");
+    expect(out.artist).toBe("Oasis");
+    expect(out.trackNames).toEqual(["Acoustic"]);
+    expect(out.lyrics).toBe("Today");
+  });
 });
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `npm run test:run -- src/app/knowledge_base/infrastructure/alphatexHeader.test.ts`
-Expected: all 8 cases FAIL with "Cannot find module './alphatexHeader'" or similar.
+Expected: all 9 cases FAIL with "Cannot find module './alphatexHeader'" or similar.
 
 - [ ] **Step 3: Implement the parser**
 
@@ -188,20 +206,25 @@ export interface AlphatexHeader {
   references: string[];
 }
 
+// alphaTex accepts either single- or double-quoted strings (see plan
+// header for grammar verification notes). The capture group below
+// matches whichever quote style the author used.
 const QUOTED_DIRECTIVE = (name: string) =>
-  new RegExp(`^\\s*\\\\${name}\\s+"([^"]*)"`, "m");
+  new RegExp(`^\\s*\\\\${name}\\s+(?:"([^"]*)"|'([^']*)')`, "m");
 
 const NUMERIC_DIRECTIVE = (name: string) =>
   new RegExp(`^\\s*\\\\${name}\\s+([0-9]+(?:\\.[0-9]+)?)`, "m");
 
 const TUNING_LINE = /^\s*\\tuning\s+(.+?)(?:\/\/.*)?$/m;
-const TRACK_LINE = /^\s*\\track\s+"([^"]*)"/gm;
+const TRACK_LINE = /^\s*\\track\s+(?:"([^"]*)"|'([^']*)')/gm;
 const REFERENCES_LINE = /^\s*\/\/\s*references\s*:\s*(.*)$/gim;
 const WIKI_INNER = /\[\[\s*([^\]]+?)\s*\]\]/g;
 
 function matchString(src: string, name: string): string | undefined {
   const m = src.match(QUOTED_DIRECTIVE(name));
-  return m ? m[1] : undefined;
+  // Group 1 = double-quoted form, group 2 = single-quoted form.
+  if (!m) return undefined;
+  return m[1] ?? m[2];
 }
 
 function matchNumber(src: string, name: string): number | undefined {
@@ -217,7 +240,8 @@ function parseTuning(src: string): string[] {
 
 function parseTrackNames(src: string): string[] {
   const out: string[] = [];
-  for (const m of src.matchAll(TRACK_LINE)) out.push(m[1]);
+  // Group 1 = double-quoted name, group 2 = single-quoted name.
+  for (const m of src.matchAll(TRACK_LINE)) out.push(m[1] ?? m[2]);
   return out;
 }
 
@@ -267,7 +291,7 @@ export function parseAlphatexHeader(text: string): AlphatexHeader {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm run test:run -- src/app/knowledge_base/infrastructure/alphatexHeader.test.ts`
-Expected: 8/8 PASS.
+Expected: 9/9 PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -677,13 +701,7 @@ for (const docPath of allDocPaths) {
 }
 ```
 
-> **Confirm `repo.readDocContent` works for `.alphatex` paths.** It currently powers the `.md` and `.json` reads. If it routes by extension (e.g. only opens `.md` files), Task 5 needs an additional sub-step to teach `linkIndexRepo` how to read `.alphatex` as raw text. Check `src/app/knowledge_base/infrastructure/linkIndexRepo.ts` before assuming.
-
-- [ ] **Step 3a (conditional): Teach `linkIndexRepo.readDocContent` to read `.alphatex`**
-
-If `linkIndexRepo.readDocContent` is hard-coded to a specific extension or repo, generalise it to read raw text for any path. Mirror the `documentRepo.read` body (it's a thin `readTextFile(...)` wrapper).
-
-After the change, run `npm run test:run -- src/app/knowledge_base/infrastructure/linkIndexRepo` to confirm any existing tests still pass.
+> **`linkIndexRepo.readDocContent` is generic** (verified at `infrastructure/linkIndexRepo.ts:64-77` — it walks the path with `getDirectoryHandle` + `getFileHandle` + `readTextFile` regardless of extension). No change needed there.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -694,7 +712,6 @@ Expected: full suite green (existing + 3 new).
 
 ```bash
 git add src/app/knowledge_base/features/document/hooks/useLinkIndex.ts src/app/knowledge_base/features/document/hooks/useLinkIndex.test.ts
-# also stage src/app/knowledge_base/infrastructure/linkIndexRepo.ts if Step 3a changed it
 git commit -m "feat(tabs): index outbound wiki-links from .alphatex // references: lines (TAB-011)"
 ```
 
@@ -756,7 +773,11 @@ git commit -m "feat(tabs): route kind='tab' search hits into the tab pane (TAB-0
 **Files:**
 - Modify: `src/app/knowledge_base/knowledgeBase.tsx` (around line 802 — the `useGpImport` call site)
 
-- [ ] **Step 1: Wrap `handleSelectFile` in an indexing-then-opening callback**
+**Sequencing rule:** the user-visible action (open the imported tab in the pane) must NOT wait on indexing. The rename re-index at `knowledgeBase.tsx:240-250` is the precedent — fires the index update inside `void (async () => {…})()` so the rename UI returns synchronously. Mirror that pattern: open first, fire-and-forget the index updates.
+
+**Cost note for the link-index update:** This plan uses `linkManager.fullRebuild(rootHandle, allPaths)` to re-index links after import. That walks every indexed file in the vault to update one new tab. Acceptable for current vault sizes (~hundreds of files). If profile data later shows it's too costly, add a single-file `updateTabLinks()` helper mirroring `updateDocumentLinks()` — tracked as a parked follow-up, not in scope for TAB-011.
+
+- [ ] **Step 1: Wrap `handleSelectFile` in an open-first-then-index callback**
 
 In `src/app/knowledge_base/knowledgeBase.tsx`, locate the `gpImport` block (~line 802):
 
@@ -770,18 +791,41 @@ In `src/app/knowledge_base/knowledgeBase.tsx`, locate the `gpImport` block (~lin
 Replace it with:
 
 ```tsx
-  const handleTabImported = useCallback(async (tabPath: string) => {
+  const handleTabImported = useCallback((tabPath: string) => {
+    // Open the file in the pane immediately so the user-visible action
+    // isn't gated on indexing. The two re-index passes below run in
+    // the background — same fire-and-forget shape as the rename
+    // handler at L240-250.
+    handleSelectFile(tabPath);
+
     const rootHandle = fileExplorer.dirHandleRef.current;
-    if (rootHandle) {
+    if (!rootHandle) return;
+
+    void (async () => {
       try {
         const item = await readForSearchIndex(rootHandle, tabPath);
         if (item) searchManager.addDoc(item.path, item.kind, item.fields);
       } catch {
         // Same swallow policy as the rename re-index path.
       }
-    }
-    handleSelectFile(tabPath);
-  }, [fileExplorer.dirHandleRef, searchManager, handleSelectFile]);
+    })();
+
+    void (async () => {
+      try {
+        const allPaths = Object.keys(linkManager.linkIndex.documents);
+        if (!allPaths.includes(tabPath)) allPaths.push(tabPath);
+        await linkManager.fullRebuild(rootHandle, allPaths);
+      } catch (e) {
+        reportError(e, `Indexing wiki-links for ${tabPath}`);
+      }
+    })();
+  }, [
+    fileExplorer.dirHandleRef,
+    searchManager,
+    linkManager,
+    reportError,
+    handleSelectFile,
+  ]);
 
   const gpImport = useGpImport({
     tab: tabRepoForImport,
@@ -789,22 +833,10 @@ Replace it with:
   });
 ```
 
-> The re-index also needs the link-index to pick up any `// references:` line in the new file. Add this just after the `searchManager.addDoc` call inside the try-block, before `handleSelectFile`:
->
-> ```tsx
-> // Pull any [[…]] tokens from the freshly-imported tab into the link
-> // index so backlinks surface immediately. Cheap: same per-file walk
-> // as fullRebuild does for one path.
-> try {
->   const allPaths = Object.keys(linkManager.linkIndex.documents);
->   if (!allPaths.includes(tabPath)) allPaths.push(tabPath);
->   await linkManager.fullRebuild(rootHandle, allPaths);
-> } catch (e) {
->   reportError(e, `Indexing wiki-links for ${tabPath}`);
-> }
-> ```
->
-> If `linkManager` / `reportError` aren't already in scope at this site, swap to the smallest existing helper. (They are in scope as of TAB-006 — verify with `grep -n "linkManager\|reportError" src/app/knowledge_base/knowledgeBase.tsx | head -5`.)
+- [ ] **Step 1a: Verify `linkManager` and `reportError` are in scope at this site**
+
+Run: `grep -nE "(linkManager|reportError)" src/app/knowledge_base/knowledgeBase.tsx | head -10`
+Expected: both names appear earlier in the same component body. They're already used by `handleRenameWithLinks` (~L240-250) and many other handlers, so the `useGpImport` site can reference them without new wiring.
 
 - [ ] **Step 2: Verify typecheck + tests**
 
@@ -951,8 +983,11 @@ gh pr create --title "feat(tabs): vault search + wiki-link integration (TAB-011)
 - [x] `npm run test:run` — all green (~1655 tests)
 - [x] `npm run lint` — zero errors
 - [x] `npm run build` — clean production build
-- [x] Manual: open a `.alphatex` file, search for its title / artist / one of its tuning notes — appears as a hit, opens in the tab pane.
-- [x] Manual: a `.alphatex` file with `// references: [[notes/x.md]]` shows up in `notes/x.md`'s backlinks panel after a vault refresh.
+
+Operator checks (require a real browser session — preview MCP can't drive the FSA folder picker per `feedback_preview_verification_limits.md`):
+- [ ] Open a `.alphatex` file in a real vault, search for its title / artist / one of its tuning notes — hit appears in the global search dropdown and clicks open the tab pane.
+- [ ] A `.alphatex` file with `// references: [[notes/x.md]]` shows up in `notes/x.md`'s backlinks panel after a vault refresh (or after the link index rebuilds on next load).
+- [ ] Importing a `.gp` file makes the resulting tab immediately searchable — no manual refresh required.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
@@ -971,7 +1006,7 @@ EOF
 - ✅ TAB-11.2-13 ❌ → ✅ — Task 8.
 - ⚠️ Lyrics extraction relies on a `\lyrics "..."` directive; if the alphaTex grammar uses a different multi-line `\lyrics` syntax, the parser captures only the quoted form. **Acceptable for M1 viewer scope.** A follow-up can extend the parser to multi-line lyrics if real fixtures need it. Tracked as a parked item to add to the handoff if the implementing engineer confirms a discrepancy.
 
-**2. Placeholder scan:** No "TBD", no "TODO", no "implement appropriate handling" left. Step 3a in Task 5 is a *conditional* sub-step with a precise check (`grep linkIndexRepo.readDocContent`); it's an honest "verify before assuming" rather than a placeholder.
+**2. Placeholder scan:** No "TBD", no "TODO", no "implement appropriate handling", no conditional sub-steps. The earlier draft had a "verify `linkIndexRepo.readDocContent`" conditional in Task 5 — resolved (it's generic) and removed. Step 1a in Task 7 is a *runtime check* (a grep the executor runs to confirm scoped names), not a deferred decision.
 
 **3. Type consistency:**
 - `DocKind` extended once (Task 2), referenced consistently (`"tab"`) downstream.
