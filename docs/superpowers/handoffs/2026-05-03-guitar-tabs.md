@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (TAB-007a merged via PR #108; TAB-012 in flight on `plan/guitar-tabs-mobile`).
+**Last updated:** 2026-05-03 (TAB-007a merged via PR #108; TAB-012 PR #109 open on `plan/guitar-tabs-mobile`).
 
 ---
 
@@ -67,7 +67,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-011 | Vault search + wiki-link integration (`alphatexHeader`, `tabFields`, `buildTabEntry`, `handleTabImported`) | [#106](https://github.com/bkirosangma/knowledge-base/pull/106) | ✅ Merged |
 | (handoff refresh) | Post-TAB-011 handoff update | [#107](https://github.com/bkirosangma/knowledge-base/pull/107) | ✅ Merged |
 | TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | ✅ Merged |
-| TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | _pending_ | 🚧 In flight on `plan/guitar-tabs-mobile` |
+| TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | 🚧 In flight |
 
 After TAB-012 merges, **M1 (viewer ship-point) is complete** — natural pause-and-evaluate boundary per the spec.
 
@@ -79,7 +79,7 @@ After TAB-012 merges, **M1 (viewer ship-point) is complete** — natural pause-a
 
 | Ticket | Title | Effort | Dependencies | Status |
 |---|---|---|---|---|
-| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | 🚧 In flight on `plan/guitar-tabs-mobile` |
+| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | 🚧 PR #109 |
 
 After this, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
 
