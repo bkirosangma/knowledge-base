@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TabMetadata } from "../../../domain/tabEngine";
+import type { DocumentMeta } from "../../document/types";
 import { TabProperties } from "./TabProperties";
 
 function makeMetadata(overrides: Partial<TabMetadata> = {}): TabMetadata {
@@ -101,5 +102,146 @@ describe("TabProperties", () => {
     expect(screen.queryByText("Gmaj")).not.toBeInTheDocument();
     // Title still renders.
     expect(screen.getByText("Intro Riff")).toBeInTheDocument();
+  });
+});
+
+describe("TabProperties — cross-references", () => {
+  const baseDocs: DocumentMeta[] = [
+    {
+      id: "d1",
+      filename: "notes/song-history.md",
+      title: "song-history",
+      attachedTo: [{ type: "tab", id: "tabs/song.alphatex" }],
+    },
+    {
+      id: "d2",
+      filename: "notes/intro-theory.md",
+      title: "intro-theory",
+      attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#intro" }],
+    },
+  ];
+
+  it("renders a Whole-file references section listing tab-typed attachments", () => {
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={baseDocs}
+        backlinks={[]}
+      />,
+    );
+    expect(screen.getByText(/whole-file references/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /song-history\.md/i })).toBeInTheDocument();
+  });
+
+  it("renders a per-section References sub-list using the deterministic section id", () => {
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={baseDocs}
+        backlinks={[]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /intro-theory\.md/i })).toBeInTheDocument();
+  });
+
+  it("renders an Attach affordance per section and at file level when not readOnly", () => {
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={[]}
+        backlinks={[]}
+        onOpenDocPicker={vi.fn()}
+      />,
+    );
+    const attachButtons = screen.getAllByRole("button", { name: /attach/i });
+    // makeMetadata has 2 sections (Intro, Verse 1) + 1 file-level → 3 buttons.
+    expect(attachButtons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("invokes onOpenDocPicker with the composite section id when section Attach is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpenDocPicker = vi.fn();
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={[]}
+        backlinks={[]}
+        onOpenDocPicker={onOpenDocPicker}
+      />,
+    );
+    const introAttach = screen.getByTestId("attach-section-intro");
+    await user.click(introAttach);
+    expect(onOpenDocPicker).toHaveBeenCalledWith(
+      "tab-section",
+      "tabs/song.alphatex#intro",
+    );
+  });
+
+  it("invokes onOpenDocPicker with type 'tab' and the file path when file-level Attach is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpenDocPicker = vi.fn();
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={[]}
+        backlinks={[]}
+        onOpenDocPicker={onOpenDocPicker}
+      />,
+    );
+    await user.click(screen.getByTestId("attach-file"));
+    expect(onOpenDocPicker).toHaveBeenCalledWith("tab", "tabs/song.alphatex");
+  });
+
+  it("hides all Attach affordances when readOnly is true", () => {
+    render(
+      <TabProperties
+        metadata={makeMetadata()}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={[]}
+        backlinks={[]}
+        onOpenDocPicker={vi.fn()}
+        readOnly
+      />,
+    );
+    expect(screen.queryAllByRole("button", { name: /attach/i })).toHaveLength(0);
+  });
+
+  it("uses deterministic section ids as React keys (duplicates render once each)", () => {
+    const { container } = render(
+      <TabProperties
+        metadata={makeMetadata({
+          sections: [
+            { name: "Verse", startBeat: 0 },
+            { name: "Verse", startBeat: 1920 },
+          ],
+        })}
+        collapsed={false}
+        onToggleCollapse={vi.fn()}
+        filePath="tabs/song.alphatex"
+        documents={[]}
+        backlinks={[]}
+      />,
+    );
+    const sectionRows = container.querySelectorAll('[data-testid^="tab-section-row-"]');
+    expect(sectionRows).toHaveLength(2);
+    expect(sectionRows[0].getAttribute("data-testid")).toBe("tab-section-row-verse");
+    expect(sectionRows[1].getAttribute("data-testid")).toBe("tab-section-row-verse-2");
   });
 });

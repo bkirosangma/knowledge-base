@@ -182,3 +182,127 @@ describe('removeDocument', () => {
     expect(result.current.documents).toEqual([])
   })
 })
+
+describe("migrateAttachments", () => {
+  it("rewrites tab-section attachment ids matching filePath#oldId → filePath#newId", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#verse-1" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "verse-1", to: "verse-one" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-section", id: "tabs/song.alphatex#verse-one" },
+    ]);
+  });
+
+  it("applies multiple migrations in a single call", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "a.md",
+          title: "A",
+          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#intro" }],
+        },
+        {
+          id: "d2",
+          filename: "b.md",
+          title: "B",
+          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#chorus" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "intro", to: "opening" },
+        { from: "chorus", to: "refrain" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-section", id: "tabs/song.alphatex#opening" },
+    ]);
+    expect(result.current.documents[1].attachedTo).toEqual([
+      { type: "tab-section", id: "tabs/song.alphatex#refrain" },
+    ]);
+  });
+
+  it("ignores attachments for other file paths", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [{ type: "tab-section", id: "tabs/other.alphatex#verse-1" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "verse-1", to: "verse-one" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-section", id: "tabs/other.alphatex#verse-1" },
+    ]);
+  });
+
+  it("ignores non-tab-section attachments", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [{ type: "flow", id: "tabs/song.alphatex#verse-1" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "verse-1", to: "verse-one" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "flow", id: "tabs/song.alphatex#verse-1" },
+    ]);
+  });
+
+  it("is a no-op when migrations is empty", () => {
+    const { result } = renderHook(() => useDocuments());
+    const before = [
+      {
+        id: "d1",
+        filename: "notes.md",
+        title: "Notes",
+        attachedTo: [{ type: "tab-section" as const, id: "tabs/song.alphatex#intro" }],
+      },
+    ];
+    act(() => { result.current.setDocuments(before); });
+    const snapshot = result.current.documents;
+    act(() => { result.current.migrateAttachments("tabs/song.alphatex", []); });
+    expect(result.current.documents).toBe(snapshot);
+  });
+});

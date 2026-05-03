@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (after TAB-011 merged; TAB-007a is next).
+**Last updated:** 2026-05-03 (after TAB-007a merged; TAB-012 is next).
 
 ---
 
@@ -65,8 +65,10 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-007 | Properties panel — read-only metadata view (`TabProperties`) | [#104](https://github.com/bkirosangma/knowledge-base/pull/104) | ✅ Merged |
 | (handoff refresh) | Post-TAB-007 handoff update | [#105](https://github.com/bkirosangma/knowledge-base/pull/105) | ✅ Merged |
 | TAB-011 | Vault search + wiki-link integration (`alphatexHeader`, `tabFields`, `buildTabEntry`, `handleTabImported`) | [#106](https://github.com/bkirosangma/knowledge-base/pull/106) | ✅ Merged |
+| (handoff refresh) | Post-TAB-011 handoff update | [#107](https://github.com/bkirosangma/knowledge-base/pull/107) | ✅ Merged |
+| TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | 🚧 In flight |
 
-**TAB-007a** is the next ticket. No Guitar-Tabs branch is currently in-flight.
+**TAB-012** is the next ticket. The TAB-007a PR ([#108](https://github.com/bkirosangma/knowledge-base/pull/108)) is in flight on branch `plan/guitar-tabs-properties-cross-refs`.
 
 ---
 
@@ -76,10 +78,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 | Ticket | Title | Effort | Dependencies | Status |
 |---|---|---|---|---|
-| **TAB-007a** | Tab properties cross-references (whole-file + section attachments via `DocumentsSection`; backlinks panel using `useLinkIndex` data) | 2 days | TAB-007, TAB-011 | ❌ Not started — **next** |
-| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | ❌ Not started |
+| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | ❌ Not started — **next** |
 
-After both, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
+After this, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
 
 ### M2 editor ship-point
 
@@ -102,10 +103,13 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 4. **e2e for the GP import flow (TAB-11.4-06)** — currently ❌. Driving native file picker in headless Chromium needs a custom mock layer. Defer until there's a clean fixture pattern.
 5. **Playwright `clicking Play` smoke (TAB-11.3-19)** — currently 🧪 but relaxed: only asserts the toolbar mounts; SoundFont readiness doesn't fire in headless Chromium within timeout. Could be tightened by mocking `playerReady` or using a tiny SoundFont fixture.
 6. **Shared `"properties-collapsed"` localStorage key duplicated across panes** — surfaced in TAB-007 review. Diagram has it as a named constant in `useDiagramLayoutState.ts`; `DocumentView.tsx` and now `TabView.tsx` inline the literal. Toggling collapse on one pane carries to the others (which may even be desired). Pre-existing pattern; collapse into one shared constant when a fourth pane joins or when changing the key.
-7. **`key={section.name}` in `TabProperties` is not stable for duplicate section names** — TAB-007a will introduce deterministic kebab-case section IDs (per spec) and replace the React key with the stable id.
+7. **~~`key={section.name}` in `TabProperties`~~** — _Closed by TAB-007a_: deterministic kebab-case section ids via `getSectionIds` are now the React key.
 8. **`linkManager.fullRebuild` walks every file on every GP import** — TAB-011 ships with O(N) re-index per import. Acceptable today (vault sizes ~hundreds of files); a single-file `updateTabLinks()` helper mirroring `updateDocumentLinks()` is the natural follow-up if this ever shows up in profiles.
 9. **`\lyrics` extraction is single-line only** — `parseAlphatexHeader` captures only the quoted-string form. AlphaTab's grammar supports multi-string `\lyrics` blocks (one per bar) and per-track `\lyrics t N "…"`. Acceptable for indexing (first stanza usually contains the chorus/title line); extend the parser if real fixtures show this gap.
 10. **`REFERENCES_LINE` regex duplicated in two sites** — `infrastructure/alphatexHeader.ts` and `features/document/hooks/useLinkIndex.ts` both define `/^\s*\/\/\s*references\s*:\s*(.*)$/gim`. Two lines of repetition isn't worth a shared module; if a third caller appears, hoist to `alphatexHeader.ts` and re-export.
+11. **Audit diagram flow rename/delete attachment integrity** — flow ids are stable so rename is safe by construction, but deletion may leave orphan `attachedTo` entries (no cleanup hook visible in `DiagramView`). Triggered by user request during TAB-007a brainstorm; spec a fix once tabs ship.
+12. **Side-car stable section ids for tabs** — TAB-007a's position-based section-rename reconciliation (`useTabSectionSync`) breaks if the user renames *and* reorders sections in the same save. True stability requires persisting a `name → stableId` map per tab (e.g., `tabs/song.alphatex.refs.json`) so renames survive reorder. Targets TAB-008/M2 when the editor lands and renames become first-class.
+13. **`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing** — when `rootHandle` or `onCreateDocument` is unwired, clicking "Create" inside the picker does nothing (no toast, no error). In production this only matters before vault open, but it could mask wireup regressions. Either gate the Create row in `DocumentPicker` or surface a `reportError` from the no-op branch. Surfaced in T9 review.
 
 ---
 
@@ -128,7 +132,7 @@ These are durable; pull from memory before making any change.
 ```
 src/app/knowledge_base/
   domain/
-    tabEngine.ts                   ← TabEngine, TabSession, TabSource, TabEditOp, TabMetadata, …
+    tabEngine.ts                   ← TabEngine, TabSession, TabSource, TabEditOp, TabMetadata, …; + slugifySectionName + getSectionIds (TAB-007a — pure helpers, kebab-case slug with NFKD diacritic strip; collision-suffixed by appearance order)
     repositories.ts                ← TabRepository interface
     errors.ts                      ← FileSystemError + classifyError
   infrastructure/
@@ -144,7 +148,9 @@ src/app/knowledge_base/
       TabCanvas.tsx                ← forwardRef host div for AlphaTab to mount into
       TabToolbar.tsx               ← play/pause/stop/tempo/loop transport
     properties/
-      TabProperties.tsx            ← TAB-007 read-only metadata panel (title/artist/tuning/capo/key/tempo/time-signature/sections/tracks/duration)
+      TabProperties.tsx            ← TAB-007 metadata panel + TAB-007a cross-references (file-level + per-section References lists with merged attachments + backlinks; Attach affordances; deterministic section-id keys)
+      TabReferencesList.tsx        ← TAB-007a presentational component — merges DocumentMeta attachments and BacklinkEntry rows, de-dupe by sourcePath with attachment-wins precedence; readOnly hides detach
+      useTabSectionSync.ts         ← TAB-007a hook — diffs section ids across metadata snapshots and emits position-aligned migrations to migrateAttachments; trailing deletions orphan-by-design; resets cache on filePath change
     hooks/
       useTabEngine.ts              ← Engine + session lifecycle; surfaces playerStatus, currentTick, isAudioReady, session, metadata
       useTabContent.ts             ← Reads .alphatex via useRepositories().tab
@@ -156,16 +162,18 @@ src/app/knowledge_base/
     PaneManager.tsx                ← PaneEntry shape + pane state
   features/document/hooks/
     useLinkIndex.ts                ← Wiki-link graph; buildTabEntry() + .alphatex branch in fullRebuild (TAB-011); getLinkType maps .alphatex → "tab"
-  features/document/types.ts       ← OutboundLink.type union now includes "tab"
+    useDocuments.ts                ← TAB-007a: migrateAttachments(filePath, migrations[]) bulk rewrites tab-section attachment ids on rename; idempotent; preserves identity for untouched docs
+  features/document/types.ts       ← OutboundLink.type union now includes "tab"; DocumentMeta.attachedTo.type union widened with "tab" | "tab-section" (TAB-007a)
   features/search/VaultIndex.ts    ← DocKind union now includes "tab"
   shared/utils/graphifyBridge.ts   ← CrossReference.{source,target}Type widened for "tab" (additive, TAB-011)
-  knowledgeBase.tsx                ← KnowledgeBaseInner — top-level shell; registers palette commands; handleSearchPick routes kind="tab" to tab pane (TAB-011); handleTabImported wraps useGpImport with fire-and-forget search + link re-index (TAB-011)
+  knowledgeBase.tsx                ← KnowledgeBaseInner — top-level shell; registers palette commands; handleSearchPick routes kind="tab" to tab pane (TAB-011); handleTabImported wraps useGpImport with fire-and-forget search + link re-index (TAB-011); renderTabPaneEntry receives full TabPaneContext (documents/backlinks/attach/detach/migrate) for TAB-007a wireup
+  knowledgeBase.tabRouting.helper.tsx ← TAB-007a: TabPaneContext interface + renderTabPaneEntry(entry, context?) spreads context onto TabView; backwards-compatible with zero-arg test calls
 public/
   soundfonts/sonivox.sf2           ← 1.35 MB Sonivox GM SoundFont
   sw.js                            ← Service worker; cache-first lane for /soundfonts/*; kb-static-v3
 test-cases/
-  11-tabs.md                       ← TAB-11.x case catalog (69 cases; mirrors Features.md §11)
-Features.md                        ← §11 Guitar Tabs (subsections §11.1 Foundation, §11.2 Playback, §11.3 .gp import, §11.4 Properties panel, §11.5 Vault search & wiki-links, §11.6 Pending)
+  11-tabs.md                       ← TAB-11.x case catalog (86 cases; mirrors Features.md §11)
+Features.md                        ← §11 Guitar Tabs (subsections §11.1 Foundation, §11.2 Playback, §11.3 .gp import, §11.4 Properties panel, §11.5 Vault search & wiki-links, §11.6 Cross-references, §11.7 Pending)
 docs/superpowers/
   specs/2026-05-02-guitar-tabs-design.md         ← Source of truth design spec
   plans/2026-05-02-guitar-tabs-foundation.md     ← TAB-001..TAB-003
@@ -174,6 +182,8 @@ docs/superpowers/
   plans/2026-05-03-guitar-tabs-gp-import.md      ← TAB-006
   plans/2026-05-03-guitar-tabs-properties-panel.md ← TAB-007
   plans/2026-05-03-guitar-tabs-search-links.md   ← TAB-011
+  plans/2026-05-03-tab-cross-references.md       ← TAB-007a
+  specs/2026-05-03-tab-cross-references-design.md ← TAB-007a
   handoffs/2026-05-03-guitar-tabs.md             ← THIS doc — session resume + ticket status
 ```
 
@@ -201,42 +211,40 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-007a: Tab properties cross-references** — branch not yet created. 2-day ticket. Now unblocked (TAB-011 shipped the link-index plumbing TAB-007a depends on). Last M1 ticket apart from TAB-012 (mobile).
+**TAB-012: Mobile read-only + playback** — branch not yet created. 2-day ticket. Last M1 ticket — after this, M1 = "viewer ship-point" complete. No dependencies block it (TAB-005 playback shipped long ago).
 
 Bootstrap:
 - `git checkout main && git pull --ff-only`
-- `git checkout -b plan/guitar-tabs-properties-cross-refs`
+- `git checkout -b plan/guitar-tabs-mobile`
 
-Spec sections to read in `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`:
-- "Cross-references between tabs and other vault content" (~L284) → "Inbound: doc attachments to tab entities" (~L319) — defines the entity-type strings for tab anchors: `"tab"` (whole file), `"tab-section"` (deterministic kebab-case slug of `\section "<name>"`), `"tab-track"` (M2 / multi-track only — out of scope here), `"tab-bar"` (M3 — out of scope).
-- "The tab properties panel mounts `DocumentsSection` (already used by diagrams) twice" (~L327) — the visual layout and behavioural contract: a top-level "Whole-file references" list for `"tab"` anchors, plus a "References" sub-list under each section row for `"tab-section"` anchors.
+Spec section to read in `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md`:
+- **"Mobile (KB-040 stance)"** (~L260): defines the mobile contract — read-only + playback only.
+  - Files tab: `.alphatex` files visible alongside docs and diagrams.
+  - Read tab: `TabView` mounts in `readOnly` mode. Toolbar shows play/pause/loop/scrub. Editor surface is dropped from the bundle (`next/dynamic` lazy import only on desktop).
+  - Properties panel: sections + tuning shown read-only. (TAB-007a's Attach affordances and detach buttons must auto-hide via the existing `readOnly` flag — already wired.)
+  - **No "Create new tab" button on mobile** — matches `.md` / `.json` mobile gating.
 
-Patterns to mirror (grep first to confirm exact API):
-- `features/diagram/components/DocumentsSection.tsx` — the existing reusable component. Read its props surface; it accepts `entityType`, `entityId`, and a "Manage attachments" trigger. Confirm its name and exact props before using.
-- `features/diagram/components/DiagramProperties.tsx` — the existing two-section integration (whole-file + per-entity attachments). The shape is the model TAB-007a should mirror in `features/tab/properties/TabProperties.tsx`.
-- `useDocuments.attachDocument(docPath, entityType, entityId)` and `getDocumentReferences(entityType, entityId)` — the generic doc-attachment helpers. Already accept arbitrary entity-type strings.
-- `linkManager.getBacklinksFor(filePath)` — the wiki-link backlink surface. TAB-011 already populates it for tabs; TAB-007a *consumes* it to render the "Whole-file references" list (merging explicit attachments with wiki-link backlinks).
-- `useTabEngine().metadata.sections` — already exposes `{ name, startBeat }` per section. **Note:** TAB-011's review surfaced that `key={section.name}` is not stable for duplicate names; TAB-007a should derive a deterministic kebab-case section ID from the name (per spec) and use that as both the React key and the `tab-section` entity ID.
-
-Key decisions to settle in the brainstorm:
-1. **Section ID derivation function.** Spec says `"Verse 1"` → `"verse-1"`. Pure function, probably lives in `domain/tabEngine.ts` or `features/tab/properties/`. Decide one location and keep it pure.
-2. **Where does the "Manage attachments" affordance live?** Diagrams put a button on each entity row that opens a file picker. Mirror exactly, or sketch a different UX if the tab-section row has very different layout.
-3. **Backlinks vs explicit attachments.** Each "References" list merges two streams: explicit attachments via `getDocumentReferences("tab" | "tab-section", id)` AND wiki-link backlinks via `linkManager.getBacklinksFor(filePath)`. Confirm the de-dupe rule (likely path-based) and whether the UI distinguishes them visually.
+Patterns to mirror (grep first):
+- `useResponsive` / `useIsMobile` hooks if they exist; otherwise check how `.md` / `.json` mobile gating is implemented today (search `mobile` and `isMobile` in `src/app/knowledge_base/shell/` and palette command files).
+- The "Create new" palette commands for documents and diagrams — find the spot that gates them on mobile and add a sibling gate for `.alphatex`.
+- `TabView`'s `readOnly` prop already exists (TAB-007a) and threads through to `TabProperties` to suppress chrome — verify it actually suppresses the toolbar's edit-only affordances when set (none today, since TAB-008 editor isn't built yet — this is the contract for when TAB-008 lands).
 
 Ship target:
-- `TabProperties` (already exists, read-only today) gains:
-  - A "Whole-file references" section at the bottom listing both explicit attachments and wiki-link backlinks for the `tab` entity.
-  - Each section row gains a "References" sub-list for the `tab-section` entity (id = deterministic kebab-case slug).
-  - "Manage attachments" affordance per entity that opens a file picker and calls `attachDocument`.
-- React keys in the section list switch from `section.name` to the deterministic id (closes Open follow-up #7).
-- New test cases under `test-cases/11-tabs.md` §11.7 (next free section number; do NOT renumber existing).
-- `Features.md` §11.5 (or new §11.6) update naming the cross-references capability.
+- `TabView` accepts/respects `readOnly` end-to-end on mobile (Files-tab routing always passes `readOnly={isMobile}`).
+- "Create new tab" palette command gated off on mobile (parallel to `.md` / `.json`).
+- Mobile bundle size: `next/dynamic` lazy import on the editor surface (which doesn't exist yet — drop in a marker comment so TAB-008 picks it up).
+- `Features.md` §11.7 → new §11.7 Mobile entry (push Pending to §11.8 if Mobile-Editor distinction matters; otherwise keep as §11.7).
+- `test-cases/11-tabs.md` §11.8 (next free) for mobile gating cases.
 
-Out of scope (do not creep):
-- Track-level attachments (`"tab-track"`) — TAB-009a.
-- Bar-level attachments (`"tab-bar"`) — M3.
-- SVG / diagram → tab attachment (deferred per spec).
-- Editor surfaces (TAB-008).
+Out of scope:
+- Editor surfaces (TAB-008+).
+- Touch-first UX overhaul of toolbar (defer if TAB-005's existing transport works adequately on touch).
+- Mobile-specific keyboard shortcut adjustments.
+
+Brainstorm decisions to confirm:
+1. **`isMobile` source of truth.** Existing hook? Viewport-based vs UA sniff? Pick one and reuse.
+2. **`readOnly` propagation.** Does Files-tab routing already know `isMobile`? Where does the flag flow into `renderTabPaneEntry`?
+3. **Bundle exclusion.** `next/dynamic` with `{ ssr: false }` is the default for client-only chunks. Editor doesn't exist yet — leave a clear stub for TAB-008 rather than building infra for vapor.
 
 ---
 

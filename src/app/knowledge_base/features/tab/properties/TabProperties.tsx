@@ -1,25 +1,37 @@
 "use client";
 
 import type { ReactElement } from "react";
+import { Paperclip } from "lucide-react";
 import type { TabMetadata } from "../../../domain/tabEngine";
+import { getSectionIds } from "../../../domain/tabEngine";
+import type { DocumentMeta } from "../../document/types";
+import { TabReferencesList } from "./TabReferencesList";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  filePath?: string;
+  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
 }
 
 /**
- * Read-only side panel for an open tab — surfaces the metadata
- * `useTabEngine().metadata` already emits via the engine's "loaded"
- * event. No editing in TAB-007. Attachments + section-level docs land
- * in TAB-007a (`DocumentsSection` reuse + wiki-link backlinks).
- *
- * Layout: 280px expanded, 36px collapsed (icon-only chrome). Always
- * mounted so the slide transition animates instead of unmounting.
+ * Side panel for an open tab. Surfaces metadata from
+ * `useTabEngine().metadata` and (TAB-007a) cross-references: a
+ * "Whole-file references" group plus per-section "References" sub-lists,
+ * each merging explicit attachments with wiki-link backlinks.
  */
 export function TabProperties(props: TabPropertiesProps): ReactElement {
-  const { metadata, collapsed, onToggleCollapse } = props;
+  const {
+    metadata, collapsed, onToggleCollapse,
+    filePath, documents, backlinks, readOnly,
+    onPreviewDocument, onOpenDocPicker, onDetachDocument,
+  } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
     <aside
@@ -49,7 +61,27 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
               <General metadata={metadata} />
               <Tuning metadata={metadata} />
               <Tracks metadata={metadata} />
-              <Sections metadata={metadata} />
+              <Sections
+                metadata={metadata}
+                filePath={filePath}
+                documents={documents}
+                backlinks={backlinks}
+                readOnly={readOnly}
+                onPreviewDocument={onPreviewDocument}
+                onOpenDocPicker={onOpenDocPicker}
+                onDetachDocument={onDetachDocument}
+              />
+              {filePath && (
+                <FileReferences
+                  filePath={filePath}
+                  documents={documents}
+                  backlinks={backlinks}
+                  readOnly={readOnly}
+                  onPreviewDocument={onPreviewDocument}
+                  onOpenDocPicker={onOpenDocPicker}
+                  onDetachDocument={onDetachDocument}
+                />
+              )}
             </>
           )}
         </div>
@@ -111,21 +143,121 @@ function Tracks({ metadata }: { metadata: TabMetadata }): ReactElement | null {
   );
 }
 
-function Sections({ metadata }: { metadata: TabMetadata }): ReactElement | null {
+function Sections({
+  metadata, filePath, documents, backlinks, readOnly,
+  onPreviewDocument, onOpenDocPicker, onDetachDocument,
+}: {
+  metadata: TabMetadata;
+  filePath?: string;
+  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+}): ReactElement | null {
   if (metadata.sections.length === 0) return null;
+  const ids = getSectionIds(metadata.sections);
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">
         Sections ({metadata.sections.length})
       </h3>
-      <ul className="space-y-1">
-        {metadata.sections.map((section) => (
-          <li key={section.name} className="flex items-center justify-between rounded border border-line/50 px-2 py-1">
-            <span>{section.name}</span>
-            <span className="text-xs text-mute">beat {section.startBeat}</span>
-          </li>
-        ))}
+      <ul className="space-y-2">
+        {metadata.sections.map((section, i) => {
+          const id = ids[i];
+          const entityId = filePath ? `${filePath}#${id}` : "";
+          const sectionAttachments = (documents ?? []).filter((d) =>
+            d.attachedTo?.some((a) => a.type === "tab-section" && a.id === entityId),
+          );
+          const sectionBacklinks = (backlinks ?? []).filter((bl) => bl.section === id);
+          return (
+            <li
+              key={id}
+              data-testid={`tab-section-row-${id}`}
+              className="rounded border border-line/50 px-2 py-1 space-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <span>{section.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-mute">beat {section.startBeat}</span>
+                  {!readOnly && filePath && onOpenDocPicker && (
+                    <button
+                      type="button"
+                      data-testid={`attach-section-${id}`}
+                      aria-label={`Attach to ${section.name}`}
+                      onClick={() => onOpenDocPicker("tab-section", entityId)}
+                      className="rounded p-0.5 text-mute hover:bg-line/30 hover:text-ink"
+                    >
+                      <Paperclip size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {filePath && (sectionAttachments.length > 0 || sectionBacklinks.length > 0) && (
+                <TabReferencesList
+                  attachments={sectionAttachments}
+                  backlinks={sectionBacklinks}
+                  readOnly={readOnly}
+                  onPreview={onPreviewDocument}
+                  onDetach={
+                    onDetachDocument
+                      ? (docPath) => onDetachDocument(docPath, "tab-section", entityId)
+                      : undefined
+                  }
+                />
+              )}
+            </li>
+          );
+        })}
       </ul>
+    </section>
+  );
+}
+
+function FileReferences({
+  filePath, documents, backlinks, readOnly,
+  onPreviewDocument, onOpenDocPicker, onDetachDocument,
+}: {
+  filePath: string;
+  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+}): ReactElement {
+  const fileAttachments = (documents ?? []).filter((d) =>
+    d.attachedTo?.some((a) => a.type === "tab" && a.id === filePath),
+  );
+  const fileBacklinks = (backlinks ?? []).filter((bl) => !bl.section);
+  return (
+    <section>
+      <div className="mb-1 flex items-center justify-between">
+        <h3 className="text-xs font-medium uppercase text-mute">Whole-file references</h3>
+        {!readOnly && onOpenDocPicker && (
+          <button
+            type="button"
+            data-testid="attach-file"
+            aria-label="Attach to file"
+            onClick={() => onOpenDocPicker("tab", filePath)}
+            className="rounded p-0.5 text-mute hover:bg-line/30 hover:text-ink"
+          >
+            <Paperclip size={12} />
+          </button>
+        )}
+      </div>
+      <TabReferencesList
+        attachments={fileAttachments}
+        backlinks={fileBacklinks}
+        readOnly={readOnly}
+        onPreview={onPreviewDocument}
+        onDetach={
+          onDetachDocument
+            ? (docPath) => onDetachDocument(docPath, "tab", filePath)
+            : undefined
+        }
+      />
     </section>
   );
 }

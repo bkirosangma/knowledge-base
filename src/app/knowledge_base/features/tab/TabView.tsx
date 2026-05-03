@@ -9,6 +9,11 @@ import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
 import { TabProperties } from "./properties/TabProperties";
+import type { DocumentMeta } from "../document/types";
+import { useTabSectionSync } from "./properties/useTabSectionSync";
+import DocumentPicker from "../../shared/components/DocumentPicker";
+
+const noopMigrate = () => {};
 
 /**
  * Pane shell for an opened `.alphatex` file. Reads the file via
@@ -23,7 +28,38 @@ import { TabProperties } from "./properties/TabProperties";
  * (`status === "engine-load-error"`) render an inline error pane with a
  * Reload button.
  */
-export function TabView({ filePath }: { filePath: string }) {
+export interface TabViewProps {
+  filePath: string;
+  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
+  getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
+  allDocPaths?: string[];
+  rootHandle?: FileSystemDirectoryHandle | null;
+  onMigrateAttachments?: (
+    filePath: string,
+    migrations: { from: string; to: string }[],
+  ) => void;
+}
+
+export function TabView({
+  filePath,
+  documents,
+  backlinks,
+  readOnly,
+  onPreviewDocument,
+  onDetachDocument,
+  onAttachDocument,
+  onCreateDocument,
+  getDocumentsForEntity,
+  allDocPaths,
+  rootHandle,
+  onMigrateAttachments,
+}: TabViewProps) {
   const { content, loadError } = useTabContent(filePath);
   const {
     status,
@@ -74,6 +110,16 @@ export function TabView({ filePath }: { filePath: string }) {
     if (status !== "ready" || !session) return;
     session.render();
   }, [theme, status, session]);
+
+  const [pickerTarget, setPickerTarget] = useState<
+    { type: "tab" | "tab-section"; id: string } | null
+  >(null);
+
+  useTabSectionSync(
+    filePath,
+    metadata,
+    onMigrateAttachments ?? noopMigrate,
+  );
 
   if (status === "engine-load-error") {
     return (
@@ -127,7 +173,34 @@ export function TabView({ filePath }: { filePath: string }) {
         metadata={metadata}
         collapsed={propertiesCollapsed}
         onToggleCollapse={toggleProperties}
+        filePath={filePath}
+        documents={documents}
+        backlinks={backlinks}
+        readOnly={readOnly}
+        onPreviewDocument={onPreviewDocument}
+        onOpenDocPicker={onAttachDocument ? (type, id) => setPickerTarget({ type, id }) : undefined}
+        onDetachDocument={onDetachDocument}
       />
+      {pickerTarget && onAttachDocument && (
+        <DocumentPicker
+          allDocPaths={allDocPaths ?? []}
+          attachedPaths={
+            getDocumentsForEntity
+              ? getDocumentsForEntity(pickerTarget.type, pickerTarget.id).map((d) => d.filename)
+              : []
+          }
+          onAttach={(path) => {
+            onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+          }}
+          onCreate={async (path) => {
+            if (rootHandle && onCreateDocument) {
+              await onCreateDocument(rootHandle, path);
+              onAttachDocument(path, pickerTarget.type, pickerTarget.id);
+            }
+          }}
+          onClose={() => setPickerTarget(null)}
+        />
+      )}
     </div>
   );
 }

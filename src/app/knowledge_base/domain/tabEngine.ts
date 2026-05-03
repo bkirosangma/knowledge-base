@@ -124,3 +124,37 @@ export type Technique =
   | "tremolo"   | "tap"      | "harmonic";
 
 export type NoteDuration = 1 | 2 | 4 | 8 | 16 | 32 | 64;
+
+/**
+ * Pure function: derive a kebab-case slug from a tab section name.
+ * Used as the stable id portion of `tab-section` entity references.
+ *
+ * Rules: lowercase, strip diacritics to ASCII, collapse non-alphanumeric
+ * runs to a single hyphen, trim leading/trailing hyphens. Empty / all-
+ * punctuation input returns the literal "section" so callers always get
+ * a non-empty id (collisions are then resolved by `getSectionIds`).
+ */
+export function slugifySectionName(name: string): string {
+  const ascii = name.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+  const slug = ascii
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "section";
+}
+
+/**
+ * Derive deterministic, collision-free section ids from `TabMetadata.sections`.
+ * Output array is 1:1 with input. Duplicate slugs receive `-2`, `-3`, …
+ * suffixes in order of appearance — stable across re-runs given identical
+ * input.
+ */
+export function getSectionIds(sections: { name: string }[]): string[] {
+  const counts = new Map<string, number>();
+  return sections.map((s) => {
+    const base = slugifySectionName(s.name);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    return seen === 0 ? base : `${base}-${seen + 1}`;
+  });
+}

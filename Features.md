@@ -683,8 +683,17 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ✅ A freshly-imported `.gp` file is re-indexed for both search and wiki-links the moment the import write completes (`handleTabImported` in `knowledgeBase.tsx`) — no need to wait for the next full rebuild.
 - ⚙️ `infrastructure/alphatexHeader.ts` — pure synchronous parser used at index time. Browser-free, alphaTab-free; alphaTab's Score parser is reserved for render time.
 
-### 11.6 Pending
-- ? **Tab attachments** (whole-file + section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block) — TAB-007a.
+### 11.6 Cross-references (TAB-007a)
+
+- ✅ **Whole-file references** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — bottom group listing every `.md` doc attached to the tab via `attachedTo: { type: "tab", id: filePath }` plus every wiki-link backlink without a `#section` qualifier. Click to open in the opposite pane; click the paperclip to detach (hidden in `readOnly`).
+- ✅ **Per-section references** — each section row has an inline "References" sub-list using the deterministic kebab-case section id (e.g. `\section "Verse 1"` → `verse-1`). Wiki-link backlinks of the form `[[song#Verse 1]]` and explicit attachments of `attachedTo: { type: "tab-section", id: "${filePath}#${sectionId}" }` both surface here, de-duplicated by source path with attachment winning.
+- ✅ **Attach affordance** — per-section and file-level paperclip buttons open `<DocumentPicker>` with `(entityType, entityId)` matching the diagram pattern. The picker is mounted internally by `TabView`. Hidden when `readOnly` or when no attachment handler is wired.
+- ✅ **Section-rename reconciliation** — `useTabSectionSync` (`src/app/knowledge_base/features/tab/properties/useTabSectionSync.ts`) diffs the section-id list across metadata snapshots and emits position-aligned migrations to `useDocuments.migrateAttachments`. Trailing deletions orphan by design.
+- ⚙️ **`slugifySectionName` + `getSectionIds`** (`src/app/knowledge_base/domain/tabEngine.ts`) — pure helpers deriving deterministic ids; `getSectionIds` suffixes `-2`/`-3` for duplicate names.
+- ⚙️ **`TabReferencesList`** (`src/app/knowledge_base/features/tab/properties/TabReferencesList.tsx`) — small presentational component used twice per panel for the merge / de-dupe / detach UX.
+- ⚙️ **`TabPaneContext`** (`src/app/knowledge_base/knowledgeBase.tabRouting.helper.tsx`) — wireup-context interface forwarded to `TabView` from the parent shell. All fields optional so unit tests calling `renderTabPaneEntry(entry)` continue to render a bare TabView.
+
+### 11.7 Pending
 - ? **Mobile gating** (read-only + playback only) — TAB-012.
 - ? **Editor (M2)** — TAB-008+.
 

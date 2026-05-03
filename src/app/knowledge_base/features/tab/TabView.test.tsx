@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { DocumentMeta } from "../document/types";
+import type { TabMetadata } from "../../domain/tabEngine";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
@@ -7,7 +9,7 @@ import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 
 const mountIntoMock = vi.fn();
 let mockStatus: string = "idle";
-const baseMetadata = {
+const baseMetadata: TabMetadata = {
   title: "hi",
   tempo: 120,
   timeSignature: { numerator: 4, denominator: 4 },
@@ -18,7 +20,7 @@ const baseMetadata = {
   totalBeats: 0,
   durationSeconds: 0,
 };
-let mockMetadata: typeof baseMetadata | null = null;
+let mockMetadata: TabMetadata | null = null;
 let mockError: Error | null = null;
 
 vi.mock("./hooks/useTabEngine", () => ({
@@ -216,5 +218,127 @@ describe("TabView", () => {
     );
     expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
     localStorage.removeItem("properties-collapsed");
+  });
+});
+
+describe("TabView — DocumentPicker integration", () => {
+  beforeEach(() => {
+    mountIntoMock.mockReset().mockResolvedValue(undefined);
+    mockStatus = "idle";
+    mockMetadata = null;
+    mockError = null;
+  });
+
+  it("opens DocumentPicker when section Attach is clicked, calls onAttachDocument on pick", async () => {
+    const onAttachDocument = vi.fn();
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    const user = userEvent.setup();
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onAttachDocument={onAttachDocument}
+          getDocumentsForEntity={() => []}
+          allDocPaths={["notes/intro-theory.md"]}
+        />
+      </Wrap>,
+    );
+    await user.click(screen.getByTestId("attach-section-intro"));
+    // DocumentPicker is now mounted — find the document button and click it
+    const docButton = await screen.findByRole("button", { name: /intro-theory\.md/i });
+    await user.click(docButton);
+    expect(onAttachDocument).toHaveBeenCalledWith(
+      "notes/intro-theory.md",
+      "tab-section",
+      "tabs/song.alphatex#intro",
+    );
+  });
+
+  it("does not render DocumentPicker when onAttachDocument is not provided", async () => {
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+        />
+      </Wrap>,
+    );
+    // No attach button should be rendered since onAttachDocument is absent
+    expect(screen.queryByTestId("attach-section-intro")).not.toBeInTheDocument();
+  });
+});
+
+describe("TabView — cross-reference plumbing", () => {
+  beforeEach(() => {
+    mountIntoMock.mockReset().mockResolvedValue(undefined);
+    mockStatus = "idle";
+    mockMetadata = null;
+    mockError = null;
+  });
+
+  it("passes filePath, documents, and backlinks through to TabProperties", async () => {
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[
+            {
+              id: "d1",
+              filename: "notes/song-history.md",
+              title: "song-history",
+              attachedTo: [{ type: "tab", id: "tabs/song.alphatex" }],
+            } as DocumentMeta,
+          ]}
+          backlinks={[]}
+        />
+      </Wrap>,
+    );
+    expect(screen.getByText(/whole-file references/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /song-history\.md/i })).toBeInTheDocument();
+  });
+
+  it("calls onMigrateAttachments when a section is renamed between metadata snapshots", async () => {
+    const onMigrateAttachments = vi.fn();
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Verse 1", startBeat: 0 }] };
+    const { rerender } = render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onMigrateAttachments={onMigrateAttachments}
+        />
+      </Wrap>,
+    );
+    // First render establishes baseline — no migrations expected.
+    expect(onMigrateAttachments).not.toHaveBeenCalled();
+
+    // Simulate the engine emitting a renamed section: produce a fresh
+    // metadata object so the useEffect dep change fires.
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Verse One", startBeat: 0 }] };
+    rerender(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onMigrateAttachments={onMigrateAttachments}
+        />
+      </Wrap>,
+    );
+
+    expect(onMigrateAttachments).toHaveBeenCalledWith(
+      "tabs/song.alphatex",
+      [{ from: "verse-1", to: "verse-one" }],
+    );
   });
 });
