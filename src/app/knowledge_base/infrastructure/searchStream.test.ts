@@ -160,4 +160,41 @@ describe("readForSearchIndex", () => {
     const root = makeFsRoot({});
     expect(await readForSearchIndex(root, "missing.md")).toBeNull();
   });
+
+  it("reads a .alphatex tab and extracts indexable fields", async () => {
+    const src = [
+      `\\title "Wonderwall"`,
+      `\\artist "Oasis"`,
+      `\\key "F# minor"`,
+      `\\tuning E5 B4 G4 D4 A3 E3`,
+      `\\track "Acoustic"`,
+      `\\track "Lead"`,
+      `\\lyrics "Today is gonna be the day"`,
+      `. r.4 |`,
+    ].join("\n");
+    const root = makeFsRoot({ "songs/wonderwall.alphatex": src });
+    const out = await readForSearchIndex(root, "songs/wonderwall.alphatex");
+    expect(out?.kind).toBe("tab");
+    expect(out?.fields.title).toBe("Wonderwall");
+    expect(out?.fields.body).toContain("Oasis");
+    expect(out?.fields.body).toContain("F# minor");
+    expect(out?.fields.body).toContain("E5 B4 G4 D4 A3 E3");
+    expect(out?.fields.body).toContain("Acoustic, Lead");
+    expect(out?.fields.body).toContain("Today is gonna be the day");
+  });
+
+  it("indexes a .alphatex tab even when only \\title is present", async () => {
+    const root = makeFsRoot({ "minimal.alphatex": `\\title "X"\n. r.4 |` });
+    const out = await readForSearchIndex(root, "minimal.alphatex");
+    expect(out).toEqual({
+      path: "minimal.alphatex",
+      kind: "tab",
+      fields: { title: "X", body: "" },
+    });
+  });
+
+  it("returns null for an unreadable .alphatex file", async () => {
+    const root = makeFsRoot({});
+    expect(await readForSearchIndex(root, "missing.alphatex")).toBeNull();
+  });
 });

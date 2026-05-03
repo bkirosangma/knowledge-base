@@ -18,8 +18,10 @@ function getDocDir(docPath: string): string {
 }
 
 // Fix 2: Extract duplicated link-parsing logic
-function getLinkType(resolvedPath: string): "document" | "diagram" {
-  return resolvedPath.endsWith(".json") ? "diagram" : "document";
+function getLinkType(resolvedPath: string): "document" | "diagram" | "tab" {
+  if (resolvedPath.endsWith(".alphatex")) return "tab";
+  if (resolvedPath.endsWith(".json")) return "diagram";
+  return "document";
 }
 
 function buildDocumentEntry(
@@ -54,6 +56,31 @@ function buildDiagramEntry(
   } catch {
     return { outboundLinks: [], sectionLinks: [] };
   }
+}
+
+/** Build a link-index entry for an alphaTex tab file (TAB-011).
+ *  Outbound links come from `[[…]]` tokens on lines that start with
+ *  `// references:` (the alphaTex line-comment convention; spec L309). */
+function buildTabEntry(
+  content: string,
+  docDir: string,
+): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
+  const REFERENCES_LINE = /^\s*\/\/\s*references\s*:\s*(.*)$/gim;
+  const outboundLinks: OutboundLink[] = [];
+  const sectionLinks: { targetPath: string; section: string }[] = [];
+  for (const lineMatch of content.matchAll(REFERENCES_LINE)) {
+    // parseWikiLinks handles [[path#section|alias]] syntax for us.
+    const parsed = parseWikiLinks(lineMatch[1] ?? "");
+    for (const link of parsed) {
+      const resolved = resolveWikiLinkPath(link.path, docDir);
+      if (link.section) {
+        sectionLinks.push({ targetPath: resolved, section: link.section });
+      } else {
+        outboundLinks.push({ targetPath: resolved, type: getLinkType(resolved) });
+      }
+    }
+  }
+  return { outboundLinks, sectionLinks };
 }
 
 function collectCrossReferences(index: LinkIndex): CrossReference[] {
@@ -215,6 +242,9 @@ export function useLinkIndex() {
         const content = await repo.readDocContent(docPath);
         if (docPath.endsWith(".json")) {
           index.documents[docPath] = buildDiagramEntry(content);
+        } else if (docPath.endsWith(".alphatex")) {
+          const docDir = getDocDir(docPath);
+          index.documents[docPath] = buildTabEntry(content, docDir);
         } else {
           const docDir = getDocDir(docPath);
           index.documents[docPath] = buildDocumentEntry(content, docDir);

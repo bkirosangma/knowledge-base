@@ -676,9 +676,15 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ⚙️ **Collapse persistence** — `localStorage["properties-collapsed"]` shared with document + diagram panels so toggling state crosses pane types.
 - ⚙️ **`TabView` flex layout** — canvas (flex-1) + properties panel (fixed) — toolbar moves into the canvas column.
 
-### 11.5 Pending
+### 11.5 Vault search & wiki-links (TAB-011)
+
+- ✅ `.alphatex` files are indexed in the global vault search by title, artist, key, tuning, track names, and lyrics — `infrastructure/searchStream.ts` (`tabFields()` helper) feeds `searchManager.addDoc` with `kind: "tab"`. Hits open in the tab pane.
+- ✅ A `// references: [[…]]` line in the alphaTex header is parsed by `useLinkIndex` (`buildTabEntry` helper) — outbound wiki-links resolve via the same regex and path-resolution rules as markdown documents. Backlinks from `.md` / `.json` / `.alphatex` files all surface in the wiki-link graph with the right type label (`"tab"`).
+- ✅ A freshly-imported `.gp` file is re-indexed for both search and wiki-links the moment the import write completes (`handleTabImported` in `knowledgeBase.tsx`) — no need to wait for the next full rebuild.
+- ⚙️ `infrastructure/alphatexHeader.ts` — pure synchronous parser used at index time. Browser-free, alphaTab-free; alphaTab's Score parser is reserved for render time.
+
+### 11.6 Pending
 - ? **Tab attachments** (whole-file + section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block) — TAB-007a.
-- ? **Vault search** (titles / artist / key / tuning indexed) — TAB-011.
 - ? **Mobile gating** (read-only + playback only) — TAB-012.
 - ? **Editor (M2)** — TAB-008+.
 

@@ -15,7 +15,7 @@
 
 import { tokenize, tokenizeWithPositions } from "./tokenizer";
 
-export type DocKind = "doc" | "diagram";
+export type DocKind = "doc" | "diagram" | "tab";
 export type Field = "body" | "title" | "label" | "flow";
 
 /** Caller-supplied content split by indexable field. All fields optional —

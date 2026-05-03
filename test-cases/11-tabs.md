@@ -43,7 +43,7 @@ Replaces `TabViewStub` with a real `TabView` that mounts `AlphaTabEngine` and re
 - **TAB-11.2-10** ❌ **Re-opening the same file after close re-renders identically** — content + scroll position not in scope; just file content fidelity.
 - **TAB-11.2-11** 🟡 **Dark-mode toggle (⌘⇧L) flips the canvas without refresh** — `useObservedTheme()` feeds the engine's colour settings; canvas background, staff lines, and notes all swap on toggle. _(unit: TabView.test.tsx — implicit via session.render() call when theme changes; no visual snapshot.)_
 - **TAB-11.2-12** ❌ **Tab pane H1 derives from `\title` directive** — falls back to the file basename if `\title` is absent.
-- **TAB-11.2-13** ❌ **Wiki-link parser recognises `// references:` lines in the kb-meta block** — `useLinkIndex` indexes outbound links from `.alphatex`. (May land alongside TAB-011; track here for traceability.)
+- **TAB-11.2-13** ✅ **Wiki-link parser recognises `// references:` lines in the kb-meta block** — `useLinkIndex.fullRebuild` parses `[[…]]` tokens from any line beginning with `// references:` in a `.alphatex` file. _(unit: `useLinkIndex.test.ts` — TAB-011 cases TAB-11.6-04..06.)_
 - **TAB-11.2-14** 🧪 **Open + render flow end-to-end** — Playwright drives a vault with one `.alphatex` fixture: open from explorer → canvas mounts → `data-testid="tab-view-canvas"` visible. Audio assertion is "AudioContext was created", not actual sound. _(e2e: e2e/tab.spec.ts.)_
 
 ---
@@ -101,10 +101,21 @@ Read-only side panel surfacing `useTabEngine().metadata` (title, artist, tempo, 
 
 ---
 
+## 11.6 Vault search (TAB-011)
+
+- **TAB-11.6-01** ✅ **`.alphatex` files are indexed via `searchStream.readForSearchIndex`** — returns `{ kind: "tab", fields: { title, body } }` with title from `\title` and body from a space-joined concatenation of artist/album/subtitle/key/tuning/track-names/lyrics. _(unit: `searchStream.test.ts` — "reads a .alphatex tab and extracts indexable fields".)_
+- **TAB-11.6-02** ✅ **A tab with only `\title` indexes successfully** — body is empty string; the file is still findable by title. _(unit: `searchStream.test.ts`.)_
+- **TAB-11.6-03** ✅ **Search hits with `kind: "tab"` open in the tab pane** — `handleSearchPick` routes `result.kind === "tab"` through `panesOpenFile(path, "tab")`. _(integration: `knowledgeBase.tsx` — covered indirectly via the routing test in `knowledgeBase.tabRouting.test.tsx` and the existing `.alphatex` extension routing case TAB-11.1-01.)_
+- **TAB-11.6-04** ✅ **`fullRebuild` indexes outbound wiki-links from a tab's `// references:` line** — `[[a.md]]`, `[[b.json]]`, etc. resolve to `outboundLinks` with the right `type` (document / diagram / tab). _(unit: `useLinkIndex.test.ts`.)_
+- **TAB-11.6-05** ✅ **`//` lines that aren't `// references:` are ignored** — only the canonical comment header is parsed; arbitrary commentary like `// see [[ignored.md]]` does not bleed into the index. _(unit: `useLinkIndex.test.ts`.)_
+- **TAB-11.6-06** ✅ **`.alphatex` is a recognised wiki-link target type** — a `.md` document linking to `[[song.alphatex]]` resolves to `{ type: "tab" }` so the receiving pane and the backlinks panel know to label it as a tab. _(unit: `useLinkIndex.test.ts`.)_
+- **TAB-11.6-07** ✅ **Importing a `.gp` file re-indexes the new `.alphatex` immediately** — after `useGpImport` writes the tab to disk, the import wrapper calls `searchManager.addDoc` and `linkManager.fullRebuild` for the new path so it's searchable without a full vault rebuild. _(integration: see `knowledgeBase.tsx` `handleTabImported`; smoke-tested via existing GP import tests.)_
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.6 Properties panel attachments** (TAB-007a) — section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block.
-- **§11.7 Vault search** (TAB-011) — title/artist/key/tuning indexed; lyrics body when `\lyrics` directive present.
+- **§11.7 Properties panel attachments** (TAB-007a) — section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block.
 - **§11.8 Mobile** (TAB-012) — read-only + playback; no editor in bundle; no Create button.
 - **§11.9 Editor** (TAB-008) — click-to-place fret + duration shortcuts + technique toolbar + undo/redo.
 - **§11.10 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
