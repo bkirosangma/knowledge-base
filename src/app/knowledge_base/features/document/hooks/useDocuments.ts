@@ -94,6 +94,36 @@ export function useDocuments() {
     setDocuments(prev => prev.filter(d => d.filename !== docPath));
   }, []);
 
+  /**
+   * Bulk rewrite `tab-section` attachment ids when sections are renamed.
+   * Idempotent. No-op when migrations is empty (preserves identity to
+   * skip an unnecessary re-render).
+   */
+  const migrateAttachments = useCallback((
+    filePath: string,
+    migrations: { from: string; to: string }[],
+  ) => {
+    if (migrations.length === 0) return;
+    const map = new Map<string, string>();
+    for (const m of migrations) {
+      map.set(`${filePath}#${m.from}`, `${filePath}#${m.to}`);
+    }
+    setDocuments(prev =>
+      prev.map(d => {
+        if (!d.attachedTo) return d;
+        let touched = false;
+        const next = d.attachedTo.map(a => {
+          if (a.type !== "tab-section") return a;
+          const replacement = map.get(a.id);
+          if (replacement === undefined) return a;
+          touched = true;
+          return { ...a, id: replacement };
+        });
+        return touched ? { ...d, attachedTo: next } : d;
+      })
+    );
+  }, []);
+
   /** Get documents attached to an entity */
   const getDocumentsForEntity = useCallback((
     entityType: string,
@@ -121,6 +151,7 @@ export function useDocuments() {
     attachDocument,
     detachDocument,
     removeDocument,
+    migrateAttachments,
     getDocumentsForEntity,
     hasDocuments,
     collectDocPaths,
