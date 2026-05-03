@@ -86,15 +86,28 @@ Palette command + hook + utility for converting Guitar Pro files (`.gp` / `.gp3.
 - **TAB-11.4-05** ✅ **Conversion + write failures route through `ShellErrorContext`** — onImported is NOT called on either failure path. _(unit: useGpImport.test.tsx.)_
 - **TAB-11.4-06** ❌ **End-to-end import flow** — Playwright drives the palette command, picks a `.gp` fixture, asserts the resulting `.alphatex` opens in a tab pane. Deferred — file-picker drive in headless Chromium requires a custom mock layer; the manual smoke in Task 3 step 4 is the verification ceiling for now.
 
+## 11.5 Properties panel (TAB-007)
+
+Read-only side panel surfacing `useTabEngine().metadata` (title, artist, tempo, key, time signature, capo, tuning, tracks, sections). Slide-out chrome with collapse-state persisted to `localStorage["properties-collapsed"]` (shared with document + diagram panels). Shipped 2026-05-03.
+
+- **TAB-11.5-01** ✅ **`TabProperties` renders title, artist, subtitle from metadata** — top-of-panel header. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-02** ✅ **General fields rendered: tempo / key / time signature / capo** — `120 BPM`, `Gmaj`, `4/4`, `Capo 2`. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-03** ✅ **Tuning rendered as scientific-pitch low-to-high** — `E2 A2 D3 G3 B3 E4`. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-04** ✅ **Track names rendered with track count in the header** — single-track or multi-track readout. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-05** ✅ **Section list shows name + start beat** — kebab-case section IDs are computed for TAB-007a but not displayed. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-06** ✅ **Optional fields (artist / subtitle / key) omitted when absent** — _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-07** ✅ **Collapse toggle: data-collapsed attribute flips and content hides** — chrome stays mounted for slide animation. _(unit: TabProperties.test.tsx.)_
+- **TAB-11.5-08** ✅ **`TabView` mounts panel beside canvas in 'ready' state; absent in 'engine-load-error'; collapse hydrates from localStorage** — three integration cases. _(unit: TabView.test.tsx.)_
+
 ---
 
 ## Future sections (added with their owning ticket)
 
-- **§11.5 Properties panel** (TAB-007 / TAB-007a) — tuning/capo/key/tempo + section attachments via `DocumentsSection`.
-- **§11.6 Vault search** (TAB-011) — title/artist/key/tuning indexed; lyrics body when `\lyrics` directive present.
-- **§11.7 Mobile** (TAB-012) — read-only + playback; no editor in bundle; no Create button.
-- **§11.8 Editor** (TAB-008) — click-to-place fret + duration shortcuts + technique toolbar + undo/redo.
-- **§11.9 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
-- **§11.10 Export** (TAB-010) — MIDI / WAV / PDF.
+- **§11.6 Properties panel attachments** (TAB-007a) — section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block.
+- **§11.7 Vault search** (TAB-011) — title/artist/key/tuning indexed; lyrics body when `\lyrics` directive present.
+- **§11.8 Mobile** (TAB-012) — read-only + playback; no editor in bundle; no Create button.
+- **§11.9 Editor** (TAB-008) — click-to-place fret + duration shortcuts + technique toolbar + undo/redo.
+- **§11.10 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
+- **§11.11 Export** (TAB-010) — MIDI / WAV / PDF.
 
 Each ticket's PR adds the corresponding sub-section + flips its cases ✅ / 🧪 in the same change set, per the working-agreements contract.

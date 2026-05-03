@@ -671,9 +671,14 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ⚙️ **`useGpImport` hook** (`features/tab/hooks/useGpImport.ts`) — drives file picker → bytes → convert → `TabRepository.write` → `onImported` callback. Errors route through `ShellErrorContext`. New file lands at vault root with the GP basename + `.alphatex` extension.
 - ✅ **"Import Guitar Pro file…" palette command** (`tabs.import-gp`, group "File") — appears when a vault is open. Note: lossy round-trip — Guitar Pro's sound-bank / tone presets do not survive the conversion to alphaTex.
 
-### 11.4 Pending
-- ? **Properties panel** (tuning / capo / key / tempo / sections + attachments) — TAB-007 / TAB-007a.
-- ? **Vault search** (titles / artist / key / tuning) — TAB-011.
+### 11.4 Properties panel (TAB-007)
+- ✅ **`TabProperties`** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — read-only side panel, 280px expanded / 36px collapsed; reads from `useTabEngine().metadata`. Renders title / artist / subtitle / tempo / key / time signature / capo / tuning / tracks / sections.
+- ⚙️ **Collapse persistence** — `localStorage["properties-collapsed"]` shared with document + diagram panels so toggling state crosses pane types.
+- ⚙️ **`TabView` flex layout** — canvas (flex-1) + properties panel (fixed) — toolbar moves into the canvas column.
+
+### 11.5 Pending
+- ? **Tab attachments** (whole-file + section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block) — TAB-007a.
+- ? **Vault search** (titles / artist / key / tuning indexed) — TAB-011.
 - ? **Mobile gating** (read-only + playback only) — TAB-012.
 - ? **Editor (M2)** — TAB-008+.
 
