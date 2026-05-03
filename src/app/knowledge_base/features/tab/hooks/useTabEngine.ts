@@ -25,6 +25,8 @@ export interface UseTabEngine {
   isAudioReady: boolean;
   /** Active session — null before mount, null after engine-load-error. Used by `useTabPlayback`. */
   session: TabSession | null;
+  /** The latest score object from the session; null before the first "loaded" event. */
+  score: unknown | null;
   mountInto: (container: HTMLElement, alphatex: string) => Promise<void>;
 }
 
@@ -42,6 +44,7 @@ export function useTabEngine(): UseTabEngine {
   const [playerStatus, setPlayerStatus] = useState<TabPlayerStatus>("paused");
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [session, setSession] = useState<TabSession | null>(null);
+  const [score, setScore] = useState<unknown | null>(null);
   const sessionRef = useRef<TabSession | null>(null);
   const unsubsRef = useRef<(() => void)[]>([]);
 
@@ -51,6 +54,7 @@ export function useTabEngine(): UseTabEngine {
     sessionRef.current?.dispose();
     sessionRef.current = null;
     setSession(null);
+    setScore(null);
     setIsAudioReady(false);
     setPlayerStatus("paused");
     setCurrentTick(0);
@@ -78,6 +82,7 @@ export function useTabEngine(): UseTabEngine {
       const offLoaded = nextSession.on("loaded", (payload) => {
         if (payload.event !== "loaded") return;
         setMetadata(payload.metadata);
+        setScore(nextSession.score ?? null);
         setStatus("ready");
       });
       const offError = nextSession.on("error", (payload) => {
@@ -109,5 +114,5 @@ export function useTabEngine(): UseTabEngine {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  return { status, metadata, error, currentTick, playerStatus, isAudioReady, session, mountInto };
+  return { status, metadata, error, currentTick, playerStatus, isAudioReady, session, score, mountInto };
 }

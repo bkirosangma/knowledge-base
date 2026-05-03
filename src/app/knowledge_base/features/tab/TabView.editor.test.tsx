@@ -7,7 +7,7 @@ import { TabView } from "./TabView";
 
 // Stub the lazy-loaded editor chunk so JSDOM doesn't need the real module.
 vi.mock("./editor/TabEditor", () => ({
-  default: ({ filePath }: { filePath: string }) => (
+  default: ({ filePath }: { filePath: string; session?: unknown; score?: unknown; metadata?: unknown; onScoreChange?: unknown }) => (
     <div data-testid="tab-editor" data-filepath={filePath} />
   ),
 }));
@@ -21,6 +21,7 @@ vi.mock("./hooks/useTabEngine", () => ({
     playerStatus: "paused" as const,
     isAudioReady: true,
     session: null,
+    score: null,
     mountInto: vi.fn().mockResolvedValue(undefined),
   }),
 }));

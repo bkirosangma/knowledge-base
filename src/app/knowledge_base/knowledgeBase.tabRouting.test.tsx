@@ -14,6 +14,7 @@ vi.mock("./features/tab/hooks/useTabEngine", () => ({
     playerStatus: "paused" as const,
     isAudioReady: false,
     session: null,
+    score: null,
     mountInto: vi.fn().mockResolvedValue(undefined),
   }),
 }));

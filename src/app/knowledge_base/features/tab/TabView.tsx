@@ -66,7 +66,7 @@ export function TabView({
   onMigrateAttachments,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
-  const { content, loadError } = useTabContent(filePath);
+  const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
   const {
     status,
     error: engineError,
@@ -76,6 +76,7 @@ export function TabView({
     playerStatus,
     isAudioReady,
     session,
+    score: engineScore,
   } = useTabEngine();
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -177,7 +178,15 @@ export function TabView({
           </div>
         )}
         <TabCanvas ref={canvasRef} />
-        {!effectiveReadOnly && filePath && <LazyTabEditor filePath={filePath} />}
+        {!effectiveReadOnly && filePath && (
+          <LazyTabEditor
+            filePath={filePath}
+            session={session}
+            score={tabScore ?? engineScore}
+            metadata={metadata}
+            onScoreChange={setTabScore}
+          />
+        )}
       </div>
       <TabProperties
         metadata={metadata}

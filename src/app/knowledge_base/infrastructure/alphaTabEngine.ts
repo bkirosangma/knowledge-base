@@ -330,6 +330,8 @@ class AlphaTabSession implements TabSession {
     });
   }
 
+  get score(): unknown | null { return this.latestScore; }
+
   render(): void { this.api.renderTracks(); }
   dispose(): void {
     if (this.disposed) return;
