@@ -801,9 +801,45 @@ function KnowledgeBaseInner() {
     () => fileExplorer.rootHandle ? createTabRepository(fileExplorer.rootHandle) : null,
     [fileExplorer.rootHandle],
   );
+  const handleTabImported = useCallback((tabPath: string) => {
+    // Open the file in the pane immediately so the user-visible action
+    // isn't gated on indexing. The two re-index passes below run in
+    // the background — same fire-and-forget shape as the rename
+    // handler at L240-250.
+    handleSelectFile(tabPath);
+
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+
+    void (async () => {
+      try {
+        const item = await readForSearchIndex(rootHandle, tabPath);
+        if (item) searchManager.addDoc(item.path, item.kind, item.fields);
+      } catch {
+        // Same swallow policy as the rename re-index path.
+      }
+    })();
+
+    void (async () => {
+      try {
+        const allPaths = Object.keys(linkManager.linkIndex.documents);
+        if (!allPaths.includes(tabPath)) allPaths.push(tabPath);
+        await linkManager.fullRebuild(rootHandle, allPaths);
+      } catch (e) {
+        reportError(e, `Indexing wiki-links for ${tabPath}`);
+      }
+    })();
+  }, [
+    fileExplorer.dirHandleRef,
+    searchManager,
+    linkManager,
+    reportError,
+    handleSelectFile,
+  ]);
+
   const gpImport = useGpImport({
     tab: tabRepoForImport,
-    onImported: handleSelectFile,
+    onImported: handleTabImported,
   });
   const importGpCommands = useMemo(() => [{
     id: "tabs.import-gp",
