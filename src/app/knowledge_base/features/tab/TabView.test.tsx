@@ -15,7 +15,30 @@ vi.mock("./hooks/useTabEngine", () => ({
     status: mockStatus,
     metadata: mockMetadata,
     error: mockError,
+    currentTick: 0,
+    playerStatus: "paused" as const,
+    isAudioReady: true,
+    session: null,
     mountInto: mountIntoMock,
+  }),
+}));
+
+vi.mock("../../shared/hooks/useObservedTheme", () => ({
+  useObservedTheme: () => "light",
+}));
+
+vi.mock("./hooks/useTabPlayback", () => ({
+  useTabPlayback: () => ({
+    play: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+    toggle: vi.fn(),
+    seek: vi.fn(),
+    setTempoFactor: vi.fn(),
+    setLoop: vi.fn(),
+    audioBlocked: false,
+    currentTick: 0,
+    playerStatus: "paused" as const,
   }),
 }));
 
@@ -125,5 +148,27 @@ describe("TabView", () => {
     await waitFor(() => expect(reportError).toHaveBeenCalled());
     expect(reportError.mock.calls[0][0]).toBe(mockError);
     expect(reportError.mock.calls[0][1]).toMatch(/bad\.alphatex/);
+  });
+
+  it("mounts the toolbar when status is 'ready'", async () => {
+    mockStatus = "ready";
+    mockMetadata = { title: "hi" } as never;
+    render(
+      <Wrap>
+        <TabView filePath="x.alphatex" />
+      </Wrap>,
+    );
+    expect(screen.getByTestId("tab-toolbar")).toBeInTheDocument();
+  });
+
+  it("does not mount the toolbar in engine-load-error state", async () => {
+    mockStatus = "engine-load-error";
+    mockError = new Error("chunk failed");
+    render(
+      <Wrap>
+        <TabView filePath="x.alphatex" />
+      </Wrap>,
+    );
+    expect(screen.queryByTestId("tab-toolbar")).not.toBeInTheDocument();
   });
 });

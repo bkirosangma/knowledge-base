@@ -10,6 +10,10 @@ vi.mock("./features/tab/hooks/useTabEngine", () => ({
     status: "ready",
     metadata: null,
     error: null,
+    currentTick: 0,
+    playerStatus: "paused" as const,
+    isAudioReady: false,
+    session: null,
     mountInto: vi.fn().mockResolvedValue(undefined),
   }),
 }));

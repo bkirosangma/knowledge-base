@@ -102,4 +102,68 @@ describe("useTabEngine", () => {
     });
     await waitFor(() => expect(result.current.status).toBe("engine-load-error"));
   });
+
+  it("playerStatus reflects engine 'played' / 'paused' events", async () => {
+    const fakeSession = makeFakeSession();
+    mountMock.mockResolvedValue(fakeSession);
+    const { result } = renderHook(() => useTabEngine());
+    const container = document.createElement("div");
+    await act(async () => {
+      await result.current.mountInto(container, "x");
+    });
+    expect(result.current.playerStatus).toBe("paused");
+
+    await act(async () => {
+      fakeSession.emit("played", { event: "played" });
+    });
+    await waitFor(() => expect(result.current.playerStatus).toBe("playing"));
+
+    await act(async () => {
+      fakeSession.emit("paused", { event: "paused" });
+    });
+    await waitFor(() => expect(result.current.playerStatus).toBe("paused"));
+  });
+
+  it("currentTick reflects engine 'tick' events", async () => {
+    const fakeSession = makeFakeSession();
+    mountMock.mockResolvedValue(fakeSession);
+    const { result } = renderHook(() => useTabEngine());
+    const container = document.createElement("div");
+    await act(async () => {
+      await result.current.mountInto(container, "x");
+    });
+    expect(result.current.currentTick).toBe(0);
+
+    await act(async () => {
+      fakeSession.emit("tick", { event: "tick", beat: 1920 });
+    });
+    await waitFor(() => expect(result.current.currentTick).toBe(1920));
+  });
+
+  it("isAudioReady flips true on engine 'ready' event", async () => {
+    const fakeSession = makeFakeSession();
+    mountMock.mockResolvedValue(fakeSession);
+    const { result } = renderHook(() => useTabEngine());
+    const container = document.createElement("div");
+    await act(async () => {
+      await result.current.mountInto(container, "x");
+    });
+    expect(result.current.isAudioReady).toBe(false);
+
+    await act(async () => {
+      fakeSession.emit("ready", { event: "ready" });
+    });
+    await waitFor(() => expect(result.current.isAudioReady).toBe(true));
+  });
+
+  it("session is exposed via the sessionRef getter for playback callables", async () => {
+    const fakeSession = makeFakeSession();
+    mountMock.mockResolvedValue(fakeSession);
+    const { result } = renderHook(() => useTabEngine());
+    const container = document.createElement("div");
+    await act(async () => {
+      await result.current.mountInto(container, "x");
+    });
+    expect(result.current.session).toBe(fakeSession);
+  });
 });
