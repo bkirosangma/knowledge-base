@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
@@ -15,8 +15,31 @@ import type { DocumentMeta } from "../document/types";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
 import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
+import { useTabCursor } from "./editor/hooks/useTabCursor";
+import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
+import type { TabEditOp } from "../../domain/tabEngine";
+import type { CursorLocation } from "./editor/hooks/useTabCursor";
 
 const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
+
+// Kept as a type alias so the lazy-loaded module is the single canonical import.
+type TabEditorPassthroughProps = {
+  filePath: string;
+  session: unknown;
+  score: unknown;
+  metadata: unknown;
+  onScoreChange?: (score: unknown) => void;
+  cursor: CursorLocation | null;
+  setCursor: (loc: CursorLocation) => void;
+  clearCursor: () => void;
+  moveBeat: (delta: 1 | -1) => void;
+  moveString: (delta: 1 | -1) => void;
+  moveBar: (delta: 1 | -1) => void;
+  onApplyEdit?: (op: TabEditOp) => void;
+  registerApply?: (applyFn: (op: TabEditOp) => void) => void;
+};
+// Cast the dynamic component to accept the full prop shape (Next's dynamic types are widened).
+const TypedLazyTabEditor = LazyTabEditor as unknown as React.ComponentType<TabEditorPassthroughProps>;
 
 const noopMigrate = () => {};
 
@@ -78,6 +101,16 @@ export function TabView({
     session,
     score: engineScore,
   } = useTabEngine();
+  // C3: cursor and selected-note-details lifted to TabView so TabProperties can observe them.
+  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = useTabCursor(metadata);
+  const liveScore = tabScore ?? engineScore;
+  const selectedNoteDetails = useSelectedNoteDetails(liveScore, cursor);
+  // C3: stable proxy for TabEditor's apply fn, written by TabEditor via onApplyEdit.
+  // This lets TabProperties call apply (with undo history) without a direct dependency.
+  const editorApplyRef = useRef<((op: TabEditOp) => void) | null>(null);
+  const propertiesApply = useCallback((op: TabEditOp): void => {
+    editorApplyRef.current?.(op);
+  }, []);
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
@@ -179,12 +212,19 @@ export function TabView({
         )}
         <TabCanvas ref={canvasRef} />
         {!effectiveReadOnly && filePath && (
-          <LazyTabEditor
+          <TypedLazyTabEditor
             filePath={filePath}
             session={session}
-            score={tabScore ?? engineScore}
+            score={liveScore}
             metadata={metadata}
             onScoreChange={setTabScore}
+            cursor={cursor}
+            setCursor={setCursor}
+            clearCursor={clearCursor}
+            moveBeat={moveBeat}
+            moveString={moveString}
+            moveBar={moveBar}
+            registerApply={(fn) => { editorApplyRef.current = fn; }}
           />
         )}
       </div>
@@ -199,6 +239,10 @@ export function TabView({
         onPreviewDocument={onPreviewDocument}
         onOpenDocPicker={onAttachDocument ? (type, id) => setPickerTarget({ type, id }) : undefined}
         onDetachDocument={onDetachDocument}
+        selectedNoteDetails={selectedNoteDetails}
+        cursorBeat={cursor?.beat}
+        cursorString={cursor?.string}
+        onApplyEdit={propertiesApply}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker

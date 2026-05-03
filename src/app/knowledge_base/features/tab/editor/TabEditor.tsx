@@ -1,11 +1,10 @@
 "use client";
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import type { ReactElement } from "react";
 import type { TabSession, TabEditOp, TabMetadata, NoteDuration, Technique } from "../../../domain/tabEngine";
-import { useTabCursor } from "./hooks/useTabCursor";
+import type { CursorLocation } from "./hooks/useTabCursor";
 import { useTabKeyboard } from "./hooks/useTabKeyboard";
 import { useTabEditHistory } from "../hooks/useTabEditHistory";
-import { useSelectedNoteDetails } from "./hooks/useSelectedNoteDetails";
 import { TabEditorToolbar } from "./TabEditorToolbar";
 import { TabEditorCanvasOverlay } from "./TabEditorCanvasOverlay";
 import type { PreState } from "../editHistory/inverseOf";
@@ -25,6 +24,26 @@ export interface TabEditorProps {
    * (not the stale `score` prop) to ensure the post-edit state is captured.
    */
   onScoreChange?: (score: unknown) => void;
+
+  // C3: cursor state lifted to TabView so TabProperties can observe it.
+  /** Current cursor location — provided by TabView (via useTabCursor). */
+  cursor: CursorLocation | null;
+  setCursor: (loc: CursorLocation) => void;
+  clearCursor: () => void;
+  moveBeat: (delta: 1 | -1) => void;
+  moveString: (delta: 1 | -1) => void;
+  moveBar: (delta: 1 | -1) => void;
+  /**
+   * Called after each successful apply (fire-and-forget). Used by TabView
+   * to trigger sidecar writes after section-affecting edits (C2).
+   */
+  onApplyEdit?: (op: TabEditOp) => void;
+  /**
+   * C3: Called once after useTabEditHistory is set up, with the `apply` fn.
+   * TabView stores this in a ref so TabProperties can dispatch ops with full
+   * undo-history support.
+   */
+  registerApply?: (applyFn: (op: TabEditOp) => void) => void;
 }
 
 export default function TabEditor({
@@ -33,13 +52,18 @@ export default function TabEditor({
   score,
   metadata,
   onScoreChange,
+  cursor,
+  setCursor,
+  clearCursor,
+  moveBeat,
+  moveString,
+  moveBar,
+  onApplyEdit,
+  registerApply,
 }: TabEditorProps): ReactElement {
   const [activeDuration, setActiveDuration] = useState<NoteDuration>(4);
   const activeDurationRef = useRef<NoteDuration>(4);
   activeDurationRef.current = activeDuration;
-
-  const cursorState = useTabCursor(metadata);
-  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = cursorState;
 
   /**
    * captureState — read pre-state for inverse-op generation.
@@ -96,6 +120,17 @@ export default function TabEditor({
   const history = useTabEditHistory({ dispatch, captureState });
   const { apply, undo, redo, canUndo, canRedo } = history;
 
+  // Forward apply to parent so it can pass it to TabProperties.
+  const applyAndNotify = useCallback((op: TabEditOp): void => {
+    apply(op);
+    onApplyEdit?.(op);
+  }, [apply, onApplyEdit]);
+
+  // C3: Register apply with TabView so TabProperties can dispatch with undo history.
+  useEffect(() => {
+    registerApply?.(applyAndNotify);
+  }, [registerApply, applyAndNotify]);
+
   useTabKeyboard({
     cursor,
     setCursor,
@@ -103,31 +138,47 @@ export default function TabEditor({
     moveBeat,
     moveString,
     moveBar,
-    apply,
+    apply: applyAndNotify,
     undo,
     redo,
     activeDurationRef,
     enabled: true,
   });
 
-  const selectedNote = useSelectedNoteDetails(score, cursor);
-  const activeTechniques = useMemo(
-    () => selectedNote?.techniques ?? new Set<Technique>(),
-    [selectedNote],
-  );
+  // activeTechniques used by toolbar buttons — read from score at current cursor.
+  const activeTechniques = useMemo((): Set<Technique> => {
+    if (!score || !cursor) return new Set<Technique>();
+    const s = score as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const beat = findBeat(s, cursor.beat);
+    const note = beat?.notes?.find((n: any) => n.string === cursor.string); // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!note) return new Set<Technique>();
+    const techniques = new Set<Technique>();
+    if (note.isHammerPullOrigin === true) techniques.add("hammer-on");
+    if (note.bendType !== undefined && note.bendType !== 0) techniques.add("bend");
+    if (note.slideOutType !== undefined && note.slideOutType !== 0) techniques.add("slide");
+    if (note.isTieDestination === true) techniques.add("tie");
+    if (note.isGhost === true) techniques.add("ghost");
+    if (note.vibrato !== undefined && note.vibrato !== 0) techniques.add("vibrato");
+    if (note.isLetRing === true) techniques.add("let-ring");
+    if (note.isPalmMute === true) techniques.add("palm-mute");
+    if (note.harmonicType !== undefined && note.harmonicType !== 0) techniques.add("harmonic");
+    if (note.beat?.tap === true) techniques.add("tap");
+    if (note.beat?.tremoloSpeed != null) techniques.add("tremolo");
+    return techniques;
+  }, [score, cursor]);
 
   const handleSetDuration = useCallback((d: NoteDuration) => {
     setActiveDuration(d);
-    if (cursor) apply({ type: "set-duration", beat: cursor.beat, duration: d });
-  }, [cursor, apply]);
+    if (cursor) applyAndNotify({ type: "set-duration", beat: cursor.beat, duration: d });
+  }, [cursor, applyAndNotify]);
 
   const handleToggleTechnique = useCallback((technique: Technique) => {
     if (!cursor) return;
     const op: TabEditOp = activeTechniques.has(technique)
       ? { type: "remove-technique", beat: cursor.beat, string: cursor.string, technique }
       : { type: "add-technique",    beat: cursor.beat, string: cursor.string, technique };
-    apply(op);
-  }, [cursor, activeTechniques, apply]);
+    applyAndNotify(op);
+  }, [cursor, activeTechniques, applyAndNotify]);
 
   return (
     <div data-testid="tab-editor" className="absolute inset-0 pointer-events-none flex flex-col">

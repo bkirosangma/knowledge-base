@@ -6,10 +6,37 @@ import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 import { TabView } from "./TabView";
 
 // Stub the lazy-loaded editor chunk so JSDOM doesn't need the real module.
+// The stub accepts all props from TabEditorProps (including C3 cursor props).
 vi.mock("./editor/TabEditor", () => ({
-  default: ({ filePath }: { filePath: string; session?: unknown; score?: unknown; metadata?: unknown; onScoreChange?: unknown }) => (
-    <div data-testid="tab-editor" data-filepath={filePath} />
-  ),
+  default: ({
+    filePath,
+    registerApply,
+    setCursor,
+  }: {
+    filePath: string;
+    session?: unknown;
+    score?: unknown;
+    metadata?: unknown;
+    onScoreChange?: unknown;
+    cursor?: unknown;
+    setCursor?: (loc: unknown) => void;
+    clearCursor?: () => void;
+    moveBeat?: (d: 1 | -1) => void;
+    moveString?: (d: 1 | -1) => void;
+    moveBar?: (d: 1 | -1) => void;
+    registerApply?: (fn: (op: unknown) => void) => void;
+    onApplyEdit?: (op: unknown) => void;
+  }) => {
+    // Expose a test handle so C3 tests can trigger registerApply and setCursor.
+    if (registerApply) registerApply((_op: unknown) => {});
+    return (
+      <div
+        data-testid="tab-editor"
+        data-filepath={filePath}
+        onClick={() => setCursor?.({ trackIndex: 0, beat: 0, string: 6 })}
+      />
+    );
+  },
 }));
 
 vi.mock("./hooks/useTabEngine", () => ({
@@ -130,5 +157,31 @@ describe("TabView editor chunk gate", () => {
     // Click the Edit toggle — TabView's single useTabEditMode toggles effectiveReadOnly
     fireEvent.click(screen.getByRole("button", { name: /edit tab/i }));
     expect(await screen.findByTestId("tab-editor")).toBeInTheDocument();
+  });
+
+  it("C3: TabProperties is always rendered (not gated on editor mount)", async () => {
+    render(
+      <Wrap>
+        <TabView filePath="song.alphatex" readOnly={true} />
+      </Wrap>,
+    );
+    await waitFor(() => {});
+    // TabProperties renders even in read-only mode (no editor).
+    expect(screen.getByTestId("tab-properties")).toBeInTheDocument();
+    // Editor is absent.
+    expect(screen.queryByTestId("tab-editor")).toBeNull();
+  });
+
+  it("C3: TabView passes cursor state to TabProperties (selectedNoteDetails section hidden when no cursor)", async () => {
+    // With metadata=null and no cursor, TabProperties should not show SelectedNoteDetails.
+    render(
+      <Wrap>
+        <TabView filePath="song.alphatex" readOnly={false} />
+      </Wrap>,
+    );
+    await waitFor(() => {});
+    // The "Selected note" heading only renders when selectedNoteDetails != null AND !readOnly.
+    // With null metadata + no cursor, selectedNoteDetails=null, so section is absent.
+    expect(screen.queryByRole("heading", { name: /selected note/i })).toBeNull();
   });
 });
