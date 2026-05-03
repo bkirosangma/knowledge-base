@@ -167,6 +167,9 @@ export function TabView({
             Loading score…
           </div>
         )}
+        {/* KB-040 / TAB-008: when an editor surface lands, lazy-load it via
+            `next/dynamic({ ssr: false })` and gate behind `!readOnly` so the
+            chunk is excluded from the mobile bundle. */}
         <TabCanvas ref={canvasRef} />
       </div>
       <TabProperties
