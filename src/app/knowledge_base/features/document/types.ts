@@ -3,7 +3,7 @@ export interface DocumentMeta {
   filename: string;       // relative path from vault root
   title: string;
   attachedTo?: {
-    type: 'root' | 'node' | 'connection' | 'flow' | 'type';
+    type: 'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'tab-section';
     id: string;
   }[];
 }
