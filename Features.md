@@ -702,9 +702,23 @@ KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, �
 - ✅ **Editor lazy-load marker.** `TabView` carries a TAB-008 stub comment so any future editor surface is wrapped in `next/dynamic({ ssr: false })` and gated on `!readOnly` — keeps the editor chunk out of the mobile bundle from day one.
 - ⚙️ **Files-tab routing.** `MobileShell.onSelectFile(path)` already routes `.alphatex` via `panes.openFile(path, "tab")` (no change in TAB-012).
 
-### 11.8 Pending
+### 11.8 Editor v1 (TAB-008)
 
-- ? **Editor (M2)** — TAB-008+.
+Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy-loaded sibling chunk gated behind `effectiveReadOnly`.
+
+- ✅ **Persistent cursor + click-to-place fret.** Click any string × beat → cursor highlights; bare digits 0–9 set fret. Multi-digit auto-commits after 500 ms or on next non-digit. Arrow / Tab / Shift+Tab navigate; Esc clears.
+- ✅ **Q W E R T Y duration shortcuts.** Whole / half / quarter / eighth / sixteenth / thirty-second.
+- ✅ **Technique keys.** `H` `P` `B` `S` `L` `~` `Shift+M` `Shift+L` toggle hammer-on / pull-off / bend / slide / tie / vibrato / palm-mute / let-ring. Bend defaults to ½-step; slide defaults to slide-up. Per-note adjustments live in the Properties panel.
+- ✅ **Per-op undo/redo.** Inverse-op storage; ⌘Z / ⌘⇧Z (Ctrl+Z / Ctrl+Y). 200-frame depth.
+- ✅ **Section-id sidecar.** `<file>.alphatex.refs.json` persists `stableId → currentName` so renames + reorders survive cross-references.
+- ✅ **Edit/Read toggle.** `useTabEditMode` composes per-file localStorage state + pane-level `readOnly`; mobile force-reads. Toolbar toggle visible on desktop only.
+- ✅ **Selected note details.** `TabProperties` grows a subsection for bend amount / slide direction / ghost / tap / tremolo / harmonic.
+- ⚙️ **Lazy editor chunk.** `next/dynamic({ ssr: false })`; chunk excluded from mobile bundle and from read-only desktop sessions.
+
+### 11.9 Pending
+
+- ? **Multi-track + per-track tuning/capo (TAB-009)**
+- ? **Export — MIDI / WAV / PDF (TAB-010)**
 
 ---
 
