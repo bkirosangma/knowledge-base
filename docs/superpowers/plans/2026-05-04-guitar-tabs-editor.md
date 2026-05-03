@@ -356,6 +356,18 @@ git commit -m "feat(tabs): applyEdit for set-fret and set-duration"
 
 In `alphaTabEngine.ts` add (private to module):
 
+Verified enum names + values (from `node_modules/@coderline/alphatab/dist/alphaTab.d.ts`):
+
+| Enum | Value used | Notes |
+|---|---|---|
+| `BendType` | `BendType.Bend` (= 2) | "Simple bend from unbended string to a higher note." Default ½-step amount via `bendPoints`. |
+| `SlideOutType` | `SlideOutType.Shift` (= 1) | "Shift slide to next note on same string." |
+| `VibratoType` | `VibratoType.Slight` | "A slight vibrato." |
+| `HarmonicType` | `HarmonicType.Natural` (= 1) | "Natural harmonic." |
+| `Duration` (for tremolo) | grep `^declare enum Duration` for the exact `Eighth` symbol — has negative values for QuadrupleWhole / DoubleWhole; positive values for Whole / Half / Quarter / Eighth / Sixteenth / etc. Use `Duration.Eighth` (verify exact case). |
+
+Note property names (from the `Note` class in alphaTab.d.ts): `isHammerPullOrigin`, `bendType`, `bendPoints`, `slideOutType`, `slideTargetNote`, `isTieDestination`, `isGhost`, `vibrato`, `isLetRing`, `isPalmMute`, `tremoloSpeed`, `isTap`, `harmonicType`. Spell-check against the d.ts before committing.
+
 ```typescript
 type TechniqueMutator = {
   apply: (note: Note) => void;
@@ -367,21 +379,60 @@ const TECHNIQUE_MUTATORS: Record<Technique, TechniqueMutator> = {
     apply: (n) => { n.isHammerPullOrigin = true; },
     remove: (n) => { n.isHammerPullOrigin = false; },
   },
-  "pull-off":  { /* same flag; resolved by surrounding fret */ apply: ..., remove: ... },
-  "bend":      { apply: (n) => { n.bendType = BendType.Bend; n.bendPoints = DEFAULT_HALF_BEND; }, remove: ... },
-  "slide":     { apply: (n) => { n.slideOutType = SlideOutType.Shift; }, remove: ... },
-  "tie":       { apply: (n) => { n.isTieDestination = true; }, remove: ... },
-  "ghost":     { apply: (n) => { n.isGhost = true; }, remove: ... },
-  "vibrato":   { apply: (n) => { n.vibrato = VibratoType.Slight; }, remove: ... },
-  "let-ring":  { apply: (n) => { n.isLetRing = true; }, remove: ... },
-  "palm-mute": { apply: (n) => { n.isPalmMute = true; }, remove: ... },
-  "tremolo":   { apply: (n) => { n.tremoloSpeed = Duration.Eighth; }, remove: ... },
-  "tap":       { apply: (n) => { n.isTap = true; }, remove: ... },
-  "harmonic":  { apply: (n) => { n.harmonicType = HarmonicType.Natural; }, remove: ... },
+  "pull-off": {
+    // alphaTab uses the same flag; the directionality is resolved at render
+    // time by comparing fret to the previous beat's note on the same string.
+    apply: (n) => { n.isHammerPullOrigin = true; },
+    remove: (n) => { n.isHammerPullOrigin = false; },
+  },
+  "bend": {
+    apply: (n) => {
+      n.bendType = BendType.Bend;
+      // Default ½-step bend — alphaTab's bendPoints scale: 50 = ½-step (100 cents = 1 semitone? verify with d.ts)
+      n.bendPoints = [{ offset: 0, value: 0 }, { offset: 60, value: 50 }];
+    },
+    remove: (n) => { n.bendType = BendType.None; n.bendPoints = []; },
+  },
+  "slide": {
+    apply: (n) => { n.slideOutType = SlideOutType.Shift; },
+    remove: (n) => { n.slideOutType = SlideOutType.None; },
+  },
+  "tie": {
+    apply: (n) => { n.isTieDestination = true; },
+    remove: (n) => { n.isTieDestination = false; },
+  },
+  "ghost": {
+    apply: (n) => { n.isGhost = true; },
+    remove: (n) => { n.isGhost = false; },
+  },
+  "vibrato": {
+    apply: (n) => { n.vibrato = VibratoType.Slight; },
+    remove: (n) => { n.vibrato = VibratoType.None; },
+  },
+  "let-ring": {
+    apply: (n) => { n.isLetRing = true; },
+    remove: (n) => { n.isLetRing = false; },
+  },
+  "palm-mute": {
+    apply: (n) => { n.isPalmMute = true; },
+    remove: (n) => { n.isPalmMute = false; },
+  },
+  "tremolo": {
+    apply: (n) => { n.tremoloSpeed = Duration.Eighth; },
+    remove: (n) => { n.tremoloSpeed = null; }, // verify nullable in d.ts
+  },
+  "tap": {
+    apply: (n) => { n.isTap = true; },
+    remove: (n) => { n.isTap = false; },
+  },
+  "harmonic": {
+    apply: (n) => { n.harmonicType = HarmonicType.Natural; },
+    remove: (n) => { n.harmonicType = HarmonicType.None; },
+  },
 };
 ```
 
-The exact alphaTab property names come from `node_modules/@coderline/alphatab/dist/alphaTab.d.ts` — verify each before writing the mutator. If a property is unfamiliar, search the d.ts for the technique name and use the documented enum value.
+The exact bend `bendPoints` value scale and the `tremoloSpeed` null-handling are still worth confirming against the d.ts — leave the assertions in T3 Step 1 covering the externally-observable behaviour ("bend amount is ½-step", "tremolo flag set when added; cleared when removed"), and let the implementation match alphaTab's actual conventions.
 
 - [ ] **Step 2: Write failing tests**
 
@@ -626,25 +677,22 @@ npm test -- tabRefsRepo
 ```typescript
 // src/app/knowledge_base/infrastructure/tabRefsRepo.ts
 import type { TabRefsPayload, TabRefsRepository } from "../domain/tabRefs";
-import { classifyError, FileSystemError } from "../domain/errors";
-import { readOrNull } from "../shared/fsHelpers";
+import { classifyError } from "../domain/errors";
+import { readOrNull } from "../domain/repositoryHelpers";
 
 const SIDECAR_SUFFIX = ".refs.json";
 
 export function createTabRefsRepository(rootHandle: FileSystemDirectoryHandle): TabRefsRepository {
   return {
     async read(filePath) {
-      const text = await readOrNull(rootHandle, sidecarPath(filePath));
+      const text = await readOrNull(() => readFile(rootHandle, sidecarPath(filePath)));
       if (text === null) return null;
       try {
         const parsed = JSON.parse(text);
-        if (parsed?.version !== 1) {
-          // Forward-compatible: future versions skip read; ticket bumps version when it migrates.
-          return null;
-        }
+        if (parsed?.version !== 1) return null; // future versions: ticket bumps when migrating
         return parsed as TabRefsPayload;
       } catch {
-        return null; // corrupt sidecar; treat as absent (lazy migration will overwrite)
+        return null; // corrupt sidecar; treat as absent — lazy migration overwrites on next save
       }
     },
     async write(filePath, payload) {
@@ -662,14 +710,12 @@ function sidecarPath(alphatexPath: string): string {
   return alphatexPath + SIDECAR_SUFFIX;
 }
 
-async function writeFile(root: FileSystemDirectoryHandle, path: string, contents: string): Promise<void> {
-  // Mirror tabRepo's path-walk logic — extract to fsHelpers if not already.
-  // (Plan-phase note: tabRepo.ts has the exact pattern; lift the helper into shared/fsHelpers.ts
-  //  if it's still inline. Otherwise reuse.)
-}
+// readFile / writeFile: mirror tabRepo.ts's existing path-walk helpers exactly.
+// If TAB-008 makes a third caller, prefer extracting to shared/fsHelpers.ts; otherwise
+// inline the walk to keep the infra layer flat.
 ```
 
-If `readOrNull` / shared FS helpers don't exist as a separate module yet, look at `tabRepo.ts` and `documentRepo.ts` — the path-walk is duplicated there. If TAB-008 is the third caller, lift to `shared/fsHelpers.ts`. If not, inline the walk in `tabRefsRepo.ts` and add a parked-item entry for a future consolidation.
+The `readOrNull` wrapper returns `null` on FileSystemError "not-found" and re-throws everything else; signature is `<T>(fn: () => Promise<T>) => Promise<T | null>`. Confirmed live at `domain/repositoryHelpers.ts:19`.
 
 - [ ] **Step 5: Run + commit**
 
@@ -1247,9 +1293,27 @@ If T0 confirmed alphaTab exposes a beat-level mouse-down event, the overlay subs
 
 If alphaTab does NOT expose a beat hit-test, the overlay falls back to geometry: alphaTab provides `api.layout.regions` (or similar — verify in d.ts) which gives bar bounding boxes. Translate click coords → bar → beat by linear partition; string is determined by Y-offset within the bar relative to the tuning's number of strings.
 
-Highlight: an absolutely-positioned rectangle styled via Tailwind (`bg-cyan-200/30 ring-2 ring-cyan-500`).
+**Acceptance — testability contract for T19:**
 
-Tests use a mocked alphaTab API surface returning canned hit-test events.
+Each cursor-targetable cell renders as an invisible button (`<button>` with `pointer-events: auto` over an otherwise pointer-passthrough overlay) carrying:
+
+```tsx
+<button
+  data-testid={`tab-editor-cursor-target-${beat}-${string}`}
+  className="absolute opacity-0"
+  style={{ left, top, width, height }}
+  onClick={() => setCursor({ trackIndex, beat, string })}
+/>
+```
+
+This makes the e2e click in T19 deterministic without depending on render geometry. The highlight (visible cursor) is a sibling element rendered at the active cell's coordinates.
+
+Highlight styling: an absolutely-positioned rectangle (`bg-cyan-200/30 ring-2 ring-cyan-500`).
+
+Tests use a mocked alphaTab API surface returning canned hit-test events. Component test asserts:
+- A click on a `tab-editor-cursor-target-N-S` test-id fires `setCursor({ beat: N, string: S })`.
+- The cursor highlight repositions on cursor state change.
+- `data-testid` is present on every cursorable cell (count matches `metadata.totalBeats × tuning.length`).
 
 ```bash
 git commit -m "feat(tabs): TabEditorCanvasOverlay — click-to-cursor + highlight"
@@ -1400,59 +1464,74 @@ git commit -m "feat(tabs): useTabContent dirty/score/flush + useTabSectionSync s
 
 - [ ] **Step 1: Write the fixture helper**
 
+The repo uses `installMockFS` from `e2e/fixtures/fsMock.ts` (verified). The mock exposes `window.__kbMockFS` with `seed`, `read`, `reset`, `failNextWrite`. Pattern: install via `page.addInitScript(installMockFS)` once per test, seed files via `page.evaluate((files) => window.__kbMockFS.seed(files), {...})`, then drive the regular "Open Folder" button (the mocked picker resolves the seeded vault).
+
 ```typescript
 // e2e/fixtures/tabFixtures.ts
+/**
+ * Tab e2e fixtures. Built on the existing fsMock pattern (installMockFS +
+ * window.__kbMockFS). This file establishes the shared alphaTex source
+ * strings + a small ergonomic wrapper for seeding multiple tabs at once.
+ *
+ * Future tab e2e tests should import these constants and use the mock's
+ * `seed` / `read` directly via `page.evaluate(...)` rather than wrap further.
+ */
 import type { Page } from "@playwright/test";
 
 export const SMOKE_TAB = `\\title "Smoke"\n.\n:4 0.6 1.6 2.6 3.6 |\n`;
+export const TWO_BAR_TAB = `\\title "Two Bar"\n.\n:4 0.6 0.6 0.6 0.6 | :4 5.6 7.6 5.6 0.6 |\n`;
 
-/** Seeds a tiny .alphatex file into the test vault before navigation. */
-export async function seedTabFile(page: Page, path: string, contents: string): Promise<void> {
-  await page.evaluate(({ p, c }) => {
-    return (window as any).__kbTestVault.write(p, c);
-  }, { p: path, c: contents });
+/** Seed one or more `.alphatex` paths into the mock vault. */
+export async function seedTabs(page: Page, files: Record<string, string>): Promise<void> {
+  await page.evaluate((seedFiles) => {
+    if (!window.__kbMockFS) throw new Error("installMockFS must run before seedTabs");
+    window.__kbMockFS.seed(seedFiles);
+  }, files);
+}
+
+/** Read a file out of the mock vault for assertions. */
+export async function readVaultFile(page: Page, path: string): Promise<string | undefined> {
+  return page.evaluate((p) => window.__kbMockFS?.read(p), path);
 }
 ```
-
-If `__kbTestVault` doesn't exist, find how existing e2e tests seed files (look at `e2e/diagramGoldenPath.spec.ts` or similar) and mirror that pattern. Document the chosen pattern in a comment at the top of `tabFixtures.ts` so future tab e2e tests pick it up.
 
 - [ ] **Step 2: Spec**
 
 ```typescript
 import { test, expect } from "@playwright/test";
-import { SMOKE_TAB, seedTabFile } from "./fixtures/tabFixtures";
+import { installMockFS } from "./fixtures/fsMock";
+import { SMOKE_TAB, seedTabs, readVaultFile } from "./fixtures/tabFixtures";
 
 test.describe("tab editor", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(installMockFS);
+  });
+
   test("click-edit-save round-trip", async ({ page }) => {
     await page.goto("/");
-    await pickRoot(page); // re-use existing helper for FSA folder pick
-    await seedTabFile(page, "smoke.alphatex", SMOKE_TAB);
+    await seedTabs(page, { "smoke.alphatex": SMOKE_TAB });
 
-    // Open file
+    // Open the (mocked) folder picker — resolves to the seeded vault root.
+    await page.getByRole("button", { name: /open folder/i }).click();
+
+    // Open the seeded file from the explorer
     await page.getByRole("button", { name: /smoke\.alphatex/ }).click();
     await expect(page.getByTestId("tab-canvas")).toBeVisible();
 
-    // Toggle edit
+    // Toggle edit mode (per-file readOnly was true by default)
     await page.getByRole("button", { name: /edit/i }).click();
     await expect(page.getByTestId("tab-editor")).toBeAttached();
 
-    // Click string 6 at beat 0 (geometry-dependent; use overlay test id)
+    // Click cursor target for beat 0, string 6 (T14's data-testid contract)
     await page.getByTestId("tab-editor-cursor-target-0-6").click();
     await page.keyboard.press("Digit5");
-    await page.waitForTimeout(600); // commit accumulator
+    // Wait for digit-accumulator commit (500ms timeout) + debounced save (500ms)
+    await page.waitForTimeout(1200);
 
-    // Wait for save (debounced)
-    await page.waitForTimeout(700);
-
-    // Reload + verify
-    await page.reload();
-    await pickRoot(page);
-    await page.getByRole("button", { name: /smoke\.alphatex/ }).click();
-    // Assert the rendered canvas reflects fret 5 (best-effort: read alphaTex from the test vault):
-    const persisted = await page.evaluate(() =>
-      (window as any).__kbTestVault.read("smoke.alphatex"),
-    );
-    expect(persisted).toContain("5.6"); // fret 5 on string 6 in alphaTex grammar
+    // Read the persisted alphaTex out of the mock vault
+    const persisted = await readVaultFile(page, "smoke.alphatex");
+    expect(persisted).toBeDefined();
+    expect(persisted).toContain("5.6"); // alphaTex grammar: fret 5 on string 6
   });
 });
 ```
@@ -1463,7 +1542,7 @@ test.describe("tab editor", () => {
 npm run test:e2e -- tabEditor
 ```
 
-If the canvas hit-test makes pixel-level click placement flaky, lean on the overlay's `data-testid="tab-editor-cursor-target-<beat>-<string>"` attributes (T14 should add these for testability) instead of clicking the canvas directly.
+The cursor target test-ids come from T14's acceptance contract. If the canvas itself isn't ready when the test asserts, add `await page.waitForFunction(() => !!document.querySelector('[data-testid^="tab-editor-cursor-target-"]'))` before the click. Audio-engine readiness flake (per the existing `feedback_preview_verification_limits.md` ceiling) is not a concern here — this test does not exercise playback.
 
 - [ ] **Step 4: Commit**
 
