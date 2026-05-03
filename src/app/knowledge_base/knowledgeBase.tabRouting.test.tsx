@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "./shell/RepositoryContext";
 import { StubShellErrorProvider } from "./shell/ShellErrorContext";
-import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import { buildTabPaneContext, renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
 
 vi.mock("./features/tab/hooks/useTabEngine", () => ({
   useTabEngine: () => ({
@@ -44,5 +44,50 @@ describe("tab pane routing", () => {
     expect(
       renderTabPaneEntry({ filePath: "x.md", fileType: "document" }),
     ).toBeNull();
+  });
+});
+
+describe("buildTabPaneContext (TAB-012 T1)", () => {
+  // Stable stubs so every assertion below has the same callable shape.
+  const stubs = {
+    documents: [],
+    backlinks: [],
+    onPreviewDocument: vi.fn(),
+    onAttachDocument: vi.fn(),
+    onDetachDocument: vi.fn(),
+    onCreateDocument: vi.fn().mockResolvedValue(undefined),
+    getDocumentsForEntity: vi.fn(() => []),
+    allDocPaths: [] as string[],
+    rootHandle: null,
+    onMigrateAttachments: vi.fn(),
+  };
+
+  it("sets readOnly: true when isMobile is true (KB-040 mobile stance)", () => {
+    const ctx = buildTabPaneContext({ ...stubs, isMobile: true });
+    expect(ctx.readOnly).toBe(true);
+  });
+
+  it("sets readOnly: false when isMobile is false (desktop)", () => {
+    const ctx = buildTabPaneContext({ ...stubs, isMobile: false });
+    expect(ctx.readOnly).toBe(false);
+  });
+
+  it("passes through documents, backlinks, and callbacks unchanged", () => {
+    const docs = [{ id: "d1", filename: "n.md", title: "n", attachedTo: [] }];
+    const bls = [{ sourcePath: "a.md" }];
+    const ctx = buildTabPaneContext({
+      ...stubs,
+      documents: docs,
+      backlinks: bls,
+      isMobile: false,
+    });
+    expect(ctx.documents).toBe(docs);
+    expect(ctx.backlinks).toBe(bls);
+    expect(ctx.onAttachDocument).toBe(stubs.onAttachDocument);
+    expect(ctx.onDetachDocument).toBe(stubs.onDetachDocument);
+    expect(ctx.onPreviewDocument).toBe(stubs.onPreviewDocument);
+    expect(ctx.onCreateDocument).toBe(stubs.onCreateDocument);
+    expect(ctx.getDocumentsForEntity).toBe(stubs.getDocumentsForEntity);
+    expect(ctx.onMigrateAttachments).toBe(stubs.onMigrateAttachments);
   });
 });

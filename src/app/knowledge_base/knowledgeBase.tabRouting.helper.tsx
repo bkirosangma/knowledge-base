@@ -37,3 +37,44 @@ export function renderTabPaneEntry(
   }
   return null;
 }
+
+/**
+ * Pure shape-builder for the tab pane context spread into
+ * `renderTabPaneEntry`. Extracted so the shell-level wiring rule
+ * "`readOnly` mirrors `isMobile`" (KB-040 / TAB-012) can be unit-tested
+ * without spinning up `KnowledgeBaseInner`. The callback fields are
+ * passed through verbatim — this helper only owns the
+ * `isMobile → readOnly` translation plus a stable object shape.
+ */
+export interface BuildTabPaneContextArgs {
+  documents: TabPaneContext["documents"];
+  backlinks: TabPaneContext["backlinks"];
+  isMobile: boolean;
+  onPreviewDocument: TabPaneContext["onPreviewDocument"];
+  onAttachDocument: TabPaneContext["onAttachDocument"];
+  onDetachDocument: TabPaneContext["onDetachDocument"];
+  onCreateDocument: TabPaneContext["onCreateDocument"];
+  getDocumentsForEntity: TabPaneContext["getDocumentsForEntity"];
+  allDocPaths: TabPaneContext["allDocPaths"];
+  rootHandle: TabPaneContext["rootHandle"];
+  onMigrateAttachments: TabPaneContext["onMigrateAttachments"];
+}
+
+export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneContext {
+  return {
+    documents: args.documents,
+    backlinks: args.backlinks,
+    // KB-040: mobile boots the tab pane read-only. TabProperties /
+    // TabReferencesList already gate Attach + detach affordances on this
+    // flag (TAB-007a).
+    readOnly: args.isMobile,
+    onPreviewDocument: args.onPreviewDocument,
+    onAttachDocument: args.onAttachDocument,
+    onDetachDocument: args.onDetachDocument,
+    onCreateDocument: args.onCreateDocument,
+    getDocumentsForEntity: args.getDocumentsForEntity,
+    allDocPaths: args.allDocPaths,
+    rootHandle: args.rootHandle,
+    onMigrateAttachments: args.onMigrateAttachments,
+  };
+}

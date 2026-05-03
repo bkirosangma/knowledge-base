@@ -27,7 +27,7 @@ import { collectAllPaths } from "./features/graph/hooks/useGraphData";
 import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
-import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import { buildTabPaneContext, renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
 import { useGpImport } from "./features/tab/hooks/useGpImport";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
@@ -997,9 +997,11 @@ function KnowledgeBaseInner() {
     }
 
     if (entry.fileType === "tab") {
-      return renderTabPaneEntry(entry, {
+      return renderTabPaneEntry(entry, buildTabPaneContext({
         documents: docManager.documents,
         backlinks: entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : [],
+        // KB-040 / TAB-012: mobile boots the tab pane read-only.
+        isMobile,
         onPreviewDocument: (docPath) => handleOpenDocument(docPath),
         onAttachDocument: (docPath, entityType, entityId) => {
           docManager.attachDocument(
@@ -1024,7 +1026,7 @@ function KnowledgeBaseInner() {
         onMigrateAttachments: (path, migrations) => {
           docManager.migrateAttachments(path, migrations);
         },
-      });
+      }));
     }
 
     return (
