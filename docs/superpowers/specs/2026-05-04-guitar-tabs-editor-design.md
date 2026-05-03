@@ -26,7 +26,7 @@ Ship the first interactive editor for `.alphatex` tabs: click any cell on the re
 - `Alt+1` … `Alt+6` set the active duration (`Alt+1` = whole, `Alt+2` = half, `Alt+3` = quarter, `Alt+4` = eighth, `Alt+5` = sixteenth, `Alt+6` = thirty-second). The active duration is what new fret entries get tagged with. Bare `1`–`6` always mean fret values — durations require the modifier to disambiguate from fret entry. The toolbar's six duration buttons remain the primary discoverable surface; the keyboard shortcuts are power-user accelerators.
 - Technique keys H, P, B, S, T, ~, P-M (Shift+M), L-R (Shift+L) toggle a technique on the cell at the cursor. `T` toggles tie. B and S apply default parameters; per-note adjustments live in the Properties panel.
 - ⌘Z / Ctrl+Z undo; ⌘⇧Z / Ctrl+Y redo. History is per committed `TabEditOp`, ring-buffered to ~200 frames.
-- Save is debounced (300 ms) via the existing `tabRepo.write` path; dirty marker shows in the toolbar.
+- Save is debounced (`DRAFT_DEBOUNCE_MS` = 500 ms, mirroring `useDocumentContent`) via the existing `tabRepo.write` path; dirty marker shows in the toolbar.
 - Section renames in the editor produce a sidecar (`<file>.alphatex.refs.json`) so cross-references survive rename + reorder in the same save.
 
 ## Decisions log
@@ -43,13 +43,14 @@ The session keeps the live `Score` captured from `scoreLoaded`. `applyEdit` muta
 - *alphaTex string-rewrite as primary path* — brittle across imported `.gp` content the user didn't author; full-text undo snapshots would be required.
 - *Custom intermediate AST* — re-implements a parser + serializer for a grammar alphaTab already implements; round-trip fidelity loss is near-certain.
 
-**Plan-phase verification gate.** Before committing the implementation, the plan must inspect `node_modules/@coderline/alphatab/` and confirm:
+**API verification (resolved during brainstorm).** Inspection of `node_modules/@coderline/alphatab/dist/alphaTab.d.ts` confirmed:
 
-1. `api.renderScore(score)` is publicly exported and accepts a mutated `Score`.
-2. A `Score` → alphaTex serializer (e.g. `AlphaTexExporter`) exists.
-3. In-place Score mutation is safe vs. requiring `score.clone()` per edit (affects performance).
+1. `api.renderScore(score, trackIndexes?, renderHints?)` is publicly exported (line 663). Accepts a `Score` argument and triggers a re-render.
+2. `AlphaTexExporter extends ScoreExporter` is exported from the package root (line 3706 declaration; line 8288 in the public export bag). Score → alphaTex serialization is a supported public capability.
 
-If (2) is missing, the fallback is a **bar-scoped alphaTex rewriter**: keep original alphaTex as base, locate the modified bar via the Score's bar index, regex-rewrite only that bar's text, leave the rest untouched. Materially smaller diff than full string-rewrite because the change is bounded by the op. If this fallback is engaged, the plan amends D1 and the implementation owns the rewriter.
+The bar-scoped rewriter fallback is therefore no longer needed; D1's primary path (`AlphaTexExporter`-driven full re-serialize on save) is locked.
+
+**Open verification (plan phase).** Confirm in-place Score mutation is safe vs. requiring `score.clone()` per edit (affects performance characteristics). This is a runtime behaviour question, not an API-presence question — falls to the plan phase to settle empirically.
 
 ### D2 — Interaction model: persistent cursor + direct keypress
 
@@ -105,7 +106,7 @@ Pressing `B` applies a default ½-step bend. Pressing `S` applies slide-up by de
 - *Delete.* Remove the entry. Cross-references become orphaned (existing `migrateAttachments` semantics; no new behaviour).
 - *Add.* New entry; new stable id derived from slug at creation time.
 
-`useTabSectionSync` (the existing position-based reconciler) becomes a no-op once a sidecar exists; it stays as the fallback for sidecar-less files (read-only access in older vaults).
+`useTabSectionSync` (the existing position-based reconciler) checks the sidecar resolver state on each metadata change: if the resolver reports any sidecar entry for the current file, the position-based reconciliation is skipped (no migrations emitted; the sidecar is the source of truth). For sidecar-less files — including any vault that pre-dates TAB-008 read-only access — the hook falls back to today's behaviour. Branching lives inside the existing hook; no new hook, no wrapper switch.
 
 ### D8 — Parked item #6 fold-in: shared `properties-collapsed` constant
 
@@ -167,7 +168,7 @@ User cursor on (track=0, bar=4, beat=2, string=3); presses "1" then "2"
         ↓ api.renderScore(score) re-renders in place
         ↓ scoreToMetadata(score) → emit "loaded" with new metadata
   ↓ useTabEdit consumes metadata → marks dirty
-  ↓ useTabContent debounce (300 ms) → serializeScoreToAlphatex(score) → tabRepo.write(filePath, text)
+  ↓ useTabContent debounce (`DRAFT_DEBOUNCE_MS` = 500 ms, mirroring `useDocumentContent`) → serializeScoreToAlphatex(score) → tabRepo.write(filePath, text)
   ↓ on success: clear dirty
   ↓ if op was set-section / add-bar producing a new section / remove-bar dropping one:
         tabRefsRepo.update(filePath, mutation)
@@ -185,7 +186,9 @@ User cursor on (track=0, bar=4, beat=2, string=3); presses "1" then "2"
 
 ## Persistence
 
-Mirrors `useDocumentContent` exactly: dirty flag in `useTabContent`, debounced `tabRepo.write` at 300 ms after last edit, conflict path via `ConflictBanner` on file-watcher events, `ShellErrorBanner` for write failures. The sidecar (`tabRefsRepo`) writes alongside but only when section-affecting ops touched it; both writes are independent so a sidecar failure doesn't block a content save.
+Mirrors `useDocumentContent` exactly: dirty flag in `useTabContent`, debounced `tabRepo.write` at `DRAFT_DEBOUNCE_MS` (500 ms) after last edit, conflict path via `ConflictBanner` on file-watcher events, `ShellErrorBanner` for write failures. The sidecar (`tabRefsRepo`) writes alongside but only when section-affecting ops touched it; both writes are independent so a sidecar failure doesn't block a content save.
+
+`useTabContent`'s contract grows: today it surfaces raw `text` + load error; post-TAB-008 it additionally exposes `score` (the live mutated Score), `dirty` (boolean), and a write-trigger that serializes via `alphaTexExporter`. Read-only callers continue to receive raw text only — the editor-chunk-only fields are typed as optional or surfaced via a paired `useTabEdit` hook that read-only callers don't import.
 
 ## Properties panel growth
 
@@ -213,7 +216,7 @@ Mirrors `useDocumentContent` exactly: dirty flag in `useTabContent`, debounced `
 
 ### Test cases
 
-New `TAB-12.x-NN` IDs added to `test-cases/11-tabs.md` covering:
+New `TAB-11.8-NN` IDs added to `test-cases/11-tabs.md` covering:
 
 - Cursor placement, navigation, multi-digit fret entry, Esc clears.
 - Each technique toggle (8) + each duration shortcut (6).
@@ -241,7 +244,8 @@ New `TAB-12.x-NN` IDs added to `test-cases/11-tabs.md` covering:
 
 ## Plan-phase open items
 
-1. Confirm `api.renderScore(score)` is publicly exported and stable in `@coderline/alphatab` ≥ 1.6.x.
-2. Confirm `AlphaTexExporter` (or equivalent Score → alphaTex serializer) exists; if not, lock the bar-scoped rewriter fallback.
-3. Confirm in-place Score mutation is safe; otherwise budget `score.clone()` per edit.
+1. ~~Confirm `api.renderScore(score)` is publicly exported.~~ **Resolved during brainstorm** — `node_modules/@coderline/alphatab/dist/alphaTab.d.ts:663` declares `renderScore(score: Score, trackIndexes?: number[], renderHints?: RenderHints): void`.
+2. ~~Confirm `AlphaTexExporter` exists.~~ **Resolved during brainstorm** — `alphaTab.d.ts:3706` declares `class AlphaTexExporter extends ScoreExporter`; exported at line 8288.
+3. Confirm in-place Score mutation is safe; otherwise budget `score.clone()` per edit. (Runtime behaviour, not API surface — settle empirically when implementing the first op.)
 4. Confirm alphaTab exposes a beat / note hit-test API for click-to-cursor; if not, the canvas overlay computes cell positions from the Score's bar index + render geometry.
+5. macOS `Option`+digit produces special characters by default (Option+1 = ¡, Option+2 = ™, etc.). The keyboard handler must `preventDefault()` on the `keydown` event before the browser's input-method-editor processes it. Verify the canvas overlay's keyboard handler is on `keydown` (not `keypress`) and intercepts before browser default. Test on actual macOS during implementation.
