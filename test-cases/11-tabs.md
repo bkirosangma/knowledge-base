@@ -137,10 +137,22 @@ Tab properties cross-references: whole-file + per-section explicit attachments a
 
 ---
 
+## 11.8 Mobile (TAB-012)
+
+KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, ≤900px).
+
+- **TAB-11.8-01** ✅ **`buildTabPaneContext` sets `readOnly: true` when `isMobile=true`** — pure helper translates the KB-040 stance to the `TabPaneContext.readOnly` field. _(unit: `knowledgeBase.tabRouting.test.tsx`.)_
+- **TAB-11.8-02** ✅ **`buildTabPaneContext` sets `readOnly: false` when `isMobile=false`** — desktop path keeps Attach + detach affordances live. _(unit: `knowledgeBase.tabRouting.test.tsx`.)_
+- **TAB-11.8-03** ✅ **`buildImportGpCommands.when()` returns false when `isMobile=true`** — palette excludes "Import Guitar Pro file…" on mobile (no editor → no point in importing). _(unit: `knowledgeBase.gpImport.test.tsx`.)_
+- **TAB-11.8-04** ✅ **`buildImportGpCommands.when()` returns true on desktop with a vault open** — _(unit: `knowledgeBase.gpImport.test.tsx`.)_
+- **TAB-11.8-05** ✅ **`buildImportGpCommands.when()` returns false without a vault open (mobile or desktop)** — pre-existing `directoryName` gate preserved. _(unit: `knowledgeBase.gpImport.test.tsx`.)_
+- **TAB-11.8-06** 🧪 **e2e mobile smoke: `.alphatex` opens read-only at 390×844 viewport** — TabView mounts; no Attach button surfaces. _(playwright: `e2e/tabsMobile.spec.ts`.)_
+- **TAB-11.8-07** 🧪 **e2e mobile smoke: command palette excludes "Import Guitar Pro file…"** — palette filter on mobile finds no match for the import command. _(playwright: `e2e/tabsMobile.spec.ts`.)_
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.7 Properties panel attachments** (TAB-007a) — section anchors via `DocumentsSection`; wiki-link parsing of the `// references:` block.
-- **§11.8 Mobile** (TAB-012) — read-only + playback; no editor in bundle; no Create button.
 - **§11.9 Editor** (TAB-008) — click-to-place fret + duration shortcuts + technique toolbar + undo/redo.
 - **§11.10 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
 - **§11.11 Export** (TAB-010) — MIDI / WAV / PDF.
