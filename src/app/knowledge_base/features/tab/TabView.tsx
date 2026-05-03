@@ -65,7 +65,7 @@ export function TabView({
   rootHandle,
   onMigrateAttachments,
 }: TabViewProps) {
-  const { effectiveReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
+  const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
   const { content, loadError } = useTabContent(filePath);
   const {
     status,
@@ -164,6 +164,9 @@ export function TabView({
           onStop={playback.stop}
           onSetTempoFactor={playback.setTempoFactor}
           onSetLoop={playback.setLoop}
+          paneReadOnly={readOnly ?? false}
+          perFileReadOnly={perFileReadOnly}
+          onToggleReadOnly={toggleReadOnly}
         />
         {status === "mounting" && (
           <div
