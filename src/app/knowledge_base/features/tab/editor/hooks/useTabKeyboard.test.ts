@@ -261,4 +261,30 @@ describe("useTabKeyboard", () => {
     fireKey("1");
     expect(d.apply).not.toHaveBeenCalled();
   });
+
+  it("C4: does not intercept keydown when an input has focus", () => {
+    const d = baseDeps();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    expect(d.apply).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it("C4: does not intercept keydown when a select has focus", () => {
+    const d = baseDeps();
+    const select = document.createElement("select");
+    document.body.appendChild(select);
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+
+    select.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(d.moveString).not.toHaveBeenCalled();
+    document.body.removeChild(select);
+  });
 });

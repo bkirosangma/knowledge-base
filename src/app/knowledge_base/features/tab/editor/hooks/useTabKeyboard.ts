@@ -73,6 +73,12 @@ export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
     }
 
     function onKey(event: KeyboardEvent): void {
+      // C4: don't hijack key events when an input/select/textarea/contenteditable has focus.
+      const t = event.target;
+      if (t instanceof HTMLElement && t.matches('input, select, textarea, [contenteditable=""], [contenteditable="true"]')) {
+        return;
+      }
+
       const d = depsRef.current;
       if (!d.cursor) return;
 
