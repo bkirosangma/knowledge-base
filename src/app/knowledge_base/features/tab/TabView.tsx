@@ -9,6 +9,10 @@ import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
 import { TabProperties } from "./properties/TabProperties";
+import type { DocumentMeta } from "../document/types";
+import { useTabSectionSync } from "./properties/useTabSectionSync";
+
+const noopMigrate = () => {};
 
 /**
  * Pane shell for an opened `.alphatex` file. Reads the file via
@@ -23,7 +27,30 @@ import { TabProperties } from "./properties/TabProperties";
  * (`status === "engine-load-error"`) render an inline error pane with a
  * Reload button.
  */
-export function TabView({ filePath }: { filePath: string }) {
+export interface TabViewProps {
+  filePath: string;
+  documents?: DocumentMeta[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onMigrateAttachments?: (
+    filePath: string,
+    migrations: { from: string; to: string }[],
+  ) => void;
+}
+
+export function TabView({
+  filePath,
+  documents,
+  backlinks,
+  readOnly,
+  onPreviewDocument,
+  onOpenDocPicker,
+  onDetachDocument,
+  onMigrateAttachments,
+}: TabViewProps) {
   const { content, loadError } = useTabContent(filePath);
   const {
     status,
@@ -74,6 +101,12 @@ export function TabView({ filePath }: { filePath: string }) {
     if (status !== "ready" || !session) return;
     session.render();
   }, [theme, status, session]);
+
+  useTabSectionSync(
+    filePath,
+    metadata,
+    onMigrateAttachments ?? noopMigrate,
+  );
 
   if (status === "engine-load-error") {
     return (
@@ -127,6 +160,13 @@ export function TabView({ filePath }: { filePath: string }) {
         metadata={metadata}
         collapsed={propertiesCollapsed}
         onToggleCollapse={toggleProperties}
+        filePath={filePath}
+        documents={documents}
+        backlinks={backlinks}
+        readOnly={readOnly}
+        onPreviewDocument={onPreviewDocument}
+        onOpenDocPicker={onOpenDocPicker}
+        onDetachDocument={onDetachDocument}
       />
     </div>
   );

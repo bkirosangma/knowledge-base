@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { DocumentMeta } from "../document/types";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
@@ -216,5 +217,74 @@ describe("TabView", () => {
     );
     expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
     localStorage.removeItem("properties-collapsed");
+  });
+});
+
+describe("TabView — cross-reference plumbing", () => {
+  beforeEach(() => {
+    mountIntoMock.mockReset().mockResolvedValue(undefined);
+    mockStatus = "idle";
+    mockMetadata = null;
+    mockError = null;
+  });
+
+  it("passes filePath, documents, and backlinks through to TabProperties", async () => {
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Intro", startBeat: 0 }] };
+    render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[
+            {
+              id: "d1",
+              filename: "notes/song-history.md",
+              title: "song-history",
+              attachedTo: [{ type: "tab", id: "tabs/song.alphatex" }],
+            } as DocumentMeta,
+          ]}
+          backlinks={[]}
+        />
+      </Wrap>,
+    );
+    expect(screen.getByText(/whole-file references/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /song-history\.md/i })).toBeInTheDocument();
+  });
+
+  it("calls onMigrateAttachments when a section is renamed between metadata snapshots", async () => {
+    const onMigrateAttachments = vi.fn();
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Verse 1", startBeat: 0 }] };
+    const { rerender } = render(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onMigrateAttachments={onMigrateAttachments}
+        />
+      </Wrap>,
+    );
+    // First render establishes baseline — no migrations expected.
+    expect(onMigrateAttachments).not.toHaveBeenCalled();
+
+    // Simulate the engine emitting a renamed section: produce a fresh
+    // metadata object so the useEffect dep change fires.
+    mockMetadata = { ...baseMetadata, sections: [{ name: "Verse One", startBeat: 0 }] };
+    rerender(
+      <Wrap>
+        <TabView
+          filePath="tabs/song.alphatex"
+          documents={[]}
+          backlinks={[]}
+          onMigrateAttachments={onMigrateAttachments}
+        />
+      </Wrap>,
+    );
+
+    expect(onMigrateAttachments).toHaveBeenCalledWith(
+      "tabs/song.alphatex",
+      [{ from: "verse-1", to: "verse-one" }],
+    );
   });
 });
