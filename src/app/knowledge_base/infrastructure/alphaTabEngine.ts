@@ -14,6 +14,7 @@
 import type {
   BeatRange,
   MountOpts,
+  TabEditOp,
   TabEngine,
   TabEvent,
   TabEventHandler,
@@ -32,6 +33,7 @@ interface AlphaTabSettingsLike {
 interface AlphaTabApiLike {
   tex(text: string): void;
   renderTracks(): void;
+  renderScore(score: unknown, trackIndexes?: number[]): void;
   destroy(): void;
   play(): boolean;
   pause(): void;
@@ -49,6 +51,31 @@ interface AlphaTabApiLike {
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
 
+/** Minimal structural shape for alphaTab Note used in applyEdit mutations. */
+interface NoteShape {
+  fret: number;
+  string: number;
+}
+
+/** Minimal structural shape for alphaTab Beat used in applyEdit mutations. */
+interface BeatShape {
+  duration: number;
+  notes: NoteShape[];
+}
+
+/** Minimal structural shape for walking a Score to its beats. */
+interface ScoreShape {
+  tracks: Array<{
+    staves: Array<{
+      bars: Array<{
+        voices: Array<{
+          beats: BeatShape[];
+        }>;
+      }>;
+    }>;
+  }>;
+}
+
 const PLAYBACK_SPEED_MIN = 0.25;
 const PLAYBACK_SPEED_MAX = 2.0;
 
@@ -64,6 +91,8 @@ export class AlphaTabEngine implements TabEngine {
     const mod = await import("@coderline/alphatab");
     const Settings = mod.Settings as new () => AlphaTabSettingsLike;
     const ApiCtor = mod.AlphaTabApi as unknown as AlphaTabApiCtor;
+    // Captured so AlphaTabSession can construct new Note instances for set-fret.
+    const NoteCtor = mod.model.Note as unknown as new () => NoteShape;
 
     const settings = new Settings();
     settings.player.enablePlayer = true;
@@ -71,7 +100,7 @@ export class AlphaTabEngine implements TabEngine {
     settings.core.logLevel = LOG_LEVEL_INFO;
 
     const api = new ApiCtor(container, settings);
-    const session = new AlphaTabSession(api);
+    const session = new AlphaTabSession(api, NoteCtor);
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
   }
@@ -80,9 +109,13 @@ export class AlphaTabEngine implements TabEngine {
 class AlphaTabSession implements TabSession {
   private listeners = new Map<TabEvent, Set<TabEventHandler>>();
   private latestMetadata: TabMetadata | null = null;
+  private latestScore: ScoreShape | null = null;
   private disposed = false;
 
-  constructor(private api: AlphaTabApiLike) {
+  constructor(
+    private api: AlphaTabApiLike,
+    private NoteCtor: new () => NoteShape,
+  ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
     api.error.on((err) => this.emit({ event: "error", error: err }));
     api.playerReady.on(() => this.emit({ event: "ready" }));
@@ -163,9 +196,73 @@ class AlphaTabSession implements TabSession {
   }
 
   private handleScoreLoaded(score: unknown): void {
+    this.latestScore = score as ScoreShape;
     this.latestMetadata = scoreToMetadata(score);
     this.emit({ event: "loaded", metadata: this.latestMetadata });
   }
+
+  applyEdit(op: TabEditOp): TabMetadata {
+    if (this.disposed) throw new Error("Session disposed");
+    if (!this.latestScore) throw new Error("No score loaded");
+
+    switch (op.type) {
+      case "set-fret":
+        this.applySetFret(op);
+        break;
+      case "set-duration":
+        this.applySetDuration(op);
+        break;
+      default:
+        throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
+    }
+
+    this.api.renderScore(this.latestScore);
+    this.latestMetadata = scoreToMetadata(this.latestScore);
+    this.emit({ event: "loaded", metadata: this.latestMetadata });
+    return this.latestMetadata;
+  }
+
+  private applySetFret(op: Extract<TabEditOp, { type: "set-fret" }>): void {
+    const beat = locateBeat(this.latestScore!, op.beat);
+    if (!beat) throw new Error(`Beat ${op.beat} not found`);
+    const existing = beat.notes.find((n) => n.string === op.string);
+    if (op.fret === null) {
+      if (existing) beat.notes = beat.notes.filter((n) => n !== existing);
+      return;
+    }
+    if (existing) {
+      existing.fret = op.fret;
+    } else {
+      const note = new this.NoteCtor();
+      note.string = op.string;
+      note.fret = op.fret;
+      beat.notes.push(note);
+    }
+  }
+
+  private applySetDuration(op: Extract<TabEditOp, { type: "set-duration" }>): void {
+    const beat = locateBeat(this.latestScore!, op.beat);
+    if (!beat) throw new Error(`Beat ${op.beat} not found`);
+    // op.duration numeric values match alphaTab's Duration enum values exactly
+    // (1=Whole, 2=Half, 4=Quarter, 8=Eighth, 16=Sixteenth, 32=ThirtySecond, 64=SixtyFourth)
+    beat.duration = op.duration as unknown as number;
+  }
+}
+
+/**
+ * Walk tracks[0] → staves[0] → bars → voices[0] → beats and return the beat
+ * at the given zero-based global index (across all bars).
+ * Single-track scope: tracks[0] only.
+ */
+function locateBeat(score: ScoreShape, globalBeatIndex: number): BeatShape | null {
+  let counter = 0;
+  for (const bar of score.tracks[0].staves[0].bars) {
+    for (const beat of bar.voices[0].beats) {
+      if (counter === globalBeatIndex) return beat;
+      counter++;
+    }
+  }
+  return null;
 }
 
 function scoreToMetadata(score: unknown): TabMetadata {

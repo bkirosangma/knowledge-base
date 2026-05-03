@@ -59,7 +59,11 @@ vi.mock("@coderline/alphatab", () => {
     player = { enablePlayer: false, soundFont: "" };
     core = { engine: "default", logLevel: 0 };
   }
-  return { AlphaTabApi: FakeApi, Settings };
+  class Note {
+    fret = 0;
+    string = 0;
+  }
+  return { AlphaTabApi: FakeApi, Settings, model: { Note } };
 });
 
 import { AlphaTabEngine } from "./alphaTabEngine";
