@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 
 const mountIntoMock = vi.fn();
 let mockStatus: string = "idle";
@@ -208,7 +209,7 @@ describe("TabView", () => {
   });
 
   it("hydrates the collapsed state from localStorage on mount", async () => {
-    localStorage.setItem("properties-collapsed", "true");
+    localStorage.setItem(PROPERTIES_COLLAPSED_KEY, "true");
     mockStatus = "ready";
     mockMetadata = { ...baseMetadata };
     render(
@@ -217,7 +218,7 @@ describe("TabView", () => {
       </Wrap>,
     );
     expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
-    localStorage.removeItem("properties-collapsed");
+    localStorage.removeItem(PROPERTIES_COLLAPSED_KEY);
   });
 });
 

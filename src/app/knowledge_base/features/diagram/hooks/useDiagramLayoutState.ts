@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { PROPERTIES_COLLAPSED_KEY } from "../../../shared/constants/paneStorage";
 
 /**
  * DiagramView's toolbar and panel visibility flags.
@@ -27,8 +28,6 @@ export interface DiagramLayoutActions {
   /** Toggle + persist to localStorage. */
   toggleProperties: () => void;
 }
-
-const PROPERTIES_COLLAPSED_KEY = "properties-collapsed";
 
 export function useDiagramLayoutState(): {
   state: DiagramLayoutState;

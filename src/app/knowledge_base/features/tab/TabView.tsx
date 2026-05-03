@@ -12,6 +12,7 @@ import { TabProperties } from "./properties/TabProperties";
 import type { DocumentMeta } from "../document/types";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
 import DocumentPicker from "../../shared/components/DocumentPicker";
+import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 
 const noopMigrate = () => {};
 
@@ -75,12 +76,12 @@ export function TabView({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("properties-collapsed") === "true";
+    return localStorage.getItem(PROPERTIES_COLLAPSED_KEY) === "true";
   });
   const toggleProperties = useCallback(() => {
     setPropertiesCollapsed((prev) => {
       const next = !prev;
-      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(PROPERTIES_COLLAPSED_KEY, String(next)); } catch { /* ignore */ }
       return next;
     });
   }, []);
