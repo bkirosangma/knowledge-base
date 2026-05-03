@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { TabCanvas } from "./components/TabCanvas";
@@ -8,6 +8,7 @@ import { TabToolbar } from "./components/TabToolbar";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
+import { TabProperties } from "./properties/TabProperties";
 
 /**
  * Pane shell for an opened `.alphatex` file. Reads the file via
@@ -28,6 +29,7 @@ export function TabView({ filePath }: { filePath: string }) {
     status,
     error: engineError,
     mountInto,
+    metadata,
     currentTick,
     playerStatus,
     isAudioReady,
@@ -35,6 +37,17 @@ export function TabView({ filePath }: { filePath: string }) {
   } = useTabEngine();
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("properties-collapsed") === "true";
+  });
+  const toggleProperties = useCallback(() => {
+    setPropertiesCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const { reportError } = useShellErrors();
   const theme = useObservedTheme();
 
@@ -62,28 +75,9 @@ export function TabView({ filePath }: { filePath: string }) {
     session.render();
   }, [theme, status, session]);
 
-  return (
-    <div className="relative flex h-full w-full flex-col">
-      {status !== "engine-load-error" && (
-        <TabToolbar
-          playerStatus={playback.playerStatus}
-          isAudioReady={isAudioReady}
-          audioBlocked={playback.audioBlocked}
-          onToggle={playback.toggle}
-          onStop={playback.stop}
-          onSetTempoFactor={playback.setTempoFactor}
-          onSetLoop={playback.setLoop}
-        />
-      )}
-      {status === "mounting" && (
-        <div
-          data-testid="tab-view-loading"
-          className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
-        >
-          Loading score…
-        </div>
-      )}
-      {status === "engine-load-error" && (
+  if (status === "engine-load-error") {
+    return (
+      <div className="relative flex h-full w-full flex-col">
         <div
           data-testid="tab-view-engine-error"
           className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface text-mute"
@@ -102,8 +96,38 @@ export function TabView({ filePath }: { filePath: string }) {
             Reload
           </button>
         </div>
-      )}
-      <TabCanvas ref={canvasRef} />
+        <TabCanvas ref={canvasRef} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full">
+      <div className="relative flex flex-1 flex-col">
+        <TabToolbar
+          playerStatus={playback.playerStatus}
+          isAudioReady={isAudioReady}
+          audioBlocked={playback.audioBlocked}
+          onToggle={playback.toggle}
+          onStop={playback.stop}
+          onSetTempoFactor={playback.setTempoFactor}
+          onSetLoop={playback.setLoop}
+        />
+        {status === "mounting" && (
+          <div
+            data-testid="tab-view-loading"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
+          >
+            Loading score…
+          </div>
+        )}
+        <TabCanvas ref={canvasRef} />
+      </div>
+      <TabProperties
+        metadata={metadata}
+        collapsed={propertiesCollapsed}
+        onToggleCollapse={toggleProperties}
+      />
     </div>
   );
 }

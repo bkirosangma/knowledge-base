@@ -7,7 +7,18 @@ import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 
 const mountIntoMock = vi.fn();
 let mockStatus: string = "idle";
-let mockMetadata: { title: string } | null = null;
+const baseMetadata = {
+  title: "hi",
+  tempo: 120,
+  timeSignature: { numerator: 4, denominator: 4 },
+  capo: 0,
+  tuning: [],
+  tracks: [],
+  sections: [],
+  totalBeats: 0,
+  durationSeconds: 0,
+};
+let mockMetadata: typeof baseMetadata | null = null;
 let mockError: Error | null = null;
 
 vi.mock("./hooks/useTabEngine", () => ({
@@ -93,7 +104,7 @@ describe("TabView", () => {
 
   it("renders the canvas host when status is 'ready'", async () => {
     mockStatus = "ready";
-    mockMetadata = { title: "hi" } as never;
+    mockMetadata = { ...baseMetadata };
     render(
       <Wrap>
         <TabView filePath="x.alphatex" />
@@ -152,7 +163,7 @@ describe("TabView", () => {
 
   it("mounts the toolbar when status is 'ready'", async () => {
     mockStatus = "ready";
-    mockMetadata = { title: "hi" } as never;
+    mockMetadata = { ...baseMetadata };
     render(
       <Wrap>
         <TabView filePath="x.alphatex" />
@@ -170,5 +181,40 @@ describe("TabView", () => {
       </Wrap>,
     );
     expect(screen.queryByTestId("tab-toolbar")).not.toBeInTheDocument();
+  });
+
+  it("mounts the properties panel alongside the canvas when status is 'ready'", async () => {
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata };
+    render(
+      <Wrap>
+        <TabView filePath="x.alphatex" />
+      </Wrap>,
+    );
+    expect(screen.getByTestId("tab-properties")).toBeInTheDocument();
+  });
+
+  it("does not mount the properties panel in engine-load-error state", async () => {
+    mockStatus = "engine-load-error";
+    mockError = new Error("chunk failed");
+    render(
+      <Wrap>
+        <TabView filePath="x.alphatex" />
+      </Wrap>,
+    );
+    expect(screen.queryByTestId("tab-properties")).not.toBeInTheDocument();
+  });
+
+  it("hydrates the collapsed state from localStorage on mount", async () => {
+    localStorage.setItem("properties-collapsed", "true");
+    mockStatus = "ready";
+    mockMetadata = { ...baseMetadata };
+    render(
+      <Wrap>
+        <TabView filePath="x.alphatex" />
+      </Wrap>,
+    );
+    expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
+    localStorage.removeItem("properties-collapsed");
   });
 });
