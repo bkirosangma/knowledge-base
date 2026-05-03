@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-03 (after TAB-006 PR raised).
+**Last updated:** 2026-05-03 (after TAB-006 + handoff merged; TAB-007 in-flight).
 
 ---
 
@@ -60,22 +60,23 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | (test-cases scaffold) | `test-cases/11-tabs.md` §11 added | [#99](https://github.com/bkirosangma/knowledge-base/pull/99) | ✅ Merged |
 | TAB-004 | Viewer (lazy AlphaTabEngine + TabView) | [#100](https://github.com/bkirosangma/knowledge-base/pull/100) | ✅ Merged |
 | TAB-005 | Playback chrome (toolbar + audio + SoundFont + theme push) | [#101](https://github.com/bkirosangma/knowledge-base/pull/101) | ✅ Merged |
-| TAB-006 | Guitar Pro `.gp` import (palette command) | [#102](https://github.com/bkirosangma/knowledge-base/pull/102) | 🟡 Open, awaiting merge |
+| TAB-006 | Guitar Pro `.gp` import (palette command) | [#102](https://github.com/bkirosangma/knowledge-base/pull/102) | ✅ Merged |
+| (handoff doc) | Session resume checklist + protocols | [#103](https://github.com/bkirosangma/knowledge-base/pull/103) | ✅ Merged |
 
-After #102 merges, **TAB-007** is the recommended next ticket.
+**TAB-007** is in-flight on `plan/guitar-tabs-properties-panel`.
 
 ---
 
 ## Remaining tickets
 
-### M1 viewer ship-point (after #102 merges)
+### M1 viewer ship-point (remaining)
 
-| Ticket | Title | Effort | Dependencies |
-|---|---|---|---|
-| **TAB-007** | Properties panel — read-only metadata view (tuning / capo / key / tempo / sections) | 2 days | TAB-004 |
-| **TAB-007a** | Tab properties cross-references (whole-file + section attachments via `DocumentsSection`; `// references:` link-index integration) | 2 days | TAB-007, TAB-011 |
-| **TAB-011** | Vault search + wiki-link integration (titles / artist / key / tuning indexed; `.alphatex` outbound links resolve) | 1 day | TAB-004 |
-| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 |
+| Ticket | Title | Effort | Dependencies | Status |
+|---|---|---|---|---|
+| **TAB-007** | Properties panel — read-only metadata view (tuning / capo / key / tempo / sections) | 2 days | TAB-004 | 🟡 In-flight |
+| **TAB-007a** | Tab properties cross-references (whole-file + section attachments via `DocumentsSection`; `// references:` link-index integration) | 2 days | TAB-007, TAB-011 | ❌ Not started |
+| **TAB-011** | Vault search + wiki-link integration (titles / artist / key / tuning indexed; `.alphatex` outbound links resolve) | 1 day | TAB-004 | ❌ Not started |
+| **TAB-012** | Mobile read-only + playback (per KB-040 stance) | 2 days | TAB-005 | ❌ Not started |
 
 After all four, M1 = "viewer ship-point" complete. Natural pause-and-evaluate boundary per the spec.
 
@@ -156,6 +157,7 @@ docs/superpowers/
   plans/2026-05-02-guitar-tabs-viewer.md         ← TAB-004
   plans/2026-05-03-guitar-tabs-playback.md       ← TAB-005
   plans/2026-05-03-guitar-tabs-gp-import.md      ← TAB-006
+  handoffs/2026-05-03-guitar-tabs.md             ← THIS doc — session resume + ticket status
 ```
 
 ---
@@ -182,10 +184,9 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-007: Properties panel.**
+**TAB-007: Properties panel** — currently in-flight on branch `plan/guitar-tabs-properties-panel`.
 
-Before starting:
-- Wait for [PR #102](https://github.com/bkirosangma/knowledge-base/pull/102) to merge.
+If you're resuming and the branch already has commits, run `git checkout plan/guitar-tabs-properties-panel && git log --oneline main..HEAD` to see what's done. Otherwise:
 - `git checkout main && git pull --ff-only`.
 - `git checkout -b plan/guitar-tabs-properties-panel`.
 
