@@ -17,8 +17,11 @@ import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 import { useTabCursor } from "./editor/hooks/useTabCursor";
 import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
-import type { TabEditOp } from "../../domain/tabEngine";
+import type { TabEditOp, TabMetadata } from "../../domain/tabEngine";
 import type { CursorLocation } from "./editor/hooks/useTabCursor";
+import { useRepositories } from "../../shell/RepositoryContext";
+import type { TabRefsPayload } from "../../domain/tabRefs";
+import { reconcileSidecarForSetSection, reconcileSidecarByName } from "./sidecarReconcile";
 
 const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
 
@@ -105,12 +108,46 @@ export function TabView({
   const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = useTabCursor(metadata);
   const liveScore = tabScore ?? engineScore;
   const selectedNoteDetails = useSelectedNoteDetails(liveScore, cursor);
-  // C3: stable proxy for TabEditor's apply fn, written by TabEditor via onApplyEdit.
+  // C3: stable proxy for TabEditor's apply fn, written by TabEditor via registerApply.
   // This lets TabProperties call apply (with undo history) without a direct dependency.
   const editorApplyRef = useRef<((op: TabEditOp) => void) | null>(null);
   const propertiesApply = useCallback((op: TabEditOp): void => {
     editorApplyRef.current?.(op);
   }, []);
+
+  // C2: sidecar write — hold refs to avoid stale closures in the async callback.
+  const { tabRefs } = useRepositories();
+  const metadataRef = useRef<TabMetadata | null>(null);
+  metadataRef.current = metadata;
+  const filePathRef = useRef<string>(filePath);
+  filePathRef.current = filePath;
+
+  const updateSidecarOnEdit = useCallback(async (op: TabEditOp): Promise<void> => {
+    if (!tabRefs) return;
+    if (op.type !== "set-section" && op.type !== "add-bar" && op.type !== "remove-bar") return;
+    const fp = filePathRef.current;
+    const md = metadataRef.current;
+    if (!fp || !md) return;
+
+    const current = (await tabRefs.read(fp)) ?? { version: 1 as const, sections: {} };
+
+    let next: TabRefsPayload;
+    if (op.type === "set-section") {
+      // Op-aware rename: find the old name from metadata BEFORE the engine updates.
+      // metadata still reflects the pre-edit state at this point (engine fires "loaded"
+      // asynchronously after applyEdit). We find the section at op.beat.
+      const oldSection = md.sections.find((s) => s.startBeat === op.beat);
+      const oldName = oldSection?.name ?? null;
+      const newName = op.name;
+
+      next = reconcileSidecarForSetSection(current, oldName, newName);
+    } else {
+      // add-bar / remove-bar: reconcile by name (no rename involved).
+      next = reconcileSidecarByName(current, md.sections);
+    }
+
+    await tabRefs.write(fp, next);
+  }, [tabRefs]);
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
@@ -225,6 +262,7 @@ export function TabView({
             moveString={moveString}
             moveBar={moveBar}
             registerApply={(fn) => { editorApplyRef.current = fn; }}
+            onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
           />
         )}
       </div>
@@ -269,3 +307,4 @@ export function TabView({
     </div>
   );
 }
+

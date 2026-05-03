@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { Paperclip } from "lucide-react";
 import type { TabEditOp, TabMetadata } from "../../../domain/tabEngine";
-import { getSectionIds } from "../../../domain/tabEngine";
 import type { DocumentMeta } from "../../document/types";
 import { TabReferencesList } from "./TabReferencesList";
 import type { SelectedNoteDetails as SelectedNoteDetailsType } from "../editor/hooks/useSelectedNoteDetails";
 import { SelectedNoteDetails } from "./SelectedNoteDetails";
+import { useRepositories } from "../../../shell/RepositoryContext";
+import { resolveSectionIds } from "../../../domain/tabSectionIds";
+import type { TabRefsPayload } from "../../../domain/tabRefs";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
@@ -175,8 +178,24 @@ function Sections({
   onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
 }): ReactElement | null {
+  // C2: Read the sidecar to resolve stable section IDs.
+  const { tabRefs } = useRepositories();
+  const [sidecar, setSidecar] = useState<TabRefsPayload | null>(null);
+  useEffect(() => {
+    if (!tabRefs || !filePath) { setSidecar(null); return; }
+    let cancelled = false;
+    tabRefs.read(filePath).then((payload) => {
+      if (!cancelled) setSidecar(payload);
+    }).catch(() => { if (!cancelled) setSidecar(null); });
+    return () => { cancelled = true; };
+  }, [tabRefs, filePath]);
+
+  const ids = useMemo(
+    () => resolveSectionIds(metadata.sections, sidecar),
+    [metadata.sections, sidecar],
+  );
+
   if (metadata.sections.length === 0) return null;
-  const ids = getSectionIds(metadata.sections);
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">
