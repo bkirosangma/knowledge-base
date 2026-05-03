@@ -228,6 +228,9 @@ describe("TabView — DocumentPicker integration", () => {
     mockStatus = "idle";
     mockMetadata = null;
     mockError = null;
+    // effectiveReadOnly defaults true (perFileReadOnly=true); seed false so
+    // attach buttons render and the DocumentPicker tests can exercise them.
+    localStorage.setItem("tab-read-only:tabs/song.alphatex", "false");
   });
 
   it("opens DocumentPicker when section Attach is clicked, calls onAttachDocument on pick", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { TabCanvas } from "./components/TabCanvas";
@@ -8,11 +9,14 @@ import { TabToolbar } from "./components/TabToolbar";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
+import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
 import type { DocumentMeta } from "../document/types";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
 import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
+
+const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
 
 const noopMigrate = () => {};
 
@@ -61,6 +65,7 @@ export function TabView({
   rootHandle,
   onMigrateAttachments,
 }: TabViewProps) {
+  const { effectiveReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
   const { content, loadError } = useTabContent(filePath);
   const {
     status,
@@ -168,10 +173,8 @@ export function TabView({
             Loading score…
           </div>
         )}
-        {/* KB-040 / TAB-008: when an editor surface lands, lazy-load it via
-            `next/dynamic({ ssr: false })` and gate behind `!readOnly` so the
-            chunk is excluded from the mobile bundle. */}
         <TabCanvas ref={canvasRef} />
+        {!effectiveReadOnly && filePath && <LazyTabEditor filePath={filePath} />}
       </div>
       <TabProperties
         metadata={metadata}
@@ -180,7 +183,7 @@ export function TabView({
         filePath={filePath}
         documents={documents}
         backlinks={backlinks}
-        readOnly={readOnly}
+        readOnly={effectiveReadOnly}
         onPreviewDocument={onPreviewDocument}
         onOpenDocPicker={onAttachDocument ? (type, id) => setPickerTarget({ type, id }) : undefined}
         onDetachDocument={onDetachDocument}
