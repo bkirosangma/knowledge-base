@@ -27,6 +27,7 @@ import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
 import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import { useGpImport } from "./features/tab/hooks/useGpImport";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
 import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL, SEARCH_SENTINEL } from "./shell/ToolbarContext";
@@ -788,6 +789,18 @@ function KnowledgeBaseInner() {
     run: handleToggleSearchPanel,
   }], [handleToggleSearchPanel]);
   useRegisterCommands(openSearchCommands);
+
+  const gpImport = useGpImport({
+    onImported: (path) => handleSelectFile(path),
+  });
+  const importGpCommands = useMemo(() => [{
+    id: "tabs.import-gp",
+    title: "Import Guitar Pro file…",
+    group: "File",
+    when: () => fileExplorer.directoryName !== null,
+    run: () => gpImport.pickFile(),
+  }], [gpImport, fileExplorer.directoryName]);
+  useRegisterCommands(importGpCommands);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
