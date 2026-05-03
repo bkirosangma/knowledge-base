@@ -6,6 +6,38 @@
 
 ---
 
+## Resume protocol — when the user says "take the next task"
+
+If the user says anything like *"continue from this doc"*, *"take the next task"*, *"resume guitar tabs"*, or just points at this file:
+
+1. Run the bootstrap block in the next section.
+2. Skim **Where we are** + **Remaining tickets** to confirm the next ticket — the **Next Action** section near the bottom names it explicitly.
+3. Check open PRs (`gh pr list --state open`). If a Guitar-Tabs PR is still open, ask the user whether to wait for it or stack a follow-up branch on top.
+4. Read the spec section + plan-doc references for that ticket.
+5. **Branch first** (`git checkout -b plan/guitar-tabs-<slug>`), then plan, then execute via subagents — see the **Process recipe** section.
+6. Honour every rule in **Project conventions** (branch-per-unit, main protected, no worktrees, `useRepositories` scope, etc.).
+7. After the ticket merges, **update this doc** per the **Doc-update protocol** below — same branch as the cleanup, same PR.
+
+The user's intent when pointing here is: *"Pick up where we left off without me having to re-explain anything."* Don't ask clarifying questions if the doc + spec + previous plans answer them; just go.
+
+---
+
+## Doc-update protocol (do this on every ticket close)
+
+After a Guitar-Tabs PR merges, **before** starting the next ticket, update this doc on a doc-only branch (or fold the updates into the next ticket's branch — either works). Touch these sections:
+
+1. **Last updated** — bump the date + parenthetical to reflect what just shipped.
+2. **Where we are table** — flip the just-shipped ticket to ✅ Merged with the merge PR number.
+3. **Remaining tickets** — strike or remove the just-shipped row from M1 / M2 tables.
+4. **Open follow-up items** — add anything the just-merged review surfaced as deferred (with a memory reference if durable). Remove items that were closed by the just-merged ticket.
+5. **Reference architecture** — add new files / hooks / components. Remove deleted ones. Keep paths accurate; this is the map a fresh session relies on.
+6. **Next Action** — replace the body with the next ticket's bootstrap: spec section to read, patterns to mirror, key brainstorm decisions, ship target. Make it concrete enough that a fresh session can start in one read.
+7. **`Features.md` + `test-cases/11-tabs.md` cross-reference counts** — if you mention case counts anywhere in the doc, update them.
+
+If you skip the doc update, future sessions will resume from a stale map — that's the failure mode this protocol exists to prevent.
+
+---
+
 ## Bootstrap (run first)
 
 ```bash
@@ -144,6 +176,7 @@ docs/superpowers/
 8. **Ship.** `superpowers:finishing-a-development-branch` → push + `gh pr create` with a complete test plan.
 9. **After merge:** `git checkout main && git pull --ff-only && git branch -D <branch>` (squash-merge means `-D` not `-d`).
 10. **Update `Features.md` + `test-cases/11-tabs.md`** in the same change set as the implementation. The maintenance contract in `CLAUDE.md` is enforced.
+11. **Update this handoff doc** per the **Doc-update protocol** above. The user relies on it as the single resume point — leaving it stale defeats the whole purpose. Same branch as cleanup OR fold into the next ticket; never skip.
 
 ---
 
