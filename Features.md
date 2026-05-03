@@ -666,9 +666,13 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ⚙️ **SoundFont vendoring** (`public/soundfonts/sonivox.sf2`) — 1.35 MB Sonivox GM SoundFont copied from `node_modules/@coderline/alphatab/dist/soundfont/`. Service worker (`public/sw.js`) precaches the file and serves cache-first under `/soundfonts/*` (KB-044 lane extension; `kb-static-v3`).
 - ⚙️ **Live theme adaptation** — `TabView` calls `session.render()` whenever `useObservedTheme()` reports a theme flip; alphatab re-paints the score with current chrome settings.
 
-### 11.3 Pending
+### 11.3 .gp import (TAB-006)
+- ⚙️ **`gpToAlphatex` utility** (`src/app/knowledge_base/infrastructure/gpToAlphatex.ts`) — lazy alphatab import; converts `.gp`/`.gp3-7` bytes to alphaTex via `ScoreLoader.loadScoreFromBytes` + `AlphaTexExporter.exportToString`. No DOM, no AudioContext.
+- ⚙️ **`useGpImport` hook** (`features/tab/hooks/useGpImport.ts`) — drives file picker → bytes → convert → `TabRepository.write` → `onImported` callback. Errors route through `ShellErrorContext`. New file lands at vault root with the GP basename + `.alphatex` extension.
+- ✅ **"Import Guitar Pro file…" palette command** (`tabs.import-gp`, group "File") — appears when a vault is open. Note: lossy round-trip — Guitar Pro's sound-bank / tone presets do not survive the conversion to alphaTex.
+
+### 11.4 Pending
 - ? **Properties panel** (tuning / capo / key / tempo / sections + attachments) — TAB-007 / TAB-007a.
-- ? **`.gp` import** — TAB-006.
 - ? **Vault search** (titles / artist / key / tuning) — TAB-011.
 - ? **Mobile gating** (read-only + playback only) — TAB-012.
 - ? **Editor (M2)** — TAB-008+.

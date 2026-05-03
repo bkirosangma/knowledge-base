@@ -75,9 +75,21 @@ Toolbar transport (play/pause/stop/tempo/loop), engine playback methods, SoundFo
 
 ---
 
+## 11.4 .gp import (TAB-006)
+
+Palette command + hook + utility for converting Guitar Pro files (`.gp` / `.gp3..7`) to `.alphatex` via alphatab's importer/exporter. Shipped 2026-05-03.
+
+- **TAB-11.4-01** ✅ **`gpToAlphatex` loads bytes via ScoreLoader and exports via AlphaTexExporter** — pure utility, no DOM access. _(unit: gpToAlphatex.test.ts.)_
+- **TAB-11.4-02** ✅ **`gpToAlphatex` propagates importer + exporter errors as-is** — `useGpImport` decides how to surface them; the utility stays unopinionated. _(unit: gpToAlphatex.test.ts.)_
+- **TAB-11.4-03** ✅ **`useGpImport.importBytes(file)` writes a sibling `.alphatex` and notifies onImported** — derives the new path from the basename (strips the GP extension). _(unit: useGpImport.test.tsx.)_
+- **TAB-11.4-04** ✅ **`.gp3` / `.gp4` / `.gp5` / `.gp7` extensions all map to `.alphatex` correctly** — _(unit: useGpImport.test.tsx.)_
+- **TAB-11.4-05** ✅ **Conversion + write failures route through `ShellErrorContext`** — onImported is NOT called on either failure path. _(unit: useGpImport.test.tsx.)_
+- **TAB-11.4-06** ❌ **End-to-end import flow** — Playwright drives the palette command, picks a `.gp` fixture, asserts the resulting `.alphatex` opens in a tab pane. Deferred — file-picker drive in headless Chromium requires a custom mock layer; the manual smoke in Task 3 step 4 is the verification ceiling for now.
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.4 `.gp` import** (TAB-006) — drag-drop + palette command, save-as `.alphatex`.
 - **§11.5 Properties panel** (TAB-007 / TAB-007a) — tuning/capo/key/tempo + section attachments via `DocumentsSection`.
 - **§11.6 Vault search** (TAB-011) — title/artist/key/tuning indexed; lyrics body when `\lyrics` directive present.
 - **§11.7 Mobile** (TAB-012) — read-only + playback; no editor in bundle; no Create button.

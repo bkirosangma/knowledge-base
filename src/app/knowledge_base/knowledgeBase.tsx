@@ -12,6 +12,7 @@ import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
+import { createTabRepository } from "./infrastructure/tabRepo";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -27,6 +28,7 @@ import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
 import { renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import { useGpImport } from "./features/tab/hooks/useGpImport";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
 import { ToolbarProvider, GRAPH_SENTINEL, GRAPHIFY_SENTINEL, SEARCH_SENTINEL } from "./shell/ToolbarContext";
@@ -788,6 +790,27 @@ function KnowledgeBaseInner() {
     run: handleToggleSearchPanel,
   }], [handleToggleSearchPanel]);
   useRegisterCommands(openSearchCommands);
+
+  // Inline TabRepository — `KnowledgeBaseInner` sits above the
+  // RepositoryProvider, so we can't useRepositories() here. The factory
+  // is cheap; the duplicate alongside the provider's internal call is
+  // acceptable per `project_repository_context_deferred.md`.
+  const tabRepoForImport = useMemo(
+    () => fileExplorer.rootHandle ? createTabRepository(fileExplorer.rootHandle) : null,
+    [fileExplorer.rootHandle],
+  );
+  const gpImport = useGpImport({
+    tab: tabRepoForImport,
+    onImported: handleSelectFile,
+  });
+  const importGpCommands = useMemo(() => [{
+    id: "tabs.import-gp",
+    title: "Import Guitar Pro file…",
+    group: "File",
+    when: () => fileExplorer.directoryName !== null,
+    run: () => gpImport.pickFile(),
+  }], [gpImport, fileExplorer.directoryName]);
+  useRegisterCommands(importGpCommands);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
