@@ -19,7 +19,7 @@ describe("buildImportGpCommands (TAB-012 T2)", () => {
     expect(cmd.group).toBe("File");
   });
 
-  it("when() returns true on desktop with a directory open", () => {
+  it("TAB-11.8-04: when() returns true on desktop with a directory open", () => {
     const [cmd] = buildImportGpCommands({
       gpImport: stubGpImport,
       directoryName: "vault",
@@ -28,7 +28,7 @@ describe("buildImportGpCommands (TAB-012 T2)", () => {
     expect(cmd.when?.()).toBe(true);
   });
 
-  it("when() returns false on mobile even with a directory open (KB-040)", () => {
+  it("TAB-11.8-03: when() returns false on mobile even with a directory open (KB-040)", () => {
     const [cmd] = buildImportGpCommands({
       gpImport: stubGpImport,
       directoryName: "vault",
@@ -37,7 +37,7 @@ describe("buildImportGpCommands (TAB-012 T2)", () => {
     expect(cmd.when?.()).toBe(false);
   });
 
-  it("when() returns false on desktop without a directory open", () => {
+  it("TAB-11.8-05: when() returns false on desktop without a directory open", () => {
     const [cmd] = buildImportGpCommands({
       gpImport: stubGpImport,
       directoryName: null,
@@ -46,7 +46,7 @@ describe("buildImportGpCommands (TAB-012 T2)", () => {
     expect(cmd.when?.()).toBe(false);
   });
 
-  it("when() returns false on mobile without a directory open", () => {
+  it("TAB-11.8-05: when() returns false on mobile without a directory open", () => {
     const [cmd] = buildImportGpCommands({
       gpImport: stubGpImport,
       directoryName: null,

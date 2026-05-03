@@ -146,8 +146,8 @@ KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, �
 - **TAB-11.8-03** ✅ **`buildImportGpCommands.when()` returns false when `isMobile=true`** — palette excludes "Import Guitar Pro file…" on mobile (no editor → no point in importing). _(unit: `knowledgeBase.gpImport.test.tsx`.)_
 - **TAB-11.8-04** ✅ **`buildImportGpCommands.when()` returns true on desktop with a vault open** — _(unit: `knowledgeBase.gpImport.test.tsx`.)_
 - **TAB-11.8-05** ✅ **`buildImportGpCommands.when()` returns false without a vault open (mobile or desktop)** — pre-existing `directoryName` gate preserved. _(unit: `knowledgeBase.gpImport.test.tsx`.)_
-- **TAB-11.8-06** 🧪 **e2e mobile smoke: `.alphatex` opens read-only at 390×844 viewport** — TabView mounts; no Attach button surfaces. _(playwright: `e2e/tabsMobile.spec.ts`.)_
-- **TAB-11.8-07** 🧪 **e2e mobile smoke: command palette excludes "Import Guitar Pro file…"** — palette filter on mobile finds no match for the import command. _(playwright: `e2e/tabsMobile.spec.ts`.)_
+- **TAB-11.8-06** 🚫 **e2e mobile smoke: `.alphatex` opens read-only at 390×844 viewport** — deferred. Headless Chromium does not reliably parse `.alphatex` content within the test window, so TabProperties stays in the "Loading score…" state and never renders the Attach affordances the assertion would target. The `!readOnly` gate is covered at the helper level by TAB-11.8-01 / TAB-11.8-02. (Same environment limitation as TAB-11.3-19.)
+- **TAB-11.8-07** 🧪 **e2e mobile smoke: command palette excludes "Import Guitar Pro file…"** — palette filter on mobile finds no match for the import command (typing `>Import Guitar Pro` shows "No matching commands"). _(playwright: `e2e/tabsMobile.spec.ts`.)_
 
 ---
 

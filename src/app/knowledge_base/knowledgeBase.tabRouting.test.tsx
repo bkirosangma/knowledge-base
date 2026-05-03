@@ -62,12 +62,12 @@ describe("buildTabPaneContext (TAB-012 T1)", () => {
     onMigrateAttachments: vi.fn(),
   };
 
-  it("sets readOnly: true when isMobile is true (KB-040 mobile stance)", () => {
+  it("TAB-11.8-01: sets readOnly: true when isMobile is true (KB-040 mobile stance)", () => {
     const ctx = buildTabPaneContext({ ...stubs, isMobile: true });
     expect(ctx.readOnly).toBe(true);
   });
 
-  it("sets readOnly: false when isMobile is false (desktop)", () => {
+  it("TAB-11.8-02: sets readOnly: false when isMobile is false (desktop)", () => {
     const ctx = buildTabPaneContext({ ...stubs, isMobile: false });
     expect(ctx.readOnly).toBe(false);
   });
