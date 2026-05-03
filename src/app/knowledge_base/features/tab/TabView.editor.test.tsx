@@ -12,6 +12,7 @@ vi.mock("./editor/TabEditor", () => ({
     filePath,
     registerApply,
     setCursor,
+    onApplyEdit,
   }: {
     filePath: string;
     session?: unknown;
@@ -33,7 +34,13 @@ vi.mock("./editor/TabEditor", () => ({
       <div
         data-testid="tab-editor"
         data-filepath={filePath}
+        // Primary click: set cursor (C3 tests)
         onClick={() => setCursor?.({ trackIndex: 0, beat: 0, string: 6 })}
+        // data-apply-op click: fire onApplyEdit with a set-section op (C2 test)
+        data-apply-op="true"
+        onDoubleClick={() =>
+          onApplyEdit?.({ type: "set-section", beat: 0, name: "Verse 1" })
+        }
       />
     );
   },
@@ -75,9 +82,11 @@ vi.mock("./hooks/useTabPlayback", () => ({
 function Wrap({
   children,
   read = vi.fn().mockResolvedValue('\\title "hi"\n.'),
+  tabRefs = null,
 }: {
   children: ReactNode;
   read?: (tabPath: string) => Promise<string>;
+  tabRefs?: { read: (fp: string) => Promise<unknown>; write: (fp: string, p: unknown) => Promise<void> } | null;
 }) {
   return (
     <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
@@ -90,7 +99,7 @@ function Wrap({
           svg: null,
           vaultConfig: null,
           tab: { read, write: vi.fn() },
-          tabRefs: null,
+          tabRefs: tabRefs as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         }}
       >
         {children}
@@ -183,5 +192,42 @@ describe("TabView editor chunk gate", () => {
     // The "Selected note" heading only renders when selectedNoteDetails != null AND !readOnly.
     // With null metadata + no cursor, selectedNoteDetails=null, so section is absent.
     expect(screen.queryByRole("heading", { name: /selected note/i })).toBeNull();
+  });
+});
+
+describe("TabView sidecar write-side (C2)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    // Enable edit mode so TabEditor is mounted.
+    localStorage.setItem("tab-read-only:song.alphatex", "false");
+  });
+
+  it("C2: calls tabRefs.write after a set-section op fires via onApplyEdit", async () => {
+    const tabRefs = {
+      read: vi.fn().mockResolvedValue(null),
+      write: vi.fn().mockResolvedValue(undefined),
+    };
+    render(
+      <Wrap
+        tabRefs={tabRefs}
+        read={vi.fn().mockResolvedValue('\\title "hi"\n.')}
+      >
+        <TabView filePath="song.alphatex" readOnly={false} />
+      </Wrap>,
+    );
+
+    const editor = await screen.findByTestId("tab-editor");
+    expect(editor).toBeInTheDocument();
+
+    // Double-click fires onApplyEdit({ type: "set-section", beat: 0, name: "Verse 1" })
+    // via the stub TabEditor, which triggers updateSidecarOnEdit → tabRefs.write.
+    fireEvent.doubleClick(editor);
+
+    await waitFor(() => {
+      expect(tabRefs.write).toHaveBeenCalledWith(
+        "song.alphatex",
+        expect.objectContaining({ version: 1, sections: expect.any(Object) }),
+      );
+    });
   });
 });

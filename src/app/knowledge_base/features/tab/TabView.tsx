@@ -127,7 +127,10 @@ export function TabView({
     if (op.type !== "set-section" && op.type !== "add-bar" && op.type !== "remove-bar") return;
     const fp = filePathRef.current;
     const md = metadataRef.current;
-    if (!fp || !md) return;
+    if (!fp) return;
+    // add-bar / remove-bar need the current section list; set-section does not
+    // (metadata may still be null on the very first edit before the engine fires "loaded").
+    if ((op.type === "add-bar" || op.type === "remove-bar") && !md) return;
 
     const current = (await tabRefs.read(fp)) ?? { version: 1 as const, sections: {} };
 
@@ -136,14 +139,15 @@ export function TabView({
       // Op-aware rename: find the old name from metadata BEFORE the engine updates.
       // metadata still reflects the pre-edit state at this point (engine fires "loaded"
       // asynchronously after applyEdit). We find the section at op.beat.
-      const oldSection = md.sections.find((s) => s.startBeat === op.beat);
+      const oldSection = md?.sections.find((s) => s.startBeat === op.beat);
       const oldName = oldSection?.name ?? null;
       const newName = op.name;
 
       next = reconcileSidecarForSetSection(current, oldName, newName);
     } else {
       // add-bar / remove-bar: reconcile by name (no rename involved).
-      next = reconcileSidecarByName(current, md.sections);
+      // md is guaranteed non-null here (guard above).
+      next = reconcileSidecarByName(current, md!.sections);
     }
 
     await tabRefs.write(fp, next);

@@ -689,7 +689,7 @@ Vault-native guitar tablature (`.alphatex`) — viewer in M1 (TAB-004), editor i
 - ✅ **Per-section references** — each section row has an inline "References" sub-list using the deterministic kebab-case section id (e.g. `\section "Verse 1"` → `verse-1`). Wiki-link backlinks of the form `[[song#Verse 1]]` and explicit attachments of `attachedTo: { type: "tab-section", id: "${filePath}#${sectionId}" }` both surface here, de-duplicated by source path with attachment winning.
 - ✅ **Attach affordance** — per-section and file-level paperclip buttons open `<DocumentPicker>` with `(entityType, entityId)` matching the diagram pattern. The picker is mounted internally by `TabView`. Hidden when `readOnly` or when no attachment handler is wired.
 - ✅ **Section-rename reconciliation** — `useTabSectionSync` (`src/app/knowledge_base/features/tab/properties/useTabSectionSync.ts`) diffs the section-id list across metadata snapshots and emits position-aligned migrations to `useDocuments.migrateAttachments`. Trailing deletions orphan by design.
-- ⚙️ **`slugifySectionName` + `getSectionIds`** (`src/app/knowledge_base/domain/tabEngine.ts`) — pure helpers deriving deterministic ids; `getSectionIds` suffixes `-2`/`-3` for duplicate names.
+- ⚙️ **`slugifySectionName` + `getSectionIds` + `resolveSectionIds`** (`src/app/knowledge_base/domain/tabEngine.ts`) — pure helpers deriving deterministic ids; `getSectionIds` suffixes `-2`/`-3` for duplicate names. `resolveSectionIds` is the sidecar-aware variant: when a `.alphatex.refs.json` sidecar is present it maps section names to their `stableId` keys instead of deriving slugs on the fly, so section-level attachments survive renames.
 - ⚙️ **`TabReferencesList`** (`src/app/knowledge_base/features/tab/properties/TabReferencesList.tsx`) — small presentational component used twice per panel for the merge / de-dupe / detach UX.
 - ⚙️ **`TabPaneContext`** (`src/app/knowledge_base/knowledgeBase.tabRouting.helper.tsx`) — wireup-context interface forwarded to `TabView` from the parent shell. All fields optional so unit tests calling `renderTabPaneEntry(entry)` continue to render a bare TabView.
 
@@ -709,11 +709,14 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ✅ **Persistent cursor + click-to-place fret.** Click any string × beat → cursor highlights; bare digits 0–9 set fret. Multi-digit auto-commits after 500 ms or on next non-digit. Arrow / Tab / Shift+Tab navigate; Esc clears.
 - ✅ **Q W E R T Y duration shortcuts.** Whole / half / quarter / eighth / sixteenth / thirty-second.
 - ✅ **Technique keys.** `H` `P` `B` `S` `L` `~` `Shift+M` `Shift+L` toggle hammer-on / pull-off / bend / slide / tie / vibrato / palm-mute / let-ring. Bend defaults to ½-step; slide defaults to slide-up. Per-note adjustments live in the Properties panel.
-- ✅ **Per-op undo/redo.** Inverse-op storage; ⌘Z / ⌘⇧Z (Ctrl+Z / Ctrl+Y). 200-frame depth.
-- ✅ **Section-id sidecar.** `<file>.alphatex.refs.json` persists `stableId → currentName` so renames + reorders survive cross-references.
+- ✅ **Per-op undo/redo.** Inverse-op storage; ⌘Z / ⌘⇧Z (Ctrl+Z / Ctrl+Y). 200-frame depth. `captureState` reads real pre-mutation score values (fret, duration, tempo) via `scoreNavigation` helpers — not hardcoded constants.
+- ✅ **Section-id sidecar.** `<file>.alphatex.refs.json` persists `stableId → currentName` so renames + reorders survive cross-references. Sidecar is written on every `set-section` / `add-bar` / `remove-bar` edit op via `updateSidecarOnEdit` in `TabView`. Rename reconciliation is op-aware: old name is looked up from pre-mutation metadata so the existing `stableId` is preserved in-place rather than being dropped and re-created.
 - ✅ **Edit/Read toggle.** `useTabEditMode` composes per-file localStorage state + pane-level `readOnly`; mobile force-reads. Toolbar toggle visible on desktop only.
-- ✅ **Selected note details.** `TabProperties` grows a subsection for bend amount / slide direction / ghost / tap / tremolo / harmonic.
+- ✅ **Selected note details.** `TabProperties` grows a subsection for bend amount / slide direction / ghost / tap / tremolo / harmonic. Cursor state is owned by `TabView` (via `useTabCursor`) and passed down to both `TabEditor` and `TabProperties` so the properties panel reflects the live selection even without re-mounting the editor.
+- ✅ **Keyboard guard.** Editor keydown handler (`useTabKeyboard`) skips events whose target is an `input`, `select`, `textarea`, or `contenteditable` element, so fret / technique / navigation keys never fire while the user is typing in a form field.
 - ⚙️ **Lazy editor chunk.** `next/dynamic({ ssr: false })`; chunk excluded from mobile bundle and from read-only desktop sessions.
+- ⚙️ **`scoreNavigation` helpers** (`src/app/knowledge_base/features/tab/editor/scoreNavigation.ts`) — `findBeat`, `findNote`, `findBarByBeat`; pure score-walk utilities used by `captureState` and `activeTechniques` computation.
+- ⚙️ **`sidecarReconcile` helpers** (`src/app/knowledge_base/features/tab/sidecarReconcile.ts`) — `reconcileSidecarForSetSection` (rename-aware, preserves `stableId`), `reconcileSidecarByName` (full-rebuild for add/remove-bar), `deriveUniqueSlug` (collision-free slug allocation). Extracted for isolated unit testing.
 
 ### 11.9 Pending
 
