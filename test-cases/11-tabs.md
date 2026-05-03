@@ -151,9 +151,42 @@ KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, �
 
 ---
 
+## 11.9 Editor v1 (TAB-008)
+
+Click-to-place + keyboard fret/duration/technique editing. Single-track scope. Lazy-loaded chunk gated behind `effectiveReadOnly`.
+
+- **TAB-11.9-01** ✅ **Click on a string × beat sets the cursor** — _(component: `TabEditorCanvasOverlay.test.tsx`.)_
+- **TAB-11.9-02** ✅ **Bare digit accumulator commits set-fret after 500 ms timeout** — _(unit: `useTabKeyboard.test.ts`.)_
+- **TAB-11.9-03** ✅ **Bare digit accumulator commits on non-digit key** — _(unit: `useTabKeyboard.test.ts`.)_
+- **TAB-11.9-04** ✅ **Q sets active duration to whole** — _(unit: `useTabKeyboard.test.ts`.)_
+- **TAB-11.9-05** ✅ **L toggles tie technique on the current note** — _(unit: `useTabKeyboard.test.ts`.)_
+- **TAB-11.9-06** ✅ **Shift+L toggles let-ring (not tie)** — _(unit: `useTabKeyboard.test.ts`.)_
+- **TAB-11.9-07** ✅ **B applies default ½-step bend** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-08** ✅ **S applies slide-up by default; repeated S cycles direction** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-09** ✅ **⌘Z dispatches the inverse of the last op** — _(unit: `useTabEditHistory.test.ts`.)_
+- **TAB-11.9-10** ✅ **Undo/redo across 250 ops evicts oldest at depth 200** — _(unit: `useTabEditHistory.test.ts`.)_
+- **TAB-11.9-11** ✅ **applyEdit set-fret throws on missing beat** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-12** ✅ **applyEdit set-fret with fret=null removes the note** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-13** ✅ **applyEdit add-technique sets the technique flag** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-14** ✅ **applyEdit remove-technique clears the flag** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-15** ✅ **applyEdit set-section adds/renames/removes** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-16** ✅ **applyEdit add-bar appends a master bar** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-17** ✅ **applyEdit remove-bar refuses last bar** — _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.9-18** ✅ **resolveSectionIds prefers sidecar over slug fallback** — _(unit: `tabSectionIds.test.ts`.)_
+- **TAB-11.9-19** ✅ **resolveSectionIds rename: same stableId both before + after** — _(unit: `tabSectionIds.test.ts`.)_
+- **TAB-11.9-20** ✅ **tabRefsRepo round-trips a payload** — _(unit: `tabRefsRepo.test.ts`.)_
+- **TAB-11.9-21** ✅ **tabRefsRepo read returns null when sidecar absent** — _(unit: `tabRefsRepo.test.ts`.)_
+- **TAB-11.9-22** ✅ **useTabEditMode forces read-only when paneReadOnly=true** — _(unit: `useTabEditMode.test.ts`.)_
+- **TAB-11.9-23** ✅ **TabView does not load editor chunk in read-only mode** — _(component: `TabView.editor.test.tsx`.)_
+- **TAB-11.9-24** ✅ **TabEditorToolbar shows Edit toggle on desktop only** — _(component: `TabEditorToolbar.test.tsx`.)_
+- **TAB-11.9-25** ✅ **Selected note details subsection only renders with cursor + edit mode** — _(component: `TabView.test.tsx`.)_
+- **TAB-11.9-26** 🧪 **e2e click-edit-save round-trip** — blocked by Bravura font 404 (see `e2e/tabEditor.spec.ts` `test.fixme`). _(playwright: `e2e/tabEditor.spec.ts`.)_
+- **TAB-11.9-27** ✅ **PROPERTIES_COLLAPSED_KEY consolidated across DocumentView/DiagramView/TabView** — _(unit: `paneStorage.test.ts` / grep assertion.)_
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.9 Editor** (TAB-008) — click-to-place fret + duration shortcuts + technique toolbar + undo/redo.
 - **§11.10 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
 - **§11.11 Export** (TAB-010) — MIDI / WAV / PDF.
 
