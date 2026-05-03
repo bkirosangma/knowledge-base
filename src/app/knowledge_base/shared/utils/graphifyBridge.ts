@@ -11,8 +11,8 @@ export interface CrossReference {
   source: string;       // e.g., "docs/overview.md"
   target: string;       // e.g., "diagrams/auth-flow.json"
   type: "references";   // edge type in the knowledge graph
-  sourceType: "document" | "diagram";
-  targetType: "document" | "diagram";
+  sourceType: "document" | "diagram" | "tab";
+  targetType: "document" | "diagram" | "tab";
 }
 
 export async function emitCrossReferences(

@@ -10,7 +10,7 @@ export interface DocumentMeta {
 
 export interface OutboundLink {
   targetPath: string;
-  type?: "document" | "diagram";
+  type?: "document" | "diagram" | "tab";
 }
 
 export interface LinkIndexEntry {
