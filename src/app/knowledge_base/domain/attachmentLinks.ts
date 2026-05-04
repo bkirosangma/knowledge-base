@@ -44,6 +44,11 @@ export function removeRow(
   return rows.filter((r) => !isSameRow(r, row));
 }
 
+/**
+ * Remove every row matched by `matcher`. Returns the new array plus the
+ * count removed. When zero rows match, returns the input `rows` reference
+ * (so React consumers can skip re-renders) and `removed: 0`.
+ */
 export function removeMatchingRows(
   rows: AttachmentLink[],
   matcher: (row: AttachmentLink) => boolean,
@@ -70,16 +75,22 @@ export function replaceSubset(
   entityIds: Set<string>,
   replacement: AttachmentLink[],
 ): AttachmentLink[] {
-  const filtered = rows.filter(
-    (r) => !(entityTypes.has(r.entityType) && entityIds.has(r.entityId)),
-  );
+  let removed = 0;
+  const filtered = rows.filter((r) => {
+    if (entityTypes.has(r.entityType) && entityIds.has(r.entityId)) {
+      removed++;
+      return false;
+    }
+    return true;
+  });
+  if (removed === 0 && replacement.length === 0) return rows;
   return [...filtered, ...replacement];
 }
 
 /**
  * Rewrite tab-scope ids per the supplied map. Only `tab-section` and
  * `tab-track` rows are eligible (matches the existing `migrateAttachments`
- * scope at `useDocuments.ts:115`).
+ * callback in `features/document/hooks/useDocuments.ts`).
  */
 export function migrateRows(
   rows: AttachmentLink[],

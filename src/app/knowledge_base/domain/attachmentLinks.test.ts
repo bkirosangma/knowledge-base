@@ -104,6 +104,13 @@ describe("replaceSubset", () => {
     );
     expect(next).toEqual(rows);
   });
+  it("returns same array reference when no rows match and replacement is empty", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "a.md", entityType: "tab-track", entityId: "x" },
+    ];
+    const next = replaceSubset(rows, new Set(["node"]), new Set(["n1"]), []);
+    expect(next).toBe(rows);
+  });
 });
 
 describe("migrateRows", () => {
