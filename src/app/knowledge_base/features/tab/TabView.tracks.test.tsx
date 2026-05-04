@@ -128,7 +128,7 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
     mockMetadata = makeTwoTrackMetadata();
   });
 
-  it("activeTrackIndex defaults to 0 before cursor is set (TAB-009 T26)", async () => {
+  it("activeTrackIndex defaults to 0 before cursor is set — Lead row shows active dot filled (TAB-009 T26)", async () => {
     render(
       <Wrap>
         {/* readOnly=false so TabEditor mounts and properties panel shows */}
@@ -136,10 +136,15 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
       </Wrap>,
     );
 
-    // Track 0 should render as active (border-l-accent styling applied by the component).
-    // The simplest observable signal: the first track row has data-track-row rendered.
-    const rows = await screen.findAllByText(/Lead|Bass/);
-    expect(rows.length).toBeGreaterThanOrEqual(2);
+    // Track 0 (Lead) should have its active dot filled (data-filled="true").
+    // Track 1 (Bass) should have data-filled="false".
+    // The active dots are siblings of the track name text within each list item.
+    await screen.findByText("Lead"); // wait for metadata to render
+
+    const dots = document.querySelectorAll("[data-active-dot]");
+    expect(dots.length).toBe(2);
+    expect(dots[0].getAttribute("data-filled")).toBe("true");
+    expect(dots[1].getAttribute("data-filled")).toBe("false");
   });
 
   it("clicking '+ Add track' → typing a name → clicking Save dispatches add-track via editorApplyRef (TAB-009 T26)", async () => {
@@ -172,23 +177,28 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
     });
   });
 
-  it("clicking a track row sets cursor.trackIndex → TabProperties receives updated activeTrackIndex (TAB-009 T26)", async () => {
+  it("clicking a track row sets cursor.trackIndex → Bass active dot becomes filled (TAB-009 T26)", async () => {
     render(
       <Wrap>
         <TabView filePath="song.alphatex" readOnly={false} />
       </Wrap>,
     );
 
-    // Click the second track row ("Bass").
-    const bassRow = await screen.findByText("Bass");
+    // Initially Lead (index 0) is active.
+    await screen.findByText("Lead");
+    const dotsBefore = document.querySelectorAll("[data-active-dot]");
+    expect(dotsBefore[0].getAttribute("data-filled")).toBe("true");
+    expect(dotsBefore[1].getAttribute("data-filled")).toBe("false");
+
+    // Click the Bass row — this fires onSwitchActiveTrack(1) → setCursor({ trackIndex: 1, ... }).
+    const bassRow = screen.getByText("Bass");
     fireEvent.click(bassRow);
 
-    // After clicking, trackIndex=1 is active. The active dot for Bass should now show.
-    // The simplest check: the component re-renders with activeTrackIndex=1.
-    // Verify by checking that the "Bass" row no longer has the dim styling —
-    // we assert the click fires without error (integration path exercised).
+    // After click, trackIndex=1 → Bass dot should be filled, Lead dot should not.
     await waitFor(() => {
-      expect(screen.getByText("Bass")).toBeInTheDocument();
+      const dots = document.querySelectorAll("[data-active-dot]");
+      expect(dots[0].getAttribute("data-filled")).toBe("false");
+      expect(dots[1].getAttribute("data-filled")).toBe("true");
     });
   });
 
@@ -238,7 +248,7 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
     });
   });
 
-  it("removing track via kebab menu dispatches remove-track and resets cursor (TAB-009 T26)", async () => {
+  it("removing track via kebab menu dispatches remove-track and cursor snaps to track 0 (TAB-009 T26)", async () => {
     // Mock window.confirm to return true so the remove dialog is accepted.
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
@@ -248,18 +258,23 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
       </Wrap>,
     );
 
-    // Open the kebab menu for the first track.
-    const kebabBtn = await screen.findByLabelText("Track menu Lead");
-    act(() => {
-      fireEvent.click(kebabBtn);
+    // First, click Bass row to make track index 1 the active track.
+    await screen.findByText("Lead");
+    fireEvent.click(screen.getByText("Bass"));
+    await waitFor(() => {
+      const dots = document.querySelectorAll("[data-active-dot]");
+      expect(dots[1].getAttribute("data-filled")).toBe("true");
     });
+
+    // Open the kebab menu for Lead (track 0).
+    const kebabBtn = screen.getByLabelText("Track menu Lead");
+    act(() => { fireEvent.click(kebabBtn); });
 
     // Click "Remove track".
     const removeBtn = await screen.findByRole("menuitem", { name: "Remove track" });
-    act(() => {
-      fireEvent.click(removeBtn);
-    });
+    act(() => { fireEvent.click(removeBtn); });
 
+    // Verify dispatch.
     await waitFor(() => {
       expect(applySpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -267,6 +282,14 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
           trackId: "0",
         }),
       );
+    });
+
+    // Verify cursor snapped back to track 0 (Lead dot should be filled again
+    // since the cursor was reset to trackIndex=0, regardless of which track was active).
+    await waitFor(() => {
+      const dots = document.querySelectorAll("[data-active-dot]");
+      // After reset, trackIndex=0 is active again.
+      expect(dots[0].getAttribute("data-filled")).toBe("true");
     });
 
     confirmSpy.mockRestore();
