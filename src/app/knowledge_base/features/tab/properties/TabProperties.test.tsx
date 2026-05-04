@@ -581,6 +581,191 @@ describe("TabProperties", () => {
     fireEvent.blur(input); // value unchanged from defaultValue "E2"
     expect(onSet).not.toHaveBeenCalled();
   });
+
+  // TAB-009 T19 — + Add track inline form
+
+  it("renders + Add track row at bottom of tracks list (TAB-009 T19)", () => {
+    const { getByText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    expect(getByText("+ Add track")).toBeTruthy();
+  });
+
+  it("clicking + Add track expands inline form with Name and Instrument (TAB-009 T19)", () => {
+    const { getByText, getByLabelText, queryByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    expect(queryByLabelText("Name")).toBeNull();
+    fireEvent.click(getByText("+ Add track"));
+    expect(getByLabelText("Name")).toBeTruthy();
+    expect(getByLabelText("Instrument")).toBeTruthy();
+  });
+
+  it("Save dispatches onAddTrack with form values + active-track tuning when instrument matches (TAB-009 T19)", () => {
+    const onAdd = vi.fn();
+    const { getByText, getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onAddTrack={onAdd}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    fireEvent.change(getByLabelText("Name"), { target: { value: "Rhythm" } });
+    fireEvent.click(getByText("Save"));
+    expect(onAdd).toHaveBeenCalledWith({
+      name: "Rhythm",
+      instrument: "guitar",
+      tuning: ["E2", "A2", "D3", "G3", "B3", "E4"],
+      capo: 0,
+    });
+  });
+
+  it("Save uses default bass tuning when adding a bass track from a guitar-active context (TAB-009 T19)", () => {
+    const onAdd = vi.fn();
+    const { getByText, getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onAddTrack={onAdd}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    fireEvent.change(getByLabelText("Name"), { target: { value: "Bass" } });
+    fireEvent.change(getByLabelText("Instrument"), { target: { value: "bass" } });
+    fireEvent.click(getByText("Save"));
+    expect(onAdd).toHaveBeenCalledWith({
+      name: "Bass",
+      instrument: "bass",
+      tuning: ["E1", "A1", "D2", "G2"],
+      capo: 0,
+    });
+  });
+
+  it("Cancel collapses form without firing onAddTrack (TAB-009 T19)", () => {
+    const onAdd = vi.fn();
+    const { getByText, queryByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onAddTrack={onAdd}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    fireEvent.click(getByText("Cancel"));
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(queryByLabelText("Name")).toBeNull();
+  });
+
+  it("Save button is disabled and does not fire onAddTrack when name is empty (TAB-009 T19)", () => {
+    const onAdd = vi.fn();
+    const { getByText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onAddTrack={onAdd}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    // Name is empty; Save button should be disabled
+    const saveBtn = getByText("Save") as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+    fireEvent.click(saveBtn);
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it("Save with whitespace-only name does not fire onAddTrack (TAB-009 T19)", () => {
+    const onAdd = vi.fn();
+    const { getByText, getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onAddTrack={onAdd}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    fireEvent.change(getByLabelText("Name"), { target: { value: "   " } });
+    fireEvent.click(getByText("Save"));
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it("re-opening + Add track after Cancel clears prior form state (TAB-009 T19)", () => {
+    const { getByText, getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByText("+ Add track"));
+    fireEvent.change(getByLabelText("Name"), { target: { value: "Stale" } });
+    fireEvent.click(getByText("Cancel"));
+    fireEvent.click(getByText("+ Add track"));
+    expect((getByLabelText("Name") as HTMLInputElement).value).toBe("");
+  });
 });
 
 describe("TabProperties — cross-references", () => {

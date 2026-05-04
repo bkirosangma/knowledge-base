@@ -53,6 +53,16 @@ export interface TabPropertiesProps {
   onSetTrackTuning?: (trackId: string, tuning: string[]) => void;
   /** Callback to update a track's capo fret. Optional; T26 will wire. */
   onSetTrackCapo?: (trackId: string, fret: number) => void;
+  /**
+   * Callback fired when the user saves the "+ Add track" inline form.
+   * T26 will wire this to dispatch applyEdit({ type: "add-track", ... }).
+   */
+  onAddTrack?: (op: {
+    name: string;
+    instrument: "guitar" | "bass";
+    tuning: string[];
+    capo: number;
+  }) => void;
 }
 
 /**
@@ -75,6 +85,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     onToggleSolo,
     onSetTrackTuning,
     onSetTrackCapo,
+    onAddTrack,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -114,6 +125,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                 onToggleSolo={onToggleSolo}
                 onSetTrackTuning={onSetTrackTuning}
                 onSetTrackCapo={onSetTrackCapo}
+                onAddTrack={onAddTrack}
               />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -268,6 +280,7 @@ function Tracks({
   onToggleSolo,
   onSetTrackTuning,
   onSetTrackCapo,
+  onAddTrack,
 }: {
   metadata: TabMetadata;
   activeTrackIndex: number;
@@ -278,8 +291,40 @@ function Tracks({
   onToggleSolo?: (trackId: string) => void;
   onSetTrackTuning?: (trackId: string, tuning: string[]) => void;
   onSetTrackCapo?: (trackId: string, fret: number) => void;
+  onAddTrack?: (op: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number }) => void;
 }): ReactElement | null {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [instrument, setInstrument] = useState<"guitar" | "bass">("guitar");
+
   if (metadata.tracks.length === 0) return null;
+
+  const activeTrack = metadata.tracks[activeTrackIndex];
+
+  const defaultTuning = (inst: "guitar" | "bass"): string[] =>
+    inst === "bass"
+      ? ["E1", "A1", "D2", "G2"]
+      : ["E2", "A2", "D3", "G3", "B3", "E4"];
+
+  const handleSave = (): void => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const tuning =
+      activeTrack && activeTrack.instrument === instrument
+        ? activeTrack.tuning
+        : defaultTuning(instrument);
+    onAddTrack?.({ name: trimmed, instrument, tuning, capo: 0 });
+    setAdding(false);
+    setName("");
+    setInstrument("guitar");
+  };
+
+  const handleCancel = (): void => {
+    setAdding(false);
+    setName("");
+    setInstrument("guitar");
+  };
+
   const handleSwitch = (i: number): void => {
     if (onSwitchActiveTrack) onSwitchActiveTrack(i);
   };
@@ -366,6 +411,62 @@ function Tracks({
           );
         })}
       </ul>
+      {!adding ? (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="w-full mt-1 border border-dashed border-line/50 rounded px-2 py-1 text-xs text-mute cursor-pointer focus-visible:ring-2 focus-visible:ring-accent hover:text-fg hover:border-line"
+        >
+          + Add track
+        </button>
+      ) : (
+        <div
+          data-add-track-form
+          className="mt-1 border border-line rounded p-2 space-y-2 text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <label className="block">
+            <span className="text-mute text-[10px] uppercase block mb-0.5">Name</span>
+            <input
+              type="text"
+              aria-label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              className="w-full px-1 py-0.5 rounded border border-line bg-surface text-fg"
+            />
+          </label>
+          <label className="block">
+            <span className="text-mute text-[10px] uppercase block mb-0.5">Instrument</span>
+            <select
+              aria-label="Instrument"
+              value={instrument}
+              onChange={(e) => setInstrument(e.target.value as "guitar" | "bass")}
+              className="w-full px-1 py-0.5 rounded border border-line bg-surface text-fg"
+            >
+              <option value="guitar">Guitar</option>
+              <option value="bass">Bass</option>
+            </select>
+          </label>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="px-2 py-0.5 rounded bg-accent/20 text-accent font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-2 py-0.5 rounded text-mute cursor-pointer hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
