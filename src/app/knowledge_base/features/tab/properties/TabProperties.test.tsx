@@ -766,6 +766,138 @@ describe("TabProperties", () => {
     fireEvent.click(getByText("+ Add track"));
     expect((getByLabelText("Name") as HTMLInputElement).value).toBe("");
   });
+
+  // TAB-009 T20 — track kebab + remove + last-track guard
+
+  const STD_GUITAR = ["E2", "A2", "D3", "G3", "B3", "E4"];
+  const STD_BASS = ["E1", "A1", "D2", "G2"];
+  const t0 = { id: "0", name: "Lead", instrument: "guitar" as const, tuning: STD_GUITAR, capo: 0 };
+  const t1 = { id: "1", name: "Bass", instrument: "bass" as const, tuning: STD_BASS, capo: 0 };
+
+  it("kebab opens a menu with Remove track on multi-track scores (TAB-009 T20)", () => {
+    const { getByLabelText, getByText } = render(
+      <Wrap>
+        <TabProperties
+          {...{
+            metadata: makeMetadata({ tracks: [t0, t1] }),
+            collapsed: false,
+            onToggleCollapse: vi.fn(),
+          }}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByLabelText("Track menu Bass"));
+    expect(getByText("Remove track")).toBeTruthy();
+  });
+
+  it("kebab → Remove fires onRemoveTrack after window.confirm returns true (TAB-009 T20)", () => {
+    const onRemoveTrack = vi.fn();
+    const originalConfirm = window.confirm;
+    window.confirm = vi.fn(() => true);
+    try {
+      const { getByLabelText, getByText } = render(
+        <Wrap>
+          <TabProperties
+            metadata={makeMetadata({ tracks: [t0, t1] })}
+            collapsed={false}
+            onToggleCollapse={vi.fn()}
+            onRemoveTrack={onRemoveTrack}
+          />
+        </Wrap>,
+      );
+      fireEvent.click(getByLabelText("Track menu Bass"));
+      fireEvent.click(getByText("Remove track"));
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining("Bass"));
+      expect(onRemoveTrack).toHaveBeenCalledWith("1");
+    } finally {
+      window.confirm = originalConfirm;
+    }
+  });
+
+  it("kebab → Remove does NOT fire onRemoveTrack when window.confirm returns false (TAB-009 T20)", () => {
+    const onRemoveTrack = vi.fn();
+    const originalConfirm = window.confirm;
+    window.confirm = vi.fn(() => false);
+    try {
+      const { getByLabelText, getByText } = render(
+        <Wrap>
+          <TabProperties
+            metadata={makeMetadata({ tracks: [t0, t1] })}
+            collapsed={false}
+            onToggleCollapse={vi.fn()}
+            onRemoveTrack={onRemoveTrack}
+          />
+        </Wrap>,
+      );
+      fireEvent.click(getByLabelText("Track menu Bass"));
+      fireEvent.click(getByText("Remove track"));
+      expect(onRemoveTrack).not.toHaveBeenCalled();
+    } finally {
+      window.confirm = originalConfirm;
+    }
+  });
+
+  it("kebab on a single-track score does not show Remove track (last-track guard) (TAB-009 T20)", () => {
+    const { getByLabelText, queryByText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({ tracks: [t0] })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByLabelText("Track menu Lead"));
+    expect(queryByText("Remove track")).toBeNull();
+  });
+
+  it("clicking kebab does not fire onSwitchActiveTrack (e.stopPropagation) (TAB-009 T20)", () => {
+    const onSwitch = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({ tracks: [t0, t1] })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onSwitchActiveTrack={onSwitch}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByLabelText("Track menu Bass"));
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("kebab toggles open and closed (TAB-009 T20)", () => {
+    const { getByLabelText, queryByText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({ tracks: [t0, t1] })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByLabelText("Track menu Bass"));
+    expect(queryByText("Remove track")).toBeTruthy();
+    fireEvent.click(getByLabelText("Track menu Bass"));
+    expect(queryByText("Remove track")).toBeNull();
+  });
+
+  it("aria-expanded reflects menu open state (TAB-009 T20)", () => {
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({ tracks: [t0, t1] })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    const kebab = getByLabelText("Track menu Bass");
+    expect(kebab).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(kebab);
+    expect(kebab).toHaveAttribute("aria-expanded", "true");
+  });
 });
 
 describe("TabProperties — cross-references", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { Paperclip } from "lucide-react";
 import type { TabEditOp, TabMetadata } from "../../../domain/tabEngine";
@@ -63,6 +63,11 @@ export interface TabPropertiesProps {
     tuning: string[];
     capo: number;
   }) => void;
+  /**
+   * Callback fired when the user confirms removing a track.
+   * Optional; T26 will wire this to dispatch applyEdit({ type: "remove-track", ... }).
+   */
+  onRemoveTrack?: (trackId: string) => void;
 }
 
 /**
@@ -86,6 +91,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     onSetTrackTuning,
     onSetTrackCapo,
     onAddTrack,
+    onRemoveTrack,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -126,6 +132,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                 onSetTrackTuning={onSetTrackTuning}
                 onSetTrackCapo={onSetTrackCapo}
                 onAddTrack={onAddTrack}
+                onRemoveTrack={onRemoveTrack}
               />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -270,6 +277,81 @@ function TrackEditor({ track, onSetTuning, onSetCapo }: TrackEditorProps): React
   );
 }
 
+/**
+ * Per-track kebab menu. Shows "Remove track" when canRemove is true (i.e. there
+ * is more than one track in the score). When there is only one track, shows
+ * "No actions" — the actual remove guard lives in applyRemoveTrack (T6), but
+ * we also hide the option here as defence-in-depth.
+ *
+ * NOTE: The plan originally suggested including a note count in the confirm
+ * message (e.g. "This deletes N note(s)"). That would require walking the full
+ * Score object, which TabProperties does not receive — only `metadata`.
+ * The count is omitted for T20; a future polish pass can thread it through
+ * if needed.
+ */
+function TrackKebab({
+  track,
+  canRemove,
+  onRemove,
+}: {
+  track: TabMetadata["tracks"][number];
+  canRemove: boolean;
+  onRemove?: (trackId: string) => void;
+}): ReactElement {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Close on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-label={`Track menu ${track.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="w-5 h-5 rounded text-mute hover:text-fg cursor-pointer focus-visible:ring-2 focus-visible:ring-accent text-sm leading-none"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-5 min-w-[8rem] bg-bg border border-line rounded shadow-md z-10 text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canRemove ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                if (window.confirm(`Remove ${track.name}?`)) {
+                  onRemove?.(track.id);
+                }
+                setOpen(false);
+              }}
+              className="w-full px-3 py-1 text-left text-red-600 hover:bg-line/30 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent rounded"
+            >
+              Remove track
+            </button>
+          ) : (
+            <span className="block px-3 py-1 text-mute italic">No actions</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Tracks({
   metadata,
   activeTrackIndex,
@@ -281,6 +363,7 @@ function Tracks({
   onSetTrackTuning,
   onSetTrackCapo,
   onAddTrack,
+  onRemoveTrack,
 }: {
   metadata: TabMetadata;
   activeTrackIndex: number;
@@ -292,6 +375,7 @@ function Tracks({
   onSetTrackTuning?: (trackId: string, tuning: string[]) => void;
   onSetTrackCapo?: (trackId: string, fret: number) => void;
   onAddTrack?: (op: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number }) => void;
+  onRemoveTrack?: (trackId: string) => void;
 }): ReactElement | null {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -365,7 +449,7 @@ function Tracks({
                   }`}
                 />
                 <span className="flex-1">{track.name}</span>
-                <span className="inline-flex gap-1 items-center">
+                <span className="ml-auto inline-flex gap-1 items-center">
                   <button
                     type="button"
                     aria-label={`Mute ${track.name}`}
@@ -398,6 +482,11 @@ function Tracks({
                   >
                     S
                   </button>
+                  <TrackKebab
+                    track={track}
+                    canRemove={metadata.tracks.length > 1}
+                    onRemove={onRemoveTrack}
+                  />
                 </span>
               </span>
               {active && (
