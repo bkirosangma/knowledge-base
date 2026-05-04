@@ -168,6 +168,7 @@ export default function TabEditor({
     redo,
     activeDurationRef,
     enabled: true,
+    score,
   });
 
   // activeTechniques used by toolbar buttons — read from score at current cursor.

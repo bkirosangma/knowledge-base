@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { TabEditOp, NoteDuration, Technique } from "../../../../domain/tabEngine";
 import type { CursorLocation } from "./useTabCursor";
+import { findNote } from "../scoreNavigation";
 
 const DIGIT_TIMEOUT_MS = 500;
 
@@ -27,6 +28,32 @@ const SHIFT_TECHNIQUE_KEYS: Record<string, Technique> = {
   l: "let-ring",
 };
 
+const BEND_TYPE_BEND = 1;       // alphaTab BendType.Bend
+const SLIDE_TYPE_SHIFT = 1;     // alphaTab SlideOutType.Shift (up)
+const SLIDE_TYPE_OUTDOWN = 4;   // alphaTab SlideOutType.OutDown (down)
+
+interface NoteShape {
+  bendType?: number;
+  bendPoints?: { value: number }[] | null;
+  slideOutType?: number;
+}
+
+function readBendValue(note: NoteShape | null): 50 | 100 | null {
+  if (!note || note.bendType !== BEND_TYPE_BEND || !note.bendPoints) return null;
+  const last = note.bendPoints[note.bendPoints.length - 1];
+  if (!last) return null;
+  if (last.value === 50) return 50;
+  if (last.value === 100) return 100;
+  return null;
+}
+
+function readSlideDirection(note: NoteShape | null): "up" | "down" | null {
+  if (!note || !note.slideOutType) return null;
+  if (note.slideOutType === SLIDE_TYPE_SHIFT) return "up";
+  if (note.slideOutType === SLIDE_TYPE_OUTDOWN) return "down";
+  return null;
+}
+
 export interface UseTabKeyboardDeps {
   cursor: CursorLocation | null;
   setCursor: (loc: CursorLocation) => void;
@@ -41,6 +68,8 @@ export interface UseTabKeyboardDeps {
   enabled: boolean;
   nextTrack: () => void;
   prevTrack: () => void;
+  /** Current alphaTab Score, used by stateless B/S cycle to read note state. */
+  score: unknown | null;
 }
 
 export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
@@ -185,13 +214,43 @@ export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
 
       // Bare letter / `~` techniques
       if (BARE_TECHNIQUE_KEYS[lower] !== undefined && !event.shiftKey && !meta) {
-        d.apply({
-          type: "add-technique",
-          beat: d.cursor.beat,
-          string: d.cursor.string,
-          technique: BARE_TECHNIQUE_KEYS[lower],
-        });
-        consume(event);
+        event.preventDefault();
+        const technique = BARE_TECHNIQUE_KEYS[lower];
+        const baseOp = { beat: d.cursor.beat, string: d.cursor.string };
+
+        if (technique === "bend") {
+          const note = d.score
+            ? findNote(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
+            : null;
+          const value = readBendValue(note);
+          if (value === null) {
+            d.apply({ type: "add-technique", ...baseOp, technique: "bend", amount: 50 });
+          } else if (value === 50) {
+            d.apply({ type: "add-technique", ...baseOp, technique: "bend", amount: 100 });
+          } else {
+            d.apply({ type: "remove-technique", ...baseOp, technique: "bend" });
+          }
+          return;
+        }
+
+        if (technique === "slide") {
+          const note = d.score
+            ? findNote(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
+            : null;
+          const dir = readSlideDirection(note);
+          if (dir === null) {
+            d.apply({ type: "add-technique", ...baseOp, technique: "slide", direction: "up" });
+          } else if (dir === "up") {
+            d.apply({ type: "add-technique", ...baseOp, technique: "slide", direction: "down" });
+          } else {
+            d.apply({ type: "remove-technique", ...baseOp, technique: "slide" });
+          }
+          return;
+        }
+
+        // All other bare techniques (H, P, L, ~) keep simple dispatch.
+        d.apply({ type: "add-technique", ...baseOp, technique });
+        event.stopPropagation();
         return;
       }
     }
