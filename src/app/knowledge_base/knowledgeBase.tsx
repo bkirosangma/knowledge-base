@@ -148,15 +148,17 @@ function KnowledgeBaseInner() {
 
   // Workspace-scoped attachment-links repo. Created inline because
   // KnowledgeBaseInner is above RepositoryProvider (see project_repository_context_deferred).
+  // Uses fileExplorer.rootHandle (state) — NOT dirHandleRef.current — so the memo
+  // correctly invalidates when the user switches vaults.
   const attachmentLinksRepo = useMemo(() => {
-    const handle = fileExplorer.dirHandleRef.current;
-    return handle ? createAttachmentLinksRepository(handle) : null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileExplorer.dirHandleRef.current]);
+    return fileExplorer.rootHandle
+      ? createAttachmentLinksRepository(fileExplorer.rootHandle)
+      : null;
+  }, [fileExplorer.rootHandle]);
 
-  // One-time boot read of .kb/attachment-links.json. The bootLoaded gate
-  // prevents the empty-default mount-effect from clobbering disk before
-  // the read finishes.
+  // One-time boot read of .kb/attachment-links.json, re-runs when the repo
+  // identity changes (vault switch). The bootLoaded gate prevents the
+  // empty-default mount-effect from clobbering disk before the read finishes.
   const [bootLoaded, setBootLoaded] = useState(false);
   const bootLoadedRef = useRef(false);
   bootLoadedRef.current = bootLoaded;
@@ -173,26 +175,30 @@ function KnowledgeBaseInner() {
 
   const docManager = useDocuments({ onFlush });
 
-  // Boot-read: seed docManager.rows from disk on first mount with a vault selected.
+  // Reset + boot-read whenever the repo identity changes (vault open / switch / close).
   useEffect(() => {
-    if (!attachmentLinksRepo || bootLoaded) return;
+    if (!attachmentLinksRepo) {
+      setBootLoaded(false);
+      return;
+    }
     let cancelled = false;
+    setBootLoaded(false);  // re-arm gate before the new read
     attachmentLinksRepo
       .read()
       .then((rows) => {
-        if (!cancelled) {
-          docManager.setRows(rows);
-          setBootLoaded(true);
-        }
+        if (cancelled) return;
+        docManager.setRows(rows);
+        setBootLoaded(true);
       })
       .catch((e) => {
+        if (cancelled) return;
         reportError(e as Error, "Reading .kb/attachment-links.json");
         setBootLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [attachmentLinksRepo, bootLoaded, docManager, reportError]);
+  }, [attachmentLinksRepo, docManager, reportError]);
 
   const linkManager = useLinkIndex();
   const searchManager = useVaultSearch();

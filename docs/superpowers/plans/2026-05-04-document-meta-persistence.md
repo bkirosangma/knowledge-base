@@ -1266,43 +1266,64 @@ Run: `grep -n "useDocuments\|docManager" src/app/knowledge_base/knowledgeBase.ts
 `KnowledgeBaseInner` is *above* `RepositoryProvider`, so it cannot use `useRepositories()`. Pass the rootHandle directly and create the repo inline (mirrors how `useGpImport` accepts `tab` as a prop per `feedback_no_worktrees.md`'s sibling memory `project_repository_context_deferred.md`).
 
 ```ts
-// Near the top of KnowledgeBaseInner
-import { createAttachmentLinksRepository } from "./infrastructure/attachmentLinksRepo";
-
-// After useFileExplorer
+// Workspace-scoped attachment-links repo. Created inline because
+// KnowledgeBaseInner is above RepositoryProvider (see project_repository_context_deferred).
+// Uses fileExplorer.rootHandle (state) — NOT dirHandleRef.current — so the memo
+// correctly invalidates when the user switches vaults.
 const attachmentLinksRepo = useMemo(() => {
-  const handle = fileExplorer.dirHandleRef.current;
-  return handle ? createAttachmentLinksRepository(handle) : null;
-}, [fileExplorer.dirHandleRef.current]);
+  return fileExplorer.rootHandle
+    ? createAttachmentLinksRepository(fileExplorer.rootHandle)
+    : null;
+}, [fileExplorer.rootHandle]);
 
-// State for a one-time boot read
+// One-time boot read of .kb/attachment-links.json, re-runs when the repo
+// identity changes (vault switch). The bootLoaded gate prevents the
+// empty-default mount-effect from clobbering disk before the read finishes.
 const [bootLoaded, setBootLoaded] = useState(false);
-useEffect(() => {
-  if (!attachmentLinksRepo || bootLoaded) return;
-  let cancelled = false;
-  attachmentLinksRepo
-    .read()
-    .then((rows) => { if (!cancelled) { docManager.setRows(rows); setBootLoaded(true); } })
-    .catch((e) => { reportError(e, "Reading .kb/attachment-links.json"); setBootLoaded(true); });
-  return () => { cancelled = true; };
-}, [attachmentLinksRepo, bootLoaded, docManager, reportError]);
+const bootLoadedRef = useRef(false);
+bootLoadedRef.current = bootLoaded;
 
-// Wire onFlush into useDocuments
 const onFlush = useCallback(
   (rows: AttachmentLink[]) => {
-    if (!attachmentLinksRepo || !bootLoaded) return;
+    if (!attachmentLinksRepo || !bootLoadedRef.current) return;
     void attachmentLinksRepo.write(rows).catch((e) =>
-      reportError(e, "Writing .kb/attachment-links.json"),
+      reportError(e as Error, "Writing .kb/attachment-links.json"),
     );
   },
-  [attachmentLinksRepo, bootLoaded, reportError],
+  [attachmentLinksRepo, reportError],
 );
 
-// Replace `const docManager = useDocuments();` with:
 const docManager = useDocuments({ onFlush });
+
+// Reset + boot-read whenever the repo identity changes (vault open / switch / close).
+useEffect(() => {
+  if (!attachmentLinksRepo) {
+    setBootLoaded(false);
+    return;
+  }
+  let cancelled = false;
+  setBootLoaded(false);  // re-arm gate before the new read
+  attachmentLinksRepo
+    .read()
+    .then((rows) => {
+      if (cancelled) return;
+      docManager.setRows(rows);
+      setBootLoaded(true);
+    })
+    .catch((e) => {
+      if (cancelled) return;
+      reportError(e as Error, "Reading .kb/attachment-links.json");
+      setBootLoaded(true);
+    });
+  return () => {
+    cancelled = true;
+  };
+}, [attachmentLinksRepo, docManager, reportError]);
 ```
 
-The `bootLoaded` gate prevents the empty-default mount-effect from clobbering disk on first mount before the read finishes.
+The `bootLoaded` gate prevents the empty-default mount-effect from clobbering disk before the read finishes. On vault switch, `attachmentLinksRepo` gets a new identity (because `fileExplorer.rootHandle` is reactive state), which re-runs the effect; `setBootLoaded(false)` at the top re-arms the gate before the new read begins, ensuring no stale flush from the previous vault can land in the new vault's file.
+
+**Key differences from an earlier draft:** `useMemo` deps use `fileExplorer.rootHandle` (reactive state) not `dirHandleRef.current` (ref anti-pattern); `bootLoaded` is not in the `useEffect` deps (the effect re-runs on repo identity change, not on every `bootLoaded` flip); both `.then` and `.catch` are guarded by `if (cancelled) return`.
 
 - [ ] **Step 9.3: Run typecheck + full test suite**
 
