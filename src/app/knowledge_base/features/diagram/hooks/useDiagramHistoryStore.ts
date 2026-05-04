@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useDiagramHistory, type DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import { loadDiagramFromData, serializeNodes } from "../../../shared/utils/persistence";
 import { replaceSubset } from "../../../domain/attachmentLinks";
+import { collectDiagramEntityIds } from "../utils/diagramEntityIds";
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
 import type { CanvasPatch } from "../components/Canvas";
 import type { DocumentMeta } from "../../document/types";
@@ -103,11 +104,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
       // Capture only the rows whose entityId belongs to this diagram.
       // Tab-scoped rows (tab, tab-section, tab-track) are excluded via
       // DIAGRAM_ENTITY_TYPES so diagram-undo never clobbers workspace rows.
-      const diagramIds = new Set<string>([
-        ...doc.nodes.map((n) => n.id),
-        ...doc.connections.map((c) => c.id),
-        ...(doc.flows ?? []).map((f) => f.id),
-      ]);
+      const diagramIds = collectDiagramEntityIds(doc as unknown as Parameters<typeof collectDiagramEntityIds>[0]);
       const attachmentSubset = rows.filter(
         (r) => DIAGRAM_ENTITY_TYPES.has(r.entityType) && diagramIds.has(r.entityId),
       );
@@ -166,11 +163,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
         // Restore only this diagram's attachment subset. Build the id set
         // from the snapshot's structural data (not live React state which
         // may have changed by the time this callback runs).
-        const diagramIds = new Set<string>([
-          ...snapshot.nodes.map((n) => n.id),
-          ...snapshot.connections.map((c) => c.id),
-          ...(snapshot.flows ?? []).map((f) => f.id),
-        ]);
+        const diagramIds = collectDiagramEntityIds(snapshot as unknown as Parameters<typeof collectDiagramEntityIds>[0]);
         setRows((prev) => replaceSubset(prev, DIAGRAM_ENTITY_TYPES, diagramIds, snapshot.attachmentSubset!));
       } else if (snapshot.documents !== undefined) {
         // Backward-compat: old snapshots may only have the legacy `documents` field.
@@ -197,11 +190,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
       });
       applyDiagramToState(diagram, { setSnapshot: true });
       if (snapshot.attachmentSubset !== undefined) {
-        const diagramIds = new Set<string>([
-          ...snapshot.nodes.map((n) => n.id),
-          ...snapshot.connections.map((c) => c.id),
-          ...(snapshot.flows ?? []).map((f) => f.id),
-        ]);
+        const diagramIds = collectDiagramEntityIds(snapshot as unknown as Parameters<typeof collectDiagramEntityIds>[0]);
         setRows((prev) => replaceSubset(prev, DIAGRAM_ENTITY_TYPES, diagramIds, snapshot.attachmentSubset!));
       } else if (snapshot.documents !== undefined) {
         onLoadDocuments(snapshot.documents);

@@ -104,7 +104,7 @@ describe("useDiagramHistoryStore — attachmentSubset snapshot isolation", () =>
       await result.current.history.initHistory(
         JSON.stringify({ title: "Test", nodes: [], connections: [], flows: [] }),
         {
-          title: "Test", layerDefs: [], nodes: [{ id: "n1" }], connections: [],
+          title: "Test", layerDefs: [], nodes: [{ id: "n1" } as never], connections: [],
           layerManualSizes: {}, lineCurve: "bezier", flows: [],
           attachmentSubset: [rowN1],
         },
