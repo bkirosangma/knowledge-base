@@ -7,7 +7,6 @@ import { replaceSubset } from "../../../domain/attachmentLinks";
 import { collectDiagramEntityIds } from "../utils/diagramEntityIds";
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
 import type { CanvasPatch } from "../components/Canvas";
-import type { DocumentMeta } from "../../document/types";
 import type { DiagramDoc, DiagramDocDispatch, LayerManualSize } from "./useDiagramDocument";
 import type { Selection } from "../types";
 
@@ -23,7 +22,6 @@ const DIAGRAM_ENTITY_TYPES = new Set<string>(["root", "node", "connection", "flo
 interface ApplyOpts {
   setSnapshot?: boolean;
   snapshotSource?: ReturnType<typeof loadDiagramFromData>;
-  documents?: DocumentMeta[];
 }
 
 interface UseDiagramHistoryStoreInput {
@@ -34,8 +32,6 @@ interface UseDiagramHistoryStoreInput {
   setMeasuredSizes: (sizes: Record<string, { w: number; h: number }>) => void;
   setPatches: (patches: CanvasPatch[]) => void;
   setSelection: (s: Selection | null) => void;
-  documents: DocumentMeta[];
-  onLoadDocuments: (docs: DocumentMeta[]) => void;
   rows: AttachmentLink[];
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
   setLoadSnapshot: (
@@ -46,7 +42,6 @@ interface UseDiagramHistoryStoreInput {
     layerManualSizes: Record<string, LayerManualSize>,
     lineCurve: DiagramDoc["lineCurve"],
     flows: DiagramDoc["flows"],
-    documents: DocumentMeta[],
   ) => void;
 }
 
@@ -79,8 +74,6 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
     setMeasuredSizes,
     setPatches,
     setSelection,
-    documents,
-    onLoadDocuments,
     rows,
     setRows,
     setLoadSnapshot,
@@ -138,7 +131,6 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
           src.layerManualSizes,
           src.lineCurve,
           src.flows,
-          opts.documents ?? [],
         );
       }
     },
@@ -165,15 +157,12 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
         // may have changed by the time this callback runs).
         const diagramIds = collectDiagramEntityIds(snapshot as unknown as Parameters<typeof collectDiagramEntityIds>[0]);
         setRows((prev) => replaceSubset(prev, DIAGRAM_ENTITY_TYPES, diagramIds, snapshot.attachmentSubset!));
-      } else if (snapshot.documents !== undefined) {
-        // Backward-compat: old snapshots may only have the legacy `documents` field.
-        onLoadDocuments(snapshot.documents);
       }
       requestAnimationFrame(() => {
         isRestoringRef.current = false;
       });
     },
-    [applyDiagramToState, onLoadDocuments, setRows],
+    [applyDiagramToState, setRows],
   );
 
   const applySnapshotFromDisk = useCallback(
@@ -192,14 +181,12 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
       if (snapshot.attachmentSubset !== undefined) {
         const diagramIds = collectDiagramEntityIds(snapshot as unknown as Parameters<typeof collectDiagramEntityIds>[0]);
         setRows((prev) => replaceSubset(prev, DIAGRAM_ENTITY_TYPES, diagramIds, snapshot.attachmentSubset!));
-      } else if (snapshot.documents !== undefined) {
-        onLoadDocuments(snapshot.documents);
       }
       requestAnimationFrame(() => {
         isRestoringRef.current = false;
       });
     },
-    [applyDiagramToState, onLoadDocuments, setRows],
+    [applyDiagramToState, setRows],
   );
 
   const handleUndo = useCallback(() => {

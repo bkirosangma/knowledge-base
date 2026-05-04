@@ -459,8 +459,6 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         vi.fn(),
         canvasRef,
         'title', [], [], [], {}, 'orthogonal', [],
-        undefined,   // documents
-        undefined,   // onLoadDocuments
         onMigrateLegacyDocuments,
       )
     })
@@ -526,8 +524,6 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         vi.fn(),
         canvasRef,
         'title', [], [], [], {}, 'orthogonal', [],
-        undefined,   // documents
-        undefined,   // onLoadDocuments
         onMigrateLegacyDocuments,
       )
     })
@@ -580,8 +576,6 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         vi.fn(),
         canvasRef,
         'title', [], [], [], {}, 'orthogonal', [],
-        undefined,   // documents
-        undefined,   // onLoadDocuments
         onMigrateLegacyDocuments,
       )
     })

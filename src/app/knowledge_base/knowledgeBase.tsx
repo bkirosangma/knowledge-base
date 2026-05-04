@@ -1111,7 +1111,6 @@ function KnowledgeBaseInner() {
               reportError(e, `Creating ${path}`);
             }
           }}
-          onLoadDocuments={docManager.setDocuments}
           rows={docManager.rows}
           setRows={docManager.setRows}
           onMigrateLegacyDocuments={onMigrateLegacyDocuments}
@@ -1120,10 +1119,10 @@ function KnowledgeBaseInner() {
           readDocument={readDocument}
           getDocumentReferences={getDocumentReferences}
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-          onAfterDiagramSaved={(diagramPath, docs) => {
+          onAfterDiagramSaved={(diagramPath, _docs) => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
-            const docFilenames = docs.map((d) => d.filename);
+            const docFilenames = docManager.documents.map((d) => d.filename);
             linkManager.updateDiagramLinks(rootHandle, diagramPath, docFilenames).catch((e) =>
               reportError(e, `Updating diagram links for ${diagramPath}`)
             );

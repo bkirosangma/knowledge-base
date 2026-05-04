@@ -69,7 +69,6 @@ function baseProps(
     onAttachDocument: vi.fn(),
     onDetachDocument: vi.fn(),
     onCreateDocument: vi.fn(async () => {}),
-    onLoadDocuments: vi.fn(),
     rows: [],
     setRows: vi.fn(),
     backlinks: [],

@@ -64,7 +64,6 @@ interface DiagramControllerInputs {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onLoadDocuments: (docs: DocumentMeta[]) => void;
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>;
   backlinks?: { sourcePath: string; section?: string }[];
   onDiagramBridge: (bridge: import("../types").DiagramBridge) => void;
@@ -98,7 +97,7 @@ interface DiagramControllerInputs {
 export function useDiagramController(input: DiagramControllerInputs) {
   const {
     side, activeFile, fileExplorer, onOpenDocument, documents,
-    onAttachDocument, onDetachDocument, onCreateDocument, onLoadDocuments, onMigrateLegacyDocuments,
+    onAttachDocument, onDetachDocument, onCreateDocument, onMigrateLegacyDocuments,
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
     rows, setRows,
@@ -247,7 +246,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   );
   const { history, scheduleRecord, isRestoringRef, applyDiagramToState, applySnapshotFromDisk, handleUndo, handleRedo, handleGoToEntry } = useDiagramHistoryStore({
     doc, dispatch, layerManualSizes, setLayerManualSizes, setMeasuredSizes,
-    setPatches, setSelection, documents, onLoadDocuments, rows, setRows, setLoadSnapshot,
+    setPatches, setSelection, rows, setRows, setLoadSnapshot,
   });
   scheduleRecordRef.current = scheduleRecord;
 
@@ -286,7 +285,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
     confirmAction, setConfirmAction, canvasRef,
     title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
-    documents, onLoadDocuments, onMigrateLegacyDocuments,
+    onMigrateLegacyDocuments,
     attachments.flushPendingDeletes, attachments.clearPendingDeletes, onAfterDiagramSaved,
   );
 

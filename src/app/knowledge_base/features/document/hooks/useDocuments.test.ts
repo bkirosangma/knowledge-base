@@ -187,13 +187,8 @@ describe("migrateAttachments", () => {
   it("rewrites tab-section attachment ids matching filePath#oldId → filePath#newId", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#verse-1" },
       ]);
     });
 
@@ -211,19 +206,9 @@ describe("migrateAttachments", () => {
   it("applies multiple migrations in a single call", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "a.md",
-          title: "A",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#intro" }],
-        },
-        {
-          id: "d2",
-          filename: "b.md",
-          title: "B",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#chorus" }],
-        },
+      result.current.setRows([
+        { docPath: "a.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#intro" },
+        { docPath: "b.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#chorus" },
       ]);
     });
 
@@ -245,13 +230,8 @@ describe("migrateAttachments", () => {
   it("ignores attachments for other file paths", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-section", id: "tabs/other.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/other.alphatex#verse-1" },
       ]);
     });
 
@@ -269,13 +249,8 @@ describe("migrateAttachments", () => {
   it("ignores non-tab-section attachments", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "flow", id: "tabs/song.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "flow" as const, entityId: "tabs/song.alphatex#verse-1" },
       ]);
     });
 
@@ -292,15 +267,10 @@ describe("migrateAttachments", () => {
 
   it("is a no-op when migrations is empty", () => {
     const { result } = renderHook(() => useDocuments());
-    const before = [
-      {
-        id: "d1",
-        filename: "notes.md",
-        title: "Notes",
-        attachedTo: [{ type: "tab-section" as const, id: "tabs/song.alphatex#intro" }],
-      },
+    const beforeRows = [
+      { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#intro" },
     ];
-    act(() => { result.current.setDocuments(before); });
+    act(() => { result.current.setRows(beforeRows); });
     const snapshot = result.current.documents;
     act(() => { result.current.migrateAttachments("tabs/song.alphatex", []); });
     expect(result.current.documents).toBe(snapshot);
@@ -311,13 +281,8 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("rewrites tab-track ids when migrations match (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
       ]);
     });
 
@@ -335,13 +300,8 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("preserves tab-track entries with no matching migration (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
       ]);
     });
 
@@ -359,17 +319,10 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("migrates mixed tab-section and tab-track attachments in the same document (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [
-            { type: "tab-section" as const, id: "tabs/song.alphatex#verse-1" },
-            { type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" },
-            { type: "tab" as const, id: "tabs/song.alphatex" },
-          ],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#verse-1" },
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
+        { docPath: "notes.md", entityType: "tab" as const, entityId: "tabs/song.alphatex" },
       ]);
     });
 

@@ -78,7 +78,6 @@ describe("useDiagramHistoryStore — attachmentSubset snapshot isolation", () =>
     const setMeasuredSizes = vi.fn();
     const setPatches = vi.fn();
     const setSelection = vi.fn<(s: Selection | null) => void>();
-    const onLoadDocuments = vi.fn();
     const setLoadSnapshot = vi.fn();
 
     const { result, rerender } = renderHook(() => {
@@ -90,8 +89,6 @@ describe("useDiagramHistoryStore — attachmentSubset snapshot isolation", () =>
         setMeasuredSizes,
         setPatches,
         setSelection,
-        documents: [],
-        onLoadDocuments,
         rows,
         setRows,
         setLoadSnapshot,

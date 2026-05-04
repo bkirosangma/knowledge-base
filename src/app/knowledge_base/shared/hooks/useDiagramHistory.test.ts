@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useDiagramHistory } from './useDiagramHistory'
 import type { DiagramSnapshot } from './useDiagramHistory'
+import type { AttachmentLink } from '../../domain/attachmentLinks'
 import * as persistence from '../utils/historyPersistence'
 
 vi.mock('../utils/historyPersistence', async (importOriginal) => {
@@ -157,53 +158,54 @@ describe('useDiagramHistory — onSave is an alias for onFileSave', () => {
   })
 })
 
-describe('useDiagramHistory — document attachments in snapshots', () => {
-  const doc = { id: 'doc-1', filename: 'auth-flow.md', title: 'Auth Flow', attachedTo: [{ type: 'flow' as const, id: 'flow-auth' }] }
+describe('useDiagramHistory — attachment subset in snapshots', () => {
+  // The attachment row that represents doc-1 attached to flow-auth.
+  const attachmentRow: AttachmentLink = { docPath: 'auth-flow.md', entityType: 'flow', entityId: 'flow-auth' }
 
-  it('DIAG-3.10-38: "Attach document to flow" entry stores documents in snapshot', async () => {
+  it('DIAG-3.10-38: "Attach document to flow" entry stores attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
-    const snapWithDoc: DiagramSnapshot = { ...snap, documents: [doc] }
-    act(() => { result.current.recordAction('Attach document to flow', snapWithDoc) })
+    const snapWithAttachment: DiagramSnapshot = { ...snap, attachmentSubset: [attachmentRow] }
+    act(() => { result.current.recordAction('Attach document to flow', snapWithAttachment) })
     expect(result.current.entries[1].description).toBe('Attach document to flow')
-    expect(result.current.entries[1].snapshot.documents).toEqual([doc])
+    expect(result.current.entries[1].snapshot.attachmentSubset).toEqual([attachmentRow])
   })
 
-  it('DIAG-3.10-39: "Detach document from flow" entry stores empty documents in snapshot', async () => {
+  it('DIAG-3.10-39: "Detach document from flow" entry stores empty attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), { ...snap, documents: [doc] }, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), { ...snap, attachmentSubset: [attachmentRow] }, null, null) })
     act(() => { result.current.recordAction('Detach document from flow', snap) })
     expect(result.current.entries[1].description).toBe('Detach document from flow')
-    expect(result.current.entries[1].snapshot.documents).toBeUndefined()
+    expect(result.current.entries[1].snapshot.attachmentSubset).toBeUndefined()
   })
 
-  it('DIAG-3.10-40: undo after attach returns snapshot without document', async () => {
+  it('DIAG-3.10-40: undo after attach returns snapshot without attachment', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
-    act(() => { result.current.recordAction('Attach document to flow', { ...snap, documents: [doc] }) })
+    act(() => { result.current.recordAction('Attach document to flow', { ...snap, attachmentSubset: [attachmentRow] }) })
     let restored: DiagramSnapshot | null = null
     act(() => { restored = result.current.undo() })
-    expect((restored as DiagramSnapshot | null)?.documents).toBeUndefined()
+    expect((restored as DiagramSnapshot | null)?.attachmentSubset).toBeUndefined()
     expect(result.current.currentIndex).toBe(0)
   })
 
-  it('DIAG-3.10-41: redo after undo-attach returns snapshot with document restored', async () => {
+  it('DIAG-3.10-41: redo after undo-attach returns snapshot with attachment restored', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
-    act(() => { result.current.recordAction('Attach document to flow', { ...snap, documents: [doc] }) })
+    act(() => { result.current.recordAction('Attach document to flow', { ...snap, attachmentSubset: [attachmentRow] }) })
     act(() => { result.current.undo() })
     let redone: DiagramSnapshot | null = null
     act(() => { redone = result.current.redo() })
-    expect((redone as DiagramSnapshot | null)?.documents).toEqual([doc])
+    expect((redone as DiagramSnapshot | null)?.attachmentSubset).toEqual([attachmentRow])
     expect(result.current.currentIndex).toBe(1)
   })
 
-  it('DIAG-3.10-42: "Create and attach document to flow" entry stores documents in snapshot', async () => {
+  it('DIAG-3.10-42: "Create and attach document to flow" entry stores attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
-    const snapWithDoc: DiagramSnapshot = { ...snap, documents: [doc] }
-    act(() => { result.current.recordAction('Create and attach document to flow', snapWithDoc) })
+    const snapWithAttachment: DiagramSnapshot = { ...snap, attachmentSubset: [attachmentRow] }
+    act(() => { result.current.recordAction('Create and attach document to flow', snapWithAttachment) })
     expect(result.current.entries[1].description).toBe('Create and attach document to flow')
-    expect(result.current.entries[1].snapshot.documents).toEqual([doc])
+    expect(result.current.entries[1].snapshot.attachmentSubset).toEqual([attachmentRow])
   })
 })

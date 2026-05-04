@@ -46,7 +46,6 @@ export interface DiagramViewProps {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onLoadDocuments: (docs: DocumentMeta[]) => void;
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>;
   backlinks?: { sourcePath: string; section?: string }[];
   onDiagramBridge: (bridge: import("./types").DiagramBridge) => void;

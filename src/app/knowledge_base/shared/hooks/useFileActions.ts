@@ -23,7 +23,7 @@ interface History {
 
 type ApplyDiagramToState = (
   data: ReturnType<typeof loadDiagramFromData>,
-  opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData>; documents?: DocumentMeta[] },
+  opts?: { setSnapshot?: boolean; snapshotSource?: ReturnType<typeof loadDiagramFromData> },
 ) => void;
 
 export function useFileActions(
@@ -32,7 +32,7 @@ export function useFileActions(
   applyDiagramToState: ApplyDiagramToState,
   isRestoringRef: MutableRefObject<boolean>,
   isDirty: boolean,
-  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[], docs: DocumentMeta[]) => void,
+  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[]) => void,
   confirmAction: ConfirmAction | null,
   setConfirmAction: React.Dispatch<React.SetStateAction<ConfirmAction | null>>,
   canvasRef: MutableRefObject<HTMLDivElement | null>,
@@ -44,8 +44,6 @@ export function useFileActions(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[],
-  documents?: DocumentMeta[],
-  onLoadDocuments?: (docs: DocumentMeta[]) => void,
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>,
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
@@ -62,10 +60,10 @@ export function useFileActions(
   // preserves "latest known state" reads inside the callbacks while
   // shrinking the dep list back to stable callables.
   const currentStateRef = useRef({
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments, onMigrateLegacyDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
   });
   currentStateRef.current = {
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments, onMigrateLegacyDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
   };
 
   const callbacksRef = useRef({ onAfterSave, onAfterDiscard, onAfterDiagramSaved });
@@ -81,7 +79,7 @@ export function useFileActions(
     const s = currentStateRef.current;
     if (s.isDirty && outgoing && outgoing !== fileName) {
       await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
-        outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
+        outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows,
       );
     }
 
@@ -111,11 +109,7 @@ export function useFileActions(
 
     const diagram = loadDiagramFromData(data);
     const snapshotSource = hasDraft ? loadDiagramFromData(diskData) : undefined;
-    // Baseline = disk version (saved state). Draft docs stay in data.documents.
-    const baselineDocs: DocumentMeta[] = (hasDraft ? diskData.documents : data.documents) ?? [];
-    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource, documents: baselineDocs });
-    // Restore document attachments from the loaded (possibly draft) diagram
-    currentStateRef.current.onLoadDocuments?.(data.documents ?? []);
+    applyDiagramToState(diagram, { setSnapshot: true, snapshotSource });
     isRestoringRef.current = true;
     await history.initHistory(diskJson, {
       title: diskData.title ?? "Untitled",
@@ -133,10 +127,10 @@ export function useFileActions(
     const s = currentStateRef.current;
     if (!fileExplorer.activeFile || !s.isDirty) return;
     const success = await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
-      fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, s.documents,
+      fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows,
     );
     if (success) {
-      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows, s.documents ?? []);
+      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows);
       const onDiskData = {
         title: s.title,
         layers: s.layerDefs,
@@ -145,11 +139,10 @@ export function useFileActions(
         layerManualSizes: s.layerManualSizes,
         lineCurve: s.lineCurve,
         flows: s.flows,
-        ...(s.documents && s.documents.length > 0 ? { documents: s.documents } : {}),
       };
       history.onSave(JSON.stringify(onDiskData, null, 2));
       await callbacksRef.current.onAfterSave?.();
-      callbacksRef.current.onAfterDiagramSaved?.(fileExplorer.activeFile, s.documents ?? []);
+      callbacksRef.current.onAfterDiagramSaved?.(fileExplorer.activeFile, []);
     }
   }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);
 
@@ -157,8 +150,7 @@ export function useFileActions(
     const result = await fileExplorer.createFile(parentPath);
     if (!result) return null;
     const diagram = loadDiagramFromData(result.data);
-    applyDiagramToState(diagram, { setSnapshot: true, documents: [] });
-    currentStateRef.current.onLoadDocuments?.([]);
+    applyDiagramToState(diagram, { setSnapshot: true });
     requestAnimationFrame(() => {
       if (canvasRef.current) {
         const el = canvasRef.current;
@@ -204,9 +196,7 @@ export function useFileActions(
   const handleDuplicateFile = useCallback(async (path: string) => {
     const result = await fileExplorer.duplicateFile(path);
     if (!result) return;
-    const docs = result.data.documents ?? [];
-    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true, documents: docs });
-    currentStateRef.current.onLoadDocuments?.(docs);
+    applyDiagramToState(loadDiagramFromData(result.data), { setSnapshot: true });
   }, [fileExplorer.duplicateFile, applyDiagramToState]);
 
   const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
@@ -227,9 +217,7 @@ export function useFileActions(
         lineCurve: savedSnapshot.lineCurve,
         flows: savedSnapshot.flows,
       });
-      const savedDocs = savedSnapshot.documents ?? [];
-      applyDiagramToState(diagram, { setSnapshot: true, documents: savedDocs });
-      currentStateRef.current.onLoadDocuments?.(savedDocs);
+      applyDiagramToState(diagram, { setSnapshot: true });
       fileExplorer.discardFile(fileExplorer.activeFile);
       callbacksRef.current.onAfterDiscard?.();
       requestAnimationFrame(() => { isRestoringRef.current = false; });
@@ -237,9 +225,7 @@ export function useFileActions(
     }
     const data = await fileExplorer.discardFile(fileExplorer.activeFile);
     if (!data) return;
-    const diskDocs = data.documents ?? [];
-    currentStateRef.current.onLoadDocuments?.(diskDocs);
-    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true, documents: diskDocs });
+    applyDiagramToState(loadDiagramFromData(data), { setSnapshot: true });
     callbacksRef.current.onAfterDiscard?.();
   }, [fileExplorer.activeFile, fileExplorer.discardFile, applyDiagramToState, history.goToSaved]);
 
