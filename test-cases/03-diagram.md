@@ -172,6 +172,7 @@
 | DIAG-3.10-42 | ✅ | Create-and-attach — appears as a named entry in the history panel |
 | DIAG-3.10-43 | ✅ | (KB-032 non-color signal) Rectangle node with `flowRole="start"` renders a "Start" text pill above the box; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. Survives "disable browser CSS color" because the role is in text content, not just glow. WCAG 1.4.1. — `Element.test.tsx` |
 | DIAG-3.10-44 | ✅ | (KB-032 non-color signal) Diamond (condition) node with `flowRole="start"` renders a "Start" text pill above the diamond; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. WCAG 1.4.1. — `ConditionElement.test.tsx` |
+| DIAG-3.10-45 | ✅ | Diagram-undo only affects this diagram's attachment subset — tab-scoped rows (`tab-track`, `tab-section`) and rows belonging to other diagrams in memory are untouched. Invariant: `DIAGRAM_ENTITY_TYPES` excludes tab types. — `useDiagramHistoryStore.test.ts` |
 
 ## 3.11 Selection
 

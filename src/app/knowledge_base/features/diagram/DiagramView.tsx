@@ -30,6 +30,7 @@ import { DiagramInteractionProvider } from "./state/DiagramInteractionContext";
 import { useDiagramController } from "./hooks/useDiagramController";
 import type { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import type { DocumentMeta } from "../document/types";
+import type { AttachmentLink } from "../../domain/attachmentLinks";
 // Re-export bridge types so callers importing them from DiagramView keep working.
 // Definitions moved to `./types.ts` in KB-020 so the bridge hook can share them.
 export type { HeaderBridge, ExplorerBridge, DiagramBridge } from "./types";
@@ -59,6 +60,8 @@ export interface DiagramViewProps {
   onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
   /** Single-fire intent from vault-search to centre + select a node on mount. */
   searchTarget?: { nodeId: string };
+  rows: AttachmentLink[];
+  setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
 }
 
 export default function DiagramView(props: DiagramViewProps) {

@@ -1112,6 +1112,8 @@ function KnowledgeBaseInner() {
             }
           }}
           onLoadDocuments={docManager.setDocuments}
+          rows={docManager.rows}
+          setRows={docManager.setRows}
           onMigrateLegacyDocuments={onMigrateLegacyDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}

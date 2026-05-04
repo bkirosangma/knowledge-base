@@ -70,6 +70,8 @@ function baseProps(
     onDetachDocument: vi.fn(),
     onCreateDocument: vi.fn(async () => {}),
     onLoadDocuments: vi.fn(),
+    rows: [],
+    setRows: vi.fn(),
     backlinks: [],
     onDiagramBridge: vi.fn(),
     readDocument: vi.fn(async () => null),

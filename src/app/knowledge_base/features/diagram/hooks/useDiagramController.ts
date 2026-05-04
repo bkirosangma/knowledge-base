@@ -52,6 +52,7 @@ import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { DocumentMeta } from "../../document/types";
 import type { ConfirmAction, FlowDef, RegionBounds } from "../types";
 import type { LevelMap } from "../utils/levelModel";
+import type { AttachmentLink } from "../../../domain/attachmentLinks";
 import type { DiagramCanvasProps } from "../components/DiagramCanvas";
 
 interface DiagramControllerInputs {
@@ -76,6 +77,8 @@ interface DiagramControllerInputs {
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
   onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
   searchTarget?: { nodeId: string };
+  rows: AttachmentLink[];
+  setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
 }
 
 /**
@@ -98,6 +101,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     onAttachDocument, onDetachDocument, onCreateDocument, onLoadDocuments, onMigrateLegacyDocuments,
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
+    rows, setRows,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -243,7 +247,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   );
   const { history, scheduleRecord, isRestoringRef, applyDiagramToState, applySnapshotFromDisk, handleUndo, handleRedo, handleGoToEntry } = useDiagramHistoryStore({
     doc, dispatch, layerManualSizes, setLayerManualSizes, setMeasuredSizes,
-    setPatches, setSelection, documents, onLoadDocuments, setLoadSnapshot,
+    setPatches, setSelection, documents, onLoadDocuments, rows, setRows, setLoadSnapshot,
   });
   scheduleRecordRef.current = scheduleRecord;
 
