@@ -435,7 +435,9 @@ class AlphaTabSession implements TabSession {
   }
 
   private applySetFret(op: Extract<TabEditOp, { type: "set-fret" }>): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const existing = beat.notes.find((n) => n.string === op.string);
     if (op.fret === null) {
@@ -453,7 +455,9 @@ class AlphaTabSession implements TabSession {
   }
 
   private applySetDuration(op: Extract<TabEditOp, { type: "set-duration" }>): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     // op.duration numeric values match alphaTab's Duration enum values exactly
     // (1=Whole, 2=Half, 4=Quarter, 8=Eighth, 16=Sixteenth, 32=ThirtySecond, 64=SixtyFourth)
@@ -464,7 +468,9 @@ class AlphaTabSession implements TabSession {
     op: Extract<TabEditOp, { type: "add-technique" }>,
     mode: "apply" | "remove",
   ): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const note = beat.notes.find((n) => n.string === op.string);
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);

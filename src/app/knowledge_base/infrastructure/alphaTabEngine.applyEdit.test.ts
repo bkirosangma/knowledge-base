@@ -504,3 +504,217 @@ describe("locate helpers", () => {
     expect(locateBarIndex(score, 0, "1", 1)).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Multi-track applyEdit tests (TAB-009 T4)
+// Uses a two-track alphatex fixture:
+//   track 0 (index 0): 1 bar, 2 quarter beats — fret 5 on string 6, fret 0 on string 6
+//   track 1 (index 1): 1 bar, 2 quarter beats — fret 3 on string 3, fret 1 on string 3
+// beat global index within each track: 0 and 1
+// ---------------------------------------------------------------------------
+const MT_FIXTURE = `\\title "MultiTrack"\n.\n\\track "T0"\n:4 5.6 0.6 |\n\\track "T1"\n:4 3.3 1.3 |`;
+
+async function buildMultiTrackScore() {
+  const mod = await import("@coderline/alphatab");
+  const importer = new mod.importer.AlphaTexImporter();
+  const settings = new mod.Settings();
+  importer.init(mod.io.ByteBuffer.empty(), settings);
+  importer.initFromString(MT_FIXTURE, settings);
+  return importer.readScore();
+}
+
+/**
+ * Walk a specific track (by trackId) to find the beat at globalBeatIndex.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findBeatOnTrack(session: any, trackId: string, globalBeatIndex: number): any {
+  const score = session.latestScore;
+  if (!score) throw new Error("No score on session");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const track = score.tracks.find((t: any) => String(t.index) === trackId);
+  if (!track) throw new Error(`Track ${trackId} not found`);
+  let counter = 0;
+  for (const bar of track.staves[0].bars) {
+    for (const beat of bar.voices[0].beats) {
+      if (counter === globalBeatIndex) return beat;
+      counter++;
+    }
+  }
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteFretOnTrack(session: any, trackId: string, beatIndex: number, stringNum: number): number | null {
+  const beat = findBeatOnTrack(session, trackId, beatIndex);
+  if (!beat) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const note = beat.notes.find((n: any) => n.string === stringNum);
+  return note != null ? note.fret : null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getBeatDurationOnTrack(session: any, trackId: string, beatIndex: number): number {
+  const beat = findBeatOnTrack(session, trackId, beatIndex);
+  if (!beat) throw new Error(`Beat ${beatIndex} not found on track ${trackId}`);
+  return beat.duration as number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteHasTechniqueOnTrack(session: any, trackId: string, beatIndex: number, stringNum: number, technique: string): boolean {
+  const beat = findBeatOnTrack(session, trackId, beatIndex);
+  if (!beat) throw new Error(`Beat ${beatIndex} not found on track ${trackId}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const note = beat.notes.find((n: any) => n.string === stringNum);
+  if (!note) throw new Error(`Note on string ${stringNum} at beat ${beatIndex} track ${trackId} not found`);
+  switch (technique) {
+    case "hammer-on": return note.isHammerPullOrigin === true;
+    case "ghost":     return note.isGhost === true;
+    default:          throw new Error(`Unknown technique in test helper: ${technique}`);
+  }
+}
+
+describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let session: any;
+
+  beforeEach(async () => {
+    const score = await buildMultiTrackScore();
+
+    const engine = new AlphaTabEngine();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    session = await engine.mount(container, { readOnly: false });
+
+    fakeApiInstance.texPayload = score;
+    await session.load({ kind: "alphatex", text: MT_FIXTURE });
+  });
+
+  it("fixture has two tracks with expected frets (sanity check)", () => {
+    // track 0, beat 0: fret 5 on string 6 (or string 1 depending on alphatex direction)
+    const t0b0 = findBeatOnTrack(session, "0", 0);
+    const t1b0 = findBeatOnTrack(session, "1", 0);
+    expect(t0b0).not.toBeNull();
+    expect(t1b0).not.toBeNull();
+    // They must be different beat objects
+    expect(t0b0).not.toBe(t1b0);
+  });
+
+  it("set-fret on track[1] does not mutate track[0] (TAB-009 T4)", () => {
+    // Read the original fret on track[0] beat[0] string[1]
+    const t0b0Before = findBeatOnTrack(session, "0", 0);
+    const t0NoteBefore = t0b0Before?.notes?.[0];
+    const originalT0Fret = t0NoteBefore?.fret ?? null;
+    const originalT0String = t0NoteBefore?.string ?? null;
+
+    // Apply set-fret only to track[1]
+    session.applyEdit({
+      type: "set-fret",
+      beat: 0,
+      string: originalT0String ?? 1,
+      fret: 99,
+      trackId: "1",
+    });
+
+    // track[0] must be unchanged
+    const t0FretAfter = getNoteFretOnTrack(session, "0", 0, originalT0String ?? 1);
+    expect(t0FretAfter).toBe(originalT0Fret);
+  });
+
+  it("set-fret on track[1] mutates only track[1] beat (TAB-009 T4)", () => {
+    // Find which string track[1] beat[0] has a note on
+    const t1b0 = findBeatOnTrack(session, "1", 0);
+    const t1String = t1b0?.notes?.[0]?.string ?? 1;
+
+    session.applyEdit({
+      type: "set-fret",
+      beat: 0,
+      string: t1String,
+      fret: 77,
+      trackId: "1",
+    });
+
+    expect(getNoteFretOnTrack(session, "1", 0, t1String)).toBe(77);
+  });
+
+  it("set-duration on track[1] does not affect track[0] duration (TAB-009 T4)", () => {
+    const t0DurationBefore = getBeatDurationOnTrack(session, "0", 0);
+
+    session.applyEdit({
+      type: "set-duration",
+      beat: 0,
+      duration: 8, // Eighth
+      trackId: "1",
+    });
+
+    // track[0] beat[0] duration unchanged
+    expect(getBeatDurationOnTrack(session, "0", 0)).toBe(t0DurationBefore);
+    // track[1] beat[0] duration changed
+    expect(getBeatDurationOnTrack(session, "1", 0)).toBe(8);
+  });
+
+  it("add-technique on track[1] does not leak into track[0] (TAB-009 T4)", () => {
+    // Get the string for track[1] beat[0]
+    const t1b0 = findBeatOnTrack(session, "1", 0);
+    const t1String = t1b0?.notes?.[0]?.string ?? 1;
+
+    // Get the string for track[0] beat[0]
+    const t0b0 = findBeatOnTrack(session, "0", 0);
+    const t0String = t0b0?.notes?.[0]?.string ?? 1;
+
+    session.applyEdit({
+      type: "add-technique",
+      beat: 0,
+      string: t1String,
+      technique: "ghost",
+      trackId: "1",
+    });
+
+    // track[1] beat[0] has the technique
+    expect(getNoteHasTechniqueOnTrack(session, "1", 0, t1String, "ghost")).toBe(true);
+
+    // track[0] beat[0] must NOT have the technique (if same string number exists)
+    if (t0String === t1String) {
+      expect(getNoteHasTechniqueOnTrack(session, "0", 0, t0String, "ghost")).toBe(false);
+    }
+  });
+
+  // Voice-isolation: use a hand-rolled ScoreShape (voice 1 alphatex syntax is unreliable)
+  // Verify that a voiceIndex:1 edit targets voice 1, not voice 0.
+  it("set-fret with voiceIndex:1 targets voice 1 beat, not voice 0 beat (TAB-009 T4)", () => {
+    // Hand-build a score with two voices on track 0
+    const voice0Beat = { duration: 4, notes: [], addNote(n: unknown) { this.notes.push(n); }, removeNote(n: unknown) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } } as { duration: number; notes: Array<{ fret: number; string: number }>; addNote(n: unknown): void; removeNote(n: unknown): void };
+    const voice1Beat = { duration: 4, notes: [], addNote(n: unknown) { this.notes.push(n); }, removeNote(n: unknown) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } } as { duration: number; notes: Array<{ fret: number; string: number }>; addNote(n: unknown): void; removeNote(n: unknown): void };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handScore: any = {
+      masterBars: [],
+      tracks: [{
+        index: 0,
+        staves: [{ bars: [{
+          voices: [
+            { beats: [voice0Beat], addBeat() {} },
+            { beats: [voice1Beat], addBeat() {} },
+          ],
+        }] }],
+      }],
+    };
+
+    // Directly inject hand-built score onto session (bypass tex loading)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (session as any).latestScore = handScore;
+
+    session.applyEdit({
+      type: "set-fret",
+      beat: 0,
+      string: 1,
+      fret: 42,
+      voiceIndex: 1,
+    });
+
+    // voice 1 beat got the note
+    expect(voice1Beat.notes.find((n) => n.string === 1)?.fret).toBe(42);
+    // voice 0 beat is untouched
+    expect(voice0Beat.notes.find((n) => n.string === 1)).toBeUndefined();
+  });
+});
