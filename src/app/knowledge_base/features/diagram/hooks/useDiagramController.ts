@@ -322,15 +322,9 @@ export function useDiagramController(input: DiagramControllerInputs) {
   );
 
   const flowCounter = useRef(0);
-  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
+  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleSelectLine } = useFlowManagement(
     connectionsRef, flowsRef, flowCounter, dispatch.setFlows, setSelection, scheduleRecord,
   );
-  const handleDeleteFlow = useCallback((flowId: string) => {
-    for (const d of documents) {
-      if (d.attachedTo?.some((a) => a.type === "flow" && a.id === flowId)) onDetachDocument(d.filename, "flow", flowId);
-    }
-    rawHandleDeleteFlow(flowId);
-  }, [documents, onDetachDocument, rawHandleDeleteFlow]);
 
   const { commitLabel } = useLabelEditing(
     editingLabelBeforeRef, dispatch.setNodes, dispatch.setLayers, dispatch.setConnections, setEditingLabel, scheduleRecord,
