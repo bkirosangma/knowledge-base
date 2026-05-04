@@ -105,15 +105,23 @@ Existing track ops (`set-track-tuning`, `set-track-capo`) already carry `trackId
 
 No `set-mute` or `set-solo` op — mute/solo is session-only (D3) and goes through `TabSession.setPlaybackState`, not `applyEdit`.
 
-### D9 — Track stable IDs: extend the existing sidecar
+### D9 — Track stable IDs: positional in domain, stable UUIDs only at the attachment boundary
 
-`.alphatex.refs.json` (shipped in TAB-008 for sections) gains a `trackRefs: { stableId → currentName }` map. Sidecar schema bumps from v1 → v2. `tabRefsRepo` reads / writes both keys; `updateSidecarOnEdit` reconciles on `add-track` / `remove-track` ops. Lazy creation on first edit — the read path returns `null` for files without a sidecar and the consumer falls back to position-based track ids (`tracks[i].id = String(i)`).
+**Verified (T0 probe, 2026-05-04):** alphaTab's `Track` has no `id` field — only `index: number` (zero-based position in `score.tracks`). The plan-phase verification probe at `docs/superpowers/plans/2026-05-04-guitar-tabs-multi-track-verification.md` confirms this and pins the design around it.
 
-`tab-track` entity ids are `<filePath>#track:<stableTrackId>`, mirroring the existing `tab-section` entity-id pattern.
+**Domain layer**: `TabMetadata.tracks[i].id = String(i)` (positional). `TabEditOp.trackId` is positional. `CursorLocation.trackIndex` is the integer position. Engine ops (find-track, applyAddTrack, applyRemoveTrack) work in positional space; this matches alphaTab's data model directly with no translation overhead.
+
+**Sidecar layer**: `.alphatex.refs.json` (v1 from TAB-008) gains a `trackRefs: { id: string; name: string }[]` **ordered array** (indexed by position). Each entry's `id` is a stable UUID generated at track-creation time. Sidecar schema bumps from v1 → v2. `tabRefsRepo` reads / writes both keys; `updateSidecarOnEdit` reconciles on `add-track` (push new UUID at end) and `remove-track` (splice at position — remaining entries' UUIDs move with their tracks naturally). v1 read forward-compat: produces empty `trackRefs: []`; first edit upgrades to v2.
+
+**Attachment boundary**: `tab-track` entity ids are `<filePath>#track:<stableUuid>`. Resolution happens at attach/detach time: `useTrackEntityId(positionalIndex)` looks up `sidecar.trackRefs[positionalIndex].id`. This means:
+- Attaching docs to track[1], then removing track[0] → track[1] shifts to position 0, sidecar entry shifts with it, the `<file>#track:<stableUuid>` entityId still resolves to the correct (now-position-0) track. Attachment preserved.
+- Removing the actually-attached track → sidecar entry drops, attachment becomes orphaned (acceptable behaviour — explicit user action).
 
 **Rejected alternatives:**
+- *Stable UUIDs throughout the domain layer (TabEditOp.trackId = UUID).* Forces a uuid↔position translation map inside the engine session. More plumbing, no benefit until reorder lands (out of TAB-009 scope).
+- *Positional everywhere, no UUIDs in sidecar.* Attachments break when any lower-position track is removed. Unacceptable.
 - *UUIDs assigned at first-edit time, embedded in alphatex as a comment.* Pollutes the file format; sidecar is the established pattern.
-- *Separate `<file>.alphatex.tracks.json` sidecar.* More files to keep in sync; one sidecar with two ref maps is cleaner.
+- *Flat object map `{ stableId → name }` in sidecar.* Loses the position ordering needed for resolution; would need a separate `position → stableId` array anyway.
 
 ### D10 — TAB-009a track-level attachments: fold in
 
@@ -194,14 +202,25 @@ export interface TabSession {
 ```ts
 export interface TabRefsPayload {
   version: 2; // bumped from 1
-  sectionRefs: Record<string, string>;     // existing
-  trackRefs: Record<string, string>;       // NEW
+  sectionRefs: Record<string, string>;          // existing (unchanged)
+  trackRefs: { id: string; name: string }[];    // NEW — ordered array, indexed by position
 }
 ```
 
-- `read(path)` — handles both v1 and v2 payloads. v1 payloads (no `trackRefs`) read as `{ ..., trackRefs: {} }` for forward compat.
+- `read(path)` — handles both v1 and v2 payloads. v1 payloads (no `trackRefs`) read as `{ ..., trackRefs: [] }` for forward compat.
 - `write(path, payload)` — always writes v2.
-- `updateSidecarOnEdit(prev, op)` — extends to handle `add-track` (assigns new `stableId`, registers `stableId → name`) and `remove-track` (drops the entry). Existing section reconciliation untouched.
+- `updateSidecarOnEdit(prev, op, ctx)` — extends to handle `add-track` (push `{ id: newUuid, name }` to `trackRefs`) and `remove-track` (splice `trackRefs[position]` — `ctx.removedPosition` provided by the caller). Existing section reconciliation untouched.
+
+### Engine layer track-id semantics
+
+- `score.tracks[i]` is identified by `track.index` (zero-based position).
+- `TabEditOp.trackId` is `String(track.index)`. Engine helpers (`findTrack`, `locateBeat`, `locateBarIndex`) match by `String(t.index) === op.trackId`.
+- Per-track state lives on `track.staves[0]`, NOT on `track` directly:
+  - `track.staves[0].capo: number` — fret 0–24
+  - `track.staves[0].stringTuning.tunings: number[]` — MIDI int array, high → low (e.g. `[64, 59, 55, 50, 45, 40]` for standard 6-string)
+  - `track.staves[0].tuning` getter returns the same MIDI array (read-only)
+- `T5 applyAddTrack` populates `track.staves[0].stringTuning` (write the `Tuning` object) and `track.staves[0].capo`.
+- `T7 scoreToMetadata` reads from `track.staves[0]` and converts MIDI ints → scientific pitch strings.
 
 ### Components
 

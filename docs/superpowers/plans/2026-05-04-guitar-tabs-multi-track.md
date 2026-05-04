@@ -175,6 +175,8 @@ Expected: fails because `TabMetadata.tracks[0].tuning` and `.capo` don't exist y
 
 Modify `src/app/knowledge_base/domain/tabEngine.ts`:
 
+> **Verified semantics (T0 probe):** alphaTab's `Track` has only `index: number` — no `id` field. `TabMetadata.tracks[i].id` is **positional**, equal to `String(i)` (i.e. `String(track.index)`). All `TabEditOp.trackId` values are positional too. The "stable across reorder" guarantee for cross-session refs (track-level attachments) lives only in the sidecar's `trackRefs` ordered array; resolution happens at the attach/detach boundary in T23–T24, not in the engine.
+
 ```ts
 export interface TabMetadata {
   title: string;
@@ -184,11 +186,11 @@ export interface TabMetadata {
   key?: string;
   timeSignature: { numerator: number; denominator: number };
   tracks: {
-    id: string;
+    id: string;                  // positional — String(track.index)
     name: string;
     instrument: "guitar" | "bass";
-    tuning: string[];   // moved here from top-level
-    capo: number;       // moved here from top-level
+    tuning: string[];   // moved here from top-level; on disk lives at staff level
+    capo: number;       // moved here from top-level; on disk lives at staff level
   }[];
   sections: { name: string; startBeat: number }[];
   totalBeats: number;
@@ -264,6 +266,8 @@ git commit -m "feat(tabs): TAB-009 T1 — domain types: per-track tuning/capo, v
 - Modify: `src/app/knowledge_base/infrastructure/tabRefsRepo.ts` (read/write)
 - Test: `src/app/knowledge_base/infrastructure/tabRefsRepo.test.ts` (extend)
 
+> **Verified semantics (T0 probe):** `trackRefs` is an **ordered array** indexed by track position, NOT a flat object map. Each entry is `{ id: string; name: string }` where `id` is a stable UUID. The array shape is what makes "remove track 0; track 1's UUID moves to position 0" work via `splice` — preserving doc-attachment integrity for surviving tracks.
+
 - [ ] **Step 1: Write failing tests for sidecar v2**
 
 Add to `tabRefsRepo.test.ts`:
@@ -275,14 +279,17 @@ describe("tabRefsRepo v2 — trackRefs", () => {
     const payload = {
       version: 2 as const,
       sectionRefs: { "intro": "Intro" },
-      trackRefs: { "tk1": "Lead", "tk2": "Bass" },
+      trackRefs: [
+        { id: "tk-lead-uuid", name: "Lead" },
+        { id: "tk-bass-uuid", name: "Bass" },
+      ],
     };
     await repo.write("song.alphatex", payload);
     const read = await repo.read("song.alphatex");
     expect(read).toEqual(payload);
   });
 
-  it("reads a v1 payload (no trackRefs) as v2 with empty trackRefs", async () => {
+  it("reads a v1 payload (no trackRefs) as v2 with empty trackRefs array", async () => {
     const repo = createTabRefsRepo(makeStubFsHandle({
       "song.alphatex.refs.json": JSON.stringify({
         version: 1, sectionRefs: { "intro": "Intro" },
@@ -290,7 +297,7 @@ describe("tabRefsRepo v2 — trackRefs", () => {
     }));
     const read = await repo.read("song.alphatex");
     expect(read).toEqual({
-      version: 2, sectionRefs: { "intro": "Intro" }, trackRefs: {},
+      version: 2, sectionRefs: { "intro": "Intro" }, trackRefs: [],
     });
   });
 
@@ -305,7 +312,7 @@ describe("tabRefsRepo v2 — trackRefs", () => {
     await repo.write("song.alphatex", read!);
     const after = JSON.parse(await fs.readText("song.alphatex.refs.json"));
     expect(after.version).toBe(2);
-    expect(after.trackRefs).toEqual({});
+    expect(after.trackRefs).toEqual([]);
   });
 });
 ```
@@ -323,10 +330,15 @@ Expected: FAIL — `version: 2` rejected, `trackRefs` missing.
 Modify `src/app/knowledge_base/domain/tabRefs.ts`:
 
 ```ts
+export interface TabRefEntry {
+  id: string;     // stable UUID, never reused
+  name: string;   // display name, mirrors current Track.name
+}
+
 export interface TabRefsPayload {
   version: 2;
   sectionRefs: Record<string, string>;
-  trackRefs: Record<string, string>;
+  trackRefs: TabRefEntry[];   // ordered array; index = track position in score
 }
 
 // Internal v1 shape kept only for the read-path migration.
@@ -349,7 +361,7 @@ export function createTabRefsRepo(fs: FsHandle): TabRefsRepo {
       if (raw === null) return null;
       const parsed = JSON.parse(raw) as TabRefsPayloadV1 | TabRefsPayload;
       if (parsed.version === 1) {
-        return { version: 2, sectionRefs: parsed.sectionRefs, trackRefs: {} };
+        return { version: 2, sectionRefs: parsed.sectionRefs, trackRefs: [] };
       }
       return parsed;
     },
@@ -605,7 +617,7 @@ Expected: FAIL — handler doesn't exist.
 
 - [ ] **Step 3: Capture `TrackCtor` + `StaffCtor` in `structCtors`**
 
-Locate the `structCtors` capture during `scoreLoaded` in `alphaTabEngine.ts`. Add:
+Locate the `structCtors` capture during `scoreLoaded` in `alphaTabEngine.ts` (lines ~254–261). Add:
 
 ```ts
 this.structCtors = {
@@ -615,20 +627,33 @@ this.structCtors = {
 };
 ```
 
+(Reach `TuningCtor` from `score.tracks[0].staves[0].stringTuning.constructor` if needed for setting `Tuning` on a fresh staff.)
+
 - [ ] **Step 4: Implement `applyAddTrack`**
+
+> **Verified semantics (T0 probe):** `tuning` and `capo` live on `Staff`, not `Track`. Write to `track.staves[0].stringTuning.tunings` (MIDI int array, high → low) and `track.staves[0].capo`. `Track.addStaff` and `Score.addTrack` are the public mutators. Standard E-A-D-G-B-E 6-string MIDI is `[64, 59, 55, 50, 45, 40]` (per `Staff.stringTuning` doc — line 15561).
 
 ```ts
 private applyAddTrack(op: Extract<TabEditOp, { type: "add-track" }>): void {
   const score = this.latestScore!;
-  const { TrackCtor, StaffCtor, BarCtor, VoiceCtor, BeatCtor, DurationEnum } = this.structCtors;
+  const {
+    TrackCtor, StaffCtor, BarCtor, VoiceCtor, BeatCtor, DurationEnum,
+  } = this.structCtors;
 
+  // 1. Build the track shell.
   const track = new TrackCtor();
   (track as unknown as { name: string }).name = op.name;
-  (track as unknown as { tuning: number[] }).tuning =
-    op.tuning.map(scientificPitchToMidi);
-  (track as unknown as { capo: number }).capo = op.capo;
 
+  // 2. Build the single staff and configure tuning + capo.
   const staff = new StaffCtor();
+  const TuningCtor = (score.tracks[0].staves[0].stringTuning as object)
+    .constructor as new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
+  const midiTuning = op.tuning.map(scientificPitchToMidi);
+  (staff as unknown as { stringTuning: TuningShape }).stringTuning =
+    new TuningCtor(undefined, midiTuning, false);
+  (staff as unknown as { capo: number }).capo = op.capo;
+
+  // 3. Pad with rest beats so the new track has matching bar count.
   const barCount = score.tracks[0].staves[0].bars.length;
   for (let i = 0; i < barCount; i++) {
     const bar = new BarCtor();
@@ -639,12 +664,14 @@ private applyAddTrack(op: Extract<TabEditOp, { type: "add-track" }>): void {
     bar.addVoice(voice);
     staff.bars.push(bar);
   }
-  track.staves.push(staff);
-  score.tracks.push(track);
+
+  // 4. Wire it up via the public alphaTab API.
+  track.addStaff(staff);
+  score.addTrack(track);
 }
 ```
 
-(Helper `scientificPitchToMidi` exists if used elsewhere; if not, write it: `E2 = 40`, `A2 = 45`, etc.)
+(Helper `scientificPitchToMidi` exists if used elsewhere; if not, write it: `E2 = 40`, `A2 = 45`, `E4 = 64`. Keep it pure and tested separately.)
 
 - [ ] **Step 5: Wire into `applyEdit` switch**
 
@@ -705,15 +732,23 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement `applyRemoveTrack`**
 
+> **Verified semantics:** match by `String(t.index)` — `Track` has no `id` field. After splicing, alphaTab's `Track.index` is NOT auto-recomputed by the public API; the engine writes to `score.tracks` directly via splice and trusts that subsequent `findTrack` lookups iterate through `score.tracks` in array order (which matches the new positions). T3's `findTrack` was written to use `String(t.index)` matching, but since `index` is stale after splice, **the helper must match by the position-in-array** (`score.tracks.findIndex(...)`) rather than the cached `t.index` value. Update T3 if it's still using `t.index`. Alternatively, walk `score.tracks` after splice and reset each remaining `t.index = i`. Pick whichever is cleaner — the test below pins the behaviour.
+
 ```ts
 private applyRemoveTrack(op: Extract<TabEditOp, { type: "remove-track" }>): void {
   const score = this.latestScore!;
   if (score.tracks.length === 1) {
     throw new Error("Cannot remove the only track in a score");
   }
-  const idx = score.tracks.findIndex((t) => String(t.id) === op.trackId);
-  if (idx === -1) throw new Error(`Track ${op.trackId} not found`);
-  score.tracks.splice(idx, 1);
+  const targetPos = Number(op.trackId);
+  if (Number.isNaN(targetPos) || targetPos < 0 || targetPos >= score.tracks.length) {
+    throw new Error(`Track ${op.trackId} not found`);
+  }
+  score.tracks.splice(targetPos, 1);
+  // Reset .index on remaining tracks so subsequent findTrack lookups stay consistent.
+  for (let i = 0; i < score.tracks.length; i++) {
+    (score.tracks[i] as unknown as { index: number }).index = i;
+  }
 }
 ```
 
@@ -763,6 +798,8 @@ it("scoreToMetadata extracts per-track tuning + capo", () => {
 
 - [ ] **Step 2: Update `scoreToMetadata` to read per-track**
 
+> **Verified semantics (T0 probe):** `tuning` and `capo` live on `Staff`, NOT on `Track`. Read from `t.staves[0].tuning` (the read-only `number[]` getter that returns the MIDI int array) and `t.staves[0].capo`. Track id is positional — `String(i)` (== `String(t.index)`).
+
 Replace the existing implementation:
 
 ```ts
@@ -774,21 +811,30 @@ function scoreToMetadata(score: unknown): TabMetadata {
     subtitle: s.subtitle,
     tempo: typeof s.tempo === "number" ? s.tempo : 120,
     timeSignature: { numerator: 4, denominator: 4 },
-    tracks: (s.tracks ?? []).map((t, i) => ({
-      id: String(t.id ?? i),
-      name: t.name ?? `Track ${i + 1}`,
-      instrument: (t.instrument as "guitar" | "bass") ?? "guitar",
-      tuning: (t.tuning ?? []).map(midiToScientificPitch),
-      capo: typeof t.capo === "number" ? t.capo : 0,
-    })),
+    tracks: (s.tracks ?? []).map((t, i) => {
+      const staff = t.staves?.[0];
+      return {
+        id: String(i),                       // positional, matches t.index
+        name: t.name ?? `Track ${i + 1}`,
+        instrument: inferInstrument(t),      // "guitar" | "bass" — see helper below
+        tuning: (staff?.tuning ?? []).map(midiToScientificPitch),
+        capo: typeof staff?.capo === "number" ? staff.capo : 0,
+      };
+    }),
     sections: extractSections(s),
     totalBeats: extractTotalBeats(s),
     durationSeconds: typeof s.durationSeconds === "number" ? s.durationSeconds : 0,
   };
 }
+
+// "guitar" if 5–7 strings, "bass" if 3–4 strings, default "guitar".
+function inferInstrument(t: TrackLike): "guitar" | "bass" {
+  const stringCount = t.staves?.[0]?.tuning?.length ?? 6;
+  return stringCount <= 4 ? "bass" : "guitar";
+}
 ```
 
-(Need `midiToScientificPitch`. If alphaTab stores tuning as MIDI ints, write the inverse of `scientificPitchToMidi`.)
+(Need `midiToScientificPitch`. If alphaTab stores tuning as MIDI ints, write the inverse of `scientificPitchToMidi`. Pure function, unit-test it.)
 
 - [ ] **Step 3: Run tests to verify pass**
 
@@ -828,7 +874,7 @@ it("setPlaybackState forwards mute/solo to alphaTab API", async () => {
 
 - [ ] **Step 2: Implement `setPlaybackState`**
 
-Use the API method confirmed in T0 (likely `api.changeTrackMute(tracks: Track[], mute: boolean)` and `api.changeTrackSolo(tracks: Track[], solo: boolean)`):
+> **Verified semantics (T0 probe):** `Track` has only `index`, no `id`. Match by `String(t.index)`. `api.changeTrackMute` (line 1518) and `api.changeTrackSolo` (line 1485) take `Track[]` arrays directly.
 
 ```ts
 public setPlaybackState(state: {
@@ -836,8 +882,8 @@ public setPlaybackState(state: {
 }): void {
   if (!this.api) return;
   const allTracks = this.latestScore!.tracks;
-  const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.id)));
-  const soloed = allTracks.filter((t) => state.soloedTrackIds.includes(String(t.id)));
+  const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.index)));
+  const soloed = allTracks.filter((t) => state.soloedTrackIds.includes(String(t.index)));
   this.api.changeTrackMute(allTracks, false);
   this.api.changeTrackSolo(allTracks, false);
   if (muted.length > 0) this.api.changeTrackMute(muted, true);
@@ -865,22 +911,25 @@ git commit -am "feat(tabs): TAB-009 T8 — setPlaybackState mute/solo forwarding
 - Modify: `src/app/knowledge_base/features/tab/editHistory/inverseOf.ts`
 - Test: `inverseOf.test.ts`
 
+> **Known TAB-009 limitation (intentional):** `applyAddTrack` always appends at the end. So undoing `remove-track` of a non-last track produces a score where the previously-removed track ends up at the end, not at its original position. This is visible only in the order shown in the Properties panel — note content is preserved exactly. Users who want positional undo can restore via reorder-track (deferred to a follow-up ticket). Document this in the open follow-up items list.
+
 - [ ] **Step 1: Write failing tests**
 
 ```ts
-it("add-track inverse is remove-track with the new id", () => {
+it("add-track inverse is remove-track with the new positional id", () => {
   const op: TabEditOp = { type: "add-track", name: "Drums",
     instrument: "guitar", tuning: ["E2","A2","D3","G3","B3","E4"], capo: 0 };
   const preState = { trackCount: 2 } as PreOpState;
   const inv = inverseOf(op, preState);
+  // After add, the new track is at position 2 (positions 0..2 exist).
   expect(inv).toEqual({ type: "remove-track", trackId: "2" });
 });
 
-it("remove-track inverse is add-track with captured fields", () => {
+it("remove-track inverse is add-track with captured fields (re-appends at end)", () => {
   const op: TabEditOp = { type: "remove-track", trackId: "1" };
   const preState = {
     trackCount: 2,
-    removedTrack: { id: "1", name: "Bass", instrument: "bass",
+    removedTrack: { name: "Bass", instrument: "bass",
       tuning: ["E1","A1","D2","G2"], capo: 2 },
   } as PreOpState;
   const inv = inverseOf(op, preState);
@@ -928,44 +977,72 @@ git commit -am "feat(tabs): TAB-009 T9 — inverseOf for add-track/remove-track"
 - Modify: `src/app/knowledge_base/features/tab/sidecarReconcile.ts`
 - Test: `sidecarReconcile.test.ts`
 
+> **Verified semantics (T0 probe):** `trackRefs` is an ordered array `{ id, name }[]`. `add-track` appends with a fresh UUID; `remove-track` splices at the position the engine just removed. The caller passes `ctx.newTrackId` (UUID for add) or `ctx.removedPosition` (number for remove).
+
 - [ ] **Step 1: Write failing tests**
 
 ```ts
-it("add-track registers a new stableId in trackRefs", () => {
-  const prev = { version: 2, sectionRefs: {}, trackRefs: { "tk1": "Lead" } };
+it("add-track appends { id, name } to trackRefs", () => {
+  const prev = { version: 2, sectionRefs: {},
+    trackRefs: [{ id: "tk-lead-uuid", name: "Lead" }] };
   const op: TabEditOp = { type: "add-track", name: "Drums",
-    instrument: "guitar", tuning: [], capo: 0 };
-  const next = updateSidecarOnEdit(prev, op, { newTrackId: "2" });
-  expect(next.trackRefs).toEqual({ "tk1": "Lead", "tk2": "Drums" });
+    instrument: "guitar", tuning: ["E2","A2","D3","G3","B3","E4"], capo: 0 };
+  const next = updateSidecarOnEdit(prev, op, { newTrackId: "tk-drums-uuid" });
+  expect(next.trackRefs).toEqual([
+    { id: "tk-lead-uuid", name: "Lead" },
+    { id: "tk-drums-uuid", name: "Drums" },
+  ]);
 });
 
-it("remove-track drops the entry", () => {
-  const prev = { version: 2, sectionRefs: {}, trackRefs: { "tk1": "Lead", "tk2": "Bass" } };
-  const op: TabEditOp = { type: "remove-track", trackId: "2" };
-  const next = updateSidecarOnEdit(prev, op);
-  expect(next.trackRefs).toEqual({ "tk1": "Lead" });
+it("remove-track splices at removedPosition; surviving entries shift down", () => {
+  const prev = { version: 2, sectionRefs: {},
+    trackRefs: [
+      { id: "tk-a", name: "Lead" },
+      { id: "tk-b", name: "Bass" },
+      { id: "tk-c", name: "Drums" },
+    ]};
+  const op: TabEditOp = { type: "remove-track", trackId: "1" };
+  const next = updateSidecarOnEdit(prev, op, { removedPosition: 1 });
+  expect(next.trackRefs).toEqual([
+    { id: "tk-a", name: "Lead" },
+    { id: "tk-c", name: "Drums" },   // tk-c retains its UUID; now at position 1
+  ]);
 });
 ```
 
 - [ ] **Step 2: Implement reconcile cases**
 
-In `sidecarReconcile.ts`, extend `updateSidecarOnEdit`:
+In `sidecarReconcile.ts`, extend `updateSidecarOnEdit` and its `Context` type:
 
 ```ts
+export interface Context {
+  newSectionId?: string;
+  newTrackId?: string;       // UUID for add-track
+  removedPosition?: number;  // splice index for remove-track
+}
+
 case "add-track":
+  if (!context.newTrackId) {
+    throw new Error("updateSidecarOnEdit(add-track) requires context.newTrackId");
+  }
   return {
     ...prev,
-    trackRefs: { ...prev.trackRefs, [`tk${context.newTrackId}`]: op.name },
+    trackRefs: [...prev.trackRefs, { id: context.newTrackId, name: op.name }],
   };
 case "remove-track": {
-  const { [`tk${op.trackId}`]: _drop, ...rest } = prev.trackRefs;
-  return { ...prev, trackRefs: rest };
+  if (typeof context.removedPosition !== "number") {
+    throw new Error("updateSidecarOnEdit(remove-track) requires context.removedPosition");
+  }
+  return {
+    ...prev,
+    trackRefs: prev.trackRefs.filter((_, i) => i !== context.removedPosition),
+  };
 }
 ```
 
 - [ ] **Step 3: Wire into the call site**
 
-In `useTabContent.ts` (or wherever the post-applyEdit sidecar reconcile happens — TAB-008 T18), call `updateSidecarOnEdit` for `add-track`/`remove-track` ops in addition to the existing section ops.
+In `useTabContent.ts` (or wherever the post-applyEdit sidecar reconcile happens — TAB-008 T18), call `updateSidecarOnEdit` for `add-track` / `remove-track` ops in addition to the existing section ops. The TabView (T26) generates a fresh UUID via `crypto.randomUUID()` before dispatching `add-track`, captures the position before dispatching `remove-track`, and passes both into `ctx`.
 
 - [ ] **Step 4: Run tests to verify pass**
 
@@ -1262,6 +1339,10 @@ git commit -m "feat(tabs): TAB-009 T14 — VoiceToggle component"
 ```
 
 ---
+
+### Runtime check before T15 — confirm V2 voice auto-renders
+
+> **Verified concern (T0 probe):** the `.d.ts` exposes `Bar.isMultiVoice` and `Bar.filledVoices` but does not state whether `voices[1]` content auto-renders. The implementer of T15 should manually verify (via a fixture loaded into the existing TabView dev page): create a bar with `voices[0]` and `voices[1]` both populated, render with alphaTab, and confirm both voices appear with separate stems on the canvas. If they do not, the V1/V2 toggle is meaningless until a render flag is set; in that case the implementer escalates BLOCKED before continuing T15.
 
 ### T15 — `TabEditorToolbar` adds `VoiceToggle`
 
