@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import type { ExplorerFilter } from "./shared/utils/types";
+import type { ExplorerFilter, DocumentMeta } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
@@ -476,6 +476,20 @@ function KnowledgeBaseInner() {
       reportError(e, `Creating ${docPath}`);
     }
   }, [fileExplorer.dirHandleRef, docManager, handleOpenDocument, reportError]);
+
+  const onMigrateLegacyDocuments = useCallback(
+    async (_filePath: string, docs: DocumentMeta[]) => {
+      if (!docs.length) return;
+      await docManager.withBatch(async () => {
+        for (const d of docs) {
+          for (const a of d.attachedTo ?? []) {
+            docManager.attachDocument(d.filename, a.type as "node" | "connection" | "flow", a.id);
+          }
+        }
+      });
+    },
+    [docManager],
+  );
 
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads on `activeFile` change, so opening the pane is
@@ -1098,6 +1112,7 @@ function KnowledgeBaseInner() {
             }
           }}
           onLoadDocuments={docManager.setDocuments}
+          onMigrateLegacyDocuments={onMigrateLegacyDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}
           readDocument={readDocument}

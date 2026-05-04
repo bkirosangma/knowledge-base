@@ -3,6 +3,13 @@ import { renderHook, act } from '@testing-library/react'
 import { useRef } from 'react'
 import { useFileActions } from './useFileActions'
 import { SKIP_DISCARD_CONFIRM_KEY } from '../constants'
+import type { DocumentMeta } from '../utils/types'
+
+// Mock createDiagramRepository so the migration rewrite does not touch real FSA.
+const mockDiagramRepoWrite = vi.fn(async () => {})
+vi.mock('../../infrastructure/diagramRepo', () => ({
+  createDiagramRepository: () => ({ write: mockDiagramRepoWrite }),
+}))
 
 // Covers HOOK-6.2-01 through 6.2-08 + 6.2-10/11. Wiki-link propagation on
 // rename/move (6.2-09/6.2-11) sits inside useFileExplorer itself and is
@@ -398,5 +405,131 @@ describe('discard flow', () => {
       await hook.result.current.handleConfirmAction()
     })
     expect(fileExplorer.discardFile).toHaveBeenCalled()
+  })
+})
+
+describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
+  beforeEach(() => {
+    mockDiagramRepoWrite.mockClear()
+  })
+
+  it('calls onMigrateLegacyDocuments and rewrites diagram with documents:[] when data.documents is non-empty', async () => {
+    const legacyDocs: DocumentMeta[] = [
+      { id: 'doc-1', filename: 'n.md', title: 'N', attachedTo: [{ type: 'node', id: 'n1' }] },
+    ]
+    const dataWithLegacyDocs = {
+      ...diagramData('legacy'),
+      documents: legacyDocs,
+    }
+    const onMigrateLegacyDocuments = vi.fn(async () => {})
+
+    const hook = renderHook(() => {
+      const isRestoringRef = useRef(false)
+      const canvasRef = useRef<HTMLDivElement | null>(null)
+      return useFileActions(
+        {
+          activeFile: null,
+          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+          selectFile: vi.fn(async (_path: string) => ({
+            data: dataWithLegacyDocs,
+            diskJson: JSON.stringify(dataWithLegacyDocs),
+            hasDraft: false,
+          })),
+          saveFile: vi.fn(async () => true),
+          createFile: vi.fn(async () => null),
+          createFolder: vi.fn(async () => null),
+          deleteFile: vi.fn(async () => {}),
+          deleteFolder: vi.fn(async () => {}),
+          renameFile: vi.fn(async () => {}),
+          renameFolder: vi.fn(async () => {}),
+          duplicateFile: vi.fn(async () => null),
+          moveItem: vi.fn(async () => {}),
+          discardFile: vi.fn(async () => null),
+        } as unknown as Parameters<typeof useFileActions>[0],
+        {
+          initHistory: vi.fn(async () => {}),
+          onSave: vi.fn(),
+          goToSaved: vi.fn(() => null),
+        } as unknown as Parameters<typeof useFileActions>[1],
+        vi.fn() as unknown as Parameters<typeof useFileActions>[2],
+        isRestoringRef,
+        false,
+        vi.fn(),
+        null,
+        vi.fn(),
+        canvasRef,
+        'title', [], [], [], {}, 'orthogonal', [],
+        undefined,   // documents
+        undefined,   // onLoadDocuments
+        onMigrateLegacyDocuments,
+      )
+    })
+
+    await act(async () => {
+      await hook.result.current.handleLoadFile('legacy.json')
+    })
+
+    // Callback must be called once with the file path and the legacy docs array.
+    expect(onMigrateLegacyDocuments).toHaveBeenCalledOnce()
+    expect(onMigrateLegacyDocuments).toHaveBeenCalledWith('legacy.json', legacyDocs)
+
+    // The diagram rewrite must have happened with documents: [].
+    expect(mockDiagramRepoWrite).toHaveBeenCalledOnce()
+    const [writtenPath, writtenData] = mockDiagramRepoWrite.mock.calls[0] as unknown as [string, typeof dataWithLegacyDocs]
+    expect(writtenPath).toBe('legacy.json')
+    expect(writtenData.documents).toEqual([])
+  })
+
+  it('skips migration when data.documents is absent (idempotent)', async () => {
+    const onMigrateLegacyDocuments = vi.fn(async () => {})
+
+    const hook = renderHook(() => {
+      const isRestoringRef = useRef(false)
+      const canvasRef = useRef<HTMLDivElement | null>(null)
+      return useFileActions(
+        {
+          activeFile: null,
+          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+          selectFile: vi.fn(async (_path: string) => ({
+            data: diagramData('migrated'),
+            diskJson: JSON.stringify(diagramData('migrated')),
+            hasDraft: false,
+          })),
+          saveFile: vi.fn(async () => true),
+          createFile: vi.fn(async () => null),
+          createFolder: vi.fn(async () => null),
+          deleteFile: vi.fn(async () => {}),
+          deleteFolder: vi.fn(async () => {}),
+          renameFile: vi.fn(async () => {}),
+          renameFolder: vi.fn(async () => {}),
+          duplicateFile: vi.fn(async () => null),
+          moveItem: vi.fn(async () => {}),
+          discardFile: vi.fn(async () => null),
+        } as unknown as Parameters<typeof useFileActions>[0],
+        {
+          initHistory: vi.fn(async () => {}),
+          onSave: vi.fn(),
+          goToSaved: vi.fn(() => null),
+        } as unknown as Parameters<typeof useFileActions>[1],
+        vi.fn() as unknown as Parameters<typeof useFileActions>[2],
+        isRestoringRef,
+        false,
+        vi.fn(),
+        null,
+        vi.fn(),
+        canvasRef,
+        'title', [], [], [], {}, 'orthogonal', [],
+        undefined,   // documents
+        undefined,   // onLoadDocuments
+        onMigrateLegacyDocuments,
+      )
+    })
+
+    await act(async () => {
+      await hook.result.current.handleLoadFile('migrated.json')
+    })
+
+    expect(onMigrateLegacyDocuments).not.toHaveBeenCalled()
+    expect(mockDiagramRepoWrite).not.toHaveBeenCalled()
   })
 })

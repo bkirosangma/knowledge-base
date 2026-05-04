@@ -544,6 +544,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 `useHistoryCore`, `useHistoryFileSync`, `useDiagramHistory`, `useDocumentHistory`, `historyPersistence` — all in `shared/hooks/` or `shared/utils/`.
 ### 6.2 `useFileActions`
 - ⚙️ **High-level file ops** — load, save, create, delete, rename, duplicate, move; bridges file-system calls to diagram state; integrates history init on load and commit on save.
+  - ⚙️ **Lazy migration of legacy `data.documents`** — on `handleLoadFile`, if the diagram JSON contains a non-empty `data.documents` array (legacy inline persistence) and an `onMigrateLegacyDocuments` callback is provided, folds those entries into the workspace attachment-links store and rewrites the diagram with `documents: []` so subsequent loads skip migration. Idempotent. `shared/hooks/useFileActions.ts`, `infrastructure/diagramRepo.ts`
 ### 6.3 `useEditableState`
 - ⚙️ **Inline-edit state machine** — editing flag, draft value, error message; auto-resets on external value change; `inputRef` auto-focus helper.
 ### 6.4 `useSyncRef`

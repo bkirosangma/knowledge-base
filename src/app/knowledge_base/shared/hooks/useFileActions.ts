@@ -4,6 +4,7 @@ import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/pers
 import type { DiagramSnapshot } from "./useDiagramHistory";
 import type { useFileExplorer } from "./useFileExplorer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../constants";
+import { createDiagramRepository } from "../../infrastructure/diagramRepo";
 
 interface ConfirmAction {
   type: "delete-file" | "delete-folder" | "discard";
@@ -45,6 +46,7 @@ export function useFileActions(
   flows: FlowDef[],
   documents?: DocumentMeta[],
   onLoadDocuments?: (docs: DocumentMeta[]) => void,
+  onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>,
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
   onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void,
@@ -60,10 +62,10 @@ export function useFileActions(
   // preserves "latest known state" reads inside the callbacks while
   // shrinking the dep list back to stable callables.
   const currentStateRef = useRef({
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments, onMigrateLegacyDocuments,
   });
   currentStateRef.current = {
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, documents, onLoadDocuments, onMigrateLegacyDocuments,
   };
 
   const callbacksRef = useRef({ onAfterSave, onAfterDiscard, onAfterDiagramSaved });
@@ -87,6 +89,24 @@ export function useFileActions(
     if (!result) return;
     const { data, diskJson, hasDraft } = result;
     const diskData = JSON.parse(diskJson);
+
+    // Lazy migration: fold legacy data.documents into the workspace
+    // attachment-links store and rewrite the diagram with documents: [].
+    // Idempotent — skips when data.documents is empty/absent.
+    if (data.documents?.length && currentStateRef.current.onMigrateLegacyDocuments) {
+      const docsToMigrate = data.documents;
+      await currentStateRef.current.onMigrateLegacyDocuments(fileName, docsToMigrate);
+      data.documents = [];
+      // Rewrite the on-disk diagram so subsequent loads skip migration.
+      const rootHandle = fileExplorer.dirHandleRef.current;
+      if (rootHandle) {
+        const repo = createDiagramRepository(rootHandle);
+        await repo.write(fileName, data);
+      }
+      // Also clear legacy docs from the disk snapshot to keep both paths clean.
+      if (diskData.documents) diskData.documents = [];
+    }
+
     const diagram = loadDiagramFromData(data);
     const snapshotSource = hasDraft ? loadDiagramFromData(diskData) : undefined;
     // Baseline = disk version (saved state). Draft docs stay in data.documents.
