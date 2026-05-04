@@ -13,20 +13,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Empty under root deploys (dev, Vercel); `/knowledge-base` under GitHub
+// Pages. Next auto-prefixes `<Link>` and `_next/static`, but metadata
+// strings like `manifest`/`icons` render as literal hrefs and need this.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
   title: "Knowledge Base",
   description: "Local-first knowledge base with diagrams and documents",
   // PWA manifest reference. The icon is an SVG (Lighthouse-acceptable)
   // so we don't ship per-resolution PNGs.
-  manifest: "/manifest.json",
+  manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Knowledge Base",
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: `${basePath}/icon.svg`,
+    apple: `${basePath}/icon.svg`,
   },
 };
 
