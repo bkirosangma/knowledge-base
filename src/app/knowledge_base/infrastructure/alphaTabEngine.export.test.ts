@@ -64,7 +64,7 @@ vi.mock("@coderline/alphatab", () => ({
     Note: class {},
     BendPoint: class { constructor(public offset = 0, public value = 0) {} },
     BendType: { None: 0, Bend: 1 },
-    SlideOutType: { None: 0, Shift: 1 },
+    SlideOutType: { None: 0, Shift: 1, OutDown: 4 },
     VibratoType: { None: 0, Slight: 1 },
     HarmonicType: { None: 0, Natural: 1 },
     Duration: { Eighth: 8, Quarter: 4 },

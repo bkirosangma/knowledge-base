@@ -1121,3 +1121,39 @@ describe("AlphaTabSession.setPlaybackState — mute/solo (TAB-009 T8)", () => {
     );
   });
 });
+
+describe("applyEdit add-technique slide — direction cycle", () => {
+  const SLIDE_TYPE_SHIFT = 1;
+  const SLIDE_TYPE_OUTDOWN = 4;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let session: any;
+
+  beforeEach(async () => {
+    const score = await buildScore();
+    const engine = new AlphaTabEngine();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    // Mirror the main describe setup: mount without initialSource, then inject
+    // real Score and do a manual load so fakeApiInstance is available.
+    session = await engine.mount(container, { readOnly: false });
+    fakeApiInstance.texPayload = score;
+    await session.load({ kind: "alphatex", text: FIXTURE });
+  });
+
+  it("direction omitted defaults to slide-up (Shift)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
+    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_SHIFT);
+  });
+
+  it("direction 'up' explicit also sets Shift", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "up" });
+    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_SHIFT);
+  });
+
+  it("direction 'down' sets OutDown (4)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "down" });
+    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_OUTDOWN);
+  });
+});

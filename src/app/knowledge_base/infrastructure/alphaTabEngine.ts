@@ -255,7 +255,7 @@ export function scientificPitchToMidi(pitch: string): number {
 function buildTechniqueMutators(
   enums: {
     BendType: { None: number; Bend: number };
-    SlideOutType: { None: number; Shift: number };
+    SlideOutType: { None: number; Shift: number; OutDown: number };
     VibratoType: { None: number; Slight: number };
     HarmonicType: { None: number; Natural: number };
     Duration: { Eighth: number; Quarter: number };
@@ -287,7 +287,11 @@ function buildTechniqueMutators(
       },
     },
     "slide": {
-      apply:  (n) => { n.slideOutType = SlideOutType.Shift; },
+      apply: (n, op) => {
+        n.slideOutType = op?.direction === "down"
+          ? SlideOutType.OutDown
+          : SlideOutType.Shift;
+      },
       remove: (n) => { n.slideOutType = SlideOutType.None; },
     },
     "tie": {
@@ -349,7 +353,7 @@ export class AlphaTabEngine implements TabEngine {
     const BendPointCtor = mod.model.BendPoint as unknown as new (offset?: number, value?: number) => { offset: number; value: number };
     const enums = {
       BendType:     mod.model.BendType     as { None: number; Bend: number },
-      SlideOutType: mod.model.SlideOutType as { None: number; Shift: number },
+      SlideOutType: mod.model.SlideOutType as { None: number; Shift: number; OutDown: number },
       VibratoType:  mod.model.VibratoType  as { None: number; Slight: number },
       HarmonicType: mod.model.HarmonicType as { None: number; Natural: number },
       Duration:     mod.model.Duration     as { Eighth: number; Quarter: number },
