@@ -148,6 +148,20 @@ function makeCaptureState(score: unknown) {
         const name = (track.name as string | undefined) ?? `Track ${idx + 1}`;
         return { removedTrack: { name, instrument, tuning, capo } } as PreState;
       }
+      case "add-technique":
+      case "remove-technique": {
+        if (op.technique !== "bend" && op.technique !== "slide") {
+          return {} as PreState;
+        }
+        const note = s ? findNote(s, op.beat, op.string) : null;
+        const bendType = (note?.bendType as number | undefined) ?? 0;
+        const slideOutType = (note?.slideOutType as number | undefined) ?? 0;
+        const bendPoints = note?.bendPoints as { value: number }[] | null | undefined;
+        const bendValue = bendPoints && bendPoints.length > 0
+          ? bendPoints[bendPoints.length - 1]?.value
+          : undefined;
+        return { technique: { bendType, bendValue, slideOutType } } as PreState;
+      }
       default:
         return {} as PreState;
     }
@@ -272,6 +286,183 @@ describe("TabEditor captureState (C1 — undo restores real pre-state)", () => {
         tuning: ["G2", "D2", "A1", "E1"],
         capo: 2,
       },
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Score fixture with bend and slide note data for TAB-008b pre-state tests.
+// beat 0, string 6: bendType=1, bendPoints=[{value:50}], slideOutType=0
+// beat 1, string 6: bendType=0, slideOutType=1 (Shift = up)
+// beat 2, string 6: plain note, no bend/slide
+// ---------------------------------------------------------------------------
+function makeBendSlideScore() {
+  return {
+    masterBars: [
+      {
+        tempoAutomations: [{ value: 120 }],
+        section: null,
+      },
+    ],
+    tracks: [
+      {
+        name: "Guitar",
+        staves: [
+          {
+            tuning: [64, 59, 55, 50, 45, 40],
+            capo: 0,
+            bars: [
+              {
+                voices: [
+                  {
+                    beats: [
+                      {
+                        duration: 4,
+                        notes: [
+                          {
+                            string: 6,
+                            fret: 5,
+                            bendType: 1,       // BendType.Bend
+                            bendPoints: [{ value: 0 }, { value: 50 }],
+                            slideOutType: 0,
+                          },
+                        ],
+                      },
+                      {
+                        duration: 4,
+                        notes: [
+                          {
+                            string: 6,
+                            fret: 7,
+                            bendType: 0,
+                            bendPoints: [],
+                            slideOutType: 1,   // SlideType.Shift = up
+                          },
+                        ],
+                      },
+                      {
+                        duration: 4,
+                        notes: [
+                          {
+                            string: 6,
+                            fret: 9,
+                            // no bendType / slideOutType properties
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("TabEditor captureState — bend/slide cycle pre-state (TAB-008b)", () => {
+  it("captures bendType + final bendPoint value for add-technique bend", () => {
+    // Note at beat 0, string 6 has bendType=1 and bendPoints ending at value=50.
+    // Dispatch add-technique bend amount=100 (i.e. cycling to a new bend).
+    // The inverse op (undo) should restore amount=50 (the pre-mutation final point value).
+    const score = makeBendSlideScore();
+    const dispatch = vi.fn();
+    const deps = { dispatch, captureState: makeCaptureState(score) };
+    const { result } = renderHook(() => useTabEditHistory(deps));
+
+    act(() => {
+      result.current.apply({ type: "add-technique", beat: 0, string: 6, technique: "bend", amount: 100 });
+    });
+
+    act(() => {
+      result.current.undo();
+    });
+
+    // Pre-state: bendType=1, bendValue=50 → inverse is add-technique bend amount=50.
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "add-technique", beat: 0, string: 6, technique: "bend", amount: 50,
+    });
+  });
+
+  it("captures slideOutType for add-technique slide (up → restores up)", () => {
+    // Note at beat 1, string 6 has slideOutType=1 (Shift = up).
+    // Dispatch add-technique slide direction="down" (cycling).
+    // The inverse should restore add-technique slide direction="up".
+    const score = makeBendSlideScore();
+    const dispatch = vi.fn();
+    const deps = { dispatch, captureState: makeCaptureState(score) };
+    const { result } = renderHook(() => useTabEditHistory(deps));
+
+    act(() => {
+      result.current.apply({ type: "add-technique", beat: 1, string: 6, technique: "slide", direction: "down" });
+    });
+
+    act(() => {
+      result.current.undo();
+    });
+
+    // Pre-state: slideOutType=1 → inverse is add-technique slide direction="up".
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "add-technique", beat: 1, string: 6, technique: "slide", direction: "up",
+    });
+  });
+
+  it("returns empty pre-state for non-bend/slide technique (e.g. hammer-on)", () => {
+    // Note at beat 0, string 6 exists but technique is hammer-on.
+    // captureState should return {} → inverseOf produces remove-technique hammer-on.
+    const score = makeBendSlideScore();
+    const dispatch = vi.fn();
+    const deps = { dispatch, captureState: makeCaptureState(score) };
+    const { result } = renderHook(() => useTabEditHistory(deps));
+
+    act(() => {
+      result.current.apply({ type: "add-technique", beat: 0, string: 6, technique: "hammer-on" });
+    });
+
+    act(() => {
+      result.current.undo();
+    });
+
+    // Empty pre-state → inverseOf returns remove-technique hammer-on.
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "remove-technique", beat: 0, string: 6, technique: "hammer-on",
+    });
+  });
+
+  it("captureState directly returns bend pre-state shape from score", () => {
+    const score = makeBendSlideScore();
+    const captureState = makeCaptureState(score);
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 6, technique: "bend", amount: 100 };
+    expect(captureState(op)).toEqual({
+      technique: { bendType: 1, bendValue: 50, slideOutType: 0 },
+    });
+  });
+
+  it("captureState directly returns slide pre-state shape from score", () => {
+    const score = makeBendSlideScore();
+    const captureState = makeCaptureState(score);
+    const op: TabEditOp = { type: "add-technique", beat: 1, string: 6, technique: "slide", direction: "down" };
+    expect(captureState(op)).toEqual({
+      technique: { bendType: 0, bendValue: undefined, slideOutType: 1 },
+    });
+  });
+
+  it("captureState returns empty pre-state for non-bend/slide technique", () => {
+    const score = makeBendSlideScore();
+    const captureState = makeCaptureState(score);
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 6, technique: "hammer-on" };
+    expect(captureState(op)).toEqual({});
+  });
+
+  it("captureState for bend on note with no bendPoints returns bendValue=undefined", () => {
+    // beat 2, string 6: plain note, no bendType/slideOutType fields.
+    const score = makeBendSlideScore();
+    const captureState = makeCaptureState(score);
+    const op: TabEditOp = { type: "add-technique", beat: 2, string: 6, technique: "bend", amount: 50 };
+    expect(captureState(op)).toEqual({
+      technique: { bendType: 0, bendValue: undefined, slideOutType: 0 },
     });
   });
 });

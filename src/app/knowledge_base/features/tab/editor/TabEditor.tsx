@@ -123,6 +123,20 @@ export default function TabEditor({
         const name = (track.name as string | undefined) ?? `Track ${idx + 1}`;
         return { removedTrack: { name, instrument, tuning, capo } } as PreState;
       }
+      case "add-technique":
+      case "remove-technique": {
+        if (op.technique !== "bend" && op.technique !== "slide") {
+          return {} as PreState;
+        }
+        const note = s ? findNote(s, op.beat, op.string) : null;
+        const bendType = (note?.bendType as number | undefined) ?? 0;
+        const slideOutType = (note?.slideOutType as number | undefined) ?? 0;
+        const bendPoints = note?.bendPoints as { value: number }[] | null | undefined;
+        const bendValue = bendPoints && bendPoints.length > 0
+          ? bendPoints[bendPoints.length - 1]?.value
+          : undefined;
+        return { technique: { bendType, bendValue, slideOutType } } as PreState;
+      }
       default:
         return {} as PreState;
     }
