@@ -199,7 +199,12 @@ function KnowledgeBaseInner() {
       })
       .catch((e) => {
         if (cancelled) return;
-        reportError(e as Error, "Reading .kb/attachment-links.json");
+        // Boot-read is a passive init — log to console for diagnostics but do
+        // not surface a toast. If the user's permission has lapsed (NotAllowed
+        // / SecurityError) or any other read failure occurs, the user will see
+        // a contextual error the first time they actually attach/detach (the
+        // onFlush write path still calls reportError on failure).
+        console.warn("[attachments] Boot read of .kb/attachment-links.json failed:", e);
         setBootLoaded(true);
       });
     return () => {
