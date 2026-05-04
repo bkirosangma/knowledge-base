@@ -137,8 +137,8 @@ export function TabView({
       op.type !== "add-track" &&
       op.type !== "remove-track"
     ) return;
-    // remove-track needs pre-edit position capture which T10 doesn't wire.
-    if (op.type === "remove-track") return; // TODO(T26): capture removedPosition pre-edit
+    // remove-track is handled by handleRemoveTrack (with pre-edit position capture).
+    if (op.type === "remove-track") return;
     const fp = filePathRef.current;
     const md = metadataRef.current;
     if (!fp) return;
@@ -238,6 +238,53 @@ export function TabView({
     );
   }, []);
 
+  // T26: active-track wiring — cursor.trackIndex drives activeTrackIndex.
+  const handleSwitchActiveTrack = useCallback((i: number) => {
+    setCursor({ trackIndex: i, voiceIndex: 0, beat: 0, string: 1 });
+  }, [setCursor]);
+
+  // T26: track CRUD dispatched through propertiesApply (undo pipeline).
+  const handleAddTrack = useCallback((track: {
+    name: string;
+    instrument: "guitar" | "bass";
+    tuning: string[];
+    capo: number;
+  }) => {
+    propertiesApply({ type: "add-track", ...track });
+  }, [propertiesApply]);
+
+  const handleSetTrackTuning = useCallback((trackId: string, tuning: string[]) => {
+    propertiesApply({ type: "set-track-tuning", trackId, tuning });
+  }, [propertiesApply]);
+
+  const handleSetTrackCapo = useCallback((trackId: string, fret: number) => {
+    propertiesApply({ type: "set-track-capo", trackId, fret });
+  }, [propertiesApply]);
+
+  // T26: remove-track needs pre-edit position capture for sidecar reconcile.
+  // The sidecar write is handled inline here (not via updateSidecarOnEdit) because
+  // the engine's splice resets track .index before the async callback runs.
+  const handleRemoveTrack = useCallback((trackId: string) => {
+    const removedPosition = Number(trackId);
+    // Dispatch via propertiesApply (full undo pipeline).
+    propertiesApply({ type: "remove-track", trackId });
+    // Always reset cursor — predictable and avoids race conditions with engine .index reset timing.
+    setCursor({ trackIndex: 0, voiceIndex: 0, beat: 0, string: 1 });
+    // Reconcile sidecar with the captured position.
+    void (async () => {
+      if (!tabRefs) return;
+      const fp = filePathRef.current;
+      if (!fp) return;
+      try {
+        const prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
+        const next = updateSidecarPayload(prev, { type: "remove-track", trackId }, { removedPosition });
+        await tabRefs.write(fp, next);
+      } catch {
+        // Swallow — useShellError flow already covers tabRefs failures.
+      }
+    })();
+  }, [propertiesApply, setCursor, tabRefs]);
+
   useTabSectionSync(
     filePath,
     metadata,
@@ -329,10 +376,16 @@ export function TabView({
         cursorBeat={cursor?.beat}
         cursorString={cursor?.string}
         onApplyEdit={propertiesApply}
+        activeTrackIndex={cursor?.trackIndex ?? 0}
+        onSwitchActiveTrack={handleSwitchActiveTrack}
         mutedTrackIds={mutedTrackIds}
         soloedTrackIds={soloedTrackIds}
         onToggleMute={handleToggleMute}
         onToggleSolo={handleToggleSolo}
+        onSetTrackTuning={handleSetTrackTuning}
+        onSetTrackCapo={handleSetTrackCapo}
+        onAddTrack={handleAddTrack}
+        onRemoveTrack={handleRemoveTrack}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker
