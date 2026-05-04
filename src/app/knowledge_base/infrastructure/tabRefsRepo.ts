@@ -3,9 +3,16 @@
  * writes the `.alphatex.refs.json` sidecar file that maps stable section ids
  * to their current display names. Mirrors `tabRepo.ts`'s pattern exactly —
  * lazy creation only, `read` returns `null` when no sidecar exists.
+ *
+ * v1 → v2 migration: on read, v1 payloads are migrated in-memory to v2.
+ * On write, v2 is always emitted (upgrading any previously-v1 file).
  */
 
-import type { TabRefsPayload, TabRefsRepository } from "../domain/tabRefs";
+import type {
+  TabRefsPayload,
+  TabRefsPayloadV1,
+  TabRefsRepository,
+} from "../domain/tabRefs";
 import {
   readTextFile,
   writeTextFile,
@@ -39,9 +46,20 @@ export function createTabRefsRepository(
       if (text === null) return null;
 
       try {
-        const parsed = JSON.parse(text);
-        if (parsed?.version !== 1) return null;
-        return parsed as TabRefsPayload;
+        const parsed = JSON.parse(text) as TabRefsPayload | TabRefsPayloadV1;
+        if (parsed.version === 1) {
+          // Migrate v1 → v2: flatten sectionRefs, add empty trackRefs.
+          const v1 = parsed as TabRefsPayloadV1;
+          const sectionRefs: Record<string, string> = {};
+          for (const [stableId, entry] of Object.entries(v1.sections)) {
+            sectionRefs[stableId] = entry.currentName;
+          }
+          return { version: 2, sectionRefs, trackRefs: [] };
+        }
+        if (parsed.version === 2) {
+          return parsed as TabRefsPayload;
+        }
+        return null;
       } catch {
         return null;
       }
@@ -49,7 +67,12 @@ export function createTabRefsRepository(
 
     async write(filePath: string, payload: TabRefsPayload) {
       try {
-        const json = JSON.stringify(payload, null, 2);
+        const v2: TabRefsPayload = {
+          version: 2,
+          sectionRefs: payload.sectionRefs,
+          trackRefs: payload.trackRefs,
+        };
+        const json = JSON.stringify(v2, null, 2);
         await writeTextFile(rootHandle, sidecarPath(filePath), json);
       } catch (e) {
         throw classifyError(e);
