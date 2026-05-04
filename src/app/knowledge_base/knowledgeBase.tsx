@@ -97,6 +97,48 @@ export function buildImportGpCommands(args: {
   }];
 }
 
+/**
+ * `buildExportTabCommands` is extracted from `KnowledgeBaseInner` so it
+ * (pure data → no React hooks, no side-effects beyond calling the handle
+ * methods) can be unit-tested without spinning up KnowledgeBaseInner.
+ *
+ * The `useMemo` deps array in the shell MUST include `panes.focusedSide`
+ * and `isMobile`; without them the registered command list can go stale.
+ */
+export function buildExportTabCommands(args: {
+  getActiveExport: () => TabExportHandle | null;
+  isMobile: boolean;
+}): Command[] {
+  const isInvocable = () => {
+    if (args.isMobile) return false;
+    const handle = args.getActiveExport();
+    return handle != null && !handle.paneReadOnly;
+  };
+  return [
+    {
+      id: "tabs.export-midi",
+      title: "Export tab as MIDI",
+      group: "Tab",
+      when: isInvocable,
+      run: () => { void args.getActiveExport()?.exportMidi(); },
+    },
+    {
+      id: "tabs.export-wav",
+      title: "Export tab as WAV",
+      group: "Tab",
+      when: isInvocable,
+      run: () => { void args.getActiveExport()?.exportWav(); },
+    },
+    {
+      id: "tabs.export-pdf",
+      title: "Print tab or save as PDF",
+      group: "Tab",
+      when: isInvocable,
+      run: () => args.getActiveExport()?.exportPdf(),
+    },
+  ];
+}
+
 function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
   const { reportError } = useShellErrors();
@@ -879,6 +921,16 @@ function KnowledgeBaseInner() {
     [gpImport, fileExplorer.directoryName, isMobile],
   );
   useRegisterCommands(importGpCommands);
+
+  const exportTabCommands = useMemo(
+    () => buildExportTabCommands({
+      getActiveExport: () =>
+        panes.focusedSide === "right" ? rightTabExportRef.current : leftTabExportRef.current,
+      isMobile,
+    }),
+    [isMobile, panes.focusedSide],
+  );
+  useRegisterCommands(exportTabCommands);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
