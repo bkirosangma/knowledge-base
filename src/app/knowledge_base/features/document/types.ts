@@ -19,7 +19,7 @@ export interface LinkIndexEntry {
 }
 
 export interface BacklinkEntry {
-  linkedFrom: { sourcePath: string; section?: string }[];
+  linkedFrom: { sourcePath: string; section?: string; track?: string }[];
 }
 
 export interface LinkIndex {
