@@ -130,21 +130,24 @@ export function useDocuments() {
     [],
   );
 
+  // ─── Back-compat shim (useCallback-wrapped to stabilize cascading deps)
+  const setDocuments = useCallback((next: DocumentMeta[]) => {
+    // Used by old onLoadDocuments call sites until T12.
+    const flat: AttachmentLink[] = next.flatMap((d) =>
+      (d.attachedTo ?? []).map((a) => ({
+        docPath: d.filename,
+        entityType: a.type,
+        entityId: a.id,
+      })),
+    );
+    setRows(flat);
+  }, []);
+
   return {
     rows,
     setRows,
     documents,
-    setDocuments: (next: DocumentMeta[]) => {
-      // Back-compat shim — used by old onLoadDocuments call sites until T12.
-      const flat: AttachmentLink[] = next.flatMap((d) =>
-        (d.attachedTo ?? []).map((a) => ({
-          docPath: d.filename,
-          entityType: a.type as AttachmentLink["entityType"],
-          entityId: a.id,
-        })),
-      );
-      setRows(flat);
-    },
+    setDocuments,
     createDocument,
     attachDocument,
     detachDocument,
