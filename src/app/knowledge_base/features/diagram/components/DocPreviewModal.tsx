@@ -26,7 +26,14 @@ const SANITIZE_CONFIG = {
     "table", "thead", "tbody", "tr", "th", "td",
     "div", "span",
   ],
-  ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "align"],
+  // `markdownToHtml` emits wiki-links as `<span data-wiki-link=...
+  // data-wiki-section=... class="wiki-link">`. Allowlist the two data
+  // attributes so the link identity survives sanitization; the static
+  // pill styling keys off `.wiki-link` (see prose.css).
+  ALLOWED_ATTR: [
+    "href", "src", "alt", "title", "class", "align",
+    "data-wiki-link", "data-wiki-section",
+  ],
   ALLOW_DATA_ATTR: false,
 };
 

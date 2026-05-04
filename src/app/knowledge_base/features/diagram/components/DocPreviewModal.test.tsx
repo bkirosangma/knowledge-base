@@ -77,3 +77,21 @@ it("DIAG-3.20-03: shows the filename in the header", async () => {
   render(<DocPreviewModal {...baseProps} />);
   await waitFor(() => expect(screen.getByText("auth-flow.md")).toBeInTheDocument());
 });
+
+it("DIAG-3.20-10: renders wiki-links with data attributes preserved", async () => {
+  // The modal reads markdown, runs it through markdownToHtml (which emits
+  // `<span data-wiki-link=... class="wiki-link">…</span>`), then sanitizes
+  // with DOMPurify. The sanitize config must allowlist `data-wiki-link` /
+  // `data-wiki-section` so the wiki-link identity survives — and the span
+  // must keep its `wiki-link` class so the static-mode CSS pill style
+  // applies.
+  baseProps.readDocument.mockResolvedValue(
+    "See [[other-doc#section|Display Text]] for context.",
+  );
+  render(<DocPreviewModal {...baseProps} />);
+  const span = await screen.findByText("Display Text");
+  expect(span.tagName).toBe("SPAN");
+  expect(span).toHaveClass("wiki-link");
+  expect(span).toHaveAttribute("data-wiki-link", "other-doc");
+  expect(span).toHaveAttribute("data-wiki-section", "section");
+});

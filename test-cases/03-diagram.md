@@ -382,8 +382,9 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 | DIAG-3.20-07 | ❌ | Diagram canvas is blurred and non-interactive while modal is open |
 | DIAG-3.20-08 | ✅ | Error state shown when document cannot be read |
 | DIAG-3.20-09 | ✅ | Entity name badge shown in header when context is known (flow name) |
+| DIAG-3.20-10 | ✅ | Wiki-links in the previewed document render as pills (data-wiki-link / data-wiki-section attributes survive sanitization, `.wiki-link` pill style applies outside the contenteditable scope) |
 
-Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), filename in header.
+Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), DIAG-3.20-10 (wiki-link rendering), filename in header.
 
 ## 3.21 Diagram File Watcher
 `features/diagram/hooks/useDiagramFileWatcher.ts`
