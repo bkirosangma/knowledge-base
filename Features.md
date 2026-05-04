@@ -304,7 +304,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 
 ### 3.18 Document Integration
 - ✅ **DocInfoBadge** (`components/DocInfoBadge.tsx`) — small badge on elements with attached documents.
-- ✅ **Attach / detach docs per entity** — persisted in the diagram JSON under `documents`.
+- ✅ **Attach / detach docs per entity** — persisted in the workspace-scoped attachment-links store (§7.1). Legacy per-diagram `documents` field is deprecated; stays as `[]` after lazy migration for backward-binary-compatibility.
 - ✅ **Backlinks surfaced in properties.**
 
 ### 3.19 Persistence
@@ -559,7 +559,23 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 |---|---|
 | **localStorage** (per-scope) | Explorer sort prefs, filter, collapse state; split ratio; pane layout; "Don't ask me again" flags; diagram drafts; per-diagram viewport; doc-properties collapse state. |
 | **IndexedDB** (`knowledge-base` / `handles`) | File System Access API directory handle (+ scope ID). |
-| **Disk (vault)** | `*.json` diagrams, `*.md` documents, `.<name>.history.json` sidecars, `.archdesigner/config.json`, `.archdesigner/_links.json`, `.archdesigner/cross-references.json`. |
+| **Disk (vault)** | `*.json` diagrams, `*.md` documents, `.<name>.history.json` sidecars, `.archdesigner/config.json`, `.archdesigner/_links.json`, `.archdesigner/cross-references.json`, `.kb/attachment-links.json`. |
+
+### 7.1 Workspace-Scoped Attachment Links Store
+`infrastructure/AttachmentLinksRepository.ts`, `hooks/useDocuments.ts`, `features/diagram/hooks/useDeletion.ts`, `shared/hooks/useFileActions.ts`, `features/tabs/hooks/useTabProperties.ts`, `shared/utils/fileTreeMatchers.ts`
+
+- ⚙️ **`<vault>/.kb/attachment-links.json`** — flat-relations store where each row links a markdown document (by vault-relative path) to one entity it is "attached to" — diagram nodes/connections/flows, or tab files/sections/tracks. Workspace-scoped: one file for all diagrams and tabs. Replaces the legacy per-diagram `documents` field via lazy migration on first diagram load (see HOOK-6.2-13).
+
+- ⚙️ **Row shape** — `{ docPath, entityType, entityId }`. Entity types: `diagram-node`, `diagram-connection`, `diagram-flow`, `tab`, `tab-section`, `tab-track`. Entity IDs are diagram-native (UUID/path) or tab-native (UUID/section slug/track UUID).
+
+- ⚙️ **Cleanup integration** — Detached automatically when entities are deleted:
+  - Diagram node/connection/flow deletion via `useDeletion` → `detachAttachmentsFor` inside `withBatch` call (T13).
+  - Tab `remove-track` operation via `TabView.handleRemoveTrack` → `detachAttachmentsFor` in `withBatch` (T15).
+  - File-tree delete of `.kbjson` / `.alphatex` / `.md` via `handleDeleteFileWithLinks` → `diagramFileMatcher` / `tabFileMatcher` / `mdFileMatcher` matchers (T16).
+
+- ⚙️ **Diagram-undo subset snapshot** — `useDiagramHistory` records the attachment-links subset for only this diagram's entities on each undo/redo checkpoint (DIAG-3.10-45, T11). Tab-scoped rows (`tab-track`, `tab-section`) and rows for other diagrams are never included in diagram undo.
+
+- ⚙️ **Lazy migration idempotency** — Re-loading a migrated diagram is a no-op. If `data.documents` is empty or absent, no migration fires. If a draft is present (`hasDraft: true`), migration is deferred to the next clean (saved) load (HOOK-6.2-13).
 
 ---
 
