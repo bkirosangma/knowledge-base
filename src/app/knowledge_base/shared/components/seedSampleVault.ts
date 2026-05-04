@@ -20,7 +20,8 @@ interface Manifest {
   openOnLoad?: string;
 }
 
-const MANIFEST_URL = "/sample-vault/manifest.json";
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const MANIFEST_URL = `${BASE_PATH}/sample-vault/manifest.json`;
 
 /** Fetch the sample vault from `/sample-vault/` and write every file
  *  into `target`. Errors propagate to the caller so the UI can surface
@@ -46,7 +47,7 @@ async function fetchManifest(): Promise<Manifest> {
 }
 
 async function writeOne(target: FileSystemDirectoryHandle, entry: ManifestEntry): Promise<void> {
-  const url = `/sample-vault/${entry.path}`;
+  const url = `${BASE_PATH}/sample-vault/${entry.path}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Sample vault file ${entry.path} fetch failed: ${res.status}`);

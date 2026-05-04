@@ -89,6 +89,10 @@ function makeHarness(): SwHarness {
   };
 
   const selfMock = {
+    // Root-deploy stub — `BASE` derives to "" so existing assertions
+    // (`/manifest.json`, `/icon.svg`, ...) still match. Override the
+    // pathname in tests that need to exercise a non-empty basePath.
+    location: { pathname: "/sw.js" },
     addEventListener(event: string, handler: (e: unknown) => void) {
       listeners.set(event, handler);
     },

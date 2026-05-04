@@ -22,8 +22,9 @@ export default function ServiceWorkerRegister() {
 
     // Don't await — registration is fire-and-forget; failures are
     // logged but never thrown into the React tree.
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
     navigator.serviceWorker
-      .register("/sw.js")
+      .register(`${basePath}/sw.js`)
       .catch((err) => {
         console.warn("[kb] service worker registration failed", err);
       });
