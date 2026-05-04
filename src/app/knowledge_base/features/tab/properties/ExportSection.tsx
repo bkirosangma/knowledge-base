@@ -28,15 +28,20 @@ export function ExportSection(props: ExportSectionProps): React.ReactElement | n
         >
           Export MIDI
         </button>
-        {/* T11 will replace this row when wavState is non-idle */}
-        <button
-          type="button"
-          disabled={anyBusy}
-          onClick={() => props.exportWav()}
-          className="rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-line/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Export WAV
-        </button>
+        <div>
+          {props.wavState.phase === "idle" ? (
+            <button
+              type="button"
+              disabled={anyBusy}
+              onClick={() => props.exportWav()}
+              className="w-full rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-line/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export WAV
+            </button>
+          ) : (
+            <WavProgressRow wavState={props.wavState} />
+          )}
+        </div>
         <button
           type="button"
           disabled={anyBusy}
@@ -47,5 +52,33 @@ export function ExportSection(props: ExportSectionProps): React.ReactElement | n
         </button>
       </div>
     </section>
+  );
+}
+
+function formatSeconds(ms: number): string {
+  return `${Math.round(ms / 1000)}s`;
+}
+
+function WavProgressRow({ wavState }: { wavState: WavState }): React.ReactElement {
+  if (wavState.phase === "saving") {
+    return <span aria-live="polite" className="text-xs text-mute">Saving…</span>;
+  }
+  const cur = wavState.progress?.currentTime ?? 0;
+  const end = wavState.progress?.endTime ?? 0;
+  const pct = end > 0 ? Math.round((cur / end) * 100) : 0;
+  return (
+    <span className="flex items-center gap-2 text-xs">
+      <span aria-live="polite" className="text-mute">
+        Rendering audio… {formatSeconds(cur)} / {formatSeconds(end)}
+      </span>
+      <progress max={100} value={pct} aria-label="Export progress" />
+      <button
+        type="button"
+        onClick={wavState.cancel}
+        className="rounded border border-line bg-surface px-2 py-0.5 hover:bg-line/20"
+      >
+        Cancel
+      </button>
+    </span>
   );
 }
