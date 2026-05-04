@@ -61,6 +61,23 @@ export interface TabSession {
     mutedTrackIds: string[];
     soloedTrackIds: string[];
   }): void;
+
+  /**
+   * Export the current score as a Standard MIDI File (SMF) binary.
+   * Defaults to MultiTrack (SMF Type 1) when format is omitted.
+   * Throws if no score has been loaded yet.
+   */
+  exportMidi(format?: TabMidiFileFormat): Uint8Array;
+}
+
+/**
+ * Standard MIDI File format selector — mirrors alphaTab's `MidiFileFormat` enum.
+ * - `SingleTrackMultiChannel` (0): SMF Type 0 — all tracks merged into one.
+ * - `MultiTrack`              (1): SMF Type 1 — one track per instrument (default).
+ */
+export enum TabMidiFileFormat {
+  SingleTrackMultiChannel = 0,
+  MultiTrack = 1,
 }
 
 export interface RenderOpts {

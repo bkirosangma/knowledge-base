@@ -49,6 +49,19 @@ interface AlphaTabApiLike {
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
+  readonly score: { tracks: { index: number }[] } | null;
+  readonly settings: unknown;
+}
+
+/** Minimal structural shape for a MidiFile used in exportMidi. */
+interface MidiFileLike {
+  format: number;
+  toBinary(): Uint8Array;
+}
+
+/** Minimal structural shape for a MidiFileGenerator used in exportMidi. */
+interface MidiFileGeneratorLike {
+  generate(): void;
 }
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
@@ -327,6 +340,14 @@ export class AlphaTabEngine implements TabEngine {
     const TuningCtor = mod.model.Tuning as unknown as
       new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
 
+    // MIDI export constructors — captured here so they live inside the lazy chunk (TAB-010 T2).
+    const MidiFileCtor = mod.midi.MidiFile as unknown as new () => MidiFileLike;
+    const MidiFileFormatEnum = mod.midi.MidiFileFormat as { SingleTrackMultiChannel: 0; MultiTrack: 1 };
+    const AlphaSynthMidiFileHandlerCtor = mod.midi.AlphaSynthMidiFileHandler as unknown as
+      new (midi: MidiFileLike, smf1Mode: boolean) => unknown;
+    const MidiFileGeneratorCtor = mod.midi.MidiFileGenerator as unknown as
+      new (score: unknown, settings: unknown, handler: unknown) => MidiFileGeneratorLike;
+
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
@@ -339,6 +360,7 @@ export class AlphaTabEngine implements TabEngine {
       techniqueMutators,
       { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum,
         TrackCtor, StaffCtor, TuningCtor },
+      { MidiFileCtor, MidiFileFormatEnum, AlphaSynthMidiFileHandlerCtor, MidiFileGeneratorCtor },
     );
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
@@ -367,6 +389,12 @@ class AlphaTabSession implements TabSession {
       TrackCtor:  new () => TrackShape;
       StaffCtor:  new () => StaffShape;
       TuningCtor: new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
+    },
+    private midiCtors: {
+      MidiFileCtor: new () => MidiFileLike;
+      MidiFileFormatEnum: { SingleTrackMultiChannel: 0; MultiTrack: 1 };
+      AlphaSynthMidiFileHandlerCtor: new (midi: MidiFileLike, smf1Mode: boolean) => unknown;
+      MidiFileGeneratorCtor: new (score: unknown, settings: unknown, handler: unknown) => MidiFileGeneratorLike;
     },
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
@@ -447,6 +475,22 @@ class AlphaTabSession implements TabSession {
     this.api.changeTrackSolo(allTracks, false);
     if (muted.length > 0) this.api.changeTrackMute(muted, true);
     if (soloed.length > 0) this.api.changeTrackSolo(soloed, true);
+  }
+
+  exportMidi(format?: import("../domain/tabEngine").TabMidiFileFormat): Uint8Array {
+    const score = this.api.score;
+    if (!score) {
+      throw new Error("exportMidi: no score loaded — call load() before exporting");
+    }
+    const { MidiFileCtor, MidiFileFormatEnum, AlphaSynthMidiFileHandlerCtor, MidiFileGeneratorCtor } = this.midiCtors;
+    const midiFile = new MidiFileCtor();
+    const resolvedFormat = format ?? MidiFileFormatEnum.MultiTrack;
+    midiFile.format = resolvedFormat;
+    const smf1Mode = resolvedFormat === MidiFileFormatEnum.MultiTrack;
+    const handler = new AlphaSynthMidiFileHandlerCtor(midiFile, smf1Mode);
+    const generator = new MidiFileGeneratorCtor(score, this.api.settings, handler);
+    generator.generate();
+    return midiFile.toBinary();
   }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {
