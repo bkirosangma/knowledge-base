@@ -31,11 +31,24 @@
 const CACHE = "kb-static-v3";
 const FILES_CACHE = "kb-files-v1";
 
-// Precached on `install`. `/` is the app shell — Next 16 streams the same
-// route handler regardless of the deep URL, so a single cached entry is
-// enough to boot any path offline. /index.html is included as an alias so
-// hosts that resolve `/` to a static file still resolve from cache.
-const APP_SHELL = ["/", "/index.html", "/manifest.json", "/icon.svg", "/soundfonts/sonivox.sf2"];
+// Self-locate from the SW's own URL so absolute paths work under any
+// deployment basePath (root on Vercel/dev, `/knowledge-base` on GH Pages).
+// `self.location.pathname` is `/sw.js` at root or `/knowledge-base/sw.js`
+// under a basePath — strip the trailing `/sw.js` to get the prefix.
+const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
+
+// Precached on `install`. `BASE + "/"` is the app shell — Next 16 streams
+// the same route handler regardless of the deep URL, so a single cached
+// entry is enough to boot any path offline. `BASE + "/index.html"` is
+// included as an alias for static hosts (GH Pages) that resolve `/` to a
+// physical file rather than the directory.
+const APP_SHELL = [
+  `${BASE}/`,
+  `${BASE}/index.html`,
+  `${BASE}/manifest.json`,
+  `${BASE}/icon.svg`,
+  `${BASE}/soundfonts/sonivox.sf2`,
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -70,15 +83,18 @@ self.addEventListener("activate", (event) => {
 });
 
 function isHashedAsset(url) {
-  return url.pathname.startsWith("/_next/static/");
+  return url.pathname.startsWith(`${BASE}/_next/static/`);
 }
 
 function isSoundFont(url) {
-  return url.pathname.startsWith("/soundfonts/");
+  return url.pathname.startsWith(`${BASE}/soundfonts/`);
 }
 
 function isManifestOrIcon(url) {
-  return url.pathname === "/manifest.json" || url.pathname === "/icon.svg";
+  return (
+    url.pathname === `${BASE}/manifest.json` ||
+    url.pathname === `${BASE}/icon.svg`
+  );
 }
 
 function isNavigationRequest(req) {
@@ -94,7 +110,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
 
   // Vault-file cache lane — cache-only.
-  if (url.pathname.startsWith("/__kb-cache/")) {
+  if (url.pathname.startsWith(`${BASE}/__kb-cache/`)) {
     event.respondWith(
       caches.open(FILES_CACHE).then((cache) =>
         cache.match(req).then(
@@ -179,13 +195,13 @@ self.addEventListener("fetch", (event) => {
         .then((res) => {
           if (res && res.ok) {
             const cloned = res.clone();
-            // Always refresh "/" on a successful navigation fetch — the
-            // shell is identical across deep links, and keeping it
-            // current is what makes a later offline boot return the
-            // freshest app, not an ancient one.
+            // Always refresh the app-shell entry on a successful
+            // navigation fetch — the shell is identical across deep
+            // links, and keeping it current is what makes a later
+            // offline boot return the freshest app, not an ancient one.
             caches
               .open(CACHE)
-              .then((cache) => cache.put("/", cloned))
+              .then((cache) => cache.put(`${BASE}/`, cloned))
               .catch(() => undefined);
           }
           return res;
@@ -194,7 +210,7 @@ self.addEventListener("fetch", (event) => {
           const cache = await caches.open(CACHE);
           return (
             (await cache.match(req)) ||
-            (await cache.match("/")) ||
+            (await cache.match(`${BASE}/`)) ||
             new Response("Offline and not cached", {
               status: 504,
               headers: { "content-type": "text/plain" },
