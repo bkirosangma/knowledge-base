@@ -76,7 +76,7 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
   return { ...real, AlphaTabApi: FakeApiCtor };
 });
 
-import { AlphaTabEngine } from "./alphaTabEngine";
+import { AlphaTabEngine, findTrack, locateBarIndex, locateBeat } from "./alphaTabEngine";
 
 // ---------------------------------------------------------------------------
 // FIXTURE: one bar, 4 quarter-note beats on string 6 with frets 5,0,0,0.
@@ -408,5 +408,99 @@ describe("AlphaTabSession.applyEdit", () => {
     expect(() =>
       session.applyEdit({ type: "remove-bar", beat: 0 }),
     ).toThrow(/last bar|only bar/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests for exported locate helpers (findTrack, locateBarIndex, locateBeat)
+// These tests use hand-rolled ScoreShape objects so they don't depend on the
+// AlphaTexImporter and exercise the helpers in isolation.
+// ---------------------------------------------------------------------------
+describe("locate helpers", () => {
+  // Minimal beat objects — identity checks use object reference.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeBeat = () => ({ duration: 4, notes: [], addNote() {}, removeNote() {} } as any);
+
+  // Build a minimal two-track ScoreShape:
+  //   track 0 (index 0): 1 bar, voice 0 has 2 beats [beat0a, beat0b]
+  //   track 1 (index 1): 1 bar, voice 0 has 1 beat  [beat1a]
+  //                               voice 1 has 1 beat  [beat1b_v2]
+  const beat0a = makeBeat();
+  const beat0b = makeBeat();
+  const beat1a = makeBeat();
+  const beat1b_v2 = makeBeat();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const score: any = {
+    masterBars: [],
+    tracks: [
+      {
+        index: 0,
+        staves: [{ bars: [{ voices: [{ beats: [beat0a, beat0b], addBeat() {} }] }] }],
+      },
+      {
+        index: 1,
+        staves: [
+          {
+            bars: [
+              {
+                voices: [
+                  { beats: [beat1a],     addBeat() {} },
+                  { beats: [beat1b_v2],  addBeat() {} },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("findTrack returns null for an unknown trackId", () => {
+    expect(findTrack(score, "99")).toBeNull();
+  });
+
+  it("findTrack returns the matching track by string-index", () => {
+    expect(findTrack(score, "1")).toBe(score.tracks[1]);
+  });
+
+  it("locateBeat defaults to track 0, voice 0", () => {
+    expect(locateBeat(score, 0)).toBe(beat0a);
+    expect(locateBeat(score, 1)).toBe(beat0b);
+  });
+
+  it("locateBeat returns null for a beat index beyond the track length", () => {
+    expect(locateBeat(score, 99)).toBeNull();
+  });
+
+  it("locateBeat returns null for an unknown trackId", () => {
+    expect(locateBeat(score, 0, "99")).toBeNull();
+  });
+
+  it("locateBeat locates beat in the requested trackIndex / voiceIndex (TAB-009 T3)", () => {
+    // beat1b_v2 is track[1] (trackId "1"), voice 1, beat index 0 within that voice
+    expect(locateBeat(score, 0, "1", 1)).toBe(beat1b_v2);
+  });
+
+  it("locateBeat falls back to voice 0 when voiceIndex 1 is absent", () => {
+    // track 0 only has voice 0; requesting voice 1 should fall back to voice 0
+    expect(locateBeat(score, 0, "0", 1)).toBe(beat0a);
+  });
+
+  it("locateBarIndex defaults to track 0, voice 0", () => {
+    expect(locateBarIndex(score, 0)).toBe(0);
+    expect(locateBarIndex(score, 1)).toBe(0);
+  });
+
+  it("locateBarIndex returns -1 for a beat index beyond the track length", () => {
+    expect(locateBarIndex(score, 99)).toBe(-1);
+  });
+
+  it("locateBarIndex returns -1 for an unknown trackId", () => {
+    expect(locateBarIndex(score, 0, "99")).toBe(-1);
+  });
+
+  it("locateBarIndex locates bar in the requested trackIndex / voiceIndex", () => {
+    expect(locateBarIndex(score, 0, "1", 1)).toBe(0);
   });
 });

@@ -124,14 +124,18 @@ interface BarShapeVoice {
   addBeat(beat: BeatShape): void;
 }
 
+/** Minimal structural shape for a Track used in locate helpers. */
+interface TrackShape {
+  index: number;
+  staves: Array<{
+    bars: Array<BarShape>;
+  }>;
+}
+
 /** Minimal structural shape for walking a Score to its beats. */
 interface ScoreShape {
   masterBars: MasterBarShape[];
-  tracks: Array<{
-    staves: Array<{
-      bars: Array<BarShape>;
-    }>;
-  }>;
+  tracks: TrackShape[];
 }
 
 /**
@@ -543,15 +547,39 @@ class AlphaTabSession implements TabSession {
 }
 
 /**
- * Walk tracks[0] → staves[0] → bars and return the zero-based bar index that
- * contains the given global beat index.  Returns -1 if not found.
- * Single-track scope: tracks[0] only.
+ * Return the track whose `index` matches the given trackId string, or null.
+ * trackId is matched against `String(t.index)` — the zero-based position
+ * assigned by alphaTab when the score is parsed.  After T6 (applyRemoveTrack)
+ * splices out a track, the engine resets `t.index = i` for every remaining
+ * track so position-based matching stays consistent.
  */
-function locateBarIndex(score: ScoreShape, globalBeatIndex: number): number {
+export function findTrack(score: ScoreShape, trackId: string): TrackShape | null {
+  const t = score.tracks.find((t) => String(t.index) === trackId);
+  return t ?? null;
+}
+
+/**
+ * Walk the given track → staves[0] → bars and return the zero-based bar index
+ * that contains the given global beat index.  Returns -1 if not found.
+ *
+ * @param trackId   Matches against `String(track.index)`.  Defaults to the
+ *                  first track, preserving existing single-track call-sites.
+ * @param voiceIndex  0 = primary voice, 1 = secondary.  Falls back to voice 0
+ *                  if the requested voice index does not exist in a bar.
+ */
+export function locateBarIndex(
+  score: ScoreShape,
+  globalBeatIndex: number,
+  trackId: string = String(score.tracks[0].index),
+  voiceIndex: 0 | 1 = 0,
+): number {
+  const track = findTrack(score, trackId);
+  if (!track) return -1;
+  const bars = track.staves[0].bars;
   let counter = 0;
-  const bars = score.tracks[0].staves[0].bars;
   for (let i = 0; i < bars.length; i++) {
-    const beatCount = bars[i].voices[0].beats.length;
+    const voice = bars[i].voices[voiceIndex] ?? bars[i].voices[0];
+    const beatCount = voice.beats.length;
     if (globalBeatIndex < counter + beatCount) return i;
     counter += beatCount;
   }
@@ -559,14 +587,26 @@ function locateBarIndex(score: ScoreShape, globalBeatIndex: number): number {
 }
 
 /**
- * Walk tracks[0] → staves[0] → bars → voices[0] → beats and return the beat
- * at the given zero-based global index (across all bars).
- * Single-track scope: tracks[0] only.
+ * Walk the given track → staves[0] → bars → voices[voiceIndex] → beats and
+ * return the beat at the given zero-based global index (across all bars).
+ *
+ * @param trackId   Matches against `String(track.index)`.  Defaults to the
+ *                  first track, preserving existing single-track call-sites.
+ * @param voiceIndex  0 = primary voice, 1 = secondary.  Falls back to voice 0
+ *                  if the requested voice index does not exist in a bar.
  */
-function locateBeat(score: ScoreShape, globalBeatIndex: number): BeatShape | null {
+export function locateBeat(
+  score: ScoreShape,
+  globalBeatIndex: number,
+  trackId: string = String(score.tracks[0].index),
+  voiceIndex: 0 | 1 = 0,
+): BeatShape | null {
+  const track = findTrack(score, trackId);
+  if (!track) return null;
   let counter = 0;
-  for (const bar of score.tracks[0].staves[0].bars) {
-    for (const beat of bar.voices[0].beats) {
+  for (const bar of track.staves[0].bars) {
+    const voice = bar.voices[voiceIndex] ?? bar.voices[0];
+    for (const beat of voice.beats) {
       if (counter === globalBeatIndex) return beat;
       counter++;
     }
