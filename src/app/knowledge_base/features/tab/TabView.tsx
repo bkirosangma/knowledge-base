@@ -17,7 +17,7 @@ import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 import { useTabCursor } from "./editor/hooks/useTabCursor";
 import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
-import type { TabEditOp, TabMetadata } from "../../domain/tabEngine";
+import type { TabEditOp, TabMetadata, TabSession } from "../../domain/tabEngine";
 import type { CursorLocation } from "./editor/hooks/useTabCursor";
 import { useRepositories } from "../../shell/RepositoryContext";
 import { emptyTabRefs } from "../../domain/tabRefs";
@@ -209,6 +209,35 @@ export function TabView({
     { type: "tab" | "tab-section" | "tab-track"; id: string } | null
   >(null);
 
+  // T25: mute/solo state for multi-track playback.
+  const [mutedTrackIds, setMutedTrackIds] = useState<string[]>([]);
+  const [soloedTrackIds, setSoloedTrackIds] = useState<string[]>([]);
+
+  // T25: reset mute/solo state on filePath change (pane reload semantics).
+  useEffect(() => {
+    setMutedTrackIds([]);
+    setSoloedTrackIds([]);
+  }, [filePath]);
+
+  // T25: forward mute/solo state to the engine on every change.
+  useEffect(() => {
+    const s = session as TabSession | null;
+    if (!s || typeof s.setPlaybackState !== "function") return;
+    s.setPlaybackState({ mutedTrackIds, soloedTrackIds });
+  }, [session, mutedTrackIds, soloedTrackIds]);
+
+  const handleToggleMute = useCallback((trackId: string) => {
+    setMutedTrackIds((s) =>
+      s.includes(trackId) ? s.filter((x) => x !== trackId) : [...s, trackId]
+    );
+  }, []);
+
+  const handleToggleSolo = useCallback((trackId: string) => {
+    setSoloedTrackIds((s) =>
+      s.includes(trackId) ? s.filter((x) => x !== trackId) : [...s, trackId]
+    );
+  }, []);
+
   useTabSectionSync(
     filePath,
     metadata,
@@ -300,6 +329,10 @@ export function TabView({
         cursorBeat={cursor?.beat}
         cursorString={cursor?.string}
         onApplyEdit={propertiesApply}
+        mutedTrackIds={mutedTrackIds}
+        soloedTrackIds={soloedTrackIds}
+        onToggleMute={handleToggleMute}
+        onToggleSolo={handleToggleSolo}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker
