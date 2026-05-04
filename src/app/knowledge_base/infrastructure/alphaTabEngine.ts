@@ -52,6 +52,7 @@ interface AlphaTabApiLike {
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
   exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
+  print?(): void;
   readonly score: { tracks: { index: number }[] } | null;
   readonly settings: unknown;
 }
@@ -569,6 +570,11 @@ class AlphaTabSession implements TabSession {
     // alphaTab's synth outputs stereo by default. Channel count is 2 (stereo).
     // If alphaTab outputs mono in some configs, revisit this constant.
     return encodeWav(chunks, sampleRate, 2);
+  }
+
+  exportPdf(): void {
+    const print = this.api.print;
+    if (typeof print === "function") print.call(this.api);
   }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {

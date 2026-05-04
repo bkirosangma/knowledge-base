@@ -246,3 +246,26 @@ describe("TabSession.exportAudio — track scope", () => {
     expect(capturedOpts?.trackVolume?.get(0)).toBe(1);
   });
 });
+
+describe("TabSession.exportPdf", () => {
+  let container: HTMLElement;
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    printMock.mockReset();
+  });
+
+  it("calls api.print()", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    session.exportPdf();
+    expect(printMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not throw if api.print is undefined", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    (session as unknown as { api: { print?: unknown } }).api.print = undefined;
+    expect(() => session.exportPdf()).not.toThrow();
+  });
+});

@@ -71,6 +71,9 @@ export interface TabSession {
 
   /** Asynchronous WAV export. Loops chunked render → encodes → returns bytes. */
   exportAudio(opts?: ExportAudioOptions): Promise<Uint8Array>;
+
+  /** Opens alphaTab's print popup (user prints to PDF via OS print dialog). */
+  exportPdf(): void;
 }
 
 export interface ExportAudioOptions {
