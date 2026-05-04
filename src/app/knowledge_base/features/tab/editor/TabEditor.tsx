@@ -205,6 +205,11 @@ export default function TabEditor({
     applyAndNotify(op);
   }, [cursor, activeTechniques, applyAndNotify]);
 
+  const handleVoiceChange = useCallback((v: 0 | 1) => {
+    if (!cursor) return;
+    setCursor({ ...cursor, voiceIndex: v });
+  }, [cursor, setCursor]);
+
   return (
     <div data-testid="tab-editor" className="absolute inset-0 pointer-events-none flex flex-col">
       <div className="pointer-events-auto bg-surface">
@@ -213,6 +218,8 @@ export default function TabEditor({
           onSetDuration={handleSetDuration}
           activeTechniques={activeTechniques}
           onToggleTechnique={handleToggleTechnique}
+          voiceIndex={cursor?.voiceIndex ?? 0}
+          onVoiceChange={handleVoiceChange}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}
