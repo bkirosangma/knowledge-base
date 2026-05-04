@@ -11,6 +11,8 @@ import { SelectedNoteDetails } from "./SelectedNoteDetails";
 import { useRepositories } from "../../../shell/RepositoryContext";
 import { resolveSectionIds } from "../../../domain/tabSectionIds";
 import type { TabRefsPayload } from "../../../domain/tabRefs";
+import { ExportSection } from "./ExportSection";
+import type { WavState } from "../hooks/useTabExport";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
@@ -68,6 +70,11 @@ export interface TabPropertiesProps {
    * Optional; T26 will wire this to dispatch applyEdit({ type: "remove-track", ... }).
    */
   onRemoveTrack?: (trackId: string) => void;
+  exportMidi?: () => Promise<void> | void;
+  exportWav?: () => Promise<void> | void;
+  exportPdf?: () => void;
+  wavState?: WavState;
+  exportingMidi?: boolean;
 }
 
 /**
@@ -92,6 +99,11 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     onSetTrackCapo,
     onAddTrack,
     onRemoveTrack,
+    exportMidi,
+    exportWav,
+    exportPdf,
+    wavState,
+    exportingMidi,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -167,6 +179,16 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                   onPreviewDocument={onPreviewDocument}
                   onOpenDocPicker={onOpenDocPicker}
                   onDetachDocument={onDetachDocument}
+                />
+              )}
+              {exportMidi && exportWav && exportPdf && wavState && (
+                <ExportSection
+                  exportMidi={exportMidi}
+                  exportWav={exportWav}
+                  exportPdf={exportPdf}
+                  wavState={wavState}
+                  exportingMidi={exportingMidi ?? false}
+                  paneReadOnly={readOnly ?? false}
                 />
               )}
             </>
