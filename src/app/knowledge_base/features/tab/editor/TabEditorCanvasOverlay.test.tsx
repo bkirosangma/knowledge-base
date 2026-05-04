@@ -7,9 +7,7 @@ const meta: TabMetadata = {
   title: "Test",
   tempo: 120,
   timeSignature: { numerator: 4, denominator: 4 },
-  capo: 0,
-  tuning: ["E2", "A2", "D3", "G3", "B3", "E4"],
-  tracks: [{ id: "0", name: "Guitar", instrument: "guitar" }],
+  tracks: [{ id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 }],
   sections: [],
   totalBeats: 4,
   durationSeconds: 0,
@@ -39,14 +37,14 @@ describe("TabEditorCanvasOverlay", () => {
       <TabEditorCanvasOverlay metadata={meta} cursor={null} setCursor={setCursor} />,
     );
     fireEvent.click(screen.getByTestId("tab-editor-cursor-target-2-4"));
-    expect(setCursor).toHaveBeenCalledWith({ trackIndex: 0, beat: 2, string: 4 });
+    expect(setCursor).toHaveBeenCalledWith({ trackIndex: 0, voiceIndex: 0, beat: 2, string: 4 });
   });
 
   it("renders the cursor highlight at the active cell's coordinates", () => {
     render(
       <TabEditorCanvasOverlay
         metadata={meta}
-        cursor={{ trackIndex: 0, beat: 2, string: 4 }}
+        cursor={{ trackIndex: 0, voiceIndex: 0, beat: 2, string: 4 }}
         setCursor={() => {}}
         cellWidth={32}
         cellHeight={18}
@@ -68,7 +66,7 @@ describe("TabEditorCanvasOverlay", () => {
     render(
       <TabEditorCanvasOverlay
         metadata={meta}
-        cursor={{ trackIndex: 1, beat: 0, string: 1 }}
+        cursor={{ trackIndex: 1, voiceIndex: 0, beat: 0, string: 1 }}
         setCursor={() => {}}
         trackIndex={0}
       />,
@@ -88,7 +86,7 @@ describe("TabEditorCanvasOverlay", () => {
     render(
       <TabEditorCanvasOverlay
         metadata={meta}
-        cursor={{ trackIndex: 0, beat: 1, string: 2 }}
+        cursor={{ trackIndex: 0, voiceIndex: 0, beat: 1, string: 2 }}
         setCursor={() => {}}
         cellWidth={50}
         cellHeight={20}

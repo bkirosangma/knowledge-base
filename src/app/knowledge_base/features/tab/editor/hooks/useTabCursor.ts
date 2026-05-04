@@ -1,11 +1,7 @@
 import { useState, useCallback } from "react";
-import type { TabMetadata } from "../../../../domain/tabEngine";
+import type { TabMetadata, CursorLocation } from "../../../../domain/tabEngine";
 
-export interface CursorLocation {
-  trackIndex: number;
-  beat: number;
-  string: number;
-}
+export type { CursorLocation };
 
 export interface UseTabCursorResult {
   cursor: CursorLocation | null;
@@ -14,6 +10,8 @@ export interface UseTabCursorResult {
   moveBeat: (delta: 1 | -1) => void;
   moveString: (delta: 1 | -1) => void;
   moveBar: (delta: 1 | -1) => void;
+  nextTrack: () => void;
+  prevTrack: () => void;
 }
 
 export function useTabCursor(
@@ -40,7 +38,7 @@ export function useTabCursor(
     (delta: 1 | -1) => {
       setCursorState((c) => {
         if (!c || !metadata) return c;
-        const numStrings = metadata.tuning?.length ?? 6;
+        const numStrings = metadata.tracks[c.trackIndex]?.tuning.length ?? 6;
         return { ...c, string: clamp(c.string + delta, 1, numStrings) };
       });
     },
@@ -63,7 +61,29 @@ export function useTabCursor(
     [barStartBeats],
   );
 
-  return { cursor, setCursor, clear, moveBeat, moveString, moveBar };
+  const nextTrack = useCallback(() => {
+    setCursorState((c) => {
+      if (!c || !metadata || metadata.tracks.length === 0) return c;
+      return {
+        ...c,
+        trackIndex: clamp(c.trackIndex + 1, 0, metadata.tracks.length - 1),
+        voiceIndex: 0,
+      };
+    });
+  }, [metadata]);
+
+  const prevTrack = useCallback(() => {
+    setCursorState((c) => {
+      if (!c || !metadata || metadata.tracks.length === 0) return c;
+      return {
+        ...c,
+        trackIndex: clamp(c.trackIndex - 1, 0, metadata.tracks.length - 1),
+        voiceIndex: 0,
+      };
+    });
+  }, [metadata]);
+
+  return { cursor, setCursor, clear, moveBeat, moveString, moveBar, nextTrack, prevTrack };
 }
 
 function clamp(v: number, lo: number, hi: number): number {
