@@ -480,6 +480,67 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
     expect(writtenData.documents).toEqual([])
   })
 
+  it('skips migration when hasDraft=true to avoid committing draft state to disk', async () => {
+    const legacyDocs: DocumentMeta[] = [
+      { id: 'doc-1', filename: 'n.md', title: 'N', attachedTo: [{ type: 'node', id: 'n1' }] },
+    ]
+    const dataWithLegacyDocs = {
+      ...diagramData('legacy-draft'),
+      documents: legacyDocs,
+    }
+    const onMigrateLegacyDocuments = vi.fn(async () => {})
+
+    const hook = renderHook(() => {
+      const isRestoringRef = useRef(false)
+      const canvasRef = useRef<HTMLDivElement | null>(null)
+      return useFileActions(
+        {
+          activeFile: null,
+          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+          selectFile: vi.fn(async (_path: string) => ({
+            data: dataWithLegacyDocs,
+            diskJson: JSON.stringify(diagramData('on-disk')),
+            hasDraft: true,  // <— draft present
+          })),
+          saveFile: vi.fn(async () => true),
+          createFile: vi.fn(async () => null),
+          createFolder: vi.fn(async () => null),
+          deleteFile: vi.fn(async () => {}),
+          deleteFolder: vi.fn(async () => {}),
+          renameFile: vi.fn(async () => {}),
+          renameFolder: vi.fn(async () => {}),
+          duplicateFile: vi.fn(async () => null),
+          moveItem: vi.fn(async () => {}),
+          discardFile: vi.fn(async () => null),
+        } as unknown as Parameters<typeof useFileActions>[0],
+        {
+          initHistory: vi.fn(async () => {}),
+          onSave: vi.fn(),
+          goToSaved: vi.fn(() => null),
+        } as unknown as Parameters<typeof useFileActions>[1],
+        vi.fn() as unknown as Parameters<typeof useFileActions>[2],
+        isRestoringRef,
+        false,
+        vi.fn(),
+        null,
+        vi.fn(),
+        canvasRef,
+        'title', [], [], [], {}, 'orthogonal', [],
+        undefined,   // documents
+        undefined,   // onLoadDocuments
+        onMigrateLegacyDocuments,
+      )
+    })
+
+    await act(async () => {
+      await hook.result.current.handleLoadFile('legacy-draft.json')
+    })
+
+    // Migration must NOT run when hasDraft=true; rewrite must NOT happen.
+    expect(onMigrateLegacyDocuments).not.toHaveBeenCalled()
+    expect(mockDiagramRepoWrite).not.toHaveBeenCalled()
+  })
+
   it('skips migration when data.documents is absent (idempotent)', async () => {
     const onMigrateLegacyDocuments = vi.fn(async () => {})
 

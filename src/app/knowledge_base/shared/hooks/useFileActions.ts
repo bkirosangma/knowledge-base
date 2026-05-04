@@ -93,7 +93,11 @@ export function useFileActions(
     // Lazy migration: fold legacy data.documents into the workspace
     // attachment-links store and rewrite the diagram with documents: [].
     // Idempotent — skips when data.documents is empty/absent.
-    if (data.documents?.length && currentStateRef.current.onMigrateLegacyDocuments) {
+    // Guard: skip when hasDraft to avoid writing draft state to disk as if
+    // it were a clean save. The migration will re-run on the next clean load
+    // (after the draft is discarded or saved). The rows store is idempotent,
+    // so a partial migration from a previous clean load does no harm.
+    if (!hasDraft && data.documents?.length && currentStateRef.current.onMigrateLegacyDocuments) {
       const docsToMigrate = data.documents;
       await currentStateRef.current.onMigrateLegacyDocuments(fileName, docsToMigrate);
       data.documents = [];
@@ -103,8 +107,6 @@ export function useFileActions(
         const repo = createDiagramRepository(rootHandle);
         await repo.write(fileName, data);
       }
-      // Also clear legacy docs from the disk snapshot to keep both paths clean.
-      if (diskData.documents) diskData.documents = [];
     }
 
     const diagram = loadDiagramFromData(data);

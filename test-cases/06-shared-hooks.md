@@ -109,7 +109,7 @@
 - **HOOK-6.2-10** ✅ **`handleDuplicateFile`** — forwards to `duplicateFile` and applies the returned duplicate's data; no-op when `duplicateFile` returns null.
 - **HOOK-6.2-11** ✅ **`handleMoveItem` propagates wiki-links** — `handleMoveItemWithLinks` captures the tree snapshot before the FS move, then calls `propagateMoveLinks`; folder moves iterate all descendants via `collectFilePaths`. Covered by `propagateMoveLinks` tests in `useFileExplorer.helpers.test.ts`.
 - **HOOK-6.2-12** ✅ **Save failure does not clear dirty** — when `saveFile` returns `false`, `setLoadSnapshot` and `history.onSave` are skipped; caller's dirty state is untouched.
-- **HOOK-6.2-13** ✅ **Lazy migration of legacy `data.documents` on load** — when `handleLoadFile` finds a non-empty `data.documents` array and `onMigrateLegacyDocuments` is provided, calls the callback with `(filePath, docs)`, rewrites the diagram with `documents: []` via `createDiagramRepository`, and skips both steps if `data.documents` is absent/empty (idempotent). _(unit: `useFileActions.test.ts`)_
+- **HOOK-6.2-13** ✅ **Lazy migration of legacy `data.documents` on load** — when `handleLoadFile` finds a non-empty `data.documents` array and `onMigrateLegacyDocuments` is provided, calls the callback with `(filePath, docs)`, rewrites the diagram with `documents: []` via `createDiagramRepository`; skips when `data.documents` is absent/empty (idempotent); also skips when `hasDraft: true` to avoid committing draft state to disk (migration deferred to next clean load). _(unit: `useFileActions.test.ts` — 3 cases)_
 
 ## HOOK-6.3 `useEditableState`
 
