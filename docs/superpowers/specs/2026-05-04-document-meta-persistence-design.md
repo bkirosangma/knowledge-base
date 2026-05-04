@@ -238,7 +238,7 @@ The boot read happens once per vault. Subsequent vault reopens (rootHandle chang
 
 ### Unit tests
 
-1. **`attachments.test.ts` — domain helpers**
+1. **`attachmentLinks.test.ts` — domain helpers**
    - `addRow` idempotent on duplicate `(docPath, entityType, entityId)`.
    - `removeRow` removes one match; no-op when absent.
    - `removeMatchingRows(matcher)` returns `{ rows, removed: number }`.
