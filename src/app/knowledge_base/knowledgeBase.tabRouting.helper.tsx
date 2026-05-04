@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import type { PaneEntry } from "./shell/PaneManager";
 import type { DocumentMeta } from "./features/document/types";
+import type { AttachmentLink } from "./domain/attachmentLinks";
 import { TabView } from "./features/tab/TabView";
 
 export interface TabExportHandle {
@@ -28,6 +29,8 @@ export interface TabPaneContext {
   rootHandle?: FileSystemDirectoryHandle | null;
   onMigrateAttachments?: (filePath: string, migrations: { from: string; to: string }[]) => void;
   onTabExportReady?: (handle: TabExportHandle | null) => void;
+  detachAttachmentsFor?: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch?: <T>(fn: () => Promise<T> | T) => Promise<T>;
 }
 
 /**
@@ -67,6 +70,8 @@ export interface BuildTabPaneContextArgs {
   rootHandle: TabPaneContext["rootHandle"];
   onMigrateAttachments: TabPaneContext["onMigrateAttachments"];
   onTabExportReady?: TabPaneContext["onTabExportReady"];
+  detachAttachmentsFor?: TabPaneContext["detachAttachmentsFor"];
+  withBatch?: TabPaneContext["withBatch"];
 }
 
 export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneContext {
@@ -86,5 +91,7 @@ export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneConte
     rootHandle: args.rootHandle,
     onMigrateAttachments: args.onMigrateAttachments,
     onTabExportReady: args.onTabExportReady,
+    detachAttachmentsFor: args.detachAttachmentsFor,
+    withBatch: args.withBatch,
   };
 }

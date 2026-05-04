@@ -52,6 +52,7 @@ import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { DocumentMeta } from "../../document/types";
 import type { ConfirmAction, FlowDef, RegionBounds } from "../types";
 import type { LevelMap } from "../utils/levelModel";
+import type { AttachmentLink } from "../../../domain/attachmentLinks";
 import type { DiagramCanvasProps } from "../components/DiagramCanvas";
 
 interface DiagramControllerInputs {
@@ -63,7 +64,7 @@ interface DiagramControllerInputs {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onLoadDocuments: (docs: DocumentMeta[]) => void;
+  onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>;
   backlinks?: { sourcePath: string; section?: string }[];
   onDiagramBridge: (bridge: import("../types").DiagramBridge) => void;
   readDocument: (path: string) => Promise<string | null>;
@@ -73,8 +74,15 @@ interface DiagramControllerInputs {
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
-  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
+  onAfterDiagramSaved?: (diagramPath: string) => void;
   searchTarget?: { nodeId: string };
+  rows: AttachmentLink[];
+  setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
+  detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
+  /** Called before `fileExplorer.deleteFolder` so attachment rows for every
+   *  attachable file inside the folder subtree are cleaned up first. */
+  onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
 }
 
 /**
@@ -94,9 +102,10 @@ interface DiagramControllerInputs {
 export function useDiagramController(input: DiagramControllerInputs) {
   const {
     side, activeFile, fileExplorer, onOpenDocument, documents,
-    onAttachDocument, onDetachDocument, onCreateDocument, onLoadDocuments,
+    onAttachDocument, onDetachDocument, onCreateDocument, onMigrateLegacyDocuments,
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
+    rows, setRows, detachAttachmentsFor, withBatch, onBeforeDeleteFolder,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -242,7 +251,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   );
   const { history, scheduleRecord, isRestoringRef, applyDiagramToState, applySnapshotFromDisk, handleUndo, handleRedo, handleGoToEntry } = useDiagramHistoryStore({
     doc, dispatch, layerManualSizes, setLayerManualSizes, setMeasuredSizes,
-    setPatches, setSelection, documents, onLoadDocuments, setLoadSnapshot,
+    setPatches, setSelection, rows, setRows, setLoadSnapshot,
   });
   scheduleRecordRef.current = scheduleRecord;
 
@@ -281,8 +290,9 @@ export function useDiagramController(input: DiagramControllerInputs) {
     fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
     confirmAction, setConfirmAction, canvasRef,
     title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
-    documents, onLoadDocuments,
+    onMigrateLegacyDocuments,
     attachments.flushPendingDeletes, attachments.clearPendingDeletes, onAfterDiagramSaved,
+    onBeforeDeleteFolder,
   );
 
   // ─── File loading lifecycle (auto-load + searchTarget) ───────────
@@ -310,20 +320,15 @@ export function useDiagramController(input: DiagramControllerInputs) {
     {
       setNodes: dispatch.setNodes, setConnections: dispatch.setConnections, setLayerDefs: dispatch.setLayers,
       setLayerManualSizes, setMeasuredSizes, setSelection, setFlows: dispatch.setFlows,
+      detachAttachmentsFor, withBatch,
     },
     scheduleRecord,
   );
 
   const flowCounter = useRef(0);
-  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow: rawHandleDeleteFlow, handleSelectLine } = useFlowManagement(
+  const { handleCreateFlow, handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleSelectLine } = useFlowManagement(
     connectionsRef, flowsRef, flowCounter, dispatch.setFlows, setSelection, scheduleRecord,
   );
-  const handleDeleteFlow = useCallback((flowId: string) => {
-    for (const d of documents) {
-      if (d.attachedTo?.some((a) => a.type === "flow" && a.id === flowId)) onDetachDocument(d.filename, "flow", flowId);
-    }
-    rawHandleDeleteFlow(flowId);
-  }, [documents, onDetachDocument, rawHandleDeleteFlow]);
 
   const { commitLabel } = useLabelEditing(
     editingLabelBeforeRef, dispatch.setNodes, dispatch.setLayers, dispatch.setConnections, setEditingLabel, scheduleRecord,

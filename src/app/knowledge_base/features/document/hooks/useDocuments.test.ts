@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useDocuments } from './useDocuments'
 import type { TreeNode } from '../../../shared/hooks/useFileExplorer'
@@ -187,13 +187,8 @@ describe("migrateAttachments", () => {
   it("rewrites tab-section attachment ids matching filePath#oldId → filePath#newId", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#verse-1" },
       ]);
     });
 
@@ -211,19 +206,9 @@ describe("migrateAttachments", () => {
   it("applies multiple migrations in a single call", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "a.md",
-          title: "A",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#intro" }],
-        },
-        {
-          id: "d2",
-          filename: "b.md",
-          title: "B",
-          attachedTo: [{ type: "tab-section", id: "tabs/song.alphatex#chorus" }],
-        },
+      result.current.setRows([
+        { docPath: "a.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#intro" },
+        { docPath: "b.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#chorus" },
       ]);
     });
 
@@ -245,13 +230,8 @@ describe("migrateAttachments", () => {
   it("ignores attachments for other file paths", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-section", id: "tabs/other.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/other.alphatex#verse-1" },
       ]);
     });
 
@@ -269,13 +249,8 @@ describe("migrateAttachments", () => {
   it("ignores non-tab-section attachments", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "flow", id: "tabs/song.alphatex#verse-1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "flow" as const, entityId: "tabs/song.alphatex#verse-1" },
       ]);
     });
 
@@ -292,15 +267,10 @@ describe("migrateAttachments", () => {
 
   it("is a no-op when migrations is empty", () => {
     const { result } = renderHook(() => useDocuments());
-    const before = [
-      {
-        id: "d1",
-        filename: "notes.md",
-        title: "Notes",
-        attachedTo: [{ type: "tab-section" as const, id: "tabs/song.alphatex#intro" }],
-      },
+    const beforeRows = [
+      { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#intro" },
     ];
-    act(() => { result.current.setDocuments(before); });
+    act(() => { result.current.setRows(beforeRows); });
     const snapshot = result.current.documents;
     act(() => { result.current.migrateAttachments("tabs/song.alphatex", []); });
     expect(result.current.documents).toBe(snapshot);
@@ -311,13 +281,8 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("rewrites tab-track ids when migrations match (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
       ]);
     });
 
@@ -335,13 +300,8 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("preserves tab-track entries with no matching migration (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
       ]);
     });
 
@@ -359,17 +319,10 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
   it("migrates mixed tab-section and tab-track attachments in the same document (TAB-009 T22)", () => {
     const { result } = renderHook(() => useDocuments());
     act(() => {
-      result.current.setDocuments([
-        {
-          id: "d1",
-          filename: "notes.md",
-          title: "Notes",
-          attachedTo: [
-            { type: "tab-section" as const, id: "tabs/song.alphatex#verse-1" },
-            { type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" },
-            { type: "tab" as const, id: "tabs/song.alphatex" },
-          ],
-        },
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab-section" as const, entityId: "tabs/song.alphatex#verse-1" },
+        { docPath: "notes.md", entityType: "tab-track" as const, entityId: "tabs/song.alphatex#track:tk1" },
+        { docPath: "notes.md", entityType: "tab" as const, entityId: "tabs/song.alphatex" },
       ]);
     });
 
@@ -385,5 +338,145 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
       { type: "tab-track", id: "tabs/song.alphatex#track:lead" },
       { type: "tab", id: "tabs/song.alphatex" },
     ]);
+  });
+});
+
+import type { AttachmentLink } from "../../../domain/attachmentLinks";
+
+describe("useDocuments rows model", () => {
+  it("attachDocument adds a row; rows reflects the model directly", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => { result.current.attachDocument("a.md", "node", "n1"); });
+    const expected: AttachmentLink = {
+      docPath: "a.md", entityType: "node", entityId: "n1",
+    };
+    expect(result.current.rows).toEqual([expected]);
+  });
+
+  it("documents projection groups rows by docPath and synthesises DocumentMeta", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("a.md", "flow", "f1");
+    });
+    expect(result.current.documents).toHaveLength(1);
+    expect(result.current.documents[0]).toMatchObject({
+      filename: "a.md",
+      title: "a",
+      attachedTo: [
+        { type: "node", id: "n1" },
+        { type: "flow", id: "f1" },
+      ],
+    });
+    expect(result.current.documents[0].id).toMatch(/^doc-/);
+  });
+
+  it("documents projection drops doc when last row is detached", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.detachDocument("a.md", "node", "n1");
+    });
+    expect(result.current.documents).toEqual([]);
+    expect(result.current.rows).toEqual([]);
+  });
+});
+
+describe("withBatch", () => {
+  it("flushes once per outer batch regardless of inner mutations", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.attachDocument("a.md", "node", "n1");
+        result.current.attachDocument("a.md", "flow", "f1");
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("nested withBatch only flushes at outermost return", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.attachDocument("a.md", "node", "n1");
+        await result.current.withBatch(async () => {
+          result.current.attachDocument("a.md", "flow", "f1");
+        });
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("single mutation outside batch flushes immediately", () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    act(() => { result.current.attachDocument("a.md", "node", "n1"); });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates inner throw and still flushes the partial mutations", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    let caughtError: unknown;
+    await act(async () => {
+      try {
+        await result.current.withBatch(async () => {
+          result.current.attachDocument("a.md", "node", "n1");
+          throw new Error("boom");
+        });
+      } catch (e) {
+        caughtError = e;
+      }
+    });
+    expect(caughtError instanceof Error && caughtError.message).toBe("boom");
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).toHaveBeenCalledWith([
+      expect.objectContaining({ docPath: "a.md", entityId: "n1" }),
+    ]);
+  });
+});
+
+describe("detachAttachmentsFor", () => {
+  it("removes matching rows; idempotent on second call", async () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("a.md", "flow", "f1");
+    });
+    let res!: { detached: number };
+    act(() => {
+      res = result.current.detachAttachmentsFor((r) => r.entityType === "node");
+    });
+    expect(res.detached).toBe(1);
+    expect(result.current.rows).toEqual([
+      { docPath: "a.md", entityType: "flow", entityId: "f1" },
+    ]);
+
+    act(() => {
+      res = result.current.detachAttachmentsFor((r) => r.entityType === "node");
+    });
+    expect(res.detached).toBe(0);
+    expect(result.current.rows).toEqual([
+      { docPath: "a.md", entityType: "flow", entityId: "f1" },
+    ]);
+  });
+
+  it("respects withBatch — flushes once for cascade detach", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("b.md", "node", "n1");
+    });
+    onFlush.mockClear();
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.detachAttachmentsFor((r) => r.entityId === "n1");
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(result.current.rows).toEqual([]);
   });
 });

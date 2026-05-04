@@ -17,8 +17,10 @@ import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
 import { TabView } from "./TabView";
+import type { TabViewProps } from "./TabView";
 import type { TabMetadata } from "../../domain/tabEngine";
 import type { TabEditOp } from "../../domain/tabEngine";
+import type { AttachmentLink } from "../../domain/attachmentLinks";
 
 // ── Capture the apply fn registered by TabEditor ──────────────────────────
 // vi.hoisted lets us share the spy between the mock factory and the test body.
@@ -97,7 +99,7 @@ function Wrap({ children }: { children: ReactNode }) {
     <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
       <StubRepositoryProvider
         value={{
-          attachment: null,
+          attachment: null, attachmentLinks: null,
           document: null,
           diagram: null,
           linkIndex: null,
@@ -291,6 +293,146 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
       // After reset, trackIndex=0 is active again.
       expect(dots[0].getAttribute("data-filled")).toBe("true");
     });
+
+    confirmSpy.mockRestore();
+  });
+});
+
+// ── T15: detach tab-track rows on remove-track ────────────────────────────
+
+describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem("tab-read-only:song.alphatex", "false");
+    applySpy.mockClear();
+    mockSession = {
+      setPlaybackState: vi.fn(),
+      render: vi.fn(),
+    };
+    mockMetadata = makeTwoTrackMetadata();
+  });
+
+  it("TAB-11.10-01: handleRemoveTrack detaches tab-track rows for the removed track's UUID before the engine splice", async () => {
+    const detachAttachmentsFor = vi.fn((_matcher: (r: AttachmentLink) => boolean) => ({ detached: 1 }));
+    const withBatch = vi.fn(async <T,>(fn: () => Promise<T> | T): Promise<T> => fn()) as NonNullable<TabViewProps["withBatch"]>;
+    const tabRefsRead = vi.fn().mockResolvedValue({
+      version: 2,
+      sectionRefs: {},
+      trackRefs: [
+        { id: "uuid-A" },
+        { id: "uuid-B" },
+      ],
+    });
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
+        <StubRepositoryProvider
+          value={{
+            attachment: null, attachmentLinks: null,
+            document: null,
+            diagram: null,
+            linkIndex: null,
+            svg: null,
+            vaultConfig: null,
+            tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
+            tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },
+          }}
+        >
+          <TabView
+            filePath="song.alphatex"
+            readOnly={false}
+            detachAttachmentsFor={detachAttachmentsFor}
+            withBatch={withBatch}
+          />
+        </StubRepositoryProvider>
+      </StubShellErrorProvider>,
+    );
+
+    // Open the kebab menu for Lead (track 0) and remove it.
+    await screen.findByText("Lead");
+    const kebabBtn = screen.getByLabelText("Track menu Lead");
+    act(() => { fireEvent.click(kebabBtn); });
+    const removeBtn = await screen.findByRole("menuitem", { name: "Remove track" });
+    act(() => { fireEvent.click(removeBtn); });
+
+    // Wait for the engine splice (propertiesApply) to fire, which happens AFTER detach.
+    await waitFor(() => {
+      expect(applySpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "remove-track", trackId: "0" }),
+      );
+    });
+
+    // detachAttachmentsFor must have been called.
+    expect(detachAttachmentsFor).toHaveBeenCalledTimes(1);
+    // withBatch must have been called to wrap the detach.
+    expect(withBatch).toHaveBeenCalledTimes(1);
+
+    // Extract the matcher and verify it is correctly scoped to the removed track's UUID.
+    // detachAttachmentsFor was called at least once (asserted above) so index 0 is safe.
+    const capturedMatcher = detachAttachmentsFor.mock.calls[0]?.[0];
+    expect(capturedMatcher).toBeDefined();
+    const matcher = capturedMatcher!;
+    const makeRow = (entityType: AttachmentLink["entityType"] | string, entityId: string): AttachmentLink =>
+      ({ docPath: "doc.md", entityType: entityType as AttachmentLink["entityType"], entityId });
+    // Matches the exact track entity.
+    expect(matcher(makeRow("tab-track", "song.alphatex#track:uuid-A"))).toBe(true);
+    // Does NOT match the surviving track (different UUID).
+    expect(matcher(makeRow("tab-track", "song.alphatex#track:uuid-B"))).toBe(false);
+    // Does NOT match the parent tab entity.
+    expect(matcher(makeRow("tab", "song.alphatex"))).toBe(false);
+
+    confirmSpy.mockRestore();
+  });
+
+  it("TAB-11.10-02: handleRemoveTrack with absent sidecar skips detach but still splices the engine", async () => {
+    const detachAttachmentsFor = vi.fn((_matcher: (r: AttachmentLink) => boolean) => ({ detached: 0 }));
+    const withBatch = vi.fn(async <T,>(fn: () => Promise<T> | T): Promise<T> => fn()) as NonNullable<TabViewProps["withBatch"]>;
+    const tabRefsRead = vi.fn().mockResolvedValue(null); // no sidecar for this file
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
+        <StubRepositoryProvider
+          value={{
+            attachment: null, attachmentLinks: null,
+            document: null,
+            diagram: null,
+            linkIndex: null,
+            svg: null,
+            vaultConfig: null,
+            tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
+            tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },
+          }}
+        >
+          <TabView
+            filePath="song.alphatex"
+            readOnly={false}
+            detachAttachmentsFor={detachAttachmentsFor}
+            withBatch={withBatch}
+          />
+        </StubRepositoryProvider>
+      </StubShellErrorProvider>,
+    );
+
+    // Remove Lead (track 0) — sidecar returns null so no UUID, no detach.
+    await screen.findByText("Lead");
+    const kebabBtn = screen.getByLabelText("Track menu Lead");
+    act(() => { fireEvent.click(kebabBtn); });
+    const removeBtn = await screen.findByRole("menuitem", { name: "Remove track" });
+    act(() => { fireEvent.click(removeBtn); });
+
+    // Engine splice must still happen.
+    await waitFor(() => {
+      expect(applySpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "remove-track", trackId: "0" }),
+      );
+    });
+
+    // detachAttachmentsFor must NOT have been called — no UUID was found.
+    expect(detachAttachmentsFor).not.toHaveBeenCalled();
 
     confirmSpy.mockRestore();
   });

@@ -7,12 +7,13 @@ import { ShellErrorProvider } from '../../shell/ShellErrorContext'
 import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
 import { ToastProvider } from '../../shell/ToastContext'
 import type { DiagramSnapshot } from '../../shared/hooks/useDiagramHistory'
+import type { AttachmentLink } from '../../domain/attachmentLinks'
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 // We replace useDiagramHistory with a controlled stub so we can inject a
-// known "previous" snapshot containing documents and verify applySnapshot
-// calls onLoadDocuments correctly.
+// known "previous" snapshot containing attachmentSubset and verify applySnapshot
+// calls setRows correctly.
 
 const mockUndo = vi.fn<() => DiagramSnapshot | null>()
 const mockRedo = vi.fn<() => DiagramSnapshot | null>()
@@ -23,7 +24,7 @@ vi.mock('../../shared/hooks/useDiagramHistory', () => ({
   useDiagramHistory: () => ({
     entries: [
       { id: 0, description: 'File loaded', timestamp: 0, snapshot: emptySnap() },
-      { id: 1, description: 'Attach document to flow', timestamp: 1, snapshot: snapWithDoc() },
+      { id: 1, description: 'Attach document to flow', timestamp: 1, snapshot: snapWithAttachment() },
     ],
     currentIndex: 1,
     savedIndex: 0,
@@ -58,19 +59,13 @@ function emptySnap(): DiagramSnapshot {
     layerManualSizes: {},
     lineCurve: 'orthogonal',
     flows: [],
-    documents: [],
   }
 }
 
-const testDoc = {
-  id: 'doc-1',
-  filename: 'auth-flow/flow-auth.md',
-  title: 'Auth Flow — Explanation',
-  attachedTo: [{ type: 'flow' as const, id: 'flow-auth' }],
-}
+const testAttachmentRow: AttachmentLink = { docPath: 'auth-flow/flow-auth.md', entityType: 'flow', entityId: 'flow-auth' }
 
-function snapWithDoc(): DiagramSnapshot {
-  return { ...emptySnap(), documents: [testDoc] }
+function snapWithAttachment(): DiagramSnapshot {
+  return { ...emptySnap(), attachmentSubset: [testAttachmentRow] }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -125,7 +120,10 @@ function makeProps(
     onAttachDocument: vi.fn(),
     onDetachDocument: vi.fn(),
     onCreateDocument: vi.fn(async () => {}),
-    onLoadDocuments: vi.fn(),
+    rows: [],
+    setRows: vi.fn(),
+    detachAttachmentsFor: vi.fn(() => ({ detached: 0 })),
+    withBatch: vi.fn(async (fn: () => unknown) => fn()) as never,
     backlinks: [],
     onDiagramBridge: vi.fn(),
     readDocument: vi.fn(async () => null),
@@ -153,18 +151,16 @@ function renderDV(props: React.ComponentProps<typeof DiagramView>) {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('DiagramView — document attachment history', () => {
-  it('DIAG-3.10-40: undo calls onLoadDocuments with the prior snapshot documents', async () => {
-    const priorSnap = emptySnap() // snapshot before attach had empty documents
+  it('DIAG-3.10-40: undo with no attachmentSubset does not call setRows', async () => {
+    const priorSnap = emptySnap() // snapshot before attach had no attachmentSubset
     mockUndo.mockReturnValue(priorSnap)
 
     localStorage.setItem('diagram-read-only:test-diagram.json', 'false')
-    const onLoadDocuments = vi.fn()
-    renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
+    const setRows = vi.fn()
+    renderDV(makeProps({ activeFile: 'test-diagram.json', setRows }))
 
-    // Click the Undo button (rendered by HistoryPanel inside DiagramOverlays)
     const undoBtn = document.querySelector('button[aria-label="Undo (Cmd+Z)"]')
     if (!undoBtn) {
-      // HistoryPanel may be collapsed; undo is also wired to Ctrl+Z on the canvas
       fireEvent.keyDown(document, { key: 'z', ctrlKey: true })
     } else {
       fireEvent.click(undoBtn)
@@ -173,18 +169,16 @@ describe('DiagramView — document attachment history', () => {
     await waitFor(() => {
       expect(mockUndo).toHaveBeenCalled()
     })
-    // applySnapshot should have restored the prior documents (empty array)
-    await waitFor(() => {
-      expect(onLoadDocuments).toHaveBeenCalledWith(priorSnap.documents)
-    })
+    // applySnapshot skips setRows when attachmentSubset is undefined
+    expect(setRows).not.toHaveBeenCalled()
   })
 
-  it('DIAG-3.10-41: redo calls onLoadDocuments with the document from the next snapshot', async () => {
-    mockRedo.mockReturnValue(snapWithDoc())
+  it('DIAG-3.10-41: redo calls setRows with the attachmentSubset from the next snapshot', async () => {
+    mockRedo.mockReturnValue(snapWithAttachment())
 
     localStorage.setItem('diagram-read-only:test-diagram.json', 'false')
-    const onLoadDocuments = vi.fn()
-    renderDV(makeProps({ activeFile: 'test-diagram.json', onLoadDocuments }))
+    const setRows = vi.fn()
+    renderDV(makeProps({ activeFile: 'test-diagram.json', setRows }))
 
     const redoBtn = document.querySelector('button[aria-label="Redo (Cmd+Shift+Z)"]')
     if (!redoBtn) {
@@ -197,8 +191,14 @@ describe('DiagramView — document attachment history', () => {
       expect(mockRedo).toHaveBeenCalled()
     })
     await waitFor(() => {
-      expect(onLoadDocuments).toHaveBeenCalledWith([testDoc])
+      expect(setRows).toHaveBeenCalled()
     })
+    // Verify the updater function produces the expected attachment rows
+    const updater = (setRows as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    if (typeof updater === 'function') {
+      const result = updater([])
+      expect(result).toContainEqual(testAttachmentRow)
+    }
   })
 
   it('DIAG-3.10-38/39/42: handleAttach/Detach/CreateAndAttach each call the original prop', async () => {

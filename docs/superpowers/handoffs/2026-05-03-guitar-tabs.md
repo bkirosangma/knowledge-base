@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (TAB-010 Export merged via PR [#113](https://github.com/bkirosangma/knowledge-base/pull/113); TAB-008b polish in flight on `plan/guitar-tabs-008b` — M2 closed).
+**Last updated:** 2026-05-04 (DocumentMeta persistence refactor merging via PR [#115](https://github.com/bkirosangma/knowledge-base/pull/115) — workspace-scoped attachment-links store + cross-entity cleanup unblocks parked-item #11).
 
 ---
 
@@ -103,7 +103,7 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 8. **`linkManager.fullRebuild` walks every file on every GP import** — TAB-011 ships with O(N) re-index per import. Acceptable today (vault sizes ~hundreds of files); a single-file `updateTabLinks()` helper mirroring `updateDocumentLinks()` is the natural follow-up if this ever shows up in profiles.
 9. **`\lyrics` extraction is single-line only** — `parseAlphatexHeader` captures only the quoted-string form. AlphaTab's grammar supports multi-string `\lyrics` blocks (one per bar) and per-track `\lyrics t N "…"`. Acceptable for indexing (first stanza usually contains the chorus/title line); extend the parser if real fixtures show this gap.
 10. **`REFERENCES_LINE` regex duplicated in two sites** — `infrastructure/alphatexHeader.ts` and `features/document/hooks/useLinkIndex.ts` both define `/^\s*\/\/\s*references\s*:\s*(.*)$/gim`. Two lines of repetition isn't worth a shared module; if a third caller appears, hoist to `alphatexHeader.ts` and re-export.
-11. **Audit diagram flow rename/delete attachment integrity** — flow ids are stable so rename is safe by construction, but deletion may leave orphan `attachedTo` entries (no cleanup hook visible in `DiagramView`). Triggered by user request during TAB-007a brainstorm; spec a fix once tabs ship.
+11. ~~Audit diagram flow rename/delete attachment integrity~~ — _Closed by document-meta-persistence refactor_: workspace-scoped attachment-links store at `<vault>/.kb/attachment-links.json` (D1-D8 design); orphan cleanup wired into `useDeletion` (cascade-aware), `TabView.handleRemoveTrack`, and `handleDeleteFileWithLinks` for `.alphatex` / `.kbjson` / `.md`. Diagram-undo restores only this diagram's attachment subset. Lazy migration on first clean diagram load (guarded by `!hasDraft`).
 12. **~~Side-car stable section ids for tabs~~** — _Closed by TAB-008_: `<file>.alphatex.refs.json` persists `stableId → currentName` (lazy creation on first edit). `tabRefsRepo` reads/writes; `resolveSectionIds` consumes; `updateSidecarOnEdit` reconciles on `set-section`/`add-bar`/`remove-bar` ops. `useTabSectionSync` skips position-based reconciliation when a sidecar exists.
 13. **~~`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing~~** — _Closed by `plan/tabs-parked-cleanup-1`_: `onCreate` is now optional on `DocumentPicker` and the row is gated on its presence. Both consumers (`TabView`, `DiagramOverlays`) pass `onCreate` only when their prerequisites are wired. New test FS-2.5-09.
 14. **alphaTab Bravura font 404 in dev/playwright** — TAB-008's e2e tab-editor smoke at `e2e/tabEditor.spec.ts` is `test.fixme()` because alphaTab resolves Bravura music fonts relative to its dynamic-import chunk path (`/_next/static/chunks/font/...`) which the dev server doesn't serve. Fix: copy `node_modules/@coderline/alphatab/dist/font/Bravura.{woff2,woff,otf,svg,eot}` to `public/font/` and set `settings.core.fontDirectory = "/font/"` in `alphaTabEngine.ts` (mirrors the SoundFont pattern at `public/soundfonts/`). Affects: viewer rendering quality in Playwright + dev (production may already work via Next.js bundling — verify). Open as TAB-013 or fold into TAB-009.
@@ -111,6 +111,9 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 16. **Editor canvas overlay uses fixed 32×18px cell geometry** — `TabEditorCanvasOverlay` doesn't track alphaTab's actual rendered staff position; cursor highlight will misalign on wrapped staves or non-trivial bar widths. Acceptable for short single-track tabs. Replace with alphaTab-driven hit-testing (`beatMouseDown` event already verified in T0) or per-render geometry probing.
 17. **~~`useTabContent` `dirty` state crosses file boundaries~~** — _Closed by TAB-008b_: `useEffect` keyed on `[path]` resets `dirty` / `saveError` / cancels pending debounce.
 18. **alphaTab V2 voice render assumption — runtime verification deferred to PR-time smoke** — TAB-008b T8 documents the reproduction recipe at `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Ship `VoiceToggle` as-is (data layer correct); revisit if smoke shows visual render is broken.
+19. **Vault-wide draft-orphan reaper** — accepted limitation in document-meta-persistence (D8). A future ticket can add a "Clean up orphan attachments" command that walks every `.kbjson` to build the canonical entity-id set, or an opt-in periodic reaper. Soft accumulation; benign UI impact.
+20. **`type` entity extinction/revival cleanup** — out of scope of document-meta-persistence. Soft orphan when the last node carrying a node-type is deleted. Revisit when real complaints surface.
+21. **Workspace-level attach/detach undo history** — option (c) from document-meta-persistence Q3, deferred. Tab-pane attach/detach is not undoable from any UI surface today.
 
 ---
 

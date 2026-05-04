@@ -30,6 +30,7 @@ import { DiagramInteractionProvider } from "./state/DiagramInteractionContext";
 import { useDiagramController } from "./hooks/useDiagramController";
 import type { useFileExplorer } from "../../shared/hooks/useFileExplorer";
 import type { DocumentMeta } from "../document/types";
+import type { AttachmentLink } from "../../domain/attachmentLinks";
 // Re-export bridge types so callers importing them from DiagramView keep working.
 // Definitions moved to `./types.ts` in KB-020 so the bridge hook can share them.
 export type { HeaderBridge, ExplorerBridge, DiagramBridge } from "./types";
@@ -45,7 +46,7 @@ export interface DiagramViewProps {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onLoadDocuments: (docs: DocumentMeta[]) => void;
+  onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>;
   backlinks?: { sourcePath: string; section?: string }[];
   onDiagramBridge: (bridge: import("./types").DiagramBridge) => void;
   readDocument: (path: string) => Promise<string | null>;
@@ -55,9 +56,16 @@ export interface DiagramViewProps {
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
-  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
+  onAfterDiagramSaved?: (diagramPath: string) => void;
   /** Single-fire intent from vault-search to centre + select a node on mount. */
   searchTarget?: { nodeId: string };
+  rows: AttachmentLink[];
+  setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
+  detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
+  /** Called before `fileExplorer.deleteFolder` so attachment rows for every
+   *  attachable file inside the folder subtree are cleaned up first. */
+  onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
 }
 
 export default function DiagramView(props: DiagramViewProps) {

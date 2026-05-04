@@ -24,7 +24,7 @@ function wrap(children: ReactNode) {
     <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
       <StubRepositoryProvider
         value={{
-          attachment: null, document: null, diagram: null,
+          attachment: null, attachmentLinks: null, document: null, diagram: null,
           linkIndex: null, svg: null, vaultConfig: null,
           tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
           tabRefs: null,

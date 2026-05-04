@@ -172,6 +172,11 @@
 | DIAG-3.10-42 | ✅ | Create-and-attach — appears as a named entry in the history panel |
 | DIAG-3.10-43 | ✅ | (KB-032 non-color signal) Rectangle node with `flowRole="start"` renders a "Start" text pill above the box; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. Survives "disable browser CSS color" because the role is in text content, not just glow. WCAG 1.4.1. — `Element.test.tsx` |
 | DIAG-3.10-44 | ✅ | (KB-032 non-color signal) Diamond (condition) node with `flowRole="start"` renders a "Start" text pill above the diamond; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. WCAG 1.4.1. — `ConditionElement.test.tsx` |
+| DIAG-3.10-45 | ✅ | Diagram-undo only affects this diagram's attachment subset — tab-scoped rows (`tab-track`, `tab-section`) and rows belonging to other diagrams in memory are untouched. Invariant: `DIAGRAM_ENTITY_TYPES` excludes tab types. — `useDiagramHistoryStore.test.ts` |
+| DIAG-3.10-46 | ✅ | Delete node — `detachAttachmentsFor` called once; matcher hits that node's rows, misses unrelated node and tab-track rows — `useDeletion.test.ts` |
+| DIAG-3.10-47 | ✅ | Delete node with cascade — `detachAttachmentsFor` matcher also covers connections referencing the deleted node; excludes connections not touching the node — `useDeletion.test.ts` |
+| DIAG-3.10-48 | ✅ | `confirmDeletion` (broken-flow path) — `detachAttachmentsFor` matcher covers the directly deleted connection and the broken-flow id; excludes unrelated flows and tab rows — `useDeletion.test.ts` |
+| DIAG-3.10-49 | ✅ | Direct flow delete (`case "flow"`) — `detachAttachmentsFor` matcher hits that flow id only; excludes other flows and node/tab rows — `useDeletion.test.ts` |
 
 ## 3.11 Selection
 
@@ -454,3 +459,11 @@ The audit ticket spelled the IDs as "DIAG-A11Y-1..5"; renumbered into the projec
 Acceptance gate (KB-030 ticket):
 - The diagram golden path is completable via keyboard only — covered by `e2e/diagramKeyboardOnly.spec.ts`.
 - `@axe-core/playwright` scan of the diagram pane returns zero violations — covered by `e2e/diagramAxe.spec.ts`.
+
+## 3.26 File-Tree Delete Attachment Cleanup (T16)
+
+`knowledgeBase.tsx` `handleDeleteFileWithLinks` + `cleanupAttachmentsForPath` — branches by extension before the unlink to detach stale attachment rows. Covers both the bridge-mounted delete path and the modal-confirm (no-bridge) delete path.
+
+- **DIAG-3.26-01** ✅ **`.kbjson` delete extracts entity ids and detaches matching node/connection/flow rows** — `diagramFileMatcher` built from `collectDiagramEntityIds`; rows for ids inside the deleted diagram are removed; rows for other diagrams are untouched. _(unit: `fileTreeMatchers.test.ts`)_
+- **DIAG-3.26-02** ✅ **`diagramFileMatcher` — empty id set matches nothing** — guard against false-positive detach when a diagram is empty. _(unit: `fileTreeMatchers.test.ts`)_
+- **DIAG-3.26-03** ❌ **`.kbjson` read failure proceeds with unlink, error reported** — `repo.read` rejects → `reportError` called → `handleDeleteFile` still fires (no attachment cleanup). _(integration: `knowledgeBase.tsx` orchestration; currently no unit test at handler level.)_

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import type { ExplorerFilter } from "./shared/utils/types";
+import type { ExplorerFilter, DocumentMeta } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
@@ -8,11 +8,16 @@ import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
+import { createAttachmentLinksRepository } from "./infrastructure/attachmentLinksRepo";
+import type { AttachmentLink } from "./domain/attachmentLinks";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
+import { createDiagramRepository } from "./infrastructure/diagramRepo";
+import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
+import { tabFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -143,7 +148,70 @@ function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
   const { reportError } = useShellErrors();
   const fileExplorer = useFileExplorer();
-  const docManager = useDocuments();
+
+  // Workspace-scoped attachment-links repo. Created inline because
+  // KnowledgeBaseInner is above RepositoryProvider (see project_repository_context_deferred).
+  // Uses fileExplorer.rootHandle (state) — NOT dirHandleRef.current — so the memo
+  // correctly invalidates when the user switches vaults.
+  const attachmentLinksRepo = useMemo(() => {
+    return fileExplorer.rootHandle
+      ? createAttachmentLinksRepository(fileExplorer.rootHandle)
+      : null;
+  }, [fileExplorer.rootHandle]);
+
+  // One-time boot read of .kb/attachment-links.json, re-runs when the repo
+  // identity changes (vault switch). The bootLoaded gate prevents the
+  // empty-default mount-effect from clobbering disk before the read finishes.
+  const [bootLoaded, setBootLoaded] = useState(false);
+  const bootLoadedRef = useRef(false);
+  bootLoadedRef.current = bootLoaded;
+
+  const onFlush = useCallback(
+    (rows: AttachmentLink[]) => {
+      if (!attachmentLinksRepo || !bootLoadedRef.current) return;
+      void attachmentLinksRepo.write(rows).catch((e) =>
+        reportError(e as Error, "Writing .kb/attachment-links.json"),
+      );
+    },
+    [attachmentLinksRepo, reportError],
+  );
+
+  const docManager = useDocuments({ onFlush });
+  // Stable useState setter — extracted so the boot-read effect depends on it
+  // instead of the whole docManager object literal, which is recreated every
+  // render and would trigger a hot disk-write loop (150k writes/10s).
+  const { setRows } = docManager;
+
+  // Reset + boot-read whenever the repo identity changes (vault open / switch / close).
+  useEffect(() => {
+    if (!attachmentLinksRepo) {
+      setBootLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    setBootLoaded(false);  // re-arm gate before the new read
+    attachmentLinksRepo
+      .read()
+      .then((rows) => {
+        if (cancelled) return;
+        setRows(rows);
+        setBootLoaded(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        // Boot-read is a passive init — log to console for diagnostics but do
+        // not surface a toast. If the user's permission has lapsed (NotAllowed
+        // / SecurityError) or any other read failure occurs, the user will see
+        // a contextual error the first time they actually attach/detach (the
+        // onFlush write path still calls reportError on failure).
+        console.warn("[attachments] Boot read of .kb/attachment-links.json failed:", e);
+        setBootLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentLinksRepo, setRows, reportError]);
+
   const linkManager = useLinkIndex();
   const searchManager = useVaultSearch();
   // Viewport detection drives mobile shell branching.
@@ -319,8 +387,61 @@ function KnowledgeBaseInner() {
     })();
   }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError, searchManager]);
 
-  const handleDeleteFileWithLinks = useCallback((path: string, event: React.MouseEvent) => {
+  /**
+   * Detach all attachment rows scoped to `path` before the file is unlinked.
+   * Extracted so it can be called from both the bridge-mounted delete path
+   * and the modal-confirm delete path (no-bridge case).
+   */
+  const cleanupAttachmentsForPath = useCallback(async (
+    path: string,
+    rootHandle: FileSystemDirectoryHandle,
+  ) => {
+    if (path.endsWith(".alphatex")) {
+      docManager.detachAttachmentsFor(tabFileMatcher(path));
+    } else if (path.endsWith(".kbjson")) {
+      try {
+        const repo = createDiagramRepository(rootHandle);
+        const data = await repo.read(path);
+        const ids = collectDiagramEntityIds(data);
+        docManager.detachAttachmentsFor(diagramFileMatcher(ids));
+      } catch (e) {
+        reportError(e as Error, `Reading ${path} for attachment cleanup`);
+      }
+    } else if (path.endsWith(".md")) {
+      docManager.detachAttachmentsFor(mdFileMatcher(path));
+    }
+  }, [docManager, reportError]);
+
+  /**
+   * Detach all attachment rows for every attachable file inside a folder
+   * subtree before the folder is unlinked. Walks the in-memory tree to
+   * collect paths, then runs cleanupAttachmentsForPath for each inside a
+   * single withBatch so only one flush fires.
+   */
+  const cleanupAttachmentsForFolder = useCallback(
+    async (folderPath: string) => {
+      const rootHandle = fileExplorer.dirHandleRef.current;
+      if (!rootHandle) return;
+      const filePaths = collectAttachableFilePaths(fileExplorer.tree, folderPath);
+      if (filePaths.length === 0) return;
+      await docManager.withBatch(async () => {
+        for (const filePath of filePaths) {
+          await cleanupAttachmentsForPath(filePath, rootHandle);
+        }
+      });
+    },
+    [fileExplorer.tree, fileExplorer.dirHandleRef, docManager, cleanupAttachmentsForPath],
+  );
+
+  const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+
     if (diagramBridgeRef.current) {
+      // Detach attachment rows BEFORE the unlink so undo can restore them.
+      if (rootHandle) {
+        await cleanupAttachmentsForPath(path, rootHandle);
+      }
+
       diagramBridgeRef.current.handleDeleteFile(path, event);
       if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
         void linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
@@ -333,7 +454,7 @@ function KnowledgeBaseInner() {
     } else {
       setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager, cleanupAttachmentsForPath]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Snapshot tree before the FS move triggers a rescan.
@@ -420,6 +541,20 @@ function KnowledgeBaseInner() {
       reportError(e, `Creating ${docPath}`);
     }
   }, [fileExplorer.dirHandleRef, docManager, handleOpenDocument, reportError]);
+
+  const onMigrateLegacyDocuments = useCallback(
+    async (_filePath: string, docs: DocumentMeta[]) => {
+      if (!docs.length) return;
+      await docManager.withBatch(async () => {
+        for (const d of docs) {
+          for (const a of d.attachedTo ?? []) {
+            docManager.attachDocument(d.filename, a.type, a.id);
+          }
+        }
+      });
+    },
+    [docManager],
+  );
 
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads on `activeFile` change, so opening the pane is
@@ -1041,16 +1176,21 @@ function KnowledgeBaseInner() {
               reportError(e, `Creating ${path}`);
             }
           }}
-          onLoadDocuments={docManager.setDocuments}
+          rows={docManager.rows}
+          setRows={docManager.setRows}
+          detachAttachmentsFor={docManager.detachAttachmentsFor}
+          withBatch={docManager.withBatch}
+          onMigrateLegacyDocuments={onMigrateLegacyDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}
           readDocument={readDocument}
           getDocumentReferences={getDocumentReferences}
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-          onAfterDiagramSaved={(diagramPath, docs) => {
+          onBeforeDeleteFolder={cleanupAttachmentsForFolder}
+          onAfterDiagramSaved={(diagramPath) => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
-            const docFilenames = docs.map((d) => d.filename);
+            const docFilenames = docManager.documents.map((d) => d.filename);
             linkManager.updateDiagramLinks(rootHandle, diagramPath, docFilenames).catch((e) =>
               reportError(e, `Updating diagram links for ${diagramPath}`)
             );
@@ -1112,6 +1252,8 @@ function KnowledgeBaseInner() {
           if (side === "left") leftTabExportRef.current = handle;
           else rightTabExportRef.current = handle;
         },
+        detachAttachmentsFor: docManager.detachAttachmentsFor,
+        withBatch: docManager.withBatch,
       }));
     }
 
@@ -1414,6 +1556,11 @@ function KnowledgeBaseInner() {
             const { type, path } = shellConfirmAction;
             setShellConfirmAction(null);
             if (type === "delete-file") {
+              // Detach attachment rows BEFORE the unlink (modal-confirm path).
+              const rootHandle = fileExplorer.dirHandleRef.current;
+              if (rootHandle) {
+                await cleanupAttachmentsForPath(path, rootHandle);
+              }
               await fileExplorer.deleteFile(path);
               if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
                 await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
@@ -1421,6 +1568,7 @@ function KnowledgeBaseInner() {
                 );
               }
             } else {
+              await cleanupAttachmentsForFolder(path);
               await fileExplorer.deleteFolder(path);
             }
           }}

@@ -15,7 +15,7 @@ function Wrap({ children, tabRefs = null }: { children: ReactNode; tabRefs?: Par
   return (
     <StubRepositoryProvider
       value={{
-        attachment: null,
+        attachment: null, attachmentLinks: null,
         document: null,
         diagram: null,
         linkIndex: null,

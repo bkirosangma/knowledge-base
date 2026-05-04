@@ -52,7 +52,7 @@ interface HarnessOpts {
 
 function makeWrapper(opts: HarnessOpts) {
   const stub: Repositories = {
-    attachment: null,
+    attachment: null, attachmentLinks: null,
     diagram: null,
     document: null,
     linkIndex: null,

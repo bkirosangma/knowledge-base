@@ -44,13 +44,14 @@ export function useDiagramPersistence(
     return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl, documents: docs });
   }, []);
 
-  // Set snapshot when a file is loaded or saved (docs must match actual documents state)
+  // Set snapshot when a file is loaded or saved.
+  // `docs` is omitted by callers that don't track document dirty state (e.g. history restore).
   const setLoadSnapshot = useCallback((
     t: string, l: LayerDef[], n: NodeData[], c: Connection[],
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
     fl: FlowDef[],
-    docs: DocumentMeta[],
+    docs: DocumentMeta[] = [],
   ) => {
     snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl, docs);
     setIsDirty(false);

@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 
 import type {
+  AttachmentLinksRepository,
   AttachmentRepository,
   DiagramRepository,
   DocumentRepository,
@@ -13,6 +14,7 @@ import type {
   VaultConfigRepository,
 } from "../domain/repositories";
 import type { TabRefsRepository } from "../domain/tabRefs";
+import { createAttachmentLinksRepository } from "../infrastructure/attachmentLinksRepo";
 import { createAttachmentRepository } from "../infrastructure/attachmentRepo";
 import { createDiagramRepository } from "../infrastructure/diagramRepo";
 import { createDocumentRepository } from "../infrastructure/documentRepo";
@@ -30,6 +32,7 @@ import { createVaultConfigRepository } from "../infrastructure/vaultConfigRepo";
  */
 export interface Repositories {
   attachment: AttachmentRepository | null;
+  attachmentLinks: AttachmentLinksRepository | null;
   diagram: DiagramRepository | null;
   document: DocumentRepository | null;
   linkIndex: LinkIndexRepository | null;
@@ -41,6 +44,7 @@ export interface Repositories {
 
 const EMPTY_REPOS: Repositories = {
   attachment: null,
+  attachmentLinks: null,
   diagram: null,
   document: null,
   linkIndex: null,
@@ -74,6 +78,7 @@ export function RepositoryProvider({
     if (!rootHandle) return EMPTY_REPOS;
     return {
       attachment: createAttachmentRepository(rootHandle),
+      attachmentLinks: createAttachmentLinksRepository(rootHandle),
       diagram: createDiagramRepository(rootHandle),
       document: createDocumentRepository(rootHandle),
       linkIndex: createLinkIndexRepository(rootHandle),

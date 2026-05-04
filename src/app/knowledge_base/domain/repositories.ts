@@ -16,6 +16,7 @@
 
 import type { LinkIndex } from "../features/document/types";
 import type { VaultConfig, DiagramData } from "../shared/utils/types";
+import type { AttachmentLink } from "./attachmentLinks";
 
 /**
  * Abstraction over the on-disk wiki-link index (`.archdesigner/_links.json`)
@@ -136,4 +137,16 @@ export interface TabRepository {
   /** Overwrite the tab's content. Creates parent dirs + file as needed.
    *  Throws on failure. */
   write(tabPath: string, content: string): Promise<void>;
+}
+
+/**
+ * Abstraction over the workspace-scoped attachment-link store
+ * (`.kb/attachment-links.json`). Persists a flat list of document-to-entity
+ * relations across all diagrams and tabs in the vault.
+ */
+export interface AttachmentLinksRepository {
+  /** Read the persisted rows. Returns [] when the file is absent. */
+  read(): Promise<AttachmentLink[]>;
+  /** Replace the entire stored set with `rows`. Creates `.kb/` if absent. */
+  write(rows: AttachmentLink[]): Promise<void>;
 }
