@@ -20,8 +20,11 @@ import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
 import type { TabEditOp, TabMetadata } from "../../domain/tabEngine";
 import type { CursorLocation } from "./editor/hooks/useTabCursor";
 import { useRepositories } from "../../shell/RepositoryContext";
-import type { TabRefsPayload } from "../../domain/tabRefs";
-import { reconcileSidecarForSetSection, reconcileSidecarByName } from "./sidecarReconcile";
+import { emptyTabRefs } from "../../domain/tabRefs";
+import {
+  updateSidecarOnEdit as updateSidecarPayload,
+  type UpdateSidecarContext,
+} from "./sidecarReconcile";
 
 const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
 
@@ -124,32 +127,40 @@ export function TabView({
 
   const updateSidecarOnEdit = useCallback(async (op: TabEditOp): Promise<void> => {
     if (!tabRefs) return;
-    if (op.type !== "set-section" && op.type !== "add-bar" && op.type !== "remove-bar") return;
+    // Ops that don't touch the sidecar — short-circuit.
+    if (
+      op.type !== "set-section" &&
+      op.type !== "add-bar" &&
+      op.type !== "remove-bar" &&
+      op.type !== "add-track" &&
+      op.type !== "remove-track"
+    ) return;
+    // remove-track needs pre-edit position capture which T10 doesn't wire.
+    if (op.type === "remove-track") return; // TODO(T26): capture removedPosition pre-edit
     const fp = filePathRef.current;
     const md = metadataRef.current;
     if (!fp) return;
-    // add-bar / remove-bar need the current section list; set-section does not
+    // add-bar / remove-bar need the current section list; set-section / add-track do not
     // (metadata may still be null on the very first edit before the engine fires "loaded").
     if ((op.type === "add-bar" || op.type === "remove-bar") && !md) return;
 
-    const current = (await tabRefs.read(fp)) ?? { version: 1 as const, sections: {} };
+    const prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
 
-    let next: TabRefsPayload;
+    let ctx: UpdateSidecarContext = {};
     if (op.type === "set-section") {
       // Op-aware rename: find the old name from metadata BEFORE the engine updates.
       // metadata still reflects the pre-edit state at this point (engine fires "loaded"
       // asynchronously after applyEdit). We find the section at op.beat.
       const oldSection = md?.sections.find((s) => s.startBeat === op.beat);
-      const oldName = oldSection?.name ?? null;
-      const newName = op.name;
-
-      next = reconcileSidecarForSetSection(current, oldName, newName);
-    } else {
-      // add-bar / remove-bar: reconcile by name (no rename involved).
+      ctx = { oldSectionName: oldSection?.name ?? null };
+    } else if (op.type === "add-bar" || op.type === "remove-bar") {
       // md is guaranteed non-null here (guard above).
-      next = reconcileSidecarByName(current, md!.sections);
+      ctx = { currentSections: md!.sections };
+    } else if (op.type === "add-track") {
+      ctx = { newTrackId: crypto.randomUUID() };
     }
 
+    const next = updateSidecarPayload(prev, op, ctx);
     await tabRefs.write(fp, next);
   }, [tabRefs]);
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
