@@ -29,7 +29,7 @@ import { SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string };
-  core: { engine: string; logLevel: number };
+  core: { engine: string; logLevel: number; fontDirectory: string };
 }
 
 interface AlphaTabApiLike {
@@ -380,6 +380,7 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
     settings.core.logLevel = LOG_LEVEL_INFO;
+    settings.core.fontDirectory = "/font/";
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
