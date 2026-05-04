@@ -185,9 +185,22 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 
 ---
 
+## 11.10 Multi-track (TAB-009)
+
+- **TAB-11.10-01** ✅ **Active track shows 6 string inputs for 6-string guitar** — `getAllByLabelText(/String \d/)` has length 6. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-02** ✅ **Active track shows 4 string inputs for 4-string bass** — `getAllByLabelText(/String \d/)` has length 4. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-03** ✅ **Changing a string pitch fires `onSetTrackTuning` with the new array** — blur triggers callback with correct trackId and updated tuning array. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-04** ✅ **Changing capo fires `onSetTrackCapo` with clamped int** — blur triggers callback with `("0", 3)`. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-05** ✅ **Capo input clamps to [0, 24]** — 99 → 24, -5 → 0. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-06** ✅ **Invalid pitch shows inline error and does not fire `onSetTrackTuning`** — "Z9" triggers `role="alert"`, no callback. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-07** ✅ **Only one `TrackEditor` renders (for the active row)** — `querySelectorAll("[data-track-editor]")` length is 1. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-08** ✅ **Clicking inside editor does not fire `onSwitchActiveTrack`** — `e.stopPropagation()` on editor container prevents row's click handler. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-09** ✅ **No-op when pitch is unchanged** — blurring a string input with its original value does not call `onSetTrackTuning`. _(unit: `TabProperties.test.tsx`.)_
+
+---
+
 ## Future sections (added with their owning ticket)
 
-- **§11.10 Multi-track** (TAB-009 / TAB-009a) — add/remove tracks, per-track tuning/capo, track-level attachments.
 - **§11.11 Export** (TAB-010) — MIDI / WAV / PDF.
 
 Each ticket's PR adds the corresponding sub-section + flips its cases ✅ / 🧪 in the same change set, per the working-agreements contract.

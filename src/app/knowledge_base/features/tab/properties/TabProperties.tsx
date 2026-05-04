@@ -49,6 +49,10 @@ export interface TabPropertiesProps {
   onToggleMute?: (trackId: string) => void;
   /** Callback fired when a solo button is clicked. T26 will wire the actual handler. */
   onToggleSolo?: (trackId: string) => void;
+  /** Callback to update a track's string tuning. Optional; T26 will wire. */
+  onSetTrackTuning?: (trackId: string, tuning: string[]) => void;
+  /** Callback to update a track's capo fret. Optional; T26 will wire. */
+  onSetTrackCapo?: (trackId: string, fret: number) => void;
 }
 
 /**
@@ -69,6 +73,8 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     soloedTrackIds = [],
     onToggleMute,
     onToggleSolo,
+    onSetTrackTuning,
+    onSetTrackCapo,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -106,6 +112,8 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                 soloedTrackIds={soloedTrackIds}
                 onToggleMute={onToggleMute}
                 onToggleSolo={onToggleSolo}
+                onSetTrackTuning={onSetTrackTuning}
+                onSetTrackCapo={onSetTrackCapo}
               />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -181,6 +189,75 @@ function Tuning({ metadata, activeTrackIndex }: { metadata: TabMetadata; activeT
   );
 }
 
+const PITCH_RE = /^[A-G][#b]?[0-8]$/;
+
+interface TrackEditorProps {
+  track: TabMetadata["tracks"][number];
+  onSetTuning?: (trackId: string, tuning: string[]) => void;
+  onSetCapo?: (trackId: string, fret: number) => void;
+}
+
+function TrackEditor({ track, onSetTuning, onSetCapo }: TrackEditorProps): ReactElement {
+  const [error, setError] = useState<string | null>(null);
+
+  const handleStringBlur = (idx: number, value: string): void => {
+    const trimmed = value.trim();
+    if (!PITCH_RE.test(trimmed)) {
+      setError(`Invalid pitch at string ${idx + 1}`);
+      return;
+    }
+    setError(null);
+    if (trimmed === track.tuning[idx]) return;
+    const next = [...track.tuning];
+    next[idx] = trimmed;
+    onSetTuning?.(track.id, next);
+  };
+
+  const handleCapoBlur = (raw: string): void => {
+    const n = Math.max(0, Math.min(24, parseInt(raw, 10) || 0));
+    if (n === track.capo) return;
+    onSetCapo?.(track.id, n);
+  };
+
+  return (
+    <div
+      data-track-editor
+      className="mt-2 ml-6 grid gap-2 text-xs"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="grid gap-1">
+        <label className="text-mute text-[10px] uppercase">Tuning</label>
+        <div className="flex flex-wrap gap-1">
+          {track.tuning.map((s, i) => (
+            <input
+              key={i}
+              type="text"
+              aria-label={`String ${i + 1}`}
+              defaultValue={s}
+              onBlur={(e) => handleStringBlur(i, e.target.value)}
+              className="w-12 px-1 py-0.5 rounded border border-line bg-surface text-fg font-mono"
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <label htmlFor={`capo-${track.id}`} className="text-mute text-[10px] uppercase">Capo</label>
+        <input
+          id={`capo-${track.id}`}
+          type="number"
+          aria-label="Capo"
+          min={0}
+          max={24}
+          defaultValue={track.capo}
+          onBlur={(e) => handleCapoBlur(e.target.value)}
+          className="w-14 px-1 py-0.5 rounded border border-line bg-surface text-fg"
+        />
+      </div>
+      {error && <p role="alert" className="text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 function Tracks({
   metadata,
   activeTrackIndex,
@@ -189,6 +266,8 @@ function Tracks({
   soloedTrackIds,
   onToggleMute,
   onToggleSolo,
+  onSetTrackTuning,
+  onSetTrackCapo,
 }: {
   metadata: TabMetadata;
   activeTrackIndex: number;
@@ -197,6 +276,8 @@ function Tracks({
   soloedTrackIds: string[];
   onToggleMute?: (trackId: string) => void;
   onToggleSolo?: (trackId: string) => void;
+  onSetTrackTuning?: (trackId: string, tuning: string[]) => void;
+  onSetTrackCapo?: (trackId: string, fret: number) => void;
 }): ReactElement | null {
   if (metadata.tracks.length === 0) return null;
   const handleSwitch = (i: number): void => {
@@ -274,6 +355,13 @@ function Tracks({
                   </button>
                 </span>
               </span>
+              {active && (
+                <TrackEditor
+                  track={track}
+                  onSetTuning={onSetTrackTuning}
+                  onSetCapo={onSetTrackCapo}
+                />
+              )}
             </li>
           );
         })}

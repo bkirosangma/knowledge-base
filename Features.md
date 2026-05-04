@@ -720,8 +720,15 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 
 ### 11.9 Pending
 
-- ? **Multi-track + per-track tuning/capo (TAB-009)**
 - ? **Export — MIDI / WAV / PDF (TAB-010)**
+
+### 11.10 Multi-track (TAB-009, in progress)
+
+- ✅ **Per-track domain types** (`src/app/knowledge_base/domain/tabEngine.ts`) — `tracks[].tuning`, `tracks[].capo`, `tracks[].voiceIndex`; new `set-track-tuning` / `set-track-capo` ops in `TabEditOp`.
+- ✅ **Sidecar v2 with `trackRefs`** (`src/app/knowledge_base/features/tab/tabRefsRepo.ts`) — v2 payload adds `trackRefs[]`; v1 payloads remain readable (forward-compat read).
+- ✅ **Track-aware locate helpers** (`src/app/knowledge_base/domain/tabEngine.ts`) — `locateBarIndex` / `locateBeat` accept optional `trackId`; fall back to track 0.
+- ✅ **`TabProperties.Tracks` subcomponent** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — renders interactive track rows with active-row visual (accent border-l, bold name, filled dot); M/S buttons with `aria-pressed`.
+- ✅ **`TrackEditor` inline component** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — per-string pitch inputs + capo number input rendered beneath the active track row; validates pitches with `/^[A-G][#b]?[0-8]$/`; fires `onSetTrackTuning` / `onSetTrackCapo` on blur; click propagation stopped so editing doesn't re-fire `onSwitchActiveTrack`.
 
 ---
 

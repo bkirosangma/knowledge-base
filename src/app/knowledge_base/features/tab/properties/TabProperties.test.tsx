@@ -384,6 +384,203 @@ describe("TabProperties", () => {
     expect(() => fireEvent.click(screen.getByLabelText("Mute Lead"))).not.toThrow();
     expect(() => fireEvent.click(screen.getByLabelText("Solo Lead"))).not.toThrow();
   });
+
+  it("active track expanded editor shows 6 string inputs for 6-string guitar (TAB-009 T18)", () => {
+    const { getAllByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+        />
+      </Wrap>,
+    );
+    expect(getAllByLabelText(/String \d/)).toHaveLength(6);
+  });
+
+  it("active track expanded editor shows 4 string inputs for 4-string bass (TAB-009 T18)", () => {
+    const { getAllByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={1}
+        />
+      </Wrap>,
+    );
+    expect(getAllByLabelText(/String \d/)).toHaveLength(4);
+  });
+
+  it("changing a string fires onSetTrackTuning with the new array (TAB-009 T18)", () => {
+    const onSet = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSetTrackTuning={onSet}
+        />
+      </Wrap>,
+    );
+    const input = getByLabelText("String 1") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "F2" } });
+    fireEvent.blur(input);
+    expect(onSet).toHaveBeenCalledWith("0", ["F2", "A2", "D3", "G3", "B3", "E4"]);
+  });
+
+  it("changing capo fires onSetTrackCapo with clamped int (TAB-009 T18)", () => {
+    const onSet = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSetTrackCapo={onSet}
+        />
+      </Wrap>,
+    );
+    const input = getByLabelText("Capo") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "3" } });
+    fireEvent.blur(input);
+    expect(onSet).toHaveBeenCalledWith("0", 3);
+  });
+
+  it("capo input clamps to [0, 24] (TAB-009 T18)", () => {
+    const onSet = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            // capo: 5 so both out-of-range values trigger a real change
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 5 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSetTrackCapo={onSet}
+        />
+      </Wrap>,
+    );
+    const input = getByLabelText("Capo") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "99" } });
+    fireEvent.blur(input);
+    expect(onSet).toHaveBeenLastCalledWith("0", 24);
+    fireEvent.change(input, { target: { value: "-5" } });
+    fireEvent.blur(input);
+    expect(onSet).toHaveBeenLastCalledWith("0", 0);
+  });
+
+  it("invalid pitch shows inline error and does not fire onSetTrackTuning (TAB-009 T18)", () => {
+    const onSet = vi.fn();
+    const { getByLabelText, getByRole } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSetTrackTuning={onSet}
+        />
+      </Wrap>,
+    );
+    const input = getByLabelText("String 1") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Z9" } });
+    fireEvent.blur(input);
+    expect(getByRole("alert")).toBeTruthy();
+    expect(onSet).not.toHaveBeenCalled();
+  });
+
+  it("only renders the editor for the active row (TAB-009 T18)", () => {
+    const { container } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+        />
+      </Wrap>,
+    );
+    expect(container.querySelectorAll("[data-track-editor]")).toHaveLength(1);
+  });
+
+  it("clicking inside the editor does not fire onSwitchActiveTrack (TAB-009 T18)", () => {
+    const onSwitch = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(getByLabelText("String 1"));
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("entering same value does not fire onSetTrackTuning (no-op when unchanged) (TAB-009 T18)", () => {
+    const onSet = vi.fn();
+    const { getByLabelText } = render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSetTrackTuning={onSet}
+        />
+      </Wrap>,
+    );
+    const input = getByLabelText("String 1") as HTMLInputElement;
+    fireEvent.blur(input); // value unchanged from defaultValue "E2"
+    expect(onSet).not.toHaveBeenCalled();
+  });
 });
 
 describe("TabProperties — cross-references", () => {
