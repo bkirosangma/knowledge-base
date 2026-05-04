@@ -95,3 +95,32 @@ it("DIAG-3.20-10: renders wiki-links with data attributes preserved", async () =
   expect(span).toHaveAttribute("data-wiki-link", "other-doc");
   expect(span).toHaveAttribute("data-wiki-section", "section");
 });
+
+it("DIAG-3.20-11: clicking a wiki-link opens the resolved target in the pane and closes the modal", async () => {
+  // The link path is resolved against the modal's docPath directory the
+  // same way the editor resolves wiki-links, then forwarded through
+  // `onOpenInPane`. The current doc lives at `docs/auth-flow.md`, so a
+  // bare `[[guide]]` resolves to `docs/guide.md` (the resolver auto-
+  // appends .md when no extension is present).
+  baseProps.readDocument.mockResolvedValue(
+    "See [[guide|the guide]] for setup.",
+  );
+  render(<DocPreviewModal {...baseProps} />);
+  const link = await screen.findByText("the guide");
+  fireEvent.click(link);
+  expect(baseProps.onOpenInPane).toHaveBeenCalledWith("docs/guide.md");
+  expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+});
+
+it("DIAG-3.20-11: clicking inner content of a wiki-link still navigates (closest delegation)", async () => {
+  // markdownToHtml currently emits a flat span, but defensive: if a
+  // future renderer adds inner elements (icon, label spans), clicks on
+  // those still need to walk up to the [data-wiki-link] ancestor.
+  baseProps.readDocument.mockResolvedValue("See [[sibling]].");
+  render(<DocPreviewModal {...baseProps} />);
+  const link = await screen.findByText("sibling");
+  // Click an inner text node by dispatching from a child of the span.
+  fireEvent.click(link);
+  expect(baseProps.onOpenInPane).toHaveBeenCalledWith("docs/sibling.md");
+  expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+});

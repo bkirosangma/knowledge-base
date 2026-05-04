@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { FileText, X, ExternalLink, Loader2 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { markdownToHtml } from "../../document/extensions/markdownSerializer";
+import { resolveWikiLinkPath } from "../../document/utils/wikiLinkParser";
 import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
 
 interface DocPreviewModalProps {
@@ -119,6 +120,33 @@ export default function DocPreviewModal({
   }, []);
 
   const filename = docPath.split("/").pop() ?? docPath;
+  const currentDocDir = useMemo(
+    () => docPath.split("/").slice(0, -1).join("/"),
+    [docPath],
+  );
+
+  // Wiki-link click handler. Body markdown is `dangerouslySetInnerHTML`d
+  // (no React tree on the spans), so we delegate from the wrapper. Each
+  // `<span data-wiki-link="…">` rendered by `markdownToHtml` carries the
+  // raw link path; resolve it the same way the editor does, then open
+  // the resolved file in the pane and close the modal. `closest` handles
+  // clicks that land on inner text/icon nodes.
+  const handleBodyClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
+        "[data-wiki-link]",
+      );
+      if (!target) return;
+      const linkPath = target.getAttribute("data-wiki-link");
+      if (!linkPath) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const resolved = resolveWikiLinkPath(linkPath, currentDocDir);
+      onOpenInPane(resolved);
+      onClose();
+    },
+    [currentDocDir, onOpenInPane, onClose],
+  );
 
   const modal = (
     <div className="fixed inset-0 z-[9999]">
@@ -202,6 +230,7 @@ export default function DocPreviewModal({
           {html !== null && !error && (
             <div
               className="markdown-editor"
+              onClick={handleBodyClick}
               dangerouslySetInnerHTML={{ __html: `<div class="ProseMirror">${html}</div>` }}
             />
           )}

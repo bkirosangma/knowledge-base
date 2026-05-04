@@ -174,9 +174,11 @@
    DocPreviewModal. In the editor, Tiptap's NodeView writes the same
    visual via Tailwind utility classes (cf. wikiLink.tsx renderHTML);
    the rules below are equivalent so the appearance matches whether
-   the document is being edited or previewed. Hover state intentionally
-   omitted — the modal doesn't wire click navigation, so a hover cue
-   would be misleading. */
+   the document is being edited or previewed. The contenteditable
+   override above wins in edit mode (cursor: text), so the pointer +
+   hover state below only kick in when the document is being previewed
+   read-only — exactly when DocPreviewModal's click delegate routes
+   the click to onOpenInPane. */
 .markdown-editor .wiki-link {
   display: inline-flex;
   align-items: center;
@@ -185,8 +187,12 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 500;
+  cursor: pointer;
   background-color: rgb(219 234 254); /* tailwind blue-100 */
   color: rgb(29 78 216);              /* tailwind blue-700 */
+}
+.markdown-editor .wiki-link:hover {
+  background-color: rgb(191 219 254); /* tailwind blue-200 */
 }
 
 /* Images */
