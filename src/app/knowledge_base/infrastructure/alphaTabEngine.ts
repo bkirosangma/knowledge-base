@@ -398,6 +398,7 @@ class AlphaTabSession implements TabSession {
   private listeners = new Map<TabEvent, Set<TabEventHandler>>();
   private latestMetadata: TabMetadata | null = null;
   private latestScore: ScoreShape | null = null;
+  private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
   private disposed = false;
 
   constructor(
@@ -493,6 +494,7 @@ class AlphaTabSession implements TabSession {
     mutedTrackIds: string[];
     soloedTrackIds: string[];
   }): void {
+    this.playbackState = { mutedTrackIds: [...state.mutedTrackIds], soloedTrackIds: [...state.soloedTrackIds] };
     if (!this.latestScore) return;
     const allTracks = this.latestScore.tracks;
     const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.index)));
@@ -523,13 +525,26 @@ class AlphaTabSession implements TabSession {
   async exportAudio(opts: ExportAudioOptions = {}): Promise<Uint8Array> {
     if (!this.api.score) throw new Error("Cannot export audio: no score loaded");
     const sampleRate = opts.sampleRate ?? 44100;
-    // Track-volume mapping for mute/solo lands in T4 — for T3 we pass an empty Map (default = 1).
+    const tracks = this.api.score?.tracks ?? [];
+    const muted = new Set(this.playbackState.mutedTrackIds.map((id) => Number(id)));
+    const soloed = new Set(this.playbackState.soloedTrackIds.map((id) => Number(id)));
+    const anySoloed = soloed.size > 0;
+    const trackVolume = new Map<number, number>();
+    for (const t of tracks) {
+      if (anySoloed) {
+        trackVolume.set(t.index, soloed.has(t.index) ? 1 : 0);
+      } else if (muted.has(t.index)) {
+        trackVolume.set(t.index, 0);
+      } else {
+        trackVolume.set(t.index, 1);
+      }
+    }
     const audioOpts: AudioExportOptionsLike = {
       sampleRate,
       useSyncPoints: true,
       masterVolume: 1,
       metronomeVolume: 0,
-      trackVolume: new Map(),
+      trackVolume,
     };
     const exporter = await this.api.exportAudio(audioOpts);
     const chunks: Float32Array[] = [];

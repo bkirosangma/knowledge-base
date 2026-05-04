@@ -204,3 +204,45 @@ describe("TabSession.exportAudio", () => {
     expect(FakeAudioExporter.destroyMock).toHaveBeenCalledOnce();
   });
 });
+
+describe("TabSession.exportAudio — track scope", () => {
+  let container: HTMLElement;
+  let capturedOpts: { trackVolume?: Map<number, number> } | null = null;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    capturedOpts = null;
+    exportAudioMock.mockImplementation(async (opts: { trackVolume?: Map<number, number> }) => {
+      capturedOpts = opts;
+      FakeAudioExporter.chunks = [{ samples: new Float32Array(0), currentTime: 0, endTime: 0 }];
+      return new FakeAudioExporter();
+    });
+  });
+
+  it("maps muted track ids to trackVolume = 0", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    session.setPlaybackState({ mutedTrackIds: ["1"], soloedTrackIds: [] });
+    await session.exportAudio({ sampleRate: 44100 });
+    expect(capturedOpts?.trackVolume?.get(1)).toBe(0);
+    expect(capturedOpts?.trackVolume?.get(0) ?? 1).toBe(1); // unmuted defaults to 1
+  });
+
+  it("when any track is soloed, non-soloed tracks → 0", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    session.setPlaybackState({ mutedTrackIds: [], soloedTrackIds: ["0"] });
+    await session.exportAudio({});
+    expect(capturedOpts?.trackVolume?.get(0)).toBe(1);
+    expect(capturedOpts?.trackVolume?.get(1)).toBe(0); // not soloed → muted
+  });
+
+  it("solo wins over mute for a soloed track", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    session.setPlaybackState({ mutedTrackIds: ["0"], soloedTrackIds: ["0"] });
+    await session.exportAudio({});
+    expect(capturedOpts?.trackVolume?.get(0)).toBe(1);
+  });
+});
