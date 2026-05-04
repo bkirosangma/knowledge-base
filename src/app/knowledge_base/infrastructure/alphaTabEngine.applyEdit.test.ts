@@ -311,6 +311,29 @@ describe("AlphaTabSession.applyEdit", () => {
     expect(note.bendPoints![1].value).toBe(50);
   });
 
+  describe("applyEdit add-technique bend — amount cycle", () => {
+    it("amount 50 produces a half-step bend (default behavior preserved when omitted)", () => {
+      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend" });
+      const note = findNote(session, 0, 1);
+      expect(note.bendType).toBeTruthy();
+      expect(note.bendPoints![1].value).toBe(50);
+    });
+
+    it("amount 100 produces a full-step bend", () => {
+      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 100 });
+      const note = findNote(session, 0, 1);
+      expect(note.bendType).toBeTruthy();
+      expect(note.bendPoints![1].value).toBe(100);
+    });
+
+    it("explicit amount 50 matches default", () => {
+      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 50 });
+      const note = findNote(session, 0, 1);
+      expect(note.bendType).toBeTruthy();
+      expect(note.bendPoints![1].value).toBe(50);
+    });
+  });
+
   it("slide applies slide-up by default", () => {
     session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
     expect(findNote(session, 0, 1).slideOutType).toBeTruthy();

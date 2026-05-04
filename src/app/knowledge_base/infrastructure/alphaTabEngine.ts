@@ -124,8 +124,10 @@ interface BeatShape {
 }
 
 /** Per-technique apply / remove mutators, built once after the dynamic import. */
+type AddTechniqueOp = Extract<TabEditOp, { type: "add-technique" }>;
+
 interface TechniqueMutator {
-  apply(note: NoteShape): void;
+  apply(note: NoteShape, op?: AddTechniqueOp): void;
   remove(note: NoteShape): void;
 }
 
@@ -273,10 +275,11 @@ function buildTechniqueMutators(
       remove: (n) => { n.isHammerPullOrigin = false; },
     },
     "bend": {
-      apply: (n) => {
+      apply: (n, op) => {
         n.bendType = BendType.Bend;
-        // Default ½-step bend: Guitar-Pro scale (50 = ½ step, 100 = full step).
-        n.bendPoints = [new BendPointCtor(0, 0), new BendPointCtor(60, 50)];
+        // Guitar-Pro scale: 50 = ½ step, 100 = full step. Default to ½ step.
+        const value = op?.amount ?? 50;
+        n.bendPoints = [new BendPointCtor(0, 0), new BendPointCtor(60, value)];
       },
       remove: (n) => {
         n.bendType = BendType.None;
@@ -691,7 +694,11 @@ class AlphaTabSession implements TabSession {
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const note = beat.notes.find((n) => n.string === op.string);
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
-    this.techniqueMutators[op.technique][mode](note);
+    if (mode === "apply") {
+      this.techniqueMutators[op.technique].apply(note, op as AddTechniqueOp);
+    } else {
+      this.techniqueMutators[op.technique].remove(note);
+    }
   }
 
   private applySetTempo(op: Extract<TabEditOp, { type: "set-tempo" }>): void {
