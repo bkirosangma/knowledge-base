@@ -9,6 +9,7 @@ import { TabEditorToolbar } from "./TabEditorToolbar";
 import { TabEditorCanvasOverlay } from "./TabEditorCanvasOverlay";
 import type { PreState } from "../editHistory/inverseOf";
 import { findBeat, findNote, findBarByBeat } from "./scoreNavigation";
+import { midiToScientificPitch } from "../../../infrastructure/alphaTabEngine";
 
 export interface TabEditorProps {
   filePath: string;
@@ -33,6 +34,8 @@ export interface TabEditorProps {
   moveBeat: (delta: 1 | -1) => void;
   moveString: (delta: 1 | -1) => void;
   moveBar: (delta: 1 | -1) => void;
+  nextTrack: () => void;
+  prevTrack: () => void;
   /**
    * Called after each successful apply (fire-and-forget). Used by TabView
    * to trigger sidecar writes after section-affecting edits (C2).
@@ -58,6 +61,8 @@ export default function TabEditor({
   moveBeat,
   moveString,
   moveBar,
+  nextTrack,
+  prevTrack,
   onApplyEdit,
   registerApply,
 }: TabEditorProps): ReactElement {
@@ -100,6 +105,24 @@ export default function TabEditor({
         const track = s?.tracks?.[parseInt(op.trackId, 10)];
         return { fret: track?.staves?.[0]?.capo ?? 0 } as PreState;
       }
+      case "add-track": {
+        const count = (s?.tracks?.length ?? 0) as number;
+        return { trackCount: count } as PreState;
+      }
+      case "remove-track": {
+        const idx = Number(op.trackId);
+        const track = s?.tracks?.[idx];
+        if (!track) {
+          return { removedTrack: { name: "Unknown", instrument: "guitar", tuning: [], capo: 0 } } as PreState;
+        }
+        const tuningMidi: number[] = (track.staves?.[0]?.tuning as number[] | undefined) ?? [];
+        const tuning = tuningMidi.map(midiToScientificPitch);
+        const capo = (track.staves?.[0]?.capo as number | undefined) ?? 0;
+        const stringCount = tuningMidi.length;
+        const instrument: "guitar" | "bass" = stringCount > 0 && stringCount <= 4 ? "bass" : "guitar";
+        const name = (track.name as string | undefined) ?? `Track ${idx + 1}`;
+        return { removedTrack: { name, instrument, tuning, capo } } as PreState;
+      }
       default:
         return {} as PreState;
     }
@@ -138,6 +161,8 @@ export default function TabEditor({
     moveBeat,
     moveString,
     moveBar,
+    nextTrack,
+    prevTrack,
     apply: applyAndNotify,
     undo,
     redo,
@@ -180,6 +205,11 @@ export default function TabEditor({
     applyAndNotify(op);
   }, [cursor, activeTechniques, applyAndNotify]);
 
+  const handleVoiceChange = useCallback((v: 0 | 1) => {
+    if (!cursor) return;
+    setCursor({ ...cursor, voiceIndex: v });
+  }, [cursor, setCursor]);
+
   return (
     <div data-testid="tab-editor" className="absolute inset-0 pointer-events-none flex flex-col">
       <div className="pointer-events-auto bg-surface">
@@ -188,6 +218,8 @@ export default function TabEditor({
           onSetDuration={handleSetDuration}
           activeTechniques={activeTechniques}
           onToggleTechnique={handleToggleTechnique}
+          voiceIndex={cursor?.voiceIndex ?? 0}
+          onVoiceChange={handleVoiceChange}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}

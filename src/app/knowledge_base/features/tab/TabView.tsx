@@ -17,11 +17,14 @@ import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 import { useTabCursor } from "./editor/hooks/useTabCursor";
 import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
-import type { TabEditOp, TabMetadata } from "../../domain/tabEngine";
+import type { TabEditOp, TabMetadata, TabSession } from "../../domain/tabEngine";
 import type { CursorLocation } from "./editor/hooks/useTabCursor";
 import { useRepositories } from "../../shell/RepositoryContext";
-import type { TabRefsPayload } from "../../domain/tabRefs";
-import { reconcileSidecarForSetSection, reconcileSidecarByName } from "./sidecarReconcile";
+import { emptyTabRefs } from "../../domain/tabRefs";
+import {
+  updateSidecarOnEdit as updateSidecarPayload,
+  type UpdateSidecarContext,
+} from "./sidecarReconcile";
 
 const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
 
@@ -38,6 +41,8 @@ type TabEditorPassthroughProps = {
   moveBeat: (delta: 1 | -1) => void;
   moveString: (delta: 1 | -1) => void;
   moveBar: (delta: 1 | -1) => void;
+  nextTrack: () => void;
+  prevTrack: () => void;
   onApplyEdit?: (op: TabEditOp) => void;
   registerApply?: (applyFn: (op: TabEditOp) => void) => void;
 };
@@ -65,8 +70,8 @@ export interface TabViewProps {
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
-  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
   getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
   allDocPaths?: string[];
@@ -105,7 +110,7 @@ export function TabView({
     score: engineScore,
   } = useTabEngine();
   // C3: cursor and selected-note-details lifted to TabView so TabProperties can observe them.
-  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = useTabCursor(metadata);
+  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar, nextTrack, prevTrack } = useTabCursor(metadata);
   const liveScore = tabScore ?? engineScore;
   const selectedNoteDetails = useSelectedNoteDetails(liveScore, cursor);
   // C3: stable proxy for TabEditor's apply fn, written by TabEditor via registerApply.
@@ -124,32 +129,40 @@ export function TabView({
 
   const updateSidecarOnEdit = useCallback(async (op: TabEditOp): Promise<void> => {
     if (!tabRefs) return;
-    if (op.type !== "set-section" && op.type !== "add-bar" && op.type !== "remove-bar") return;
+    // Ops that don't touch the sidecar — short-circuit.
+    if (
+      op.type !== "set-section" &&
+      op.type !== "add-bar" &&
+      op.type !== "remove-bar" &&
+      op.type !== "add-track" &&
+      op.type !== "remove-track"
+    ) return;
+    // remove-track is handled by handleRemoveTrack (with pre-edit position capture).
+    if (op.type === "remove-track") return;
     const fp = filePathRef.current;
     const md = metadataRef.current;
     if (!fp) return;
-    // add-bar / remove-bar need the current section list; set-section does not
+    // add-bar / remove-bar need the current section list; set-section / add-track do not
     // (metadata may still be null on the very first edit before the engine fires "loaded").
     if ((op.type === "add-bar" || op.type === "remove-bar") && !md) return;
 
-    const current = (await tabRefs.read(fp)) ?? { version: 1 as const, sections: {} };
+    const prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
 
-    let next: TabRefsPayload;
+    let ctx: UpdateSidecarContext = {};
     if (op.type === "set-section") {
       // Op-aware rename: find the old name from metadata BEFORE the engine updates.
       // metadata still reflects the pre-edit state at this point (engine fires "loaded"
       // asynchronously after applyEdit). We find the section at op.beat.
       const oldSection = md?.sections.find((s) => s.startBeat === op.beat);
-      const oldName = oldSection?.name ?? null;
-      const newName = op.name;
-
-      next = reconcileSidecarForSetSection(current, oldName, newName);
-    } else {
-      // add-bar / remove-bar: reconcile by name (no rename involved).
+      ctx = { oldSectionName: oldSection?.name ?? null };
+    } else if (op.type === "add-bar" || op.type === "remove-bar") {
       // md is guaranteed non-null here (guard above).
-      next = reconcileSidecarByName(current, md!.sections);
+      ctx = { currentSections: md!.sections };
+    } else if (op.type === "add-track") {
+      ctx = { newTrackId: crypto.randomUUID() };
     }
 
+    const next = updateSidecarPayload(prev, op, ctx);
     await tabRefs.write(fp, next);
   }, [tabRefs]);
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
@@ -193,8 +206,84 @@ export function TabView({
   }, [theme, status, session]);
 
   const [pickerTarget, setPickerTarget] = useState<
-    { type: "tab" | "tab-section"; id: string } | null
+    { type: "tab" | "tab-section" | "tab-track"; id: string } | null
   >(null);
+
+  // T25: mute/solo state for multi-track playback.
+  const [mutedTrackIds, setMutedTrackIds] = useState<string[]>([]);
+  const [soloedTrackIds, setSoloedTrackIds] = useState<string[]>([]);
+
+  // T25: reset mute/solo state on filePath change (pane reload semantics).
+  useEffect(() => {
+    setMutedTrackIds([]);
+    setSoloedTrackIds([]);
+  }, [filePath]);
+
+  // T25: forward mute/solo state to the engine on every change.
+  useEffect(() => {
+    const s = session as TabSession | null;
+    if (!s || typeof s.setPlaybackState !== "function") return;
+    s.setPlaybackState({ mutedTrackIds, soloedTrackIds });
+  }, [session, mutedTrackIds, soloedTrackIds]);
+
+  const handleToggleMute = useCallback((trackId: string) => {
+    setMutedTrackIds((s) =>
+      s.includes(trackId) ? s.filter((x) => x !== trackId) : [...s, trackId]
+    );
+  }, []);
+
+  const handleToggleSolo = useCallback((trackId: string) => {
+    setSoloedTrackIds((s) =>
+      s.includes(trackId) ? s.filter((x) => x !== trackId) : [...s, trackId]
+    );
+  }, []);
+
+  // T26: active-track wiring — cursor.trackIndex drives activeTrackIndex.
+  const handleSwitchActiveTrack = useCallback((i: number) => {
+    setCursor({ trackIndex: i, voiceIndex: 0, beat: 0, string: 1 });
+  }, [setCursor]);
+
+  // T26: track CRUD dispatched through propertiesApply (undo pipeline).
+  const handleAddTrack = useCallback((track: {
+    name: string;
+    instrument: "guitar" | "bass";
+    tuning: string[];
+    capo: number;
+  }) => {
+    propertiesApply({ type: "add-track", ...track });
+  }, [propertiesApply]);
+
+  const handleSetTrackTuning = useCallback((trackId: string, tuning: string[]) => {
+    propertiesApply({ type: "set-track-tuning", trackId, tuning });
+  }, [propertiesApply]);
+
+  const handleSetTrackCapo = useCallback((trackId: string, fret: number) => {
+    propertiesApply({ type: "set-track-capo", trackId, fret });
+  }, [propertiesApply]);
+
+  // T26: remove-track needs pre-edit position capture for sidecar reconcile.
+  // The sidecar write is handled inline here (not via updateSidecarOnEdit) because
+  // the engine's splice resets track .index before the async callback runs.
+  const handleRemoveTrack = useCallback((trackId: string) => {
+    const removedPosition = Number(trackId);
+    // Dispatch via propertiesApply (full undo pipeline).
+    propertiesApply({ type: "remove-track", trackId });
+    // Always reset cursor — predictable and avoids race conditions with engine .index reset timing.
+    setCursor({ trackIndex: 0, voiceIndex: 0, beat: 0, string: 1 });
+    // Reconcile sidecar with the captured position.
+    void (async () => {
+      if (!tabRefs) return;
+      const fp = filePathRef.current;
+      if (!fp) return;
+      try {
+        const prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
+        const next = updateSidecarPayload(prev, { type: "remove-track", trackId }, { removedPosition });
+        await tabRefs.write(fp, next);
+      } catch {
+        // Swallow — useShellError flow already covers tabRefs failures.
+      }
+    })();
+  }, [propertiesApply, setCursor, tabRefs]);
 
   useTabSectionSync(
     filePath,
@@ -265,6 +354,8 @@ export function TabView({
             moveBeat={moveBeat}
             moveString={moveString}
             moveBar={moveBar}
+            nextTrack={nextTrack}
+            prevTrack={prevTrack}
             registerApply={(fn) => { editorApplyRef.current = fn; }}
             onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
           />
@@ -285,6 +376,16 @@ export function TabView({
         cursorBeat={cursor?.beat}
         cursorString={cursor?.string}
         onApplyEdit={propertiesApply}
+        activeTrackIndex={cursor?.trackIndex ?? 0}
+        onSwitchActiveTrack={handleSwitchActiveTrack}
+        mutedTrackIds={mutedTrackIds}
+        soloedTrackIds={soloedTrackIds}
+        onToggleMute={handleToggleMute}
+        onToggleSolo={handleToggleSolo}
+        onSetTrackTuning={handleSetTrackTuning}
+        onSetTrackCapo={handleSetTrackCapo}
+        onAddTrack={handleAddTrack}
+        onRemoveTrack={handleRemoveTrack}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker

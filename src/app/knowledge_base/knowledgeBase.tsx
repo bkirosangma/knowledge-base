@@ -1033,7 +1033,7 @@ function KnowledgeBaseInner() {
         onAttachDocument: (docPath, entityType, entityId) => {
           docManager.attachDocument(
             docPath,
-            entityType as "tab" | "tab-section",
+            entityType as "tab" | "tab-section" | "tab-track",
             entityId,
           );
         },

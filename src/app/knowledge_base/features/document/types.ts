@@ -3,7 +3,7 @@ export interface DocumentMeta {
   filename: string;       // relative path from vault root
   title: string;
   attachedTo?: {
-    type: 'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'tab-section';
+    type: 'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'tab-section' | 'tab-track';
     id: string;
   }[];
 }
@@ -19,7 +19,7 @@ export interface LinkIndexEntry {
 }
 
 export interface BacklinkEntry {
-  linkedFrom: { sourcePath: string; section?: string }[];
+  linkedFrom: { sourcePath: string; section?: string; track?: string }[];
 }
 
 export interface LinkIndex {

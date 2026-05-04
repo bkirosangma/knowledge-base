@@ -39,7 +39,7 @@ export function TabEditorCanvasOverlay({
   }
 
   const beats = metadata.totalBeats;
-  const strings = metadata.tuning?.length ?? 6;
+  const strings = metadata.tracks[trackIndex]?.tuning.length ?? 6;
   const showHighlight = cursor !== null && cursor.trackIndex === trackIndex;
 
   const cells: ReactElement[] = [];
@@ -59,7 +59,7 @@ export function TabEditorCanvasOverlay({
             height: cellHeight,
             pointerEvents: "auto",
           }}
-          onClick={() => setCursor({ trackIndex, beat, string })}
+          onClick={() => setCursor({ trackIndex, voiceIndex: 0, beat, string })}
         />,
       );
     }

@@ -21,6 +21,8 @@ const baseDeps = () => {
   const moveBeat = vi.fn();
   const moveString = vi.fn();
   const moveBar = vi.fn();
+  const nextTrack = vi.fn();
+  const prevTrack = vi.fn();
   const activeDurationRef = { current: 4 as NoteDuration };
   return {
     apply,
@@ -31,6 +33,8 @@ const baseDeps = () => {
     moveBeat,
     moveString,
     moveBar,
+    nextTrack,
+    prevTrack,
     activeDurationRef,
   };
 };
@@ -42,7 +46,7 @@ describe("useTabKeyboard", () => {
   it("0-9 accumulates digits and commits set-fret after 500ms", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 4, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 4, string: 6 }, enabled: true }),
     );
 
     fireKey("1");
@@ -60,7 +64,7 @@ describe("useTabKeyboard", () => {
   it("digit accumulator commits on a following non-digit key (no timeout wait)", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 4, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 4, string: 6 }, enabled: true }),
     );
 
     fireKey("1");
@@ -82,7 +86,7 @@ describe("useTabKeyboard", () => {
   it("Q W E R T Y map to set-duration whole/half/quarter/eighth/sixteenth/thirty-second", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
 
     fireKey("q");
@@ -102,7 +106,7 @@ describe("useTabKeyboard", () => {
   it("bare H / P / B / S / L / ~ map to add-technique with the correct technique", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
 
     fireKey("h");
@@ -152,7 +156,7 @@ describe("useTabKeyboard", () => {
   it("Shift+L maps to let-ring (not tie)", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("L", { shiftKey: true });
     expect(d.apply).toHaveBeenLastCalledWith({
@@ -166,7 +170,7 @@ describe("useTabKeyboard", () => {
   it("Shift+M maps to palm-mute", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("M", { shiftKey: true });
     expect(d.apply).toHaveBeenLastCalledWith({
@@ -180,7 +184,7 @@ describe("useTabKeyboard", () => {
   it("ArrowLeft / Right call moveBeat", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("ArrowLeft");
     expect(d.moveBeat).toHaveBeenLastCalledWith(-1);
@@ -191,7 +195,7 @@ describe("useTabKeyboard", () => {
   it("ArrowUp / Down call moveString (up = -1, down = +1)", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("ArrowUp");
     expect(d.moveString).toHaveBeenLastCalledWith(-1);
@@ -202,7 +206,7 @@ describe("useTabKeyboard", () => {
   it("Tab / Shift+Tab call moveBar(+/-1)", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("Tab");
     expect(d.moveBar).toHaveBeenLastCalledWith(1);
@@ -213,7 +217,7 @@ describe("useTabKeyboard", () => {
   it("Esc clears cursor", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("Escape");
     expect(d.clearCursor).toHaveBeenCalledOnce();
@@ -222,7 +226,7 @@ describe("useTabKeyboard", () => {
   it("⌘Z and Ctrl+Z trigger undo", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("z", { metaKey: true });
     expect(d.undo).toHaveBeenCalledTimes(1);
@@ -233,7 +237,7 @@ describe("useTabKeyboard", () => {
   it("⌘⇧Z, Ctrl+Y, Ctrl+Shift+Z trigger redo", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
     fireKey("z", { metaKey: true, shiftKey: true });
     expect(d.redo).toHaveBeenCalledTimes(1);
@@ -256,7 +260,7 @@ describe("useTabKeyboard", () => {
   it("does nothing when enabled=false", () => {
     const d = baseDeps();
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: false }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: false }),
     );
     fireKey("1");
     expect(d.apply).not.toHaveBeenCalled();
@@ -267,7 +271,7 @@ describe("useTabKeyboard", () => {
     const input = document.createElement("input");
     document.body.appendChild(input);
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
 
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
@@ -280,11 +284,59 @@ describe("useTabKeyboard", () => {
     const select = document.createElement("select");
     document.body.appendChild(select);
     renderHook(() =>
-      useTabKeyboard({ ...d, cursor: { trackIndex: 0, beat: 0, string: 6 }, enabled: true }),
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
     );
 
     select.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(d.moveString).not.toHaveBeenCalled();
     document.body.removeChild(select);
+  });
+
+  it("'[' calls prevTrack and ']' calls nextTrack (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("[");
+    expect(d.prevTrack).toHaveBeenCalledTimes(1);
+    expect(d.nextTrack).not.toHaveBeenCalled();
+    fireKey("]");
+    expect(d.nextTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("'[' / ']' do not fire when typing in an input (C4 guard, TAB-009 T12)", () => {
+    const d = baseDeps();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "]", bubbles: true }));
+    expect(d.prevTrack).not.toHaveBeenCalled();
+    expect(d.nextTrack).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it("'[' / ']' do not fire when cursor is null (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() => useTabKeyboard({ ...d, cursor: null, enabled: true }));
+    fireKey("[");
+    fireKey("]");
+    expect(d.prevTrack).not.toHaveBeenCalled();
+    expect(d.nextTrack).not.toHaveBeenCalled();
+  });
+
+  it("'[' / ']' preventDefault is called (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    const prevEvent = new KeyboardEvent("keydown", { key: "[", bubbles: true, cancelable: true });
+    const nextEvent = new KeyboardEvent("keydown", { key: "]", bubbles: true, cancelable: true });
+    window.dispatchEvent(prevEvent);
+    window.dispatchEvent(nextEvent);
+    expect(prevEvent.defaultPrevented).toBe(true);
+    expect(nextEvent.defaultPrevented).toBe(true);
   });
 });

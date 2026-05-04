@@ -720,8 +720,20 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 
 ### 11.9 Pending
 
-- ? **Multi-track + per-track tuning/capo (TAB-009)**
 - ? **Export — MIDI / WAV / PDF (TAB-010)**
+
+### 11.10 Editor v2 — multi-track + multi-voice (TAB-009 + TAB-009a)
+
+- ✅ **Active track switch** via Properties panel row click + `[` / `]` keyboard. Active row uses 3 visual signals (filled dot indicator, bold name, accent left-border). (`TabProperties.tsx` Tracks subcomponent, `useTabKeyboard.ts`, `useTabCursor.ts` `nextTrack`/`prevTrack`)
+- ✅ **Per-track tuning + capo** editable inline under the active track row. Pitch validation via regex; capo clamped to [0, 24]. (`TabProperties.tsx` `TrackEditor` inline component)
+- ✅ **Add track** via inline form (Name + Instrument). Defaults: tuning copied from active track if instrument matches, else per-instrument default. (`applyEdit({ type: "add-track" })`, `TabProperties.tsx` add-track form)
+- ✅ **Remove track** via row kebab menu + window.confirm. Last-track is non-removable (engine throws + UI hides menu item).
+- ✅ **Mute / solo per track** session-only (resets on filePath change) via `M` / `S` icon-buttons with `aria-pressed`. Wired to `TabSession.setPlaybackState` → alphaTab `changeTrackMute` / `changeTrackSolo`. (`TabView.tsx`, `alphaTabEngine.ts`)
+- ✅ **Multi-voice editing** (V1 / V2) via toolbar segmented toggle drives `cursor.voiceIndex`. Beat ops (`set-fret`, `set-duration`, `add-technique`, `remove-technique`) accept optional `voiceIndex`; default 0. (`VoiceToggle.tsx`, `TabEditorToolbar.tsx`, `useTabCursor.ts`)
+- ✅ **Track-level attachments** via `DocumentPicker` scoped to `tab-track` entity. entityId = `${filePath}#track:${stableUuid}`; UUID resolved from sidecar `trackRefs`. (`TabPaneContext`, `TabProperties.tsx` track row badges, `useDocuments.ts` `migrateAttachments`)
+- ✅ **Doc-side track backlinks** render with `· track <id>` annotation when a backlink targets a tab-track entity. (`DocumentProperties.tsx`, `BacklinksRail.tsx`)
+- ⚙️ **Sidecar `<file>.alphatex.refs.json` v2** stores stable `sectionRefs` (Record) + stable `trackRefs` (ordered array `{ id, name }[]` indexed by track position). v1 read forward-compat (empty trackRefs); v2 always emitted on write. (`tabRefsRepo.ts`, `sidecarReconcile.ts`)
+- ⚙️ **Domain track id is positional** (`String(track.index)`); alphaTab `Track` has no `id` field. After `applyRemoveTrack` splice, engine resets `.index` on remaining tracks. Stable UUIDs only at the attachment boundary. (`alphaTabEngine.ts` `findTrack`)
 
 ---
 

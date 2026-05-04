@@ -20,8 +20,8 @@ import { readOrNull } from "../../../domain/repositoryHelpers";
 export interface BacklinksRailProps {
   /** Path of the document we're viewing — the target of the backlinks. */
   filePath: string;
-  /** Backlink entries (sourcePath + optional section) from the link index. */
-  backlinks: { sourcePath: string; section?: string }[];
+  /** Backlink entries (sourcePath + optional section/track) from the link index. */
+  backlinks: { sourcePath: string; section?: string; track?: string }[];
   /** Open the source document on click. */
   onNavigate?: (sourcePath: string) => void;
 }

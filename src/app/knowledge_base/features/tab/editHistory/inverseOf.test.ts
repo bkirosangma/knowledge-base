@@ -1,6 +1,8 @@
 // src/app/knowledge_base/features/tab/editHistory/inverseOf.test.ts
 import { describe, expect, it } from "vitest";
 import { inverseOf } from "./inverseOf";
+import type { TabEditOp } from "../../../domain/tabEngine";
+import type { PreState } from "./inverseOf";
 
 describe("inverseOf", () => {
   it("set-fret(beat,string,X) ↔ set-fret(beat,string,prevValue)", () => {
@@ -80,5 +82,37 @@ describe("inverseOf", () => {
     const op = { type: "set-track-capo" as const, trackId: "t1", fret: 3 };
     const inverse = inverseOf(op, { fret: 0 });
     expect(inverse).toEqual({ type: "set-track-capo", trackId: "t1", fret: 0 });
+  });
+
+  it("add-track inverse is remove-track at the new appended position", () => {
+    const op: TabEditOp = {
+      type: "add-track", name: "Drums", instrument: "guitar",
+      tuning: ["E2","A2","D3","G3","B3","E4"], capo: 0,
+    };
+    // pre-state: 2 tracks before add, so the new track is appended at position 2.
+    const inv = inverseOf(op, { trackCount: 2 } as PreState);
+    expect(inv).toEqual({ type: "remove-track", trackId: "2" });
+  });
+
+  it("remove-track inverse is add-track with captured fields (re-appends at end)", () => {
+    const op: TabEditOp = { type: "remove-track", trackId: "1" };
+    const preState = {
+      removedTrack: {
+        name: "Bass", instrument: "bass" as const,
+        tuning: ["G2","D2","A1","E1"], capo: 2,
+      },
+    } as PreState;
+    const inv = inverseOf(op, preState);
+    expect(inv).toEqual({
+      type: "add-track", name: "Bass", instrument: "bass",
+      tuning: ["G2","D2","A1","E1"], capo: 2,
+    });
+  });
+
+  it("remove-track without removedTrack in preState throws", () => {
+    expect(() => inverseOf(
+      { type: "remove-track", trackId: "1" },
+      {} as PreState,
+    )).toThrow(/removedTrack/);
   });
 });

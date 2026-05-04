@@ -12,6 +12,8 @@ const baseProps = () => ({
   canRedo: false,
   onUndo: vi.fn(),
   onRedo: vi.fn(),
+  voiceIndex: 0 as const,
+  onVoiceChange: vi.fn(),
 });
 
 describe("TabEditorToolbar", () => {
@@ -81,5 +83,23 @@ describe("TabEditorToolbar", () => {
     render(<TabEditorToolbar {...props} canRedo={true} />);
     fireEvent.click(screen.getByRole("button", { name: /redo/i }));
     expect(props.onRedo).toHaveBeenCalledOnce();
+  });
+
+  it("renders VoiceToggle and forwards onChange (TAB-009 T15)", () => {
+    const onVoiceChange = vi.fn();
+    const { getByRole } = render(
+      <TabEditorToolbar {...baseProps()} voiceIndex={0} onVoiceChange={onVoiceChange} />
+    );
+    fireEvent.click(getByRole("button", { name: /Voice 2/ }));
+    expect(onVoiceChange).toHaveBeenCalledWith(1);
+  });
+
+  it("VoiceToggle reflects voiceIndex prop", () => {
+    const { getByRole, rerender } = render(
+      <TabEditorToolbar {...baseProps()} voiceIndex={0} onVoiceChange={() => {}} />
+    );
+    expect(getByRole("button", { name: /Voice 1/ })).toHaveAttribute("aria-pressed", "true");
+    rerender(<TabEditorToolbar {...baseProps()} voiceIndex={1} onVoiceChange={() => {}} />);
+    expect(getByRole("button", { name: /Voice 2/ })).toHaveAttribute("aria-pressed", "true");
   });
 });

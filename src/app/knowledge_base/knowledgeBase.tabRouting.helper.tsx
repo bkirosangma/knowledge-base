@@ -13,8 +13,8 @@ export interface TabPaneContext {
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
   getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
   allDocPaths?: string[];

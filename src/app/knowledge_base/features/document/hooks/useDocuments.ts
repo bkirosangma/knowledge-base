@@ -113,7 +113,7 @@ export function useDocuments() {
         if (!d.attachedTo) return d;
         let touched = false;
         const next = d.attachedTo.map(a => {
-          if (a.type !== "tab-section") return a;
+          if (a.type !== "tab-section" && a.type !== "tab-track") return a;
           const replacement = map.get(a.id);
           if (replacement === undefined) return a;
           touched = true;

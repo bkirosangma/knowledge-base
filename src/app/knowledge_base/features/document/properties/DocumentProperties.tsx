@@ -24,7 +24,7 @@ interface DocumentPropertiesProps {
   filePath: string | null;
   content: string;
   outbound: { target: string; section?: string }[] | null;
-  backlinks: { sourcePath: string; section?: string }[];
+  backlinks: { sourcePath: string; section?: string; track?: string }[];
   onNavigateLink?: (path: string) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -178,7 +178,11 @@ export default function DocumentProperties({
                   onClick={() => onNavigateLink?.(bl.sourcePath)}
                 >
                   <ArrowLeft size={11} className="flex-shrink-0" />
-                  <span className="truncate">{bl.sourcePath}{bl.section ? `#${bl.section}` : ""}</span>
+                  <span className="truncate">
+                    {bl.sourcePath}
+                    {bl.section && <span className="text-mute"> #{bl.section}</span>}
+                    {bl.track && <span className="text-mute"> · track {bl.track}</span>}
+                  </span>
                 </button>
               ))}
             </div>

@@ -14,7 +14,7 @@ export function resolveSectionIds(
   refs: TabRefsPayload | null,
 ): string[] {
   if (!refs) return getSectionIds(sections);
-  const byName = invertSections(refs.sections);
+  const byName = invertSections(refs.sectionRefs);
   const usedFallbacks = new Map<string, number>();
   return sections.map((s) => {
     const stable = byName.get(s.name);
@@ -26,8 +26,8 @@ export function resolveSectionIds(
   });
 }
 
-function invertSections(sections: TabRefsPayload["sections"]): Map<string, string> {
+function invertSections(sections: TabRefsPayload["sectionRefs"]): Map<string, string> {
   const m = new Map<string, string>();
-  for (const [stable, entry] of Object.entries(sections)) m.set(entry.currentName, stable);
+  for (const [stable, currentName] of Object.entries(sections)) m.set(currentName, stable);
   return m;
 }

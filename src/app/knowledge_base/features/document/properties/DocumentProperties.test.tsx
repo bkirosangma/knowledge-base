@@ -171,6 +171,29 @@ describe('DocumentProperties — backlinks (DOC-4.9-06, 4.9-08)', () => {
     )
     expect(screen.getByText('No backlinks')).toBeTruthy()
   })
+
+  it('renders track annotation on backlinks pointing to a tab-track entity (TAB-009 T24)', () => {
+    render(
+      <DocumentProperties
+        filePath="notes/test.md"
+        content="x"
+        outbound={[]}
+        backlinks={[
+          { sourcePath: 'song.alphatex', track: 'tk-uuid-1' },
+          { sourcePath: 'another.alphatex', section: 'verse-1' },
+          { sourcePath: 'plain.md' },
+        ]}
+      />,
+    )
+    // sourcePath always visible
+    expect(screen.getByText(/song\.alphatex/)).toBeTruthy()
+    // track annotation rendered
+    expect(screen.getByText(/track tk-uuid-1/)).toBeTruthy()
+    // section annotation still works alongside track
+    expect(screen.getByText(/verse-1/)).toBeTruthy()
+    // plain backlink (no track, no section) still renders without suffix
+    expect(screen.getByText(/plain\.md/)).toBeTruthy()
+  })
 })
 
 describe('DocumentProperties — collapsed state (DOC-4.9-10)', () => {

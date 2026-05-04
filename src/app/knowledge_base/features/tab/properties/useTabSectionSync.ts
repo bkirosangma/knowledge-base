@@ -47,7 +47,7 @@ export function useTabSectionSync(
       .then((payload) => {
         if (!cancelled) {
           setHasSidecar(
-            payload !== null && Object.keys(payload.sections).length > 0,
+            payload !== null && Object.keys(payload.sectionRefs).length > 0,
           );
         }
       })

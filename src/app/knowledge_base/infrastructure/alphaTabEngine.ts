@@ -47,6 +47,8 @@ interface AlphaTabApiLike {
   playerReady: { on(handler: () => void): void };
   playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
+  changeTrackMute(tracks: unknown[], mute: boolean): void;
+  changeTrackSolo(tracks: unknown[], solo: boolean): void;
 }
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
@@ -124,14 +126,74 @@ interface BarShapeVoice {
   addBeat(beat: BeatShape): void;
 }
 
+/** Minimal structural shape for a Tuning used in per-track tuning config. */
+interface TuningShape {
+  tunings: number[];
+  name: string;
+  isStandard: boolean;
+}
+
+/** Minimal structural shape for a Staff used in add-track / tuning ops. */
+interface StaffShape {
+  bars: Array<BarShape>;
+  stringTuning: TuningShape;
+  capo: number;
+  addBar(bar: BarShape): void;
+}
+
+/** Minimal structural shape for a Track used in locate helpers. */
+interface TrackShape {
+  index: number;
+  name: string;
+  staves: Array<StaffShape>;
+  playbackInfo: { program: number };
+  addStaff(staff: StaffShape): void;
+}
+
 /** Minimal structural shape for walking a Score to its beats. */
 interface ScoreShape {
   masterBars: MasterBarShape[];
-  tracks: Array<{
-    staves: Array<{
-      bars: Array<BarShape>;
-    }>;
-  }>;
+  tracks: TrackShape[];
+  addTrack(track: TrackShape): void;
+}
+
+/**
+ * Convert a scientific pitch notation string (e.g. "E4", "A#3", "Bb2", "C-1")
+ * to a MIDI integer.  MIDI 0 = C-1, MIDI 69 = A4.
+ *
+ * Accepted formats: <note><accidental?><octave>
+ *   note: A-G (case-sensitive)
+ *   accidental: # (sharp) | b (flat) | absent
+ *   octave: integer, may be negative (e.g. -1)
+ *
+ * Note-to-semitone map (within octave, 0-based from C):
+ *   C=0  C#/Db=1  D=2  D#/Eb=3  E=4  F=5  F#/Gb=6  G=7  G#/Ab=8  A=9  A#/Bb=10  B=11
+ */
+export function scientificPitchToMidi(pitch: string): number {
+  const NOTE_SEMITONES: Record<string, number> = {
+    C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+  };
+
+  // Parse: first char = note letter, next optional char = accidental (#/b), rest = octave integer
+  const letter = pitch[0];
+  let offset = 1;
+  let accidental = 0;
+  if (pitch[offset] === "#") {
+    accidental = 1;
+    offset++;
+  } else if (pitch[offset] === "b") {
+    accidental = -1;
+    offset++;
+  }
+  const octave = parseInt(pitch.slice(offset), 10);
+
+  const semitone = NOTE_SEMITONES[letter];
+  if (semitone === undefined) {
+    throw new Error(`scientificPitchToMidi: unrecognised note letter "${letter}" in "${pitch}"`);
+  }
+
+  // MIDI formula: (octave + 1) * 12 + semitone + accidental
+  return (octave + 1) * 12 + semitone + accidental;
 }
 
 /**
@@ -259,6 +321,11 @@ export class AlphaTabEngine implements TabEngine {
     const AutomationCtor = mod.model.Automation as unknown as new () => AutomationShape;
     const AutomationType = mod.model.AutomationType as { Tempo: number };
     const DurationEnum   = mod.model.Duration   as { Quarter: number };
+    // Track/Staff/Tuning constructors — used by applyAddTrack (TAB-009 T5).
+    const TrackCtor  = mod.model.Track  as unknown as new () => TrackShape;
+    const StaffCtor  = mod.model.Staff  as unknown as new () => StaffShape;
+    const TuningCtor = mod.model.Tuning as unknown as
+      new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
 
     const settings = new Settings();
     settings.player.enablePlayer = true;
@@ -270,7 +337,8 @@ export class AlphaTabEngine implements TabEngine {
       api,
       NoteCtor,
       techniqueMutators,
-      { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum },
+      { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum,
+        TrackCtor, StaffCtor, TuningCtor },
     );
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
@@ -296,6 +364,9 @@ class AlphaTabSession implements TabSession {
       AutomationCtor: new () => AutomationShape;
       AutomationType: { Tempo: number };
       DurationEnum:   { Quarter: number };
+      TrackCtor:  new () => TrackShape;
+      StaffCtor:  new () => StaffShape;
+      TuningCtor: new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
     },
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
@@ -363,6 +434,21 @@ class AlphaTabSession implements TabSession {
   setMute(): void { /* TAB-009 multi-track */ }
   setSolo(): void { /* TAB-009 multi-track */ }
 
+  public setPlaybackState(state: {
+    mutedTrackIds: string[];
+    soloedTrackIds: string[];
+  }): void {
+    if (!this.latestScore) return;
+    const allTracks = this.latestScore.tracks;
+    const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.index)));
+    const soloed = allTracks.filter((t) => state.soloedTrackIds.includes(String(t.index)));
+    // Reset all, then apply state
+    this.api.changeTrackMute(allTracks, false);
+    this.api.changeTrackSolo(allTracks, false);
+    if (muted.length > 0) this.api.changeTrackMute(muted, true);
+    if (soloed.length > 0) this.api.changeTrackSolo(soloed, true);
+  }
+
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {
     let set = this.listeners.get(event);
     if (!set) {
@@ -417,6 +503,12 @@ class AlphaTabSession implements TabSession {
       case "remove-bar":
         this.applyRemoveBar(op);
         break;
+      case "add-track":
+        this.applyAddTrack(op);
+        break;
+      case "remove-track":
+        this.applyRemoveTrack(op);
+        break;
       default:
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
@@ -431,7 +523,9 @@ class AlphaTabSession implements TabSession {
   }
 
   private applySetFret(op: Extract<TabEditOp, { type: "set-fret" }>): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const existing = beat.notes.find((n) => n.string === op.string);
     if (op.fret === null) {
@@ -449,7 +543,9 @@ class AlphaTabSession implements TabSession {
   }
 
   private applySetDuration(op: Extract<TabEditOp, { type: "set-duration" }>): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     // op.duration numeric values match alphaTab's Duration enum values exactly
     // (1=Whole, 2=Half, 4=Quarter, 8=Eighth, 16=Sixteenth, 32=ThirtySecond, 64=SixtyFourth)
@@ -460,7 +556,9 @@ class AlphaTabSession implements TabSession {
     op: Extract<TabEditOp, { type: "add-technique" }>,
     mode: "apply" | "remove",
   ): void {
-    const beat = locateBeat(this.latestScore!, op.beat);
+    const trackId = op.trackId ?? String(this.latestScore!.tracks[0].index);
+    const voiceIndex = op.voiceIndex ?? 0;
+    const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const note = beat.notes.find((n) => n.string === op.string);
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
@@ -540,18 +638,94 @@ class AlphaTabSession implements TabSession {
       }
     }
   }
+
+  private applyAddTrack(op: Extract<TabEditOp, { type: "add-track" }>): void {
+    const score = this.latestScore!;
+    const { TrackCtor, StaffCtor, TuningCtor, BarCtor, VoiceCtor, BeatCtor, DurationEnum } = this.structCtors;
+
+    // 1. Build the track shell and set its name.
+    const track = new TrackCtor();
+    (track as unknown as { name: string }).name = op.name;
+
+    // 2. Set MIDI instrument program number for audio routing.
+    //    General-MIDI: 25 = Acoustic Guitar (nylon), 33 = Electric Bass (finger).
+    track.playbackInfo.program = op.instrument === "bass" ? 33 : 25;
+
+    // 3. Build the single staff and configure tuning + capo.
+    const staff = new StaffCtor();
+    const midiTuning = op.tuning.map(scientificPitchToMidi);
+    staff.stringTuning = new TuningCtor(undefined, midiTuning, false);
+    (staff as unknown as { capo: number }).capo = op.capo;
+
+    // 4. Pad with rest beats matching the existing bar count.
+    const barCount = score.tracks[0].staves[0].bars.length;
+    for (let i = 0; i < barCount; i++) {
+      const bar = new BarCtor();
+      const voice = new VoiceCtor();
+      const beat = new BeatCtor();
+      // Quarter rest — Beat with no notes renders as a rest at render time.
+      (beat as unknown as { duration: number }).duration = DurationEnum.Quarter;
+      voice.addBeat(beat);
+      bar.addVoice(voice);
+      staff.addBar(bar);
+    }
+
+    // 5. Wire it up via the public alphaTab API (sets parent back-refs + index).
+    track.addStaff(staff);
+    score.addTrack(track);
+  }
+
+  private applyRemoveTrack(op: Extract<TabEditOp, { type: "remove-track" }>): void {
+    const score = this.latestScore!;
+    if (score.tracks.length === 1) {
+      throw new Error("Cannot remove the only track in a score");
+    }
+    const targetPos = Number(op.trackId);
+    if (Number.isNaN(targetPos) || targetPos < 0 || targetPos >= score.tracks.length) {
+      throw new Error(`Track ${op.trackId} not found`);
+    }
+    score.tracks.splice(targetPos, 1);
+    // Reset .index on remaining tracks so subsequent findTrack lookups stay consistent.
+    for (let i = 0; i < score.tracks.length; i++) {
+      (score.tracks[i] as unknown as { index: number }).index = i;
+    }
+  }
 }
 
 /**
- * Walk tracks[0] → staves[0] → bars and return the zero-based bar index that
- * contains the given global beat index.  Returns -1 if not found.
- * Single-track scope: tracks[0] only.
+ * Return the track whose `index` matches the given trackId string, or null.
+ * trackId is matched against `String(t.index)` — the zero-based position
+ * assigned by alphaTab when the score is parsed.  After T6 (applyRemoveTrack)
+ * splices out a track, the engine resets `t.index = i` for every remaining
+ * track so position-based matching stays consistent.
  */
-function locateBarIndex(score: ScoreShape, globalBeatIndex: number): number {
+export function findTrack(score: ScoreShape, trackId: string): TrackShape | null {
+  const t = score.tracks.find((t) => String(t.index) === trackId);
+  return t ?? null;
+}
+
+/**
+ * Walk the given track → staves[0] → bars and return the zero-based bar index
+ * that contains the given global beat index.  Returns -1 if not found.
+ *
+ * @param trackId   Matches against `String(track.index)`.  Defaults to the
+ *                  first track, preserving existing single-track call-sites.
+ * @param voiceIndex  0 = primary voice, 1 = secondary.  Falls back to voice 0
+ *                  if the requested voice index does not exist in a bar.
+ */
+export function locateBarIndex(
+  score: ScoreShape,
+  globalBeatIndex: number,
+  trackId: string = String(score.tracks[0].index),
+  voiceIndex: 0 | 1 = 0,
+): number {
+  const track = findTrack(score, trackId);
+  if (!track) return -1;
+  const bars = track.staves[0].bars;
   let counter = 0;
-  const bars = score.tracks[0].staves[0].bars;
   for (let i = 0; i < bars.length; i++) {
-    const beatCount = bars[i].voices[0].beats.length;
+    const voice = bars[i].voices[voiceIndex] ?? bars[i].voices[0];
+    const beatCount = voice.beats.length;
     if (globalBeatIndex < counter + beatCount) return i;
     counter += beatCount;
   }
@@ -559,14 +733,26 @@ function locateBarIndex(score: ScoreShape, globalBeatIndex: number): number {
 }
 
 /**
- * Walk tracks[0] → staves[0] → bars → voices[0] → beats and return the beat
- * at the given zero-based global index (across all bars).
- * Single-track scope: tracks[0] only.
+ * Walk the given track → staves[0] → bars → voices[voiceIndex] → beats and
+ * return the beat at the given zero-based global index (across all bars).
+ *
+ * @param trackId   Matches against `String(track.index)`.  Defaults to the
+ *                  first track, preserving existing single-track call-sites.
+ * @param voiceIndex  0 = primary voice, 1 = secondary.  Falls back to voice 0
+ *                  if the requested voice index does not exist in a bar.
  */
-function locateBeat(score: ScoreShape, globalBeatIndex: number): BeatShape | null {
+export function locateBeat(
+  score: ScoreShape,
+  globalBeatIndex: number,
+  trackId: string = String(score.tracks[0].index),
+  voiceIndex: 0 | 1 = 0,
+): BeatShape | null {
+  const track = findTrack(score, trackId);
+  if (!track) return null;
   let counter = 0;
-  for (const bar of score.tracks[0].staves[0].bars) {
-    for (const beat of bar.voices[0].beats) {
+  for (const bar of track.staves[0].bars) {
+    const voice = bar.voices[voiceIndex] ?? bar.voices[0];
+    for (const beat of voice.beats) {
       if (counter === globalBeatIndex) return beat;
       counter++;
     }
@@ -574,13 +760,30 @@ function locateBeat(score: ScoreShape, globalBeatIndex: number): BeatShape | nul
   return null;
 }
 
-function scoreToMetadata(score: unknown): TabMetadata {
+/**
+ * Convert a MIDI integer (0–127) to scientific pitch notation using sharps.
+ * MIDI 0 = C-1, MIDI 60 = C4, MIDI 69 = A4.
+ * Accidentals are rendered as sharps (e.g. C#3 not Db3).
+ *
+ * Round-trips with `scientificPitchToMidi` for all sharp-form pitches.
+ */
+export function midiToScientificPitch(midi: number): string {
+  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const semitone = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return `${NOTE_NAMES[semitone]}${octave}`;
+}
+
+export function scoreToMetadata(score: unknown): TabMetadata {
   const s = (score && typeof score === "object" ? score : {}) as {
     title?: string;
     artist?: string;
     subtitle?: string;
     tempo?: number;
-    tracks?: { name?: string }[];
+    tracks?: Array<{
+      name?: string;
+      staves?: Array<{ tuning?: number[]; capo?: number }>;
+    }>;
   };
   return {
     title: s.title ?? "Untitled",
@@ -588,13 +791,19 @@ function scoreToMetadata(score: unknown): TabMetadata {
     subtitle: s.subtitle,
     tempo: typeof s.tempo === "number" ? s.tempo : 120,
     timeSignature: { numerator: 4, denominator: 4 },
-    capo: 0,
-    tuning: [],
-    tracks: (s.tracks ?? []).map((t, i) => ({
-      id: String(i),
-      name: t.name ?? `Track ${i + 1}`,
-      instrument: "guitar",
-    })),
+    tracks: (s.tracks ?? []).map((t, i) => {
+      const staff = t.staves?.[0];
+      const midiTuning = staff?.tuning ?? [];
+      return {
+        id: String(i),
+        name: t.name ?? `Track ${i + 1}`,
+        // Heuristic: 1–4 strings → bass; 0 or 5+ strings → guitar.
+        // 5-string bass is treated as guitar until a more refined heuristic is added.
+        instrument: (midiTuning.length > 0 && midiTuning.length <= 4 ? "bass" : "guitar") as "guitar" | "bass",
+        tuning: midiTuning.map(midiToScientificPitch),
+        capo: typeof staff?.capo === "number" ? staff.capo : 0,
+      };
+    }),
     sections: [],
     totalBeats: 0,
     durationSeconds: 0,

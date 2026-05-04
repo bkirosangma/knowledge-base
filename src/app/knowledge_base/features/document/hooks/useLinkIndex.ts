@@ -227,7 +227,11 @@ export function useLinkIndex() {
     return index;
   }, [saveIndex]);
 
-  const getBacklinksFor = useCallback((docPath: string): { sourcePath: string; section?: string }[] => {
+  // T24: backlinks may carry track?: string when a wiki-link targets a tab-track
+  // entity (e.g. [[file.alphatex#track:uuid]]). The link parser does not yet
+  // populate this field — the surface is in place so future link-parsing work
+  // can surface track backlinks without changing the consumer interface.
+  const getBacklinksFor = useCallback((docPath: string): { sourcePath: string; section?: string; track?: string }[] => {
     return linkIndex.backlinks[docPath]?.linkedFrom ?? [];
   }, [linkIndex]);
 

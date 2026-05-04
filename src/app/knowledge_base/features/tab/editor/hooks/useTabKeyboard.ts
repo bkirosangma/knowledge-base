@@ -39,6 +39,8 @@ export interface UseTabKeyboardDeps {
   redo: () => void;
   activeDurationRef: React.MutableRefObject<NoteDuration>;
   enabled: boolean;
+  nextTrack: () => void;
+  prevTrack: () => void;
 }
 
 export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
@@ -148,6 +150,16 @@ export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
       }
       if (k === "Escape") {
         d.clearCursor();
+        consume(event);
+        return;
+      }
+      if (k === "[") {
+        d.prevTrack();
+        consume(event);
+        return;
+      }
+      if (k === "]") {
+        d.nextTrack();
         consume(event);
         return;
       }

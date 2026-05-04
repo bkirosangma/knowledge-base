@@ -306,3 +306,84 @@ describe("migrateAttachments", () => {
     expect(result.current.documents).toBe(snapshot);
   });
 });
+
+describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
+  it("rewrites tab-track ids when migrations match (TAB-009 T22)", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "track:tk1", to: "track:renamed" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-track", id: "tabs/song.alphatex#track:renamed" },
+    ]);
+  });
+
+  it("preserves tab-track entries with no matching migration (TAB-009 T22)", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [{ type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" }],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "track:other", to: "track:renamed" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-track", id: "tabs/song.alphatex#track:tk1" },
+    ]);
+  });
+
+  it("migrates mixed tab-section and tab-track attachments in the same document (TAB-009 T22)", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setDocuments([
+        {
+          id: "d1",
+          filename: "notes.md",
+          title: "Notes",
+          attachedTo: [
+            { type: "tab-section" as const, id: "tabs/song.alphatex#verse-1" },
+            { type: "tab-track" as const, id: "tabs/song.alphatex#track:tk1" },
+            { type: "tab" as const, id: "tabs/song.alphatex" },
+          ],
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.migrateAttachments("tabs/song.alphatex", [
+        { from: "verse-1", to: "verse-one" },
+        { from: "track:tk1", to: "track:lead" },
+      ]);
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab-section", id: "tabs/song.alphatex#verse-one" },
+      { type: "tab-track", id: "tabs/song.alphatex#track:lead" },
+      { type: "tab", id: "tabs/song.alphatex" },
+    ]);
+  });
+});
