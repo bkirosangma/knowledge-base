@@ -16,6 +16,7 @@ export type PreState =
   | { fret: number }                                   // for set-track-capo
   | { trackCount: number }                             // for add-track (track count before add)
   | { removedTrack: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number } } // for remove-track
+  | { technique: { bendType: number; bendValue?: number; slideOutType: number } }   // ← NEW (TAB-008b for bend/slide cycle)
   | Record<string, never>;                             // for add/remove-technique (no preState needed)
 
 /**
@@ -47,11 +48,39 @@ export function inverseOf(op: TabEditOp, preState: PreState): TabEditOp {
         duration: (preState as { duration: number }).duration as NoteDuration,
       };
 
-    case "add-technique":
+    case "add-technique": {
+      const pre = (preState as { technique?: { bendType: number; bendValue?: number; slideOutType: number } }).technique;
+      if (op.technique === "bend") {
+        if (pre && pre.bendType === 1 /* BendType.Bend */ && typeof pre.bendValue === "number") {
+          return { type: "add-technique", beat: op.beat, string: op.string, technique: "bend", amount: pre.bendValue };
+        }
+        return { type: "remove-technique", beat: op.beat, string: op.string, technique: "bend" };
+      }
+      if (op.technique === "slide") {
+        if (pre) {
+          if (pre.slideOutType === 1 /* Shift = up */) {
+            return { type: "add-technique", beat: op.beat, string: op.string, technique: "slide", direction: "up" };
+          }
+          if (pre.slideOutType === 4 /* OutDown = down */) {
+            return { type: "add-technique", beat: op.beat, string: op.string, technique: "slide", direction: "down" };
+          }
+        }
+        return { type: "remove-technique", beat: op.beat, string: op.string, technique: "slide" };
+      }
       return { type: "remove-technique", beat: op.beat, string: op.string, technique: op.technique };
+    }
 
-    case "remove-technique":
+    case "remove-technique": {
+      const pre = (preState as { technique?: { bendType: number; bendValue?: number; slideOutType: number } }).technique;
+      if (op.technique === "bend" && pre && pre.bendType === 1 && typeof pre.bendValue === "number") {
+        return { type: "add-technique", beat: op.beat, string: op.string, technique: "bend", amount: pre.bendValue };
+      }
+      if (op.technique === "slide" && pre) {
+        if (pre.slideOutType === 1) return { type: "add-technique", beat: op.beat, string: op.string, technique: "slide", direction: "up" };
+        if (pre.slideOutType === 4) return { type: "add-technique", beat: op.beat, string: op.string, technique: "slide", direction: "down" };
+      }
       return { type: "add-technique", beat: op.beat, string: op.string, technique: op.technique };
+    }
 
     case "set-tempo":
       return { type: "set-tempo", beat: op.beat, bpm: (preState as { bpm: number }).bpm };

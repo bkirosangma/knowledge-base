@@ -124,8 +124,10 @@ interface BeatShape {
 }
 
 /** Per-technique apply / remove mutators, built once after the dynamic import. */
+type AddTechniqueOp = Extract<TabEditOp, { type: "add-technique" }>;
+
 interface TechniqueMutator {
-  apply(note: NoteShape): void;
+  apply(note: NoteShape, op?: AddTechniqueOp): void;
   remove(note: NoteShape): void;
 }
 
@@ -253,7 +255,7 @@ export function scientificPitchToMidi(pitch: string): number {
 function buildTechniqueMutators(
   enums: {
     BendType: { None: number; Bend: number };
-    SlideOutType: { None: number; Shift: number };
+    SlideOutType: { None: number; Shift: number; OutDown: number };
     VibratoType: { None: number; Slight: number };
     HarmonicType: { None: number; Natural: number };
     Duration: { Eighth: number; Quarter: number };
@@ -273,10 +275,11 @@ function buildTechniqueMutators(
       remove: (n) => { n.isHammerPullOrigin = false; },
     },
     "bend": {
-      apply: (n) => {
+      apply: (n, op) => {
         n.bendType = BendType.Bend;
-        // Default ½-step bend: Guitar-Pro scale (50 = ½ step, 100 = full step).
-        n.bendPoints = [new BendPointCtor(0, 0), new BendPointCtor(60, 50)];
+        // Guitar-Pro scale: 50 = ½ step, 100 = full step. Default to ½ step.
+        const value = op?.amount ?? 50;
+        n.bendPoints = [new BendPointCtor(0, 0), new BendPointCtor(60, value)];
       },
       remove: (n) => {
         n.bendType = BendType.None;
@@ -284,7 +287,11 @@ function buildTechniqueMutators(
       },
     },
     "slide": {
-      apply:  (n) => { n.slideOutType = SlideOutType.Shift; },
+      apply: (n, op) => {
+        n.slideOutType = op?.direction === "down"
+          ? SlideOutType.OutDown
+          : SlideOutType.Shift;
+      },
       remove: (n) => { n.slideOutType = SlideOutType.None; },
     },
     "tie": {
@@ -346,7 +353,7 @@ export class AlphaTabEngine implements TabEngine {
     const BendPointCtor = mod.model.BendPoint as unknown as new (offset?: number, value?: number) => { offset: number; value: number };
     const enums = {
       BendType:     mod.model.BendType     as { None: number; Bend: number },
-      SlideOutType: mod.model.SlideOutType as { None: number; Shift: number },
+      SlideOutType: mod.model.SlideOutType as { None: number; Shift: number; OutDown: number },
       VibratoType:  mod.model.VibratoType  as { None: number; Slight: number },
       HarmonicType: mod.model.HarmonicType as { None: number; Natural: number },
       Duration:     mod.model.Duration     as { Eighth: number; Quarter: number },
@@ -691,7 +698,11 @@ class AlphaTabSession implements TabSession {
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
     const note = beat.notes.find((n) => n.string === op.string);
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
-    this.techniqueMutators[op.technique][mode](note);
+    if (mode === "apply") {
+      this.techniqueMutators[op.technique].apply(note, op as AddTechniqueOp);
+    } else {
+      this.techniqueMutators[op.technique].remove(note);
+    }
   }
 
   private applySetTempo(op: Extract<TabEditOp, { type: "set-tempo" }>): void {

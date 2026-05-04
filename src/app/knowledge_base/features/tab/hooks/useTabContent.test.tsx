@@ -165,4 +165,31 @@ describe("useTabContent (editor flow)", () => {
     // dirty must stay true so the user can retry.
     expect(result.current.dirty).toBe(true);
   });
+
+  it("TAB-008b T5: filePath change resets dirty + saveError + cancels pending debounce", async () => {
+    const stub: Repositories = {
+      attachment: null, document: null, diagram: null,
+      linkIndex: null, svg: null, vaultConfig: null,
+      tab: { read, write } as Repositories["tab"], tabRefs: null,
+    };
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StubRepositoryProvider, { value: stub, children });
+    const { result, rerender } = renderHook(
+      ({ path }: { path: string | null }) => useTabContent(path),
+      { wrapper, initialProps: { path: "a.alphatex" as string | null } },
+    );
+
+    // Drain the initial load effect.
+    await act(async () => { await vi.runAllTimersAsync(); });
+
+    // Mark dirty via setScore.
+    act(() => { result.current.setScore({ title: "pending" }); });
+    expect(result.current.dirty).toBe(true);
+
+    // Switch to a different file — the path-change effect should reset UI state.
+    rerender({ path: "b.alphatex" });
+
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.saveError).toBeNull();
+  });
 });

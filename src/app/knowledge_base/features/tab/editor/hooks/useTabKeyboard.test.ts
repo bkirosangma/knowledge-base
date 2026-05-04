@@ -36,8 +36,39 @@ const baseDeps = () => {
     nextTrack,
     prevTrack,
     activeDurationRef,
+    score: null as unknown,
   };
 };
+
+/** Build a minimal alphaTab-shaped score where beat 0, string 6 has the given note fields. */
+function makeNoteScore(noteFields: {
+  bendType?: number;
+  bendPoints?: { value: number }[] | null;
+  slideOutType?: number;
+}) {
+  return {
+    tracks: [
+      {
+        index: 0,
+        staves: [
+          {
+            bars: [
+              {
+                voices: [
+                  {
+                    beats: [
+                      { notes: [{ string: 6, ...noteFields }] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
 
 describe("useTabKeyboard", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -129,6 +160,7 @@ describe("useTabKeyboard", () => {
       beat: 0,
       string: 6,
       technique: "bend",
+      amount: 50,
     });
     fireKey("s");
     expect(d.apply).toHaveBeenLastCalledWith({
@@ -136,6 +168,7 @@ describe("useTabKeyboard", () => {
       beat: 0,
       string: 6,
       technique: "slide",
+      direction: "up",
     });
     fireKey("l");
     expect(d.apply).toHaveBeenLastCalledWith({
@@ -338,5 +371,109 @@ describe("useTabKeyboard", () => {
     window.dispatchEvent(nextEvent);
     expect(prevEvent.defaultPrevented).toBe(true);
     expect(nextEvent.defaultPrevented).toBe(true);
+  });
+});
+
+describe("useTabKeyboard — bend cycle (B)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("TAB-008b T4-B1: B on note with no bend dispatches add-technique with amount 50", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ bendType: 0 });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("b");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "add-technique",
+      beat: 0,
+      string: 6,
+      technique: "bend",
+      amount: 50,
+    });
+  });
+
+  it("TAB-008b T4-B2: B on note with half bend (bendPoint value=50) dispatches amount 100", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ bendType: 1, bendPoints: [{ value: 0 }, { value: 50 }] });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("b");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "add-technique",
+      beat: 0,
+      string: 6,
+      technique: "bend",
+      amount: 100,
+    });
+  });
+
+  it("TAB-008b T4-B3: B on note with full bend (bendPoint value=100) dispatches remove-technique", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ bendType: 1, bendPoints: [{ value: 0 }, { value: 100 }] });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("b");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "remove-technique",
+      beat: 0,
+      string: 6,
+      technique: "bend",
+    });
+  });
+});
+
+describe("useTabKeyboard — slide cycle (S)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("TAB-008b T4-S1: S on note with no slide dispatches add-technique with direction 'up'", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ slideOutType: 0 });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("s");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "add-technique",
+      beat: 0,
+      string: 6,
+      technique: "slide",
+      direction: "up",
+    });
+  });
+
+  it("TAB-008b T4-S2: S on note with up-slide (slideOutType=1) dispatches direction 'down'", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ slideOutType: 1 });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("s");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "add-technique",
+      beat: 0,
+      string: 6,
+      technique: "slide",
+      direction: "down",
+    });
+  });
+
+  it("TAB-008b T4-S3: S on note with down-slide (slideOutType=4) dispatches remove-technique", () => {
+    const d = baseDeps();
+    const score = makeNoteScore({ slideOutType: 4 });
+    renderHook(() =>
+      useTabKeyboard({ ...d, score, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("s");
+    expect(d.apply).toHaveBeenCalledWith({
+      type: "remove-technique",
+      beat: 0,
+      string: 6,
+      technique: "slide",
+    });
   });
 });

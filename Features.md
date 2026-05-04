@@ -708,7 +708,7 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 
 - ✅ **Persistent cursor + click-to-place fret.** Click any string × beat → cursor highlights; bare digits 0–9 set fret. Multi-digit auto-commits after 500 ms or on next non-digit. Arrow / Tab / Shift+Tab navigate; Esc clears.
 - ✅ **Q W E R T Y duration shortcuts.** Whole / half / quarter / eighth / sixteenth / thirty-second.
-- ✅ **Technique keys.** `H` `P` `B` `S` `L` `~` `Shift+M` `Shift+L` toggle hammer-on / pull-off / bend / slide / tie / vibrato / palm-mute / let-ring. Bend defaults to ½-step; slide defaults to slide-up. Per-note adjustments live in the Properties panel.
+- ✅ **Technique keys.** `H` `P` `B` `S` `L` `~` `Shift+M` `Shift+L` toggle hammer-on / pull-off / bend / slide / tie / vibrato / palm-mute / let-ring. Bend cycles via repeated `B`: off → ½-step → full-step → off (TAB-008b). Slide cycles via repeated `S`: off → up → down → off (TAB-008b). Per-note adjustments live in the Properties panel.
 - ✅ **Per-op undo/redo.** Inverse-op storage; ⌘Z / ⌘⇧Z (Ctrl+Z / Ctrl+Y). 200-frame depth. `captureState` reads real pre-mutation score values (fret, duration, tempo) via `scoreNavigation` helpers — not hardcoded constants.
 - ✅ **Section-id sidecar.** `<file>.alphatex.refs.json` persists `stableId → currentName` so renames + reorders survive cross-references. Sidecar is written on every `set-section` / `add-bar` / `remove-bar` edit op via `updateSidecarOnEdit` in `TabView`. Rename reconciliation is op-aware: old name is looked up from pre-mutation metadata so the existing `stableId` is preserved in-place rather than being dropped and re-created.
 - ✅ **Edit/Read toggle.** `useTabEditMode` composes per-file localStorage state + pane-level `readOnly`; mobile force-reads. Toolbar toggle visible on desktop only.
@@ -717,6 +717,7 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ⚙️ **Lazy editor chunk.** `next/dynamic({ ssr: false })`; chunk excluded from mobile bundle and from read-only desktop sessions.
 - ⚙️ **`scoreNavigation` helpers** (`src/app/knowledge_base/features/tab/editor/scoreNavigation.ts`) — `findBeat`, `findNote`, `findBarByBeat`; pure score-walk utilities used by `captureState` and `activeTechniques` computation.
 - ⚙️ **`sidecarReconcile` helpers** (`src/app/knowledge_base/features/tab/sidecarReconcile.ts`) — `reconcileSidecarForSetSection` (rename-aware, preserves `stableId`), `reconcileSidecarByName` (full-rebuild for add/remove-bar), `deriveUniqueSlug` (collision-free slug allocation). Extracted for isolated unit testing.
+- ⚙️ **Cross-file edit isolation** (`features/tab/hooks/useTabContent.ts`) — switching files while dirty resets the `dirty` flag and cancels any pending debounced save. The pending save still writes to the previous file (closure captures the pre-switch path), so users don't lose work — but the new file's UI shows the correct (clean) state. (TAB-008b #17)
 
 ### 11.10 Editor v2 — multi-track + multi-voice (TAB-009 + TAB-009a)
 
@@ -730,6 +731,7 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ✅ **Doc-side track backlinks** render with `· track <id>` annotation when a backlink targets a tab-track entity. (`DocumentProperties.tsx`, `BacklinksRail.tsx`)
 - ⚙️ **Sidecar `<file>.alphatex.refs.json` v2** stores stable `sectionRefs` (Record) + stable `trackRefs` (ordered array `{ id, name }[]` indexed by track position). v1 read forward-compat (empty trackRefs); v2 always emitted on write. (`tabRefsRepo.ts`, `sidecarReconcile.ts`)
 - ⚙️ **Domain track id is positional** (`String(track.index)`); alphaTab `Track` has no `id` field. After `applyRemoveTrack` splice, engine resets `.index` on remaining tracks. Stable UUIDs only at the attachment boundary. (`alphaTabEngine.ts` `findTrack`)
+- ⚙️ **Voice 1 visual render — verification deferred.** TAB-009 T15's `<VoiceToggle>` routes notes correctly into `bar.voices[1]`; visual render verification is captured as a manual probe in `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Outcome status updates with PR-time smoke test (TAB-008b #18).
 
 ### 11.11 Export (TAB-010)
 

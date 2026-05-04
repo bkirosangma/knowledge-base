@@ -116,3 +116,53 @@ describe("inverseOf", () => {
     )).toThrow(/removedTrack/);
   });
 });
+
+describe("inverseOf — bend/slide cycle pre-state (TAB-008b)", () => {
+  it("inverse of add bend amount=50 from no-bend pre-state = remove", () => {
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 50 };
+    const pre: PreState = { technique: { bendType: 0, slideOutType: 0 } };
+    expect(inverseOf(op, pre)).toEqual({
+      type: "remove-technique", beat: 0, string: 1, technique: "bend",
+    });
+  });
+
+  it("inverse of add bend amount=100 from amount=50 pre-state = re-add amount=50", () => {
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 100 };
+    const pre: PreState = { technique: { bendType: 1, bendValue: 50, slideOutType: 0 } };
+    expect(inverseOf(op, pre)).toEqual({
+      type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 50,
+    });
+  });
+
+  it("inverse of remove bend from amount=100 pre-state = re-add amount=100", () => {
+    const op: TabEditOp = { type: "remove-technique", beat: 0, string: 1, technique: "bend" };
+    const pre: PreState = { technique: { bendType: 1, bendValue: 100, slideOutType: 0 } };
+    expect(inverseOf(op, pre)).toEqual({
+      type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 100,
+    });
+  });
+
+  it("inverse of add slide direction='down' from up-slide pre-state = re-add direction='up'", () => {
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "down" };
+    const pre: PreState = { technique: { bendType: 0, slideOutType: 1 } };
+    expect(inverseOf(op, pre)).toEqual({
+      type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "up",
+    });
+  });
+
+  it("inverse of remove slide from down-slide pre-state = re-add direction='down'", () => {
+    const op: TabEditOp = { type: "remove-technique", beat: 0, string: 1, technique: "slide" };
+    const pre: PreState = { technique: { bendType: 0, slideOutType: 4 } };
+    expect(inverseOf(op, pre)).toEqual({
+      type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "down",
+    });
+  });
+
+  it("inverse of add hammer-on (no bend/slide pre-state) = remove (unchanged behaviour)", () => {
+    const op: TabEditOp = { type: "add-technique", beat: 0, string: 1, technique: "hammer-on" };
+    const pre: PreState = {};
+    expect(inverseOf(op, pre)).toEqual({
+      type: "remove-technique", beat: 0, string: 1, technique: "hammer-on",
+    });
+  });
+});

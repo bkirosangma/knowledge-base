@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (TAB-009 multi-track + multi-voice merged via PR [#112](https://github.com/bkirosangma/knowledge-base/pull/112); TAB-010 Export now in flight on `plan/guitar-tabs-export` — final M2 item).
+**Last updated:** 2026-05-04 (TAB-010 Export merged via PR [#113](https://github.com/bkirosangma/knowledge-base/pull/113); TAB-008b polish in flight on `plan/guitar-tabs-008b` — M2 closed).
 
 ---
 
@@ -71,9 +71,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | [#110](https://github.com/bkirosangma/knowledge-base/pull/110) | ✅ Merged |
 | **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, per-op undo/redo with real pre-state captures, sidecar (`<file>.alphatex.refs.json`) for stable section ids, lazy editor chunk, Edit/Read toggle, Selected-note details subsection, parked #6 consolidation | [#111](https://github.com/bkirosangma/knowledge-base/pull/111) | ✅ Merged |
 | **TAB-009** | Editor v2 — multi-track + multi-voice + track-level attachments (TAB-009a folded in) | [#112](https://github.com/bkirosangma/knowledge-base/pull/112) | ✅ Merged |
-| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | _branch `plan/guitar-tabs-export`_ | 🚧 In flight |
+| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | [#113](https://github.com/bkirosangma/knowledge-base/pull/113) | ✅ Merged |
 
-**M2 (editor ship-point) closes when TAB-010 ships.** TAB-009 closed editing scope; TAB-010 Export is the final M2 item before milestone close-out.
+**M2 (editor ship-point) is closed.** All M2 tickets shipped: TAB-008 (editor v1), TAB-009 (multi-track + multi-voice), TAB-010 (export).
 
 ---
 
@@ -83,11 +83,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 All M1 tickets merged (TAB-001 → TAB-007a + TAB-011 + TAB-012). Mobile read-only + playback shipped via PR #109. Parked-cleanup landed via PR #110.
 
-### M2 editor ship-point — 🚧 TAB-010 in flight
+### M2 editor ship-point — ✅ Complete
 
-| Ticket | Title | Effort | Status |
-|---|---|---|---|
-| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | 2 days | 🚧 Active on `plan/guitar-tabs-export` |
+All M2 tickets merged (TAB-008, TAB-009, TAB-010). Editor surface ships: cursor + click-to-place, Q W E R T Y duration shortcuts, technique keys with bend/slide cycling (TAB-008b), per-track tuning + capo, mute/solo, multi-voice editing, MIDI / WAV / PDF export.
 
 ---
 
@@ -109,10 +107,10 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 12. **~~Side-car stable section ids for tabs~~** — _Closed by TAB-008_: `<file>.alphatex.refs.json` persists `stableId → currentName` (lazy creation on first edit). `tabRefsRepo` reads/writes; `resolveSectionIds` consumes; `updateSidecarOnEdit` reconciles on `set-section`/`add-bar`/`remove-bar` ops. `useTabSectionSync` skips position-based reconciliation when a sidecar exists.
 13. **~~`<DocumentPicker>` Create row silently no-ops in TabView when prerequisites missing~~** — _Closed by `plan/tabs-parked-cleanup-1`_: `onCreate` is now optional on `DocumentPicker` and the row is gated on its presence. Both consumers (`TabView`, `DiagramOverlays`) pass `onCreate` only when their prerequisites are wired. New test FS-2.5-09.
 14. **alphaTab Bravura font 404 in dev/playwright** — TAB-008's e2e tab-editor smoke at `e2e/tabEditor.spec.ts` is `test.fixme()` because alphaTab resolves Bravura music fonts relative to its dynamic-import chunk path (`/_next/static/chunks/font/...`) which the dev server doesn't serve. Fix: copy `node_modules/@coderline/alphatab/dist/font/Bravura.{woff2,woff,otf,svg,eot}` to `public/font/` and set `settings.core.fontDirectory = "/font/"` in `alphaTabEngine.ts` (mirrors the SoundFont pattern at `public/soundfonts/`). Affects: viewer rendering quality in Playwright + dev (production may already work via Next.js bundling — verify). Open as TAB-013 or fold into TAB-009.
-15. **Bend/slide keyboard cycle deferred** — TAB-008 acceptance D5 specified "press `S` cycles slide-up → slide-down → off" and "repeated `B` cycles bend amounts". Shipped only "press once → apply default" + Properties panel adjustment. Open as TAB-008b polish ticket.
+15. **~~Bend/slide keyboard cycle deferred~~** — _Closed by TAB-008b_: bend cycles off → ½ → full → off via repeated `B`; slide cycles off → up → down → off via repeated `S`. Stateless; reads current note state from score. Undo restores precise cycle position via `inverseOf` pre-state extension.
 16. **Editor canvas overlay uses fixed 32×18px cell geometry** — `TabEditorCanvasOverlay` doesn't track alphaTab's actual rendered staff position; cursor highlight will misalign on wrapped staves or non-trivial bar widths. Acceptable for short single-track tabs. Replace with alphaTab-driven hit-testing (`beatMouseDown` event already verified in T0) or per-render geometry probing.
-17. **`useTabContent` `dirty` state crosses file boundaries** — switching files while dirty leaves `dirty=true` from the prior file's edit because no path-change reset effect. Pending debounced flush correctly writes to the original path (closure captures it), but the UI shows the new file as dirty. Add a `useEffect` keyed on `filePath` that resets `dirty` / `saveError` / cancels pending timer.
-18. **alphaTab V2 voice render assumption — runtime verification needed** — T15's `VoiceToggle` assumes alphaTab auto-renders `voices[1]` content when a second voice is present. The `.d.ts` exposes `Bar.isMultiVoice` / `filledVoices` but no explicit render flag. A real two-voice fixture should be loaded in dev to confirm before any user-facing claim of multi-voice support. (TAB-008b polish ticket candidate.)
+17. **~~`useTabContent` `dirty` state crosses file boundaries~~** — _Closed by TAB-008b_: `useEffect` keyed on `[path]` resets `dirty` / `saveError` / cancels pending debounce.
+18. **alphaTab V2 voice render assumption — runtime verification deferred to PR-time smoke** — TAB-008b T8 documents the reproduction recipe at `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Ship `VoiceToggle` as-is (data layer correct); revisit if smoke shows visual render is broken.
 
 ---
 
@@ -220,34 +218,13 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-010: Export — MIDI / WAV / PDF** is active on `plan/guitar-tabs-export` (this branch). It is the final M2 item; once it merges, M2 (editor ship-point) is closed and we move to milestone-boundary follow-up review (parked items #11, #14, #15, #17, #18). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Acceptance for M2 ship" — the export bullet.
+**M2 closed.** All editor + export work is shipped. Next steps:
 
-**Recommended ordering:**
+1. **Manual smoke test** the TAB-010 PR's checklist (the 6 unchecked boxes in #113). Ship anything that surfaces friction as a focused fix (likely a new TAB-010c if substantive).
+2. **Run the voice-render probe** (`docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`). Update parked item #18 status based on outcome.
+3. **Triage parked item #11 (diagram orphan attachments)** — pre-existing concern from TAB-007a. Open as DIAG-X if the user wants it scoped; otherwise leave parked.
 
-1. **T0 verification probe** — read `node_modules/@coderline/alphatab/dist/alphaTab.d.ts` for the exact export surface (`api.exportMidi()`, `api.exportAudio()`, PDF/SVG render path). Save findings to `docs/superpowers/plans/2026-05-04-guitar-tabs-export-verification.md`.
-2. **Brainstorm** (`superpowers:brainstorming`) — surface decisions:
-   - File format coverage (MIDI + WAV + PDF, or staged ship MIDI first?).
-   - Export surface: palette commands (`tabs.export-midi` / `tabs.export-wav` / `tabs.export-pdf`) + Properties panel Export sub-section, or palette-only?
-   - Filename derivation from `.alphatex` source path (e.g. `<base>.mid`, `<base>.wav`, `<base>.pdf`) and FSA `showSaveFilePicker` flow.
-   - Long-running WAV render UX — progress indicator? Cancel? Toast on done?
-   - Mobile read-only mode: forbid all exports (mirror TAB-012 `paneReadOnly` gate)? Or allow read-only MIDI/PDF (no audio render)?
-   - Error surfacing via `ShellErrorContext` banner + classifyError hooks (mirror TAB-006 import flow).
-3. **Plan** (`superpowers:writing-plans`) → save to `docs/superpowers/plans/2026-05-04-guitar-tabs-export.md`.
-4. **Execute** (`superpowers:subagent-driven-development`) — engine `TabSession.exportMidi() / .exportAudio() / .exportPdf()`, palette commands, Properties panel Export sub-section, mobile gate, tests.
-5. **Cross-references** — `Features.md` §11 + `test-cases/11-tabs.md` §11.x for export cases.
-
-**Patterns to mirror:**
-- **Provider scope rule** (`project_repository_context_deferred.md`) — palette commands wired in `KnowledgeBaseInner` are *above* the provider; pass repository as prop.
-- **Mobile gate** — `paneReadOnly` injection via `TabPaneContext` (TAB-012 pattern in `knowledgeBase.tabRouting.helper.tsx`).
-- **Error reporting** — `ShellErrorContext.report({ context, error })` + `classifyError` (mirrors TAB-006 GP import).
-
-**Parked items relevant to TAB-010:**
-- **#14 Bravura font 404** — PDF export may surface this since alphaTab needs the music font to render. Verify in dev: copy `node_modules/@coderline/alphatab/dist/font/Bravura.{woff2,woff,otf,svg,eot}` to `public/font/` and set `settings.core.fontDirectory = "/font/"` if PDF is missing glyphs. May fold the fix into TAB-010 if it blocks.
-
-**M2 close-out reminders (after TAB-010 merges):**
-- Update handoff `Where we are` → TAB-010 ✅ Merged + drop the "Remaining tickets" / M2 section since milestone is done.
-- Triage parked items #11 (diagram orphan attachments), #15 / #17 / #18 (TAB-008b candidates) — open as polish tickets only if the user surfaces friction.
-- Backfill `Features.md` §11.x export bullets and `test-cases/11-tabs.md` §11.x export cases.
+There is no ticket explicitly queued for the Guitar Tabs feature beyond these. The user may direct the next ticket from outside §11 entirely.
 
 ---
 

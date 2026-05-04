@@ -102,6 +102,20 @@ export function useTabContent(path: string | null): UseTabContent {
     }, DRAFT_DEBOUNCE_MS);
   }, [flush]);
 
+  // #17 fix (TAB-008b): reset dirty / saveError / cancel pending debounce when
+  // the file path changes. The pending flush still writes to the previous path
+  // because `flush` captures `path` in its closure — that's the desired behavior
+  // (don't lose the user's prior-file edits). What we reset is the *UI* state
+  // that incorrectly indicates the new file is dirty.
+  useEffect(() => {
+    setDirty(false);
+    setSaveError(null);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [path]);
+
   // Cancel any pending debounce on unmount.
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);

@@ -148,6 +148,10 @@ KB-040 stance: read-only + playback only on mobile (`useViewport().isMobile`, �
 - **TAB-11.8-05** ✅ **`buildImportGpCommands.when()` returns false without a vault open (mobile or desktop)** — pre-existing `directoryName` gate preserved. _(unit: `knowledgeBase.gpImport.test.tsx`.)_
 - **TAB-11.8-06** 🚫 **e2e mobile smoke: `.alphatex` opens read-only at 390×844 viewport** — deferred. Headless Chromium does not reliably parse `.alphatex` content within the test window, so TabProperties stays in the "Loading score…" state and never renders the Attach affordances the assertion would target. The `!readOnly` gate is covered at the helper level by TAB-11.8-01 / TAB-11.8-02. (Same environment limitation as TAB-11.3-19.)
 - **TAB-11.8-07** 🧪 **e2e mobile smoke: command palette excludes "Import Guitar Pro file…"** — palette filter on mobile finds no match for the import command (typing `>Import Guitar Pro` shows "No matching commands"). _(playwright: `e2e/tabsMobile.spec.ts`.)_
+- **TAB-11.8-08** ✅ **Bend keypress cycles off → ½ → full → off** (TAB-008b) — repeated `B` reads current note state from score and dispatches `add-technique amount=50`, `add-technique amount=100`, `remove-technique` in sequence. Cycle position survives across reload. _(unit: `useTabKeyboard.test.ts`, engine: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.8-09** ✅ **Slide keypress cycles off → up → down → off** (TAB-008b) — repeated `S` reads current note state and dispatches direction `"up"`, direction `"down"`, `remove-technique`. _(unit: `useTabKeyboard.test.ts`, engine: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.8-10** ✅ **Undo restores precise cycle position** (TAB-008b) — undoing from full-bend lands on ½-step (not no-bend); undoing from down-slide lands on up-slide. _(unit: `inverseOf.test.ts`, integration: `TabEditor.test.tsx`.)_
+- **TAB-11.8-11** ✅ **Switching files while dirty resets dirty + cancels pending debounce** (TAB-008b #17) — pending flush still writes to the original file (closure captures path); UI on new file shows clean state. _(unit: `useTabContent.test.tsx`.)_
 
 ---
 
@@ -221,6 +225,7 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 - **TAB-11.10-32** ✅ **`migrateAttachments` rewrites tab-track ids on path migration** — _(unit: `useDocuments.test.ts`.)_
 - **TAB-11.10-33** ✅ **Doc-side backlinks render `track` annotation** — backlinks with `track?: string` annotate as `· track <id>` in DocumentProperties. _(unit: `DocumentProperties.test.tsx`.)_
 - **TAB-11.10-34** ✅ **`inverseOf` produces `remove-track` for `add-track` (and vice versa)** — captures trackCount / removedTrack in PreState. _(unit: `inverseOf.test.ts`.)_
+- **TAB-11.10-35** 🟡 **Voice 1 visual render verified manually** (TAB-008b) — per `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Outcome status updates with PR-time smoke test. _(manual observation.)_
 
 ---
 
