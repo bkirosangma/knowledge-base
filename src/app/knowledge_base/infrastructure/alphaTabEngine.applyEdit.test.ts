@@ -76,7 +76,7 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
   return { ...real, AlphaTabApi: FakeApiCtor };
 });
 
-import { AlphaTabEngine, findTrack, locateBarIndex, locateBeat } from "./alphaTabEngine";
+import { AlphaTabEngine, findTrack, locateBarIndex, locateBeat, scientificPitchToMidi } from "./alphaTabEngine";
 
 // ---------------------------------------------------------------------------
 // FIXTURE: one bar, 4 quarter-note beats on string 6 with frets 5,0,0,0.
@@ -716,5 +716,188 @@ describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)",
     expect(voice1Beat.notes.find((n) => n.string === 1)?.fret).toBe(42);
     // voice 0 beat is untouched
     expect(voice0Beat.notes.find((n) => n.string === 1)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scientificPitchToMidi unit tests (TAB-009 T5)
+// ---------------------------------------------------------------------------
+describe("scientificPitchToMidi", () => {
+  it("converts standard 6-string tuning strings to expected MIDI values", () => {
+    // Standard 6-string E-A-D-G-B-E (high → low): [64, 59, 55, 50, 45, 40]
+    expect(scientificPitchToMidi("E4")).toBe(64);
+    expect(scientificPitchToMidi("B3")).toBe(59);
+    expect(scientificPitchToMidi("G3")).toBe(55);
+    expect(scientificPitchToMidi("D3")).toBe(50);
+    expect(scientificPitchToMidi("A2")).toBe(45);
+    expect(scientificPitchToMidi("E2")).toBe(40);
+  });
+
+  it("converts standard 4-string bass tuning strings to expected MIDI values", () => {
+    // Bass E-A-D-G (high → low): [43, 38, 33, 28]
+    expect(scientificPitchToMidi("G2")).toBe(43);
+    expect(scientificPitchToMidi("D2")).toBe(38);
+    expect(scientificPitchToMidi("A1")).toBe(33);
+    expect(scientificPitchToMidi("E1")).toBe(28);
+  });
+
+  it("handles sharp notation", () => {
+    expect(scientificPitchToMidi("C#4")).toBe(61);
+    expect(scientificPitchToMidi("F#3")).toBe(54);
+    expect(scientificPitchToMidi("D#2")).toBe(39);
+  });
+
+  it("handles flat notation", () => {
+    expect(scientificPitchToMidi("Db4")).toBe(61); // same as C#4
+    expect(scientificPitchToMidi("Gb3")).toBe(54); // same as F#3
+    expect(scientificPitchToMidi("Eb2")).toBe(39); // same as D#2
+  });
+
+  it("handles C-1 (MIDI 0) and A4 (MIDI 69)", () => {
+    expect(scientificPitchToMidi("C-1")).toBe(0);
+    expect(scientificPitchToMidi("A4")).toBe(69);
+  });
+
+  it("6-string round-trip: convert tuning array and compare to known MIDI values", () => {
+    const tuningStrings = ["E4", "B3", "G3", "D3", "A2", "E2"];
+    const midiValues = tuningStrings.map(scientificPitchToMidi);
+    expect(midiValues).toEqual([64, 59, 55, 50, 45, 40]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAddTrack tests (TAB-009 T5)
+// Uses a 4-bar, 2-track fixture so bar-count assertions are meaningful.
+// ---------------------------------------------------------------------------
+
+// 2 tracks × 4 bars, each bar has 1 quarter beat
+const MT_FIXTURE_4BAR = [
+  `\\title "MultiTrack4Bar"`,
+  `.`,
+  `\\track "T0"`,
+  `:4 5.6 | :4 0.6 | :4 3.6 | :4 7.6 |`,
+  `\\track "T1"`,
+  `:4 3.3 | :4 1.3 | :4 2.3 | :4 4.3 |`,
+].join("\n");
+
+async function buildMultiTrackScore4Bar() {
+  const mod = await import("@coderline/alphatab");
+  const importer = new mod.importer.AlphaTexImporter();
+  const settings = new mod.Settings();
+  importer.init(mod.io.ByteBuffer.empty(), settings);
+  importer.initFromString(MT_FIXTURE_4BAR, settings);
+  return importer.readScore();
+}
+
+describe("AlphaTabSession.applyEdit — applyAddTrack (TAB-009 T5)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let session: any;
+
+  beforeEach(async () => {
+    const score = await buildMultiTrackScore4Bar();
+
+    const engine = new AlphaTabEngine();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    session = await engine.mount(container, { readOnly: false });
+
+    fakeApiInstance.texPayload = score;
+    await session.load({ kind: "alphatex", text: MT_FIXTURE_4BAR });
+  });
+
+  it("add-track appends a new track with matching bar count", async () => {
+    session.applyEdit({
+      type: "add-track",
+      name: "Drums",
+      instrument: "guitar",
+      tuning: ["E2", "A2", "D3", "G3", "B3", "E4"],
+      capo: 0,
+    });
+    const score = session.latestScore;
+    expect(score.tracks).toHaveLength(3);
+    expect(score.tracks[2].name).toBe("Drums");
+    expect(score.tracks[2].staves[0].bars).toHaveLength(4);
+    for (const bar of score.tracks[2].staves[0].bars) {
+      expect(bar.voices[0].beats).toHaveLength(1);
+      expect(bar.voices[0].beats[0].notes).toHaveLength(0); // rest
+    }
+  });
+
+  it("add-track preserves tuning (MIDI values) on the new track's staff", async () => {
+    // Standard 6-string tuning: high → low E4-B3-G3-D3-A2-E2 = [64,59,55,50,45,40]
+    session.applyEdit({
+      type: "add-track",
+      name: "Lead",
+      instrument: "guitar",
+      tuning: ["E4", "B3", "G3", "D3", "A2", "E2"],
+      capo: 0,
+    });
+    const score = session.latestScore;
+    const newTrack = score.tracks[2];
+    const tunings = newTrack.staves[0].stringTuning.tunings;
+    expect(tunings).toEqual([64, 59, 55, 50, 45, 40]);
+  });
+
+  it("add-track preserves capo on the new track's staff", async () => {
+    session.applyEdit({
+      type: "add-track",
+      name: "Capo Lead",
+      instrument: "guitar",
+      tuning: ["E4", "B3", "G3", "D3", "A2", "E2"],
+      capo: 3,
+    });
+    const score = session.latestScore;
+    const newTrack = score.tracks[2];
+    expect(newTrack.staves[0].capo).toBe(3);
+  });
+
+  it("add-track with bass instrument sets 4-string bass tuning correctly", async () => {
+    // Bass standard tuning (high → low): G2-D2-A1-E1 = [43,38,33,28]
+    session.applyEdit({
+      type: "add-track",
+      name: "Bass",
+      instrument: "bass",
+      tuning: ["G2", "D2", "A1", "E1"],
+      capo: 0,
+    });
+    const score = session.latestScore;
+    const bassTrack = score.tracks[2];
+    expect(bassTrack.name).toBe("Bass");
+    const tunings = bassTrack.staves[0].stringTuning.tunings;
+    expect(tunings).toEqual([43, 38, 33, 28]);
+  });
+
+  it("add-track does not mutate existing tracks", async () => {
+    const scoreBefore = session.latestScore;
+    const track0BarCountBefore = scoreBefore.tracks[0].staves[0].bars.length;
+    const track1BarCountBefore = scoreBefore.tracks[1].staves[0].bars.length;
+
+    session.applyEdit({
+      type: "add-track",
+      name: "Extra",
+      instrument: "guitar",
+      tuning: ["E4", "B3", "G3", "D3", "A2", "E2"],
+      capo: 0,
+    });
+
+    const scoreAfter = session.latestScore;
+    expect(scoreAfter.tracks[0].staves[0].bars).toHaveLength(track0BarCountBefore);
+    expect(scoreAfter.tracks[1].staves[0].bars).toHaveLength(track1BarCountBefore);
+  });
+
+  it("new track index is assigned correctly (findTrack returns it)", async () => {
+    session.applyEdit({
+      type: "add-track",
+      name: "New",
+      instrument: "guitar",
+      tuning: ["E4", "B3", "G3", "D3", "A2", "E2"],
+      capo: 0,
+    });
+    const score = session.latestScore;
+    // After addTrack, score.addTrack sets track.index = tracks.length - 1 = 2
+    const found = findTrack(score, "2");
+    expect(found).not.toBeNull();
+    expect(found?.name).toBe("New");
   });
 });

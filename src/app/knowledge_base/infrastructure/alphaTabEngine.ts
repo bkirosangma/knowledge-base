@@ -124,18 +124,74 @@ interface BarShapeVoice {
   addBeat(beat: BeatShape): void;
 }
 
+/** Minimal structural shape for a Tuning used in per-track tuning config. */
+interface TuningShape {
+  tunings: number[];
+  name: string;
+  isStandard: boolean;
+}
+
+/** Minimal structural shape for a Staff used in add-track / tuning ops. */
+interface StaffShape {
+  bars: Array<BarShape>;
+  stringTuning: TuningShape;
+  capo: number;
+  addBar(bar: BarShape): void;
+}
+
 /** Minimal structural shape for a Track used in locate helpers. */
 interface TrackShape {
   index: number;
-  staves: Array<{
-    bars: Array<BarShape>;
-  }>;
+  name: string;
+  staves: Array<StaffShape>;
+  playbackInfo: { program: number };
+  addStaff(staff: StaffShape): void;
 }
 
 /** Minimal structural shape for walking a Score to its beats. */
 interface ScoreShape {
   masterBars: MasterBarShape[];
   tracks: TrackShape[];
+  addTrack(track: TrackShape): void;
+}
+
+/**
+ * Convert a scientific pitch notation string (e.g. "E4", "A#3", "Bb2", "C-1")
+ * to a MIDI integer.  MIDI 0 = C-1, MIDI 69 = A4.
+ *
+ * Accepted formats: <note><accidental?><octave>
+ *   note: A-G (case-sensitive)
+ *   accidental: # (sharp) | b (flat) | absent
+ *   octave: integer, may be negative (e.g. -1)
+ *
+ * Note-to-semitone map (within octave, 0-based from C):
+ *   C=0  C#/Db=1  D=2  D#/Eb=3  E=4  F=5  F#/Gb=6  G=7  G#/Ab=8  A=9  A#/Bb=10  B=11
+ */
+export function scientificPitchToMidi(pitch: string): number {
+  const NOTE_SEMITONES: Record<string, number> = {
+    C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+  };
+
+  // Parse: first char = note letter, next optional char = accidental (#/b), rest = octave integer
+  const letter = pitch[0];
+  let offset = 1;
+  let accidental = 0;
+  if (pitch[offset] === "#") {
+    accidental = 1;
+    offset++;
+  } else if (pitch[offset] === "b") {
+    accidental = -1;
+    offset++;
+  }
+  const octave = parseInt(pitch.slice(offset), 10);
+
+  const semitone = NOTE_SEMITONES[letter];
+  if (semitone === undefined) {
+    throw new Error(`scientificPitchToMidi: unrecognised note letter "${letter}" in "${pitch}"`);
+  }
+
+  // MIDI formula: (octave + 1) * 12 + semitone + accidental
+  return (octave + 1) * 12 + semitone + accidental;
 }
 
 /**
@@ -263,6 +319,11 @@ export class AlphaTabEngine implements TabEngine {
     const AutomationCtor = mod.model.Automation as unknown as new () => AutomationShape;
     const AutomationType = mod.model.AutomationType as { Tempo: number };
     const DurationEnum   = mod.model.Duration   as { Quarter: number };
+    // Track/Staff/Tuning constructors — used by applyAddTrack (TAB-009 T5).
+    const TrackCtor  = mod.model.Track  as unknown as new () => TrackShape;
+    const StaffCtor  = mod.model.Staff  as unknown as new () => StaffShape;
+    const TuningCtor = mod.model.Tuning as unknown as
+      new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
 
     const settings = new Settings();
     settings.player.enablePlayer = true;
@@ -274,7 +335,8 @@ export class AlphaTabEngine implements TabEngine {
       api,
       NoteCtor,
       techniqueMutators,
-      { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum },
+      { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum,
+        TrackCtor, StaffCtor, TuningCtor },
     );
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
@@ -300,6 +362,9 @@ class AlphaTabSession implements TabSession {
       AutomationCtor: new () => AutomationShape;
       AutomationType: { Tempo: number };
       DurationEnum:   { Quarter: number };
+      TrackCtor:  new () => TrackShape;
+      StaffCtor:  new () => StaffShape;
+      TuningCtor: new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
     },
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
@@ -420,6 +485,9 @@ class AlphaTabSession implements TabSession {
         break;
       case "remove-bar":
         this.applyRemoveBar(op);
+        break;
+      case "add-track":
+        this.applyAddTrack(op);
         break;
       default:
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
@@ -549,6 +617,42 @@ class AlphaTabSession implements TabSession {
         staff.bars.splice(barIdx, 1);
       }
     }
+  }
+
+  private applyAddTrack(op: Extract<TabEditOp, { type: "add-track" }>): void {
+    const score = this.latestScore!;
+    const { TrackCtor, StaffCtor, TuningCtor, BarCtor, VoiceCtor, BeatCtor, DurationEnum } = this.structCtors;
+
+    // 1. Build the track shell and set its name.
+    const track = new TrackCtor();
+    (track as unknown as { name: string }).name = op.name;
+
+    // 2. Set MIDI instrument program number for audio routing.
+    //    General-MIDI: 25 = Acoustic Guitar (nylon), 33 = Electric Bass (finger).
+    track.playbackInfo.program = op.instrument === "bass" ? 33 : 25;
+
+    // 3. Build the single staff and configure tuning + capo.
+    const staff = new StaffCtor();
+    const midiTuning = op.tuning.map(scientificPitchToMidi);
+    staff.stringTuning = new TuningCtor(undefined, midiTuning, false);
+    (staff as unknown as { capo: number }).capo = op.capo;
+
+    // 4. Pad with rest beats matching the existing bar count.
+    const barCount = score.tracks[0].staves[0].bars.length;
+    for (let i = 0; i < barCount; i++) {
+      const bar = new BarCtor();
+      const voice = new VoiceCtor();
+      const beat = new BeatCtor();
+      // Quarter rest — Beat with no notes renders as a rest at render time.
+      (beat as unknown as { duration: number }).duration = DurationEnum.Quarter;
+      voice.addBeat(beat);
+      bar.addVoice(voice);
+      staff.addBar(bar);
+    }
+
+    // 5. Wire it up via the public alphaTab API (sets parent back-refs + index).
+    track.addStaff(staff);
+    score.addTrack(track);
   }
 }
 
