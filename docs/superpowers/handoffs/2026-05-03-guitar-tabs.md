@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (TAB-009 multi-track + multi-voice merged via PR [#TBD] — M2 ship-point closed).
+**Last updated:** 2026-05-04 (TAB-009 multi-track + multi-voice merged via PR [#112](https://github.com/bkirosangma/knowledge-base/pull/112) — M2 ship-point closed).
 
 ---
 
@@ -70,7 +70,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | ✅ Merged |
 | (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | [#110](https://github.com/bkirosangma/knowledge-base/pull/110) | ✅ Merged |
 | **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, per-op undo/redo with real pre-state captures, sidecar (`<file>.alphatex.refs.json`) for stable section ids, lazy editor chunk, Edit/Read toggle, Selected-note details subsection, parked #6 consolidation | [#111](https://github.com/bkirosangma/knowledge-base/pull/111) | ✅ Merged |
-| **TAB-009** | Editor v2 — multi-track + multi-voice + track-level attachments (TAB-009a folded in) | `plan/guitar-tabs-multi-track` | 🚧 PR in flight |
+| **TAB-009** | Editor v2 — multi-track + multi-voice + track-level attachments (TAB-009a folded in) | [#112](https://github.com/bkirosangma/knowledge-base/pull/112) | 🚧 PR in flight |
 
 **M2 (editor ship-point) is closed except for TAB-010 export.** TAB-009 is the last editor ticket; TAB-010 Export is the final M2 item.
 
