@@ -68,6 +68,16 @@ export interface TabSession {
    * Throws if no score has been loaded yet.
    */
   exportMidi(format?: TabMidiFileFormat): Uint8Array;
+
+  /** Asynchronous WAV export. Loops chunked render → encodes → returns bytes. */
+  exportAudio(opts?: ExportAudioOptions): Promise<Uint8Array>;
+}
+
+export interface ExportAudioOptions {
+  onProgress?: (progress: { currentTime: number; endTime: number }) => void;
+  signal?: AbortSignal;
+  /** Output sample rate (default 44100). */
+  sampleRate?: number;
 }
 
 /**

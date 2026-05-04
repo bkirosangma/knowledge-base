@@ -122,3 +122,85 @@ describe("TabSession.exportMidi", () => {
     expect(() => session.exportMidi()).toThrow(/score/i);
   });
 });
+
+class FakeAudioExporter {
+  static chunks: { samples: Float32Array; currentTime: number; endTime: number }[] = [];
+  static destroyMock = vi.fn();
+  private idx = 0;
+  async render(_ms: number) {
+    if (this.idx >= FakeAudioExporter.chunks.length) return undefined;
+    return FakeAudioExporter.chunks[this.idx++];
+  }
+  destroy = FakeAudioExporter.destroyMock;
+}
+
+describe("TabSession.exportAudio", () => {
+  let container: HTMLElement;
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    exportAudioMock.mockReset();
+    FakeAudioExporter.destroyMock.mockReset();
+    FakeAudioExporter.chunks = [];
+  });
+
+  it("loops render() until undefined and concatenates samples into a WAV buffer", async () => {
+    FakeAudioExporter.chunks = [
+      { samples: new Float32Array([0.1, 0.2]), currentTime: 500, endTime: 1500 },
+      { samples: new Float32Array([0.3, 0.4]), currentTime: 1000, endTime: 1500 },
+      { samples: new Float32Array([0.5, 0.6]), currentTime: 1500, endTime: 1500 },
+    ];
+    exportAudioMock.mockResolvedValueOnce(new FakeAudioExporter());
+
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    const bytes = await session.exportAudio({ sampleRate: 44100 });
+
+    // RIFF header + 6 samples × 2 bytes
+    expect(bytes.length).toBe(44 + 12);
+    expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("RIFF");
+    expect(FakeAudioExporter.destroyMock).toHaveBeenCalledOnce();
+  });
+
+  it("invokes onProgress with each chunk's currentTime/endTime", async () => {
+    FakeAudioExporter.chunks = [
+      { samples: new Float32Array([0]), currentTime: 100, endTime: 300 },
+      { samples: new Float32Array([0]), currentTime: 200, endTime: 300 },
+      { samples: new Float32Array([0]), currentTime: 300, endTime: 300 },
+    ];
+    exportAudioMock.mockResolvedValueOnce(new FakeAudioExporter());
+
+    const onProgress = vi.fn();
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+    await session.exportAudio({ onProgress });
+
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(onProgress).toHaveBeenNthCalledWith(1, { currentTime: 100, endTime: 300 });
+    expect(onProgress).toHaveBeenNthCalledWith(3, { currentTime: 300, endTime: 300 });
+  });
+
+  it("aborts on signal: destroys exporter and throws AbortError", async () => {
+    FakeAudioExporter.chunks = [
+      { samples: new Float32Array([0]), currentTime: 100, endTime: 9999 },
+      { samples: new Float32Array([0]), currentTime: 200, endTime: 9999 },
+      { samples: new Float32Array([0]), currentTime: 300, endTime: 9999 },
+    ];
+    exportAudioMock.mockResolvedValueOnce(new FakeAudioExporter());
+
+    const controller = new AbortController();
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, { readOnly: false });
+
+    // Abort after the second chunk
+    let chunkCount = 0;
+    const onProgress = () => {
+      chunkCount++;
+      if (chunkCount === 2) controller.abort();
+    };
+    await expect(session.exportAudio({ signal: controller.signal, onProgress })).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(FakeAudioExporter.destroyMock).toHaveBeenCalledOnce();
+  });
+});

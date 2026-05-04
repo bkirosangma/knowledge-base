@@ -13,6 +13,7 @@
  */
 import type {
   BeatRange,
+  ExportAudioOptions,
   MountOpts,
   TabEditOp,
   TabEngine,
@@ -23,6 +24,7 @@ import type {
   TabSource,
   Unsubscribe,
 } from "../domain/tabEngine";
+import { encodeWav } from "../domain/wavEncoder";
 import { SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
@@ -49,6 +51,7 @@ interface AlphaTabApiLike {
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
+  exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
   readonly score: { tracks: { index: number }[] } | null;
   readonly settings: unknown;
 }
@@ -62,6 +65,30 @@ interface MidiFileLike {
 /** Minimal structural shape for a MidiFileGenerator used in exportMidi. */
 interface MidiFileGeneratorLike {
   generate(): void;
+}
+
+/** One rendered chunk from the alphaTab audio exporter (TAB-010 T3). */
+interface AudioExportChunkLike {
+  samples: Float32Array;
+  currentTime: number;
+  endTime: number;
+  currentTick: number;
+  endTick: number;
+}
+
+/** Streaming audio exporter returned by AlphaTabApi.exportAudio() (TAB-010 T3). */
+interface IAudioExporterLike {
+  render(milliseconds: number): Promise<AudioExportChunkLike | undefined>;
+  destroy(): void;
+}
+
+/** Options for AlphaTabApi.exportAudio() (TAB-010 T3). */
+interface AudioExportOptionsLike {
+  sampleRate: number;
+  useSyncPoints: boolean;
+  masterVolume: number;
+  metronomeVolume: number;
+  trackVolume: Map<number, number>;
 }
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
@@ -491,6 +518,42 @@ class AlphaTabSession implements TabSession {
     const generator = new MidiFileGeneratorCtor(score, this.api.settings, handler);
     generator.generate();
     return midiFile.toBinary();
+  }
+
+  async exportAudio(opts: ExportAudioOptions = {}): Promise<Uint8Array> {
+    if (!this.api.score) throw new Error("Cannot export audio: no score loaded");
+    const sampleRate = opts.sampleRate ?? 44100;
+    // Track-volume mapping for mute/solo lands in T4 — for T3 we pass an empty Map (default = 1).
+    const audioOpts: AudioExportOptionsLike = {
+      sampleRate,
+      useSyncPoints: true,
+      masterVolume: 1,
+      metronomeVolume: 0,
+      trackVolume: new Map(),
+    };
+    const exporter = await this.api.exportAudio(audioOpts);
+    const chunks: Float32Array[] = [];
+    let aborted = false;
+    try {
+      while (true) {
+        if (opts.signal?.aborted) { aborted = true; break; }
+        const chunk = await exporter.render(1000);
+        if (!chunk) break;
+        chunks.push(chunk.samples);
+        opts.onProgress?.({ currentTime: chunk.currentTime, endTime: chunk.endTime });
+        if (opts.signal?.aborted) { aborted = true; break; }
+      }
+    } finally {
+      exporter.destroy();
+    }
+    if (aborted) {
+      const err = new Error("Aborted");
+      (err as Error & { name: string }).name = "AbortError";
+      throw err;
+    }
+    // alphaTab's synth outputs stereo by default. Channel count is 2 (stereo).
+    // If alphaTab outputs mono in some configs, revisit this constant.
+    return encodeWav(chunks, sampleRate, 2);
   }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {
