@@ -722,13 +722,18 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 
 - ? **Export — MIDI / WAV / PDF (TAB-010)**
 
-### 11.10 Multi-track (TAB-009, in progress)
+### 11.10 Editor v2 — multi-track + multi-voice (TAB-009 + TAB-009a)
 
-- ✅ **Per-track domain types** (`src/app/knowledge_base/domain/tabEngine.ts`) — `tracks[].tuning`, `tracks[].capo`, `tracks[].voiceIndex`; new `set-track-tuning` / `set-track-capo` ops in `TabEditOp`.
-- ✅ **Sidecar v2 with `trackRefs`** (`src/app/knowledge_base/features/tab/tabRefsRepo.ts`) — v2 payload adds `trackRefs[]`; v1 payloads remain readable (forward-compat read).
-- ✅ **Track-aware locate helpers** (`src/app/knowledge_base/domain/tabEngine.ts`) — `locateBarIndex` / `locateBeat` accept optional `trackId`; fall back to track 0.
-- ✅ **`TabProperties.Tracks` subcomponent** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — renders interactive track rows with active-row visual (accent border-l, bold name, filled dot); M/S buttons with `aria-pressed`.
-- ✅ **`TrackEditor` inline component** (`src/app/knowledge_base/features/tab/properties/TabProperties.tsx`) — per-string pitch inputs + capo number input rendered beneath the active track row; validates pitches with `/^[A-G][#b]?[0-8]$/`; fires `onSetTrackTuning` / `onSetTrackCapo` on blur; click propagation stopped so editing doesn't re-fire `onSwitchActiveTrack`.
+- ✅ **Active track switch** via Properties panel row click + `[` / `]` keyboard. Active row uses 3 visual signals (filled dot indicator, bold name, accent left-border). (`TabProperties.tsx` Tracks subcomponent, `useTabKeyboard.ts`, `useTabCursor.ts` `nextTrack`/`prevTrack`)
+- ✅ **Per-track tuning + capo** editable inline under the active track row. Pitch validation via regex; capo clamped to [0, 24]. (`TabProperties.tsx` `TrackEditor` inline component)
+- ✅ **Add track** via inline form (Name + Instrument). Defaults: tuning copied from active track if instrument matches, else per-instrument default. (`applyEdit({ type: "add-track" })`, `TabProperties.tsx` add-track form)
+- ✅ **Remove track** via row kebab menu + window.confirm. Last-track is non-removable (engine throws + UI hides menu item).
+- ✅ **Mute / solo per track** session-only (resets on filePath change) via `M` / `S` icon-buttons with `aria-pressed`. Wired to `TabSession.setPlaybackState` → alphaTab `changeTrackMute` / `changeTrackSolo`. (`TabView.tsx`, `alphaTabEngine.ts`)
+- ✅ **Multi-voice editing** (V1 / V2) via toolbar segmented toggle drives `cursor.voiceIndex`. Beat ops (`set-fret`, `set-duration`, `add-technique`, `remove-technique`) accept optional `voiceIndex`; default 0. (`VoiceToggle.tsx`, `TabEditorToolbar.tsx`, `useTabCursor.ts`)
+- ✅ **Track-level attachments** via `DocumentPicker` scoped to `tab-track` entity. entityId = `${filePath}#track:${stableUuid}`; UUID resolved from sidecar `trackRefs`. (`TabPaneContext`, `TabProperties.tsx` track row badges, `useDocuments.ts` `migrateAttachments`)
+- ✅ **Doc-side track backlinks** render with `· track <id>` annotation when a backlink targets a tab-track entity. (`DocumentProperties.tsx`, `BacklinksRail.tsx`)
+- ⚙️ **Sidecar `<file>.alphatex.refs.json` v2** stores stable `sectionRefs` (Record) + stable `trackRefs` (ordered array `{ id, name }[]` indexed by track position). v1 read forward-compat (empty trackRefs); v2 always emitted on write. (`tabRefsRepo.ts`, `sidecarReconcile.ts`)
+- ⚙️ **Domain track id is positional** (`String(track.index)`); alphaTab `Track` has no `id` field. After `applyRemoveTrack` splice, engine resets `.index` on remaining tracks. Stable UUIDs only at the attachment boundary. (`alphaTabEngine.ts` `findTrack`)
 
 ---
 
