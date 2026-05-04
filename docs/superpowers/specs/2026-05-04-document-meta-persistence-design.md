@@ -39,7 +39,7 @@ The original goal — clean up orphan `attachedTo` entries on entity delete — 
 ### D1 — Flat relations store, not nested DocumentMeta
 
 ```ts
-type AttachmentRow = {
+type AttachmentLink = {
   docPath: string;       // path relative to vault root, e.g. "notes/foo.md"
   entityType: EntityType;
   entityId: string;
@@ -49,9 +49,9 @@ type EntityType = 'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'ta
 
 The current `DocumentMeta.id` is never used as a join key. `DocumentMeta.title` is `docPath.split("/").pop()?.replace(".md", "")` — recomputable on demand. Both go away. Identity becomes the row tuple `(docPath, entityType, entityId)`.
 
-### D2 — Workspace-scoped persistence at `<vault>/.kb/attachments.json`
+### D2 — Workspace-scoped persistence at `<vault>/.kb/attachment-links.json`
 
-Single JSON file at `<vault>/.kb/attachments.json` holding `Array<AttachmentRow>`. Dot-prefixed folder leaves room for future workspace-scoped infrastructure files (history log, lock files, etc.). The folder is created on first write; missing-file reads return `[]`.
+Single JSON file at `<vault>/.kb/attachment-links.json` holding `Array<AttachmentLink>`. Dot-prefixed folder leaves room for future workspace-scoped infrastructure files (history log, lock files, etc.). The folder is created on first write; missing-file reads return `[]`.
 
 ### D3 — Lazy migration on first diagram load
 
@@ -75,12 +75,12 @@ const diagramEntityIds = new Set([
   ...nodeIds, ...connectionIds, ...flowIds,
   ...typesDerivedFromNodes, // optional: node[].type values
 ]);
-const diagramAttachmentRows = rows.filter(r =>
+const diagramAttachmentLinks = rows.filter(r =>
   diagramEntityTypes.has(r.entityType) && diagramEntityIds.has(r.entityId)
 );
 ```
 
-where `diagramEntityTypes = new Set(["node", "connection", "flow", "type", "root"])`. The snapshot stores `diagramAttachmentRows`. On undo: `attachments.replaceSubset(diagramEntityTypes, diagramEntityIds, snapshot.diagramAttachmentRows)` — removes rows for this diagram, re-adds the snapshot rows; tab/workspace rows untouched.
+where `diagramEntityTypes = new Set(["node", "connection", "flow", "type", "root"])`. The snapshot stores `diagramAttachmentLinks`. On undo: `attachments.replaceSubset(diagramEntityTypes, diagramEntityIds, snapshot.diagramAttachmentLinks)` — removes rows for this diagram, re-adds the snapshot rows; tab/workspace rows untouched.
 
 ### D5 — Batch-aware writes, immediate flush by default
 
@@ -94,11 +94,11 @@ Every delete site calls `detachAttachmentsFor` (or `detachDocument` for single r
 
 ### D7 — Read precedence is sole-source after migration
 
-Once migrated, `.kb/attachments.json` is the only source of truth. The diagram's `documents` field is read only during the lazy-migration step. We do not union or reconcile dual sources at read time. (This is the difference between option (b) and option (c) from Q4 — we picked (b).)
+Once migrated, `.kb/attachment-links.json` is the only source of truth. The diagram's `documents` field is read only during the lazy-migration step. We do not union or reconcile dual sources at read time. (This is the difference between option (b) and option (c) from Q4 — we picked (b).)
 
 ### D8 — Draft-orphan accumulation accepted as a known limitation
 
-Within a session, attach/detach writes immediately to `.kb/attachments.json`. A user who attaches a doc to a draft (unsaved) entity, then exits without saving the diagram, leaves the row pointing at an entity id that exists nowhere on disk. Because diagram entity ids are workspace-pseudo-unique (`el-${ts}-${rand}`) and not file-scoped, **the loaded-diagram reaper option was rejected**: it would falsely orphan cross-diagram rows whose entity ids happen to live in a diagram that isn't currently loaded.
+Within a session, attach/detach writes immediately to `.kb/attachment-links.json`. A user who attaches a doc to a draft (unsaved) entity, then exits without saving the diagram, leaves the row pointing at an entity id that exists nowhere on disk. Because diagram entity ids are workspace-pseudo-unique (`el-${ts}-${rand}`) and not file-scoped, **the loaded-diagram reaper option was rejected**: it would falsely orphan cross-diagram rows whose entity ids happen to live in a diagram that isn't currently loaded.
 
 **Accepted limitation:** stale rows accumulate slowly when users abandon draft attachments. Penalty is benign — the UI never renders the stale attachment because the host entity is gone. A future ticket can add a vault-wide "Clean up orphan attachments" command that walks every `.kbjson` to build the canonical entity-id set, or an opt-in periodic reaper.
 
@@ -109,23 +109,23 @@ Within a session, attach/detach writes immediately to `.kb/attachments.json`. A 
 ### New module surface
 
 ```
-src/app/knowledge_base/domain/attachments.ts
-  + type AttachmentRow, EntityType
-  + addRow(rows, row): AttachmentRow[]                       (idempotent, returns same ref if no-op)
-  + removeRow(rows, row): AttachmentRow[]
+src/app/knowledge_base/domain/attachmentLinks.ts
+  + type AttachmentLink, EntityType
+  + addRow(rows, row): AttachmentLink[]                       (idempotent, returns same ref if no-op)
+  + removeRow(rows, row): AttachmentLink[]
   + removeMatchingRows(rows, matcher): { rows, removed }
-  + migrateRows(rows, idMap): AttachmentRow[]                (renames tab-section/tab-track ids)
-  + replaceSubset(rows, entityTypes, entityIds, replacement): AttachmentRow[]
+  + migrateRows(rows, idMap): AttachmentLink[]                (renames tab-section/tab-track ids)
+  + replaceSubset(rows, entityTypes, entityIds, replacement): AttachmentLink[]
   + isSameRow(a, b): boolean
 
-src/app/knowledge_base/infrastructure/attachmentsRepo.ts
-  + createAttachmentsRepo(rootHandle: FileSystemDirectoryHandle): AttachmentsRepository
-  + read(): Promise<AttachmentRow[]>     (returns [] on missing file; throws FileSystemError on malformed)
+src/app/knowledge_base/infrastructure/attachmentLinksRepo.ts
+  + createAttachmentLinksRepository(rootHandle: FileSystemDirectoryHandle): AttachmentsRepository
+  + read(): Promise<AttachmentLink[]>     (returns [] on missing file; throws FileSystemError on malformed)
   + write(rows): Promise<void>           (creates .kb/ if absent)
-  + ATTACHMENTS_FILE = ".kb/attachments.json"
+  + ATTACHMENTS_FILE = ".kb/attachment-links.json"
 
 src/app/knowledge_base/features/document/hooks/useDocuments.ts → useAttachments (semantically; file path unchanged)
-  internal state: rows: AttachmentRow[]
+  internal state: rows: AttachmentLink[]
   exposes:
     rows                               (raw store)
     documents                          (memoized DocumentMeta[] projection)
@@ -213,7 +213,7 @@ useFileActions diagram-load:
 ```
 KnowledgeBaseInner mount:
   if (rootHandle):
-    rows = await attachmentsRepo.read()    ← returns [] if missing
+    rows = await attachmentLinksRepo.read()    ← returns [] if missing
   else:
     rows = []
   setRows(rows)
@@ -226,11 +226,11 @@ The boot read happens once per vault. Subsequent vault reopens (rootHandle chang
 | Scenario | Handling |
 |---|---|
 | Boot read fails (permission denied) | Log via `reportError`; treat as empty store. Subsequent mutations write to disk normally; existing on-disk state may be overwritten. |
-| Boot read returns malformed JSON | `FileSystemError("malformed")` thrown by repo; boot path catches, logs, treats as empty. **Never overwrite a malformed file silently** — the boot path additionally backs up to `.kb/attachments.json.broken` before writing. (Catches user errors during dogfooding.) |
+| Boot read returns malformed JSON | `FileSystemError("malformed")` thrown by repo; boot path catches, logs, treats as empty. **Never overwrite a malformed file silently** — the boot path additionally backs up to `.kb/attachment-links.json.broken` before writing. (Catches user errors during dogfooding.) |
 | Write fails during flush | In-memory state already updated. Log via `reportError`. Retry on next mutation. Lost-edit window is between mutation and write — same risk shape as today's debounced `useTabContent`. |
-| Migration rewrite fails (`diagramRepo.write` of `documents: []`) | Rows already in-memory and (if write succeeded) in `attachments.json`. Diagram file still has stale `data.documents`. Subsequent loads re-attempt migration; idempotent dedupe makes this safe. |
+| Migration rewrite fails (`diagramRepo.write` of `documents: []`) | Rows already in-memory and (if write succeeded) in `attachment-links.json`. Diagram file still has stale `data.documents`. Subsequent loads re-attempt migration; idempotent dedupe makes this safe. |
 | `.kbjson` read fails during file-tree delete | Log; proceed with unlink without detach. Orphan rows left; not a data-loss issue. |
-| `.kb/` directory absent on first write | `attachmentsRepo.write` creates it. No special handling. |
+| `.kb/` directory absent on first write | `attachmentLinksRepo.write` creates it. No special handling. |
 | Concurrent React state burst | `withBatch` collapses to one in-memory mutation pass and one write. Only one writer (single-user FSA), so no race. |
 | Diagram-undo when workspace rows changed mid-session | Subset replacement removes only `(diagramEntityTypes, diagramEntityIds)` rows; tab/workspace rows survive. Test exercises a tab-attach between two diagram-undos. |
 
@@ -245,13 +245,13 @@ The boot read happens once per vault. Subsequent vault reopens (rootHandle chang
    - `migrateRows(map)` rewrites only `tab-section` / `tab-track` ids.
    - `replaceSubset` removes existing subset, adds replacement, preserves out-of-subset rows.
 
-2. **`attachmentsRepo.test.ts` — FSA round-trip**
+2. **`attachmentLinksRepo.test.ts` — FSA round-trip**
    - Write then read returns identical rows.
    - Read on missing file returns `[]`.
    - Malformed JSON throws `FileSystemError("malformed", …)`.
    - Shape guard rejects non-row arrays (e.g., array of `DocumentMeta`).
    - Write creates `.kb/` directory if absent.
-   - Malformed file → backup written to `.kb/attachments.json.broken`.
+   - Malformed file → backup written to `.kb/attachment-links.json.broken`.
 
 3. **`useAttachments.test.ts`** (extends/replaces existing `useDocuments.test.ts`)
    - All existing attach/detach/migrate semantics preserved against rows model.
@@ -304,7 +304,7 @@ Numbering follows the "next free" rule; no renumbering of existing IDs.
 - **`documents` projection memoization cost.** Memoizing the `DocumentMeta[]` derivation on every row change is O(N) where N = total rows. For vaults with thousands of rows this could matter; acceptable today (vaults are hundreds of files). Tagged for follow-up if profiling shows hot path.
 - **Diagram history bloat.** Each `scheduleRecord` now stores the subset of rows for that diagram instead of the full `documents`. For diagrams with many attachments (>50), the per-snapshot size grows. Today's full-snapshot size is the worst case; subset is strictly ≤ that. Not a regression.
 - **Diagram file format drift.** `collectDiagramEntityIds` assumes today's `.kbjson` shape (`nodes`, `connections`, `flows`). Future entity collections must be added to this helper. A test that fails on unknown top-level keys would catch drift; included in test suite.
-- **Backup file accumulation.** `.kb/attachments.json.broken` is written on malformed-read failure. Backups don't auto-rotate. If the failure is transient, repeated boots could pile up. Mitigated by the fact that malformed-file scenarios are rare (we don't write malformed files ourselves); user-driven cleanup acceptable.
+- **Backup file accumulation.** `.kb/attachment-links.json.broken` is written on malformed-read failure. Backups don't auto-rotate. If the failure is transient, repeated boots could pile up. Mitigated by the fact that malformed-file scenarios are rare (we don't write malformed files ourselves); user-driven cleanup acceptable.
 - **Draft-orphan accumulation (D8).** Attaching a doc to a draft entity and exiting without saving the diagram leaves a stale row referencing a no-longer-extant entity id. UI penalty is zero (the host entity is gone), but the store grows unboundedly. Future ticket can add a vault-wide "Clean up orphan attachments" command that walks every `.kbjson` to build the canonical id set.
 
 ## Ship plan
