@@ -196,6 +196,31 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 - **TAB-11.10-07** ✅ **Only one `TrackEditor` renders (for the active row)** — `querySelectorAll("[data-track-editor]")` length is 1. _(unit: `TabProperties.test.tsx`.)_
 - **TAB-11.10-08** ✅ **Clicking inside editor does not fire `onSwitchActiveTrack`** — `e.stopPropagation()` on editor container prevents row's click handler. _(unit: `TabProperties.test.tsx`.)_
 - **TAB-11.10-09** ✅ **No-op when pitch is unchanged** — blurring a string input with its original value does not call `onSetTrackTuning`. _(unit: `TabProperties.test.tsx`.)_
+- **TAB-11.10-10** ✅ **Active track switch via row click flips cursor.trackIndex** — clicking a track row in TabProperties dispatches `onSwitchActiveTrack(i)`, which `TabView` wires to `setCursor({ trackIndex: i, ... })`. _(component: `TabProperties.test.tsx`, integration: `TabView.tracks.test.tsx`.)_
+- **TAB-11.10-11** ✅ **`[` / `]` keyboard shortcuts cycle active track (clamp at ends)** — bare `[` calls `prevTrack()`, bare `]` calls `nextTrack()`; both clamp at ends (no wrap); inherits the C4 input-element guard. _(unit: `useTabKeyboard.test.ts`, `useTabCursor.test.ts`.)_
+- **TAB-11.10-12** ✅ **Add track via inline form appends and dispatches `add-track`** — `+ Add track` row expands inline form (Name + Instrument); Save dispatches `applyEdit({ type: "add-track", ... })`; tuning copied from active track if instrument matches, else default. _(component: `TabProperties.test.tsx`, integration: `TabView.tracks.test.tsx`.)_
+- **TAB-11.10-13** ✅ **Remove track via kebab + window.confirm; last-track guard hides item** — kebab → "Remove track" → confirm dialog → `applyEdit({ type: "remove-track", trackId })`; last remaining track does not show the menu item. _(component: `TabProperties.test.tsx`.)_
+- **TAB-11.10-14** ✅ **Cursor snaps to track 0 on remove-track** — when a track is removed, the cursor resets to `{ trackIndex: 0, voiceIndex: 0, beat: 0, string: 1 }`. _(integration: `TabView.tracks.test.tsx`.)_
+- **TAB-11.10-15** ✅ **Per-track edits don't bleed across tracks** — `set-fret` / `set-duration` / `add-technique` on track[1] leaves track[0] untouched (and vice versa). _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.10-16** ✅ **Voice 1 edits don't bleed into voice 0 and vice versa** — beat-touching ops with `voiceIndex: 1` route through `voices[1]` only. _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.10-17** ✅ **`scoreToMetadata` extracts per-track tuning + capo from staves[0]** — MIDI int array → scientific pitch via `midiToScientificPitch`; `staves[0].capo` becomes `tracks[i].capo`; instrument inferred (≤4 strings → bass). _(unit: `alphaTabEngine.test.ts`.)_
+- **TAB-11.10-18** ✅ **`applyAddTrack` appends a new track with matching bar count + rest beats** — capture `TrackCtor` / `StaffCtor` / `TuningCtor` from `mod.model.*`; build staff with `stringTuning` + `capo`; pad rests via `staff.addBar(bar)` until bar count matches existing tracks. _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.10-19** ✅ **`applyRemoveTrack` last-track guard throws + .index reset** — engine throws "Cannot remove the only track in a score" when `tracks.length === 1`; after splice, remaining tracks' `.index` reset to their new positions. _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.10-20** ✅ **Mute / solo button toggle fires `onToggleMute` / `onToggleSolo`** — clicking M / S on a track row toggles the trackId in/out of mutedTrackIds / soloedTrackIds; `aria-pressed` reflects state. _(component: `TabProperties.test.tsx`.)_
+- **TAB-11.10-21** ✅ **Mute / solo state forwards to `session.setPlaybackState`** — TabView's effect on `[session, mutedTrackIds, soloedTrackIds]` calls `setPlaybackState({ mutedTrackIds, soloedTrackIds })`. _(integration: `TabView.muteSolo.test.tsx`.)_
+- **TAB-11.10-22** ✅ **Mute / solo state resets when filePath changes (pane reload)** — `useEffect` on `[filePath]` clears mutedTrackIds / soloedTrackIds. _(integration: `TabView.muteSolo.test.tsx`.)_
+- **TAB-11.10-23** ✅ **Engine `setPlaybackState` forwards to `api.changeTrackMute` / `api.changeTrackSolo`** — filters `score.tracks` by `String(t.index)`; resets all then applies muted/soloed subsets. _(unit: `alphaTabEngine.applyEdit.test.ts`.)_
+- **TAB-11.10-24** ✅ **`VoiceToggle` component renders V1 / V2 with aria-pressed; click fires onChange** — _(component: `VoiceToggle.test.tsx`.)_
+- **TAB-11.10-25** ✅ **TabEditorToolbar wires `VoiceToggle` and forwards onChange** — _(component: `TabEditorToolbar.test.tsx`.)_
+- **TAB-11.10-26** ✅ **`useTabCursor.moveString` clamps to active track's tuning length** — multi-track metadata; switching to bass clamps string movement at 4 strings. _(unit: `useTabCursor.test.ts`.)_
+- **TAB-11.10-27** ✅ **Sidecar v2 trackRefs ordered array** — `tabRefsRepo` round-trips `{ id, name }[]` indexed by track position. _(unit: `tabRefsRepo.test.ts`.)_
+- **TAB-11.10-28** ✅ **Sidecar v1 → v2 forward-compat read** — v1 payloads (no `trackRefs`) read as v2 with empty `trackRefs: []`. _(unit: `tabRefsRepo.test.ts`.)_
+- **TAB-11.10-29** ✅ **`updateSidecarOnEdit(add-track)` appends new entry; `(remove-track)` splices at position** — _(unit: `sidecarReconcile.test.ts`.)_
+- **TAB-11.10-30** ✅ **Track-level attachment via `DocumentPicker` against `tab-track` entity** — entityId = `${filePath}#track:${stableUuid}`. _(component: `TabProperties.test.tsx`.)_
+- **TAB-11.10-31** ✅ **Track row attachment badges render from sidecar `trackRefs`** — when sidecar has trackRefs entry, attach button + TabReferencesList show. _(component: `TabProperties.test.tsx`.)_
+- **TAB-11.10-32** ✅ **`migrateAttachments` rewrites tab-track ids on path migration** — _(unit: `useDocuments.test.ts`.)_
+- **TAB-11.10-33** ✅ **Doc-side backlinks render `track` annotation** — backlinks with `track?: string` annotate as `· track <id>` in DocumentProperties. _(unit: `DocumentProperties.test.tsx`.)_
+- **TAB-11.10-34** ✅ **`inverseOf` produces `remove-track` for `add-track` (and vice versa)** — captures trackCount / removedTrack in PreState. _(unit: `inverseOf.test.ts`.)_
 
 ---
 
