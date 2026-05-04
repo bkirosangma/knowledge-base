@@ -233,6 +233,157 @@ describe("TabProperties", () => {
     );
     expect(() => fireEvent.click(screen.getByText("Bass"))).not.toThrow();
   });
+
+  it("clicking M toggles mute via onToggleMute(trackId) (TAB-009 T17)", () => {
+    const onToggleMute = vi.fn();
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onToggleMute={onToggleMute}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(screen.getByLabelText("Mute Lead"));
+    expect(onToggleMute).toHaveBeenCalledWith("0");
+  });
+
+  it("M button aria-pressed reflects mutedTrackIds", () => {
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          mutedTrackIds={["0"]}
+        />
+      </Wrap>,
+    );
+    expect(screen.getByLabelText("Mute Lead")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Mute Bass")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking M does not fire onSwitchActiveTrack (e.stopPropagation)", () => {
+    const onSwitch = vi.fn();
+    const onToggleMute = vi.fn();
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+          onToggleMute={onToggleMute}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(screen.getByLabelText("Mute Bass"));
+    expect(onToggleMute).toHaveBeenCalledWith("1");
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("clicking S toggles solo via onToggleSolo(trackId)", () => {
+    const onToggleSolo = vi.fn();
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          onToggleSolo={onToggleSolo}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(screen.getByLabelText("Solo Lead"));
+    expect(onToggleSolo).toHaveBeenCalledWith("0");
+  });
+
+  it("S button aria-pressed reflects soloedTrackIds", () => {
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          soloedTrackIds={["1"]}
+        />
+      </Wrap>,
+    );
+    expect(screen.getByLabelText("Solo Lead")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("Solo Bass")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("clicking S does not fire onSwitchActiveTrack", () => {
+    const onSwitch = vi.fn();
+    const onToggleSolo = vi.fn();
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+          onToggleSolo={onToggleSolo}
+        />
+      </Wrap>,
+    );
+    fireEvent.click(screen.getByLabelText("Solo Bass"));
+    expect(onToggleSolo).toHaveBeenCalledWith("1");
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("M and S are no-ops when callbacks are undefined", () => {
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      </Wrap>,
+    );
+    expect(() => fireEvent.click(screen.getByLabelText("Mute Lead"))).not.toThrow();
+    expect(() => fireEvent.click(screen.getByLabelText("Solo Lead"))).not.toThrow();
+  });
 });
 
 describe("TabProperties — cross-references", () => {

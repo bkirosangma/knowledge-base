@@ -41,6 +41,14 @@ export interface TabPropertiesProps {
    * Optional; T26 will wire the actual handler. If undefined, row clicks are no-ops.
    */
   onSwitchActiveTrack?: (i: number) => void;
+  /** IDs of muted tracks. Defaults to []. T26 will wire the actual state. */
+  mutedTrackIds?: string[];
+  /** IDs of soloed tracks. Defaults to []. T26 will wire the actual state. */
+  soloedTrackIds?: string[];
+  /** Callback fired when a mute button is clicked. T26 will wire the actual handler. */
+  onToggleMute?: (trackId: string) => void;
+  /** Callback fired when a solo button is clicked. T26 will wire the actual handler. */
+  onToggleSolo?: (trackId: string) => void;
 }
 
 /**
@@ -57,6 +65,10 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     selectedNoteDetails, cursorBeat, cursorString, onApplyEdit,
     activeTrackIndex = 0,
     onSwitchActiveTrack,
+    mutedTrackIds = [],
+    soloedTrackIds = [],
+    onToggleMute,
+    onToggleSolo,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -90,6 +102,10 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                 metadata={metadata}
                 activeTrackIndex={activeTrackIndex}
                 onSwitchActiveTrack={onSwitchActiveTrack}
+                mutedTrackIds={mutedTrackIds}
+                soloedTrackIds={soloedTrackIds}
+                onToggleMute={onToggleMute}
+                onToggleSolo={onToggleSolo}
               />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -169,10 +185,18 @@ function Tracks({
   metadata,
   activeTrackIndex,
   onSwitchActiveTrack,
+  mutedTrackIds,
+  soloedTrackIds,
+  onToggleMute,
+  onToggleSolo,
 }: {
   metadata: TabMetadata;
   activeTrackIndex: number;
   onSwitchActiveTrack?: (i: number) => void;
+  mutedTrackIds: string[];
+  soloedTrackIds: string[];
+  onToggleMute?: (trackId: string) => void;
+  onToggleSolo?: (trackId: string) => void;
 }): ReactElement | null {
   if (metadata.tracks.length === 0) return null;
   const handleSwitch = (i: number): void => {
@@ -186,6 +210,8 @@ function Tracks({
       <ul className="space-y-1">
         {metadata.tracks.map((track, i) => {
           const active = i === activeTrackIndex;
+          const isMuted = mutedTrackIds.includes(track.id);
+          const isSoloed = soloedTrackIds.includes(track.id);
           return (
             <li
               key={track.id}
@@ -204,14 +230,50 @@ function Tracks({
                 }
               }}
             >
-              <span
-                data-active-dot
-                data-filled={active}
-                className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
-                  active ? "bg-accent" : "border border-mute"
-                }`}
-              />
-              {track.name}
+              <span className="flex items-center">
+                <span
+                  data-active-dot
+                  data-filled={active}
+                  className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
+                    active ? "bg-accent" : "border border-mute"
+                  }`}
+                />
+                <span className="flex-1">{track.name}</span>
+                <span className="inline-flex gap-1 items-center">
+                  <button
+                    type="button"
+                    aria-label={`Mute ${track.name}`}
+                    aria-pressed={isMuted}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMute?.(track.id);
+                    }}
+                    className={`w-5 h-5 rounded text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-accent ${
+                      isMuted
+                        ? "bg-warn/30 text-warn"
+                        : "text-mute hover:text-ink"
+                    }`}
+                  >
+                    M
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Solo ${track.name}`}
+                    aria-pressed={isSoloed}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSolo?.(track.id);
+                    }}
+                    className={`w-5 h-5 rounded text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-accent ${
+                      isSoloed
+                        ? "bg-accent/30 text-accent"
+                        : "text-mute hover:text-ink"
+                    }`}
+                  >
+                    S
+                  </button>
+                </span>
+              </span>
             </li>
           );
         })}
