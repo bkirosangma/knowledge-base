@@ -483,7 +483,7 @@ function KnowledgeBaseInner() {
       await docManager.withBatch(async () => {
         for (const d of docs) {
           for (const a of d.attachedTo ?? []) {
-            docManager.attachDocument(d.filename, a.type as "node" | "connection" | "flow", a.id);
+            docManager.attachDocument(d.filename, a.type, a.id);
           }
         }
       });

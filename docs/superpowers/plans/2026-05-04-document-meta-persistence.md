@@ -1389,14 +1389,27 @@ const onMigrateLegacyDocuments = useCallback(
 In `useFileActions`, after parsing data:
 
 ```ts
-if (data.documents?.length && currentStateRef.current.onMigrateLegacyDocuments) {
-  await currentStateRef.current.onMigrateLegacyDocuments(fileName, data.documents);
+// Lazy migration: fold legacy data.documents into the workspace
+// attachment-links store and rewrite the diagram with documents: [].
+// Idempotent — skips when data.documents is empty/absent.
+// Guarded by !hasDraft: when a draft exists, `data` IS the draft (in-memory
+// edits), so rewriting it as documents:[] would commit draft state to disk
+// as if the user saved. Migration is deferred to the next clean load.
+if (
+  !hasDraft &&
+  data.documents?.length &&
+  currentStateRef.current.onMigrateLegacyDocuments
+) {
+  const docsToMigrate = data.documents;
+  await currentStateRef.current.onMigrateLegacyDocuments(fileName, docsToMigrate);
   data.documents = [];
-  await diagramRepo.write(fileName, data); // existing write helper or inline
+  // Rewrite the on-disk diagram so subsequent loads skip migration.
+  const repo = createDiagramRepository(rootHandle);
+  await repo.write(fileName, data);
 }
 ```
 
-(The exact wiring of `diagramRepo.write` may need to be threaded — inspect the current save path and reuse.)
+**Note on `executeDiscard`:** The discard path calls `setActiveFile(samePath)` which does NOT trigger `useDiagramFileLoading`'s auto-load (which only fires on path change). So migration is deferred until the user opens a different file then reopens this one (or starts a new session). Bounded — not data loss, since `setDocuments` shim still populates rows from the legacy `data.documents`. Closed by T12 when the `onLoadDocuments` cascade is removed entirely.
 
 - [ ] **Step 10.3: Add test for the migration path**
 
