@@ -82,3 +82,76 @@ describe("useTabExport — MIDI", () => {
     expect(reportErrorMock.mock.calls[0]![1]).toMatch(/MIDI/i);
   });
 });
+
+describe("useTabExport — WAV", () => {
+  it("phase transitions idle → rendering → saving → idle on success", async () => {
+    const exportAudio = vi.fn(async (opts: { onProgress?: (p: { currentTime: number; endTime: number }) => void } = {}) => {
+      opts.onProgress?.({ currentTime: 100, endTime: 1000 });
+      opts.onProgress?.({ currentTime: 1000, endTime: 1000 });
+      return new Uint8Array([0, 0, 0]);
+    });
+    const session = { exportMidi: vi.fn(), exportAudio, exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: false }),
+      { wrapper },
+    );
+    expect(result.current.wavState.phase).toBe("idle");
+    await act(async () => { await result.current.exportWav(); });
+    expect(result.current.wavState.phase).toBe("idle");
+    expect(showSaveFilePickerMock).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: "song.wav" }));
+    expect(writeMock).toHaveBeenCalledOnce();
+  });
+
+  it("cancel() aborts the in-flight export", async () => {
+    let progressCb: ((p: { currentTime: number; endTime: number }) => void) | null = null;
+    let resolveExport!: (b: Uint8Array) => void;
+    const exportAudio = vi.fn((opts?: { onProgress?: typeof progressCb; signal?: AbortSignal }) => {
+      progressCb = opts?.onProgress ?? null;
+      return new Promise<Uint8Array>((resolve, reject) => {
+        opts?.signal?.addEventListener("abort", () => {
+          const e = new Error("Aborted"); (e as Error & { name: string }).name = "AbortError";
+          reject(e);
+        });
+        resolveExport = resolve;
+      });
+    });
+    const session = { exportMidi: vi.fn(), exportAudio, exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: false }),
+      { wrapper },
+    );
+    let exportPromise!: Promise<void>;
+    act(() => { exportPromise = result.current.exportWav(); });
+    // Tick once so React commits the rendering state
+    await act(async () => { progressCb?.({ currentTime: 50, endTime: 300 }); });
+    expect(result.current.wavState.phase).toBe("rendering");
+    await act(async () => { result.current.wavState.cancel(); await exportPromise; });
+    expect(result.current.wavState.phase).toBe("idle");
+    expect(reportErrorMock).not.toHaveBeenCalled();
+    void resolveExport;
+  });
+
+  it("non-abort errors reach ShellErrorContext via reportError(e, 'Export WAV')", async () => {
+    const exportAudio = vi.fn(async () => { throw new Error("Synth failed"); });
+    const session = { exportMidi: vi.fn(), exportAudio, exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: false }),
+      { wrapper },
+    );
+    await act(async () => { await result.current.exportWav(); });
+    expect(result.current.wavState.phase).toBe("idle");
+    expect(reportErrorMock).toHaveBeenCalledOnce();
+    expect(reportErrorMock.mock.calls[0]![1]).toMatch(/WAV/i);
+  });
+
+  it("paneReadOnly = true makes exportWav a no-op", async () => {
+    const exportAudio = vi.fn();
+    const session = { exportMidi: vi.fn(), exportAudio, exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: true }),
+      { wrapper },
+    );
+    await act(async () => { await result.current.exportWav(); });
+    expect(exportAudio).not.toHaveBeenCalled();
+  });
+});

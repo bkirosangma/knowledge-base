@@ -39,7 +39,7 @@ interface FsaFileHandle {
 export function useTabExport(args: UseTabExportArgs) {
   const { reportError } = useShellErrors();
   const [exportingMidi, setExportingMidi] = useState(false);
-  const [wavState] = useState<WavState>(idleWavState); // T8 will make this stateful
+  const [wavState, setWavState] = useState<WavState>(idleWavState);
 
   const exportMidi = useCallback(async () => {
     if (!args.session || args.paneReadOnly) return;
@@ -65,8 +65,36 @@ export function useTabExport(args: UseTabExportArgs) {
     }
   }, [args.session, args.paneReadOnly, args.filePath, reportError]);
 
-  // T8 + T9 will replace these stubs.
-  const exportWav = useCallback(async () => { /* T8 */ }, []);
+  const exportWav = useCallback(async () => {
+    if (!args.session || args.paneReadOnly) return;
+    const controller = new AbortController();
+    setWavState({ phase: "rendering", progress: null, cancel: () => controller.abort() });
+    try {
+      const bytes = await args.session.exportAudio({
+        signal: controller.signal,
+        onProgress: (p) => setWavState((s) => ({ ...s, progress: p })),
+      });
+      setWavState({ phase: "saving", progress: null, cancel: noop });
+      const base = deriveExportBaseName(args.filePath);
+      const showSaveFilePicker = (window as unknown as {
+        showSaveFilePicker: (opts: FsaSaveOptions) => Promise<FsaFileHandle>;
+      }).showSaveFilePicker;
+      const handle = await showSaveFilePicker({
+        suggestedName: `${base}.wav`,
+        types: [{ description: "WAV audio", accept: { "audio/wav": [".wav"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
+    } catch (e) {
+      if (isAbortError(e)) return;
+      reportError(e, "Export WAV");
+    } finally {
+      setWavState(idleWavState);
+    }
+  }, [args.session, args.paneReadOnly, args.filePath, reportError]);
+
+  // T9 will replace this stub.
   const exportPdf = useCallback(() => { /* T9 */ }, []);
 
   return { exportMidi, exportWav, exportPdf, wavState, exportingMidi };
