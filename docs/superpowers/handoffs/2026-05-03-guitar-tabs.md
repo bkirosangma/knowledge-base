@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (DocumentMeta persistence refactor merging via PR #TBD — workspace-scoped attachment-links store + cross-entity cleanup unblocks parked-item #11).
+**Last updated:** 2026-05-04 (DocumentMeta persistence refactor merging via PR [#115](https://github.com/bkirosangma/knowledge-base/pull/115) — workspace-scoped attachment-links store + cross-entity cleanup unblocks parked-item #11).
 
 ---
 
