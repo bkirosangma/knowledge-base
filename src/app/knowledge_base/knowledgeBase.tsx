@@ -8,6 +8,8 @@ import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
+import { createAttachmentLinksRepository } from "./infrastructure/attachmentLinksRepo";
+import type { AttachmentLink } from "./domain/attachmentLinks";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
@@ -143,7 +145,55 @@ function KnowledgeBaseInner() {
   // ─── Shell-level hooks ───
   const { reportError } = useShellErrors();
   const fileExplorer = useFileExplorer();
-  const docManager = useDocuments();
+
+  // Workspace-scoped attachment-links repo. Created inline because
+  // KnowledgeBaseInner is above RepositoryProvider (see project_repository_context_deferred).
+  const attachmentLinksRepo = useMemo(() => {
+    const handle = fileExplorer.dirHandleRef.current;
+    return handle ? createAttachmentLinksRepository(handle) : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileExplorer.dirHandleRef.current]);
+
+  // One-time boot read of .kb/attachment-links.json. The bootLoaded gate
+  // prevents the empty-default mount-effect from clobbering disk before
+  // the read finishes.
+  const [bootLoaded, setBootLoaded] = useState(false);
+  const bootLoadedRef = useRef(false);
+  bootLoadedRef.current = bootLoaded;
+
+  const onFlush = useCallback(
+    (rows: AttachmentLink[]) => {
+      if (!attachmentLinksRepo || !bootLoadedRef.current) return;
+      void attachmentLinksRepo.write(rows).catch((e) =>
+        reportError(e as Error, "Writing .kb/attachment-links.json"),
+      );
+    },
+    [attachmentLinksRepo, reportError],
+  );
+
+  const docManager = useDocuments({ onFlush });
+
+  // Boot-read: seed docManager.rows from disk on first mount with a vault selected.
+  useEffect(() => {
+    if (!attachmentLinksRepo || bootLoaded) return;
+    let cancelled = false;
+    attachmentLinksRepo
+      .read()
+      .then((rows) => {
+        if (!cancelled) {
+          docManager.setRows(rows);
+          setBootLoaded(true);
+        }
+      })
+      .catch((e) => {
+        reportError(e as Error, "Reading .kb/attachment-links.json");
+        setBootLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentLinksRepo, bootLoaded, docManager, reportError]);
+
   const linkManager = useLinkIndex();
   const searchManager = useVaultSearch();
   // Viewport detection drives mobile shell branching.
