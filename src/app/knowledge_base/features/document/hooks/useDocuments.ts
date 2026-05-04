@@ -1,15 +1,22 @@
 // src/app/knowledge_base/hooks/useDocuments.ts
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { DocumentMeta } from "../types";
+import {
+  addRow,
+  removeRow,
+  removeMatchingRows,
+  migrateRows,
+  type AttachmentLink,
+} from "../../../domain/attachmentLinks";
 import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 export function useDocuments() {
-  const [documents, setDocuments] = useState<DocumentMeta[]>([]);
+  const [rows, setRows] = useState<AttachmentLink[]>([]);
 
-  /** Collect all .md file paths from the tree */
+  // ─── Tree helpers — unchanged behaviour ──────────────────────────
   const collectDocPaths = useCallback((tree: TreeNode[]): string[] => {
     const paths: string[] = [];
     function walk(nodes: TreeNode[]) {
@@ -24,129 +31,120 @@ export function useDocuments() {
     return paths;
   }, []);
 
-  const existingDocPaths = useCallback((tree: TreeNode[]): Set<string> => {
-    return new Set(collectDocPaths(tree));
-  }, [collectDocPaths]);
+  const existingDocPaths = useCallback(
+    (tree: TreeNode[]): Set<string> => new Set(collectDocPaths(tree)),
+    [collectDocPaths],
+  );
 
-  /** Create a new document */
-  const createDocument = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
-    path: string,
-    initialContent = "",
-  ) => {
-    const repo = createDocumentRepository(rootHandle);
-    await repo.write(path, initialContent);
-    return path;
-  }, []);
+  // ─── Mutators (in-memory only this task — persistence in T9) ─────
+  const attachDocument = useCallback(
+    (
+      docPath: string,
+      entityType: AttachmentLink["entityType"],
+      entityId: string,
+    ) => {
+      setRows((prev) => addRow(prev, { docPath, entityType, entityId }));
+    },
+    [],
+  );
 
-  /** Attach a document to an entity */
-  const attachDocument = useCallback((
-    docPath: string,
-    entityType: DocumentMeta["attachedTo"] extends (infer T)[] | undefined ? T extends { type: infer U } ? U : never : never,
-    entityId: string,
-  ) => {
-    setDocuments(prev => {
-      const existing = prev.find(d => d.filename === docPath);
-      if (existing) {
-        const already = existing.attachedTo?.some(
-          a => a.type === entityType && a.id === entityId
-        );
-        if (already) return prev;
-        return prev.map(d =>
-          d.filename === docPath
-            ? { ...d, attachedTo: [...(d.attachedTo ?? []), { type: entityType, id: entityId }] }
-            : d
-        );
-      }
-      // Create new DocumentMeta entry
-      const title = docPath.split("/").pop()?.replace(".md", "") ?? docPath;
-      const newDoc: DocumentMeta = {
-        id: `doc-${Date.now()}`,
-        filename: docPath,
-        title,
-        attachedTo: [{ type: entityType, id: entityId }],
-      };
-      return [...prev, newDoc];
-    });
-  }, []);
+  const detachDocument = useCallback(
+    (docPath: string, entityType: string, entityId: string) => {
+      setRows((prev) =>
+        removeRow(prev, {
+          docPath,
+          entityType: entityType as AttachmentLink["entityType"],
+          entityId,
+        }),
+      );
+    },
+    [],
+  );
 
-  /** Detach a document from an entity */
-  const detachDocument = useCallback((
-    docPath: string,
-    entityType: string,
-    entityId: string,
-  ) => {
-    setDocuments(prev =>
-      prev.map(d => {
-        if (d.filename !== docPath) return d;
-        return {
-          ...d,
-          attachedTo: d.attachedTo?.filter(
-            a => !(a.type === entityType && a.id === entityId)
-          ),
-        };
-      }).filter(d => (d.attachedTo?.length ?? 0) > 0)
-    );
-  }, []);
-
-  /** Remove a document entry entirely */
   const removeDocument = useCallback((docPath: string) => {
-    setDocuments(prev => prev.filter(d => d.filename !== docPath));
+    setRows((prev) => removeMatchingRows(prev, (r) => r.docPath === docPath).rows);
   }, []);
 
   /**
-   * Bulk rewrite `tab-section` attachment ids when sections are renamed.
-   * Idempotent. No-op when migrations is empty (preserves identity to
-   * skip an unnecessary re-render).
+   * Bulk rewrite `tab-section` / `tab-track` attachment ids when sections are
+   * renamed. Idempotent. No-op when migrations is empty.
    */
-  const migrateAttachments = useCallback((
-    filePath: string,
-    migrations: { from: string; to: string }[],
-  ) => {
-    if (migrations.length === 0) return;
-    const map = new Map<string, string>();
-    for (const m of migrations) {
-      map.set(`${filePath}#${m.from}`, `${filePath}#${m.to}`);
+  const migrateAttachments = useCallback(
+    (filePath: string, migrations: { from: string; to: string }[]) => {
+      if (migrations.length === 0) return;
+      const map = new Map<string, string>();
+      for (const m of migrations) {
+        map.set(`${filePath}#${m.from}`, `${filePath}#${m.to}`);
+      }
+      setRows((prev) => migrateRows(prev, map));
+    },
+    [],
+  );
+
+  // ─── Memoised DocumentMeta projection (back-compat) ──────────────
+  const documents = useMemo<DocumentMeta[]>(() => {
+    const byDoc = new Map<string, DocumentMeta>();
+    for (const r of rows) {
+      let entry = byDoc.get(r.docPath);
+      if (!entry) {
+        const title = r.docPath.split("/").pop()?.replace(/\.md$/, "") ?? r.docPath;
+        entry = {
+          id: `doc-${r.docPath}`,
+          filename: r.docPath,
+          title,
+          attachedTo: [],
+        };
+        byDoc.set(r.docPath, entry);
+      }
+      entry.attachedTo!.push({ type: r.entityType, id: r.entityId });
     }
-    setDocuments(prev =>
-      prev.map(d => {
-        if (!d.attachedTo) return d;
-        let touched = false;
-        const next = d.attachedTo.map(a => {
-          if (a.type !== "tab-section" && a.type !== "tab-track") return a;
-          const replacement = map.get(a.id);
-          if (replacement === undefined) return a;
-          touched = true;
-          return { ...a, id: replacement };
-        });
-        return touched ? { ...d, attachedTo: next } : d;
-      })
-    );
-  }, []);
+    return Array.from(byDoc.values());
+  }, [rows]);
 
-  /** Get documents attached to an entity */
-  const getDocumentsForEntity = useCallback((
-    entityType: string,
-    entityId: string,
-  ): DocumentMeta[] => {
-    return documents.filter(d =>
-      d.attachedTo?.some(a => a.type === entityType && a.id === entityId)
-    );
-  }, [documents]);
+  // ─── Selectors ───────────────────────────────────────────────────
+  const getDocumentsForEntity = useCallback(
+    (entityType: string, entityId: string): DocumentMeta[] =>
+      documents.filter((d) =>
+        d.attachedTo?.some((a) => a.type === entityType && a.id === entityId),
+      ),
+    [documents],
+  );
 
-  /** Check if an entity has attached documents */
-  const hasDocuments = useCallback((
-    entityType: string,
-    entityId: string,
-  ): boolean => {
-    return documents.some(d =>
-      d.attachedTo?.some(a => a.type === entityType && a.id === entityId)
-    );
-  }, [documents]);
+  const hasDocuments = useCallback(
+    (entityType: string, entityId: string): boolean =>
+      rows.some((r) => r.entityType === entityType && r.entityId === entityId),
+    [rows],
+  );
+
+  // ─── Disk creation (unchanged) ───────────────────────────────────
+  const createDocument = useCallback(
+    async (
+      rootHandle: FileSystemDirectoryHandle,
+      path: string,
+      initialContent = "",
+    ) => {
+      const repo = createDocumentRepository(rootHandle);
+      await repo.write(path, initialContent);
+      return path;
+    },
+    [],
+  );
 
   return {
+    rows,
+    setRows,
     documents,
-    setDocuments,
+    setDocuments: (next: DocumentMeta[]) => {
+      // Back-compat shim — used by old onLoadDocuments call sites until T12.
+      const flat: AttachmentLink[] = next.flatMap((d) =>
+        (d.attachedTo ?? []).map((a) => ({
+          docPath: d.filename,
+          entityType: a.type as AttachmentLink["entityType"],
+          entityId: a.id,
+        })),
+      );
+      setRows(flat);
+    },
     createDocument,
     attachDocument,
     detachDocument,

@@ -387,3 +387,44 @@ describe("migrateAttachments — tab-track (TAB-009 T22)", () => {
     ]);
   });
 });
+
+import type { AttachmentLink } from "../../../domain/attachmentLinks";
+
+describe("useDocuments rows model", () => {
+  it("attachDocument adds a row; rows reflects the model directly", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => { result.current.attachDocument("a.md", "node", "n1"); });
+    const expected: AttachmentLink = {
+      docPath: "a.md", entityType: "node", entityId: "n1",
+    };
+    expect(result.current.rows).toEqual([expected]);
+  });
+
+  it("documents projection groups rows by docPath and synthesises DocumentMeta", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("a.md", "flow", "f1");
+    });
+    expect(result.current.documents).toHaveLength(1);
+    expect(result.current.documents[0]).toMatchObject({
+      filename: "a.md",
+      title: "a",
+      attachedTo: [
+        { type: "node", id: "n1" },
+        { type: "flow", id: "f1" },
+      ],
+    });
+    expect(result.current.documents[0].id).toMatch(/^doc-/);
+  });
+
+  it("documents projection drops doc when last row is detached", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.detachDocument("a.md", "node", "n1");
+    });
+    expect(result.current.documents).toEqual([]);
+    expect(result.current.rows).toEqual([]);
+  });
+});
