@@ -9,8 +9,6 @@ const meta = (sections: { name: string; startBeat: number }[]): TabMetadata => (
   title: "T",
   tempo: 120,
   timeSignature: { numerator: 4, denominator: 4 },
-  capo: 0,
-  tuning: [],
   tracks: [],
   sections,
   totalBeats: 0,
@@ -158,8 +156,9 @@ describe("useTabSectionSync (sidecar branch)", () => {
     // tabRefs.read returns a non-empty payload — sidecar is present.
     const tabRefs = {
       read: vi.fn(async () => ({
-        version: 1 as const,
-        sections: { "verse-1": { currentName: "Verse 1", createdAt: 1000 } },
+        version: 2 as const,
+        sectionRefs: { "verse-1": "Verse 1" },
+        trackRefs: [],
       })),
       write: vi.fn(async () => {}),
     };

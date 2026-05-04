@@ -38,9 +38,7 @@ function makeMetadata(overrides: Partial<TabMetadata> = {}): TabMetadata {
     tempo: 120,
     key: "Gmaj",
     timeSignature: { numerator: 4, denominator: 4 },
-    capo: 2,
-    tuning: ["E2", "A2", "D3", "G3", "B3", "E4"],
-    tracks: [{ id: "0", name: "Guitar", instrument: "guitar" }],
+    tracks: [{ id: "0", name: "Guitar", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 2 }],
     sections: [
       { name: "Intro", startBeat: 0 },
       { name: "Verse 1", startBeat: 1920 },
@@ -271,11 +269,12 @@ describe("TabProperties — cross-references", () => {
   it("C2: uses stable sidecar IDs from resolveSectionIds when sidecar is present", async () => {
     const tabRefs = {
       read: vi.fn().mockResolvedValue({
-        version: 1 as const,
-        sections: {
-          "stable-intro-99": { currentName: "Intro", createdAt: 1 },
-          "stable-verse-99": { currentName: "Verse 1", createdAt: 1 },
+        version: 2 as const,
+        sectionRefs: {
+          "stable-intro-99": "Intro",
+          "stable-verse-99": "Verse 1",
         },
+        trackRefs: [],
       }),
       write: vi.fn(),
     };

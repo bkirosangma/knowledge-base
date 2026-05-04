@@ -14,8 +14,6 @@ const baseMetadata: TabMetadata = {
   title: "hi",
   tempo: 120,
   timeSignature: { numerator: 4, denominator: 4 },
-  capo: 0,
-  tuning: [],
   tracks: [],
   sections: [],
   totalBeats: 0,

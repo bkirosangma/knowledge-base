@@ -31,6 +31,11 @@ export interface TabPropertiesProps {
   cursorString?: number;
   /** Callback to dispatch tab edit operations from the properties panel. */
   onApplyEdit?: (op: TabEditOp) => void;
+  /**
+   * Zero-based index of the active track. Defaults to 0.
+   * T26 will wire this to the actual cursor-driven value.
+   */
+  activeTrackIndex?: number;
 }
 
 /**
@@ -45,6 +50,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     filePath, documents, backlinks, readOnly,
     onPreviewDocument, onOpenDocPicker, onDetachDocument,
     selectedNoteDetails, cursorBeat, cursorString, onApplyEdit,
+    activeTrackIndex = 0,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -72,8 +78,8 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
           ) : (
             <>
               <Header metadata={metadata} />
-              <General metadata={metadata} />
-              <Tuning metadata={metadata} />
+              <General metadata={metadata} activeTrackIndex={activeTrackIndex} />
+              <Tuning metadata={metadata} activeTrackIndex={activeTrackIndex} />
               <Tracks metadata={metadata} />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -122,8 +128,9 @@ function Header({ metadata }: { metadata: TabMetadata }): ReactElement {
   );
 }
 
-function General({ metadata }: { metadata: TabMetadata }): ReactElement {
+function General({ metadata, activeTrackIndex }: { metadata: TabMetadata; activeTrackIndex: number }): ReactElement {
   const ts = `${metadata.timeSignature.numerator}/${metadata.timeSignature.denominator}`;
+  const capo = metadata.tracks[activeTrackIndex]?.capo ?? 0;
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">General</h3>
@@ -131,18 +138,19 @@ function General({ metadata }: { metadata: TabMetadata }): ReactElement {
         <Row label="Tempo">{`${metadata.tempo} BPM`}</Row>
         {metadata.key && <Row label="Key">{metadata.key}</Row>}
         <Row label="Time">{ts}</Row>
-        <Row label="Capo">{`Capo ${metadata.capo}`}</Row>
+        <Row label="Capo">{`Capo ${capo}`}</Row>
       </dl>
     </section>
   );
 }
 
-function Tuning({ metadata }: { metadata: TabMetadata }): ReactElement | null {
-  if (metadata.tuning.length === 0) return null;
+function Tuning({ metadata, activeTrackIndex }: { metadata: TabMetadata; activeTrackIndex: number }): ReactElement | null {
+  const tuning = metadata.tracks[activeTrackIndex]?.tuning ?? [];
+  if (tuning.length === 0) return null;
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">Tuning</h3>
-      <p className="font-mono text-xs">{metadata.tuning.join(" ")}</p>
+      <p className="font-mono text-xs">{tuning.join(" ")}</p>
     </section>
   );
 }

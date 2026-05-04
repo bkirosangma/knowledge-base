@@ -685,8 +685,8 @@ describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)",
   // Verify that a voiceIndex:1 edit targets voice 1, not voice 0.
   it("set-fret with voiceIndex:1 targets voice 1 beat, not voice 0 beat (TAB-009 T4)", () => {
     // Hand-build a score with two voices on track 0
-    const voice0Beat = { duration: 4, notes: [], addNote(n: unknown) { this.notes.push(n); }, removeNote(n: unknown) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } } as { duration: number; notes: Array<{ fret: number; string: number }>; addNote(n: unknown): void; removeNote(n: unknown): void };
-    const voice1Beat = { duration: 4, notes: [], addNote(n: unknown) { this.notes.push(n); }, removeNote(n: unknown) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } } as { duration: number; notes: Array<{ fret: number; string: number }>; addNote(n: unknown): void; removeNote(n: unknown): void };
+    const voice0Beat = { duration: 4, notes: [] as Array<{ fret: number; string: number }>, addNote(n: { fret: number; string: number }) { this.notes.push(n); }, removeNote(n: { fret: number; string: number }) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } };
+    const voice1Beat = { duration: 4, notes: [] as Array<{ fret: number; string: number }>, addNote(n: { fret: number; string: number }) { this.notes.push(n); }, removeNote(n: { fret: number; string: number }) { const i = this.notes.indexOf(n); if (i >= 0) this.notes.splice(i, 1); } };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handScore: any = {

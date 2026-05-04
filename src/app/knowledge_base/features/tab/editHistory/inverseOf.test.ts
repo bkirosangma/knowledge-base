@@ -1,6 +1,8 @@
 // src/app/knowledge_base/features/tab/editHistory/inverseOf.test.ts
 import { describe, expect, it } from "vitest";
 import { inverseOf } from "./inverseOf";
+import type { TabEditOp } from "../../../domain/tabEngine";
+import type { PreState } from "./inverseOf";
 
 describe("inverseOf", () => {
   it("set-fret(beat,string,X) ↔ set-fret(beat,string,prevValue)", () => {
