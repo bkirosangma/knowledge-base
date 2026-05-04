@@ -12,6 +12,7 @@ import { useTabPlayback } from "./hooks/useTabPlayback";
 import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
 import type { DocumentMeta } from "../document/types";
+import type { AttachmentLink } from "../../domain/attachmentLinks";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
 import DocumentPicker from "../../shared/components/DocumentPicker";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
@@ -82,6 +83,8 @@ export interface TabViewProps {
     migrations: { from: string; to: string }[],
   ) => void;
   onTabExportReady?: (handle: import("../../knowledgeBase.tabRouting.helper").TabExportHandle | null) => void;
+  detachAttachmentsFor?: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch?: <T>(fn: () => Promise<T> | T) => Promise<T>;
 }
 
 export function TabView({
@@ -98,6 +101,8 @@ export function TabView({
   rootHandle,
   onMigrateAttachments,
   onTabExportReady,
+  detachAttachmentsFor,
+  withBatch,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
   const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
@@ -283,26 +288,51 @@ export function TabView({
   // T26: remove-track needs pre-edit position capture for sidecar reconcile.
   // The sidecar write is handled inline here (not via updateSidecarOnEdit) because
   // the engine's splice resets track .index before the async callback runs.
+  // T15: detachAttachmentsFor must run BEFORE propertiesApply so we can still
+  // read the stable UUID from the sidecar trackRefs for the removed position.
+  // A single sidecar read captures prev; the UUID is extracted from it, then
+  // the same prev is forwarded to updateSidecarPayload to avoid a double read.
   const handleRemoveTrack = useCallback((trackId: string) => {
     const removedPosition = Number(trackId);
-    // Dispatch via propertiesApply (full undo pipeline).
-    propertiesApply({ type: "remove-track", trackId });
-    // Always reset cursor — predictable and avoids race conditions with engine .index reset timing.
-    setCursor({ trackIndex: 0, voiceIndex: 0, beat: 0, string: 1 });
-    // Reconcile sidecar with the captured position.
     void (async () => {
-      if (!tabRefs) return;
       const fp = filePathRef.current;
       if (!fp) return;
-      try {
-        const prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
-        const next = updateSidecarPayload(prev, { type: "remove-track", trackId }, { removedPosition });
-        await tabRefs.write(fp, next);
-      } catch {
-        // Swallow — useShellError flow already covers tabRefs failures.
+
+      // Read sidecar once — reused for both UUID lookup and sidecar update.
+      let prev = emptyTabRefs();
+      if (tabRefs) {
+        try {
+          prev = (await tabRefs.read(fp)) ?? emptyTabRefs();
+        } catch {
+          // Swallow — useShellError flow already covers tabRefs failures.
+        }
+      }
+
+      // T15: detach tab-track rows for the removed track's stable UUID before the engine splices.
+      const stableUuid = prev.trackRefs[removedPosition]?.id;
+      if (stableUuid && detachAttachmentsFor && withBatch) {
+        const trackEntityId = `${fp}#track:${stableUuid}`;
+        await withBatch(() => {
+          detachAttachmentsFor((r) => r.entityType === "tab-track" && r.entityId === trackEntityId);
+        });
+      }
+
+      // Dispatch via propertiesApply (full undo pipeline).
+      propertiesApply({ type: "remove-track", trackId });
+      // Always reset cursor — predictable and avoids race conditions with engine .index reset timing.
+      setCursor({ trackIndex: 0, voiceIndex: 0, beat: 0, string: 1 });
+
+      // Reconcile sidecar with the captured position.
+      if (tabRefs) {
+        try {
+          const next = updateSidecarPayload(prev, { type: "remove-track", trackId }, { removedPosition });
+          await tabRefs.write(fp, next);
+        } catch {
+          // Swallow — useShellError flow already covers tabRefs failures.
+        }
       }
     })();
-  }, [propertiesApply, setCursor, tabRefs]);
+  }, [propertiesApply, setCursor, tabRefs, detachAttachmentsFor, withBatch]);
 
   useTabSectionSync(
     filePath,

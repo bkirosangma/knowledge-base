@@ -226,6 +226,8 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 - **TAB-11.10-33** ✅ **Doc-side backlinks render `track` annotation** — backlinks with `track?: string` annotate as `· track <id>` in DocumentProperties. _(unit: `DocumentProperties.test.tsx`.)_
 - **TAB-11.10-34** ✅ **`inverseOf` produces `remove-track` for `add-track` (and vice versa)** — captures trackCount / removedTrack in PreState. _(unit: `inverseOf.test.ts`.)_
 - **TAB-11.10-35** 🟡 **Voice 1 visual render verified manually** (TAB-008b) — per `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Outcome status updates with PR-time smoke test. _(manual observation.)_
+- **TAB-11.10-36** ✅ **`handleRemoveTrack` detaches `tab-track` rows for the removed track's stable UUID before the engine splice** — reads the sidecar to get `trackRefs[removedPosition].id`, wraps `detachAttachmentsFor` in `withBatch`; matcher targets only `{ entityType: "tab-track", entityId: "${filePath}#track:${uuid}" }` — other UUIDs and `tab` rows are not matched. _(integration: `TabView.tracks.test.tsx`.)_
+- **TAB-11.10-37** ✅ **`handleRemoveTrack` with absent sidecar skips detach but still splices the engine** — when sidecar `read` returns `null`, `stableUuid` is undefined so `detachAttachmentsFor` is never called; `propertiesApply({ type: "remove-track" })` still fires. _(integration: `TabView.tracks.test.tsx`.)_
 
 ---
 

@@ -1186,6 +1186,8 @@ function KnowledgeBaseInner() {
           if (side === "left") leftTabExportRef.current = handle;
           else rightTabExportRef.current = handle;
         },
+        detachAttachmentsFor: docManager.detachAttachmentsFor,
+        withBatch: docManager.withBatch,
       }));
     }
 
