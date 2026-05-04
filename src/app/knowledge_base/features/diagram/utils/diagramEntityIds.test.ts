@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { collectDiagramEntityIds } from "./diagramEntityIds";
-import type { DiagramData } from "../../../shared/utils/types";
+import type { DiagramData, SerializedNodeData, Connection, FlowDef } from "../../../shared/utils/types";
 
 const empty: DiagramData = {
   title: "T",
@@ -18,13 +18,13 @@ describe("collectDiagramEntityIds", () => {
     const data: DiagramData = {
       ...empty,
       nodes: [
-        { id: "n1", label: "x", x: 0, y: 0, layer: "L1", type: "Db" } as any,
-        { id: "n2", label: "y", x: 0, y: 0, layer: "L1", type: "Api" } as any,
+        { id: "n1", label: "x", x: 0, y: 0, layer: "L1", type: "Db" } as unknown as SerializedNodeData,
+        { id: "n2", label: "y", x: 0, y: 0, layer: "L1", type: "Api" } as unknown as SerializedNodeData,
       ],
       connections: [
-        { id: "c1", from: "n1", to: "n2", label: "" } as any,
+        { id: "c1", from: "n1", to: "n2", label: "" } as unknown as Connection,
       ],
-      flows: [{ id: "f1", name: "main", path: ["c1"] } as any],
+      flows: [{ id: "f1", name: "main", path: ["c1"] } as unknown as FlowDef],
     };
     const ids = collectDiagramEntityIds(data);
     expect(ids.has("n1")).toBe(true);
