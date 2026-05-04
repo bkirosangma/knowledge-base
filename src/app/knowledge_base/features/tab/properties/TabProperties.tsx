@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { Paperclip } from "lucide-react";
-import type { TabMetadata } from "../../../domain/tabEngine";
-import { getSectionIds } from "../../../domain/tabEngine";
+import type { TabEditOp, TabMetadata } from "../../../domain/tabEngine";
 import type { DocumentMeta } from "../../document/types";
 import { TabReferencesList } from "./TabReferencesList";
+import type { SelectedNoteDetails as SelectedNoteDetailsType } from "../editor/hooks/useSelectedNoteDetails";
+import { SelectedNoteDetails } from "./SelectedNoteDetails";
+import { useRepositories } from "../../../shell/RepositoryContext";
+import { resolveSectionIds } from "../../../domain/tabSectionIds";
+import type { TabRefsPayload } from "../../../domain/tabRefs";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
@@ -18,6 +23,14 @@ export interface TabPropertiesProps {
   onPreviewDocument?: (path: string) => void;
   onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  /** Selected note details to render in the "Selected note" subsection. */
+  selectedNoteDetails?: SelectedNoteDetailsType | null;
+  /** Global beat index of the current cursor position. Required when selectedNoteDetails is set. */
+  cursorBeat?: number;
+  /** String index of the current cursor position. Required when selectedNoteDetails is set. */
+  cursorString?: number;
+  /** Callback to dispatch tab edit operations from the properties panel. */
+  onApplyEdit?: (op: TabEditOp) => void;
 }
 
 /**
@@ -31,6 +44,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     metadata, collapsed, onToggleCollapse,
     filePath, documents, backlinks, readOnly,
     onPreviewDocument, onOpenDocPicker, onDetachDocument,
+    selectedNoteDetails, cursorBeat, cursorString, onApplyEdit,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -61,6 +75,14 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
               <General metadata={metadata} />
               <Tuning metadata={metadata} />
               <Tracks metadata={metadata} />
+              {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
+                <SelectedNoteDetails
+                  details={selectedNoteDetails}
+                  cursorBeat={cursorBeat ?? 0}
+                  cursorString={cursorString ?? 1}
+                  onApply={onApplyEdit}
+                />
+              )}
               <Sections
                 metadata={metadata}
                 filePath={filePath}
@@ -156,8 +178,24 @@ function Sections({
   onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
 }): ReactElement | null {
+  // C2: Read the sidecar to resolve stable section IDs.
+  const { tabRefs } = useRepositories();
+  const [sidecar, setSidecar] = useState<TabRefsPayload | null>(null);
+  useEffect(() => {
+    if (!tabRefs || !filePath) { setSidecar(null); return; }
+    let cancelled = false;
+    tabRefs.read(filePath).then((payload) => {
+      if (!cancelled) setSidecar(payload);
+    }).catch(() => { if (!cancelled) setSidecar(null); });
+    return () => { cancelled = true; };
+  }, [tabRefs, filePath]);
+
+  const ids = useMemo(
+    () => resolveSectionIds(metadata.sections, sidecar),
+    [metadata.sections, sidecar],
+  );
+
   if (metadata.sections.length === 0) return null;
-  const ids = getSectionIds(metadata.sections);
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">

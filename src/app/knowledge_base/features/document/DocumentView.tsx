@@ -20,6 +20,7 @@ import { useShellErrors } from "../../shell/ShellErrorContext";
 import { useRepositories } from "../../shell/RepositoryContext";
 import ConfirmPopover from "../../shared/components/explorer/ConfirmPopover";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../../shared/constants";
+import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 
 export type { DocumentPaneBridge };
 
@@ -100,12 +101,12 @@ export default function DocumentView({
 
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("properties-collapsed") === "true";
+    return localStorage.getItem(PROPERTIES_COLLAPSED_KEY) === "true";
   });
   const toggleProperties = useCallback(() => {
     setPropertiesCollapsed((c) => {
       const next = !c;
-      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(PROPERTIES_COLLAPSED_KEY, String(next)); } catch { /* ignore */ }
       return next;
     });
   }, []);

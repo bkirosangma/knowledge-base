@@ -21,7 +21,13 @@ export interface TabEngine {
 }
 
 export interface MountOpts {
-  initialSource: TabSource;
+  /**
+   * Optional. When provided, `mount` calls `session.load(initialSource)` before
+   * resolving. Tests that need to inject a parsed Score directly into a fake API
+   * (jsdom can't render alphaTab's canvas) mount without an initial source and
+   * call `session.load()` manually afterwards.
+   */
+  initialSource?: TabSource;
   readOnly: boolean;
 }
 
@@ -46,6 +52,9 @@ export interface TabSession {
 
   /** Optional capability — engines without an editor throw on call. */
   applyEdit?(op: TabEditOp): TabMetadata;
+
+  /** The last loaded/edited score object; null before first load. */
+  readonly score?: unknown | null;
 }
 
 export interface RenderOpts {

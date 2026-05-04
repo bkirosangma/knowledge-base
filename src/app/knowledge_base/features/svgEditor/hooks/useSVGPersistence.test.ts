@@ -61,6 +61,7 @@ function makeWrapper(opts: HarnessOpts) {
       write: opts.write ?? vi.fn().mockResolvedValue(undefined),
     },
     tab: null,
+    tabRefs: null,
     vaultConfig: null,
   };
   const reportError = opts.reportError ?? vi.fn();

@@ -1,0 +1,412 @@
+/**
+ * Tests for AlphaTabSession.applyEdit — set-fret and set-duration ops.
+ *
+ * Strategy: mock AlphaTabApi so that tex() fires scoreLoaded with a real
+ * Score object (parsed by the real AlphaTexImporter).  This lets us verify
+ * in-place mutation without needing a canvas / workers (unavailable in jsdom).
+ */
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Module-level mutable state shared between the vi.mock factory and tests.
+// ---------------------------------------------------------------------------
+let fakeApiInstance: {
+  scoreLoaded: { fire(p: unknown): void };
+  renderScoreMock: ReturnType<typeof vi.fn>;
+  texPayload: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} & Record<string, any>;
+
+class FakeEvent<T> {
+  private handlers: ((payload: T) => void)[] = [];
+  on(handler: (payload: T) => void) {
+    this.handlers.push(handler);
+  }
+  fire(payload: T) {
+    for (const h of this.handlers) h(payload);
+  }
+}
+
+vi.mock("@coderline/alphatab", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@coderline/alphatab")>();
+
+  class FakeApiCtor {
+    scoreLoaded = new FakeEvent<unknown>();
+    error = new FakeEvent<Error>();
+    playerReady = new FakeEvent<void>();
+    playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
+    playerPositionChanged = new FakeEvent<{
+      currentTick: number;
+      endTick: number;
+      currentTime: number;
+      endTime: number;
+    }>();
+    tickPosition = 0;
+    playbackSpeed = 1;
+    playbackRange: { startTick: number; endTick: number } | null = null;
+    isLooping = false;
+    renderScoreMock = vi.fn();
+    texPayload: unknown = null;
+
+    tex(_text: string) {
+      // fire scoreLoaded synchronously with the pre-parsed real Score
+      if (this.texPayload !== null) {
+        this.scoreLoaded.fire(this.texPayload);
+      }
+    }
+    renderTracks() {}
+    destroy() {}
+    play() { return true; }
+    pause() {}
+    stop() {}
+    renderScore(score: unknown) {
+      this.renderScoreMock(score);
+      // Mirror production: renderScore re-fires scoreLoaded, which triggers
+      // handleScoreLoaded → emit("loaded").  Without this the fake is a no-op
+      // and the double-emit bug goes undetected.
+      this.scoreLoaded.fire(score);
+    }
+
+    constructor(_el: HTMLElement, _settings: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fakeApiInstance = this as any;
+    }
+  }
+
+  return { ...real, AlphaTabApi: FakeApiCtor };
+});
+
+import { AlphaTabEngine } from "./alphaTabEngine";
+
+// ---------------------------------------------------------------------------
+// FIXTURE: one bar, 4 quarter-note beats on string 6 with frets 5,0,0,0.
+// beat index 0 → fret 5, string 6
+// ---------------------------------------------------------------------------
+const FIXTURE = `\\title "Edit Probe"\n.\n:4 5.6 0.6 0.6 0.6 |`;
+
+async function buildScore() {
+  const mod = await import("@coderline/alphatab");
+  const importer = new mod.importer.AlphaTexImporter();
+  const settings = new mod.Settings();
+  importer.init(mod.io.ByteBuffer.empty(), settings);
+  importer.initFromString(FIXTURE, settings);
+  return importer.readScore();
+}
+
+// ---------------------------------------------------------------------------
+// Score-walk helpers
+// (Use `any` because the alphaTab Score type tree is deep; typed enough for tests)
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findBeat(session: any, globalBeatIndex: number): any {
+  const score = session.latestScore;
+  if (!score) throw new Error("No score on session");
+  let counter = 0;
+  for (const bar of score.tracks[0].staves[0].bars) {
+    for (const beat of bar.voices[0].beats) {
+      if (counter === globalBeatIndex) return beat;
+      counter++;
+    }
+  }
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteFret(session: any, beatIndex: number, stringNum: number): number | null {
+  const beat = findBeat(session, beatIndex);
+  if (!beat) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const note = beat.notes.find((n: any) => n.string === stringNum);
+  return note != null ? note.fret : null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getBeatDuration(session: any, beatIndex: number): number {
+  const beat = findBeat(session, beatIndex);
+  if (!beat) throw new Error(`Beat ${beatIndex} not found`);
+  return beat.duration as number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findNote(session: any, beatIndex: number, stringNum: number): any {
+  const beat = findBeat(session, beatIndex);
+  if (!beat) throw new Error(`Beat ${beatIndex} not found`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return beat.notes.find((n: any) => n.string === stringNum) ?? null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findScore(session: any): any {
+  const score = session.latestScore;
+  if (!score) throw new Error("No score on session");
+  return score;
+}
+
+/**
+ * Return the global beat index of the first beat in barIdx (0-based).
+ * Walks tracks[0]→staves[0]→bars[0..barIdx-1] summing beat counts.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getFirstBeatOfBar(session: any, barIdx: number): number {
+  const score = findScore(session);
+  const bars = score.tracks[0].staves[0].bars;
+  let counter = 0;
+  for (let i = 0; i < barIdx; i++) {
+    counter += bars[i].voices[0].beats.length;
+  }
+  return counter;
+}
+
+/**
+ * Read the appropriate flag from the note for the given technique.
+ * Returns boolean (true = technique is active).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteHasTechnique(session: any, beatIndex: number, stringNum: number, technique: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const note = findNote(session, beatIndex, stringNum) as any;
+  if (!note) throw new Error(`Note at beat ${beatIndex} string ${stringNum} not found`);
+  switch (technique) {
+    case "hammer-on": return note.isHammerPullOrigin === true;
+    case "pull-off":  return note.isHammerPullOrigin === true;
+    case "bend":      return note.bendType !== 0 && note.bendType != null;
+    case "slide":     return note.slideOutType !== 0 && note.slideOutType != null;
+    case "tie":       return note.isTieDestination === true;
+    case "ghost":     return note.isGhost === true;
+    case "vibrato":   return note.vibrato !== 0 && note.vibrato != null;
+    case "let-ring":  return note.isLetRing === true;
+    case "palm-mute": return note.isPalmMute === true;
+    case "tremolo":   return note.beat?.tremoloSpeed != null;
+    case "tap":       return note.beat?.tap === true;
+    case "harmonic":  return note.harmonicType !== 0 && note.harmonicType != null;
+    default:          throw new Error(`Unknown technique: ${technique}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+describe("AlphaTabSession.applyEdit", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let session: any;
+
+  beforeEach(async () => {
+    const score = await buildScore();
+
+    // Mount with a no-op source; override texPayload so tex() fires scoreLoaded
+    // with the real Score.  The trick: fakeApiInstance is set synchronously in
+    // the FakeApiCtor constructor which runs inside mount() before load() is
+    // called.  mount() does: new ApiCtor(el, settings) → then session.load(src).
+    // We interpose by patching texPayload between construction and load() via
+    // a promise-racing trick — BUT the simpler and correct way is: since the
+    // import() inside mount() is the only async boundary, fakeApiInstance is
+    // available by the time load() calls tex().
+    //
+    // Actual call order inside mount():
+    //   await import(...)           ← async boundary
+    //   new ApiCtor(el, settings)   ← sets fakeApiInstance  (sync)
+    //   session.load(source)        ← calls api.tex()        (sync-ish)
+    //
+    // So we can't set texPayload *before* mount() returns from the import().
+    // Solution: provide a custom source text that the fake api ignores, and
+    // manually fire scoreLoaded after mount() resolves by setting texPayload
+    // then calling a second load().
+
+    const engine = new AlphaTabEngine();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    // Phase 1: mount with no initial source to just get the session constructed.
+    session = await engine.mount(container, { readOnly: false });
+
+    // Phase 2: inject the real Score and do a manual load.
+    fakeApiInstance.texPayload = score;
+    await session.load({ kind: "alphatex", text: FIXTURE });
+  });
+
+  it("set-fret mutates the targeted note", () => {
+    const meta = session.applyEdit({
+      type: "set-fret",
+      beat: 0,
+      string: 6,
+      fret: 12,
+    });
+    expect(meta).toBeDefined();
+    expect(getNoteFret(session, 0, 6)).toBe(12);
+  });
+
+  it("set-fret with fret=null removes the note", () => {
+    session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: null });
+    expect(getNoteFret(session, 0, 6)).toBeNull();
+  });
+
+  it("set-fret on a string with no existing note adds the note", () => {
+    // beat 0 only has a note on string 6; adding to string 1 must create new note
+    session.applyEdit({ type: "set-fret", beat: 0, string: 1, fret: 3 });
+    expect(getNoteFret(session, 0, 1)).toBe(3);
+  });
+
+  it("set-duration changes the beat duration", () => {
+    // Duration.Eighth = 8
+    session.applyEdit({ type: "set-duration", beat: 0, duration: 8 });
+    expect(getBeatDuration(session, 0)).toBe(8);
+  });
+
+  it("throws when the targeted beat does not exist", () => {
+    expect(() =>
+      session.applyEdit({ type: "set-fret", beat: 999, string: 6, fret: 0 }),
+    ).toThrow(/beat/i);
+  });
+
+  it("applyEdit calls api.renderScore with the mutated score", () => {
+    fakeApiInstance.renderScoreMock.mockClear();
+    session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: 7 });
+    expect(fakeApiInstance.renderScoreMock).toHaveBeenCalledOnce();
+  });
+
+  it("applyEdit emits a loaded event with updated metadata", () => {
+    const events: unknown[] = [];
+    session.on("loaded", (e: unknown) => events.push(e));
+    session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: 7 });
+    expect(events).toHaveLength(1);
+  });
+
+  it("throws for unsupported op type", () => {
+    expect(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      session.applyEdit({ type: "totally-unknown-op" as any, beat: 0 }),
+    ).toThrow(/Unsupported op/i);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Technique ops (add-technique / remove-technique)
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // NOTE: The fixture `:4 5.6 0.6 0.6 0.6` uses AlphaTex notation where
+  // `fret.string` orders from the high-E string (1) upward.  alphaTab stores
+  // the note internally with string=1 (the lowest string index from the top).
+  // All technique tests therefore target string=1 which is where beat 0's note
+  // actually lives in the parsed Score.
+  // The "throws when note does not exist" test uses string=99 (absent).
+  // ---------------------------------------------------------------------------
+
+  it("add-technique sets the technique flag on the targeted note (hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(true);
+  });
+
+  it("remove-technique clears the flag (hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
+    session.applyEdit({ type: "remove-technique", beat: 0, string: 1, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(false);
+  });
+
+  it("bend applies a default ½-step bend", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend" });
+    const note = findNote(session, 0, 1);
+    expect(note.bendType).toBeTruthy();
+    expect(note.bendPoints![1].value).toBe(50);
+  });
+
+  it("slide applies slide-up by default", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
+    expect(findNote(session, 0, 1).slideOutType).toBeTruthy();
+  });
+
+  it("throws when the targeted note does not exist", () => {
+    expect(() =>
+      session.applyEdit({ type: "add-technique", beat: 0, string: 99, technique: "hammer-on" }),
+    ).toThrow(/note/i);
+  });
+
+  it("add-technique pull-off sets isHammerPullOrigin (same flag as hammer-on)", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "pull-off" });
+    expect(getNoteHasTechnique(session, 0, 1, "pull-off")).toBe(true);
+  });
+
+  it("add-technique ghost sets isGhost on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "ghost" });
+    expect(getNoteHasTechnique(session, 0, 1, "ghost")).toBe(true);
+  });
+
+  it("add-technique let-ring sets isLetRing on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "let-ring" });
+    expect(getNoteHasTechnique(session, 0, 1, "let-ring")).toBe(true);
+  });
+
+  it("add-technique palm-mute sets isPalmMute on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "palm-mute" });
+    expect(getNoteHasTechnique(session, 0, 1, "palm-mute")).toBe(true);
+  });
+
+  it("add-technique vibrato sets vibrato on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "vibrato" });
+    expect(getNoteHasTechnique(session, 0, 1, "vibrato")).toBe(true);
+  });
+
+  it("add-technique harmonic sets harmonicType on the note", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "harmonic" });
+    expect(getNoteHasTechnique(session, 0, 1, "harmonic")).toBe(true);
+  });
+
+  it("add-technique tap sets beat.tap on the note's parent beat", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tap" });
+    expect(getNoteHasTechnique(session, 0, 1, "tap")).toBe(true);
+  });
+
+  it("add-technique tremolo sets beat.tremoloSpeed on the note's parent beat", () => {
+    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tremolo" });
+    expect(getNoteHasTechnique(session, 0, 1, "tremolo")).toBe(true);
+  });
+
+  it("emits exactly one 'loaded' event per applyEdit call", () => {
+    const loadedEvents: unknown[] = [];
+    session.on("loaded", (e: unknown) => loadedEvents.push(e));
+    // Clear any events captured during beforeEach setup
+    loadedEvents.length = 0;
+    session.applyEdit({ type: "set-fret", beat: 0, string: 6, fret: 12 });
+    expect(loadedEvents).toHaveLength(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Structural ops: set-tempo, set-section, add-bar, remove-bar
+  // ---------------------------------------------------------------------------
+
+  it("set-tempo writes a tempo automation at the targeted beat", () => {
+    session.applyEdit({ type: "set-tempo", beat: 0, bpm: 140 });
+    const meta = session.applyEdit({ type: "set-tempo", beat: 0, bpm: 140 }); // idempotent
+    expect(meta.tempo).toBe(140);
+  });
+
+  it("set-section adds a section name to the bar containing the beat", () => {
+    session.applyEdit({ type: "set-section", beat: 0, name: "Intro" });
+    const score = findScore(session);
+    expect(score.masterBars[0].section?.text).toBe("Intro");
+  });
+
+  it("set-section with name=null removes the section marker", () => {
+    session.applyEdit({ type: "set-section", beat: 0, name: "Intro" });
+    session.applyEdit({ type: "set-section", beat: 0, name: null });
+    expect(findScore(session).masterBars[0].section).toBeFalsy();
+  });
+
+  it("add-bar appends a master bar after the target beat's bar", () => {
+    const before = findScore(session).masterBars.length;
+    session.applyEdit({ type: "add-bar", afterBeat: 0 });
+    expect(findScore(session).masterBars.length).toBe(before + 1);
+  });
+
+  it("remove-bar drops the master bar containing the beat", () => {
+    session.applyEdit({ type: "add-bar", afterBeat: 0 });
+    const before = findScore(session).masterBars.length;
+    session.applyEdit({ type: "remove-bar", beat: getFirstBeatOfBar(session, 1) });
+    expect(findScore(session).masterBars.length).toBe(before - 1);
+  });
+
+  it("remove-bar refuses to drop the only bar in a track", () => {
+    expect(() =>
+      session.applyEdit({ type: "remove-bar", beat: 0 }),
+    ).toThrow(/last bar|only bar/i);
+  });
+});

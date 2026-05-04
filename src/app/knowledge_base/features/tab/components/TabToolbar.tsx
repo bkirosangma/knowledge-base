@@ -12,6 +12,13 @@ export interface TabToolbarProps {
   onStop: () => void;
   onSetTempoFactor: (factor: number) => void;
   onSetLoop: (range: BeatRange | null) => void;
+  /** Desktop pane — when false the Edit/Read toggle is shown. On mobile this
+   * is always `true` so the toggle is hidden (pane is forced read-only). */
+  paneReadOnly?: boolean;
+  /** Per-file read-only state, lifted from TabView's single useTabEditMode call. */
+  perFileReadOnly?: boolean;
+  /** Callback to toggle the per-file read-only state. When absent the toggle button is not rendered. */
+  onToggleReadOnly?: () => void;
 }
 
 const TEMPO_OPTIONS: { label: string; value: number }[] = [
@@ -33,8 +40,13 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
   const {
     playerStatus, isAudioReady, audioBlocked,
     onToggle, onStop, onSetTempoFactor, onSetLoop,
+    paneReadOnly = true,
+    perFileReadOnly,
+    onToggleReadOnly,
   } = props;
   const isPlaying = playerStatus === "playing";
+  const showToggle = paneReadOnly === false && onToggleReadOnly !== undefined;
+  const isReadOnly = paneReadOnly || perFileReadOnly === true || perFileReadOnly === undefined;
 
   return (
     <div
@@ -88,6 +100,17 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
         <span role="status" className="ml-auto text-xs text-mute">
           Tap play to enable audio.
         </span>
+      )}
+
+      {showToggle && (
+        <button
+          type="button"
+          onClick={onToggleReadOnly}
+          aria-label={isReadOnly ? "Edit tab" : "Read tab"}
+          className="ml-auto rounded border border-line px-3 py-1 hover:bg-line/20"
+        >
+          {isReadOnly ? "Edit" : "Read"}
+        </button>
       )}
     </div>
   );

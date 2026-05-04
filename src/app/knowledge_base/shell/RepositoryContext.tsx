@@ -12,12 +12,14 @@ import type {
   TabRepository,
   VaultConfigRepository,
 } from "../domain/repositories";
+import type { TabRefsRepository } from "../domain/tabRefs";
 import { createAttachmentRepository } from "../infrastructure/attachmentRepo";
 import { createDiagramRepository } from "../infrastructure/diagramRepo";
 import { createDocumentRepository } from "../infrastructure/documentRepo";
 import { createLinkIndexRepository } from "../infrastructure/linkIndexRepo";
 import { createSVGRepository } from "../infrastructure/svgRepo";
 import { createTabRepository } from "../infrastructure/tabRepo";
+import { createTabRefsRepository } from "../infrastructure/tabRefsRepo";
 import { createVaultConfigRepository } from "../infrastructure/vaultConfigRepo";
 
 /**
@@ -33,6 +35,7 @@ export interface Repositories {
   linkIndex: LinkIndexRepository | null;
   svg: SVGRepository | null;
   tab: TabRepository | null;
+  tabRefs: TabRefsRepository | null;
   vaultConfig: VaultConfigRepository | null;
 }
 
@@ -43,6 +46,7 @@ const EMPTY_REPOS: Repositories = {
   linkIndex: null,
   svg: null,
   tab: null,
+  tabRefs: null,
   vaultConfig: null,
 };
 
@@ -75,6 +79,7 @@ export function RepositoryProvider({
       linkIndex: createLinkIndexRepository(rootHandle),
       svg: createSVGRepository(rootHandle),
       tab: createTabRepository(rootHandle),
+      tabRefs: createTabRefsRepository(rootHandle),
       vaultConfig: createVaultConfigRepository(rootHandle),
     };
   }, [rootHandle]);

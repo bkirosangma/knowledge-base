@@ -14,6 +14,7 @@ vi.mock("./features/tab/hooks/useTabEngine", () => ({
     playerStatus: "paused" as const,
     isAudioReady: false,
     session: null,
+    score: null,
     mountInto: vi.fn().mockResolvedValue(undefined),
   }),
 }));
@@ -26,6 +27,7 @@ function wrap(children: ReactNode) {
           attachment: null, document: null, diagram: null,
           linkIndex: null, svg: null, vaultConfig: null,
           tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
+          tabRefs: null,
         }}
       >
         {children}

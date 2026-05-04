@@ -33,4 +33,34 @@ describe("RepositoryProvider", () => {
     });
     expect(result.current.tab).toBeNull();
   });
+
+  it("RepositoryProvider exposes tabRefs when a rootHandle is mounted", () => {
+    const fakeHandle = {
+      kind: "directory",
+      name: "vault",
+      async getDirectoryHandle() { return fakeHandle; },
+      async getFileHandle() { throw new Error("not used"); },
+    } as unknown as FileSystemDirectoryHandle;
+
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider rootHandle={fakeHandle}>
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.tabRefs).not.toBeNull();
+    expect(typeof result.current.tabRefs!.read).toBe("function");
+  });
+
+  it("RepositoryProvider sets tabRefs = null when no rootHandle is mounted", () => {
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider rootHandle={null}>
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.tabRefs).toBeNull();
+  });
 });

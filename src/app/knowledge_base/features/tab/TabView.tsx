@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { TabCanvas } from "./components/TabCanvas";
@@ -8,10 +9,40 @@ import { TabToolbar } from "./components/TabToolbar";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
+import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
 import type { DocumentMeta } from "../document/types";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
 import DocumentPicker from "../../shared/components/DocumentPicker";
+import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
+import { useTabCursor } from "./editor/hooks/useTabCursor";
+import { useSelectedNoteDetails } from "./editor/hooks/useSelectedNoteDetails";
+import type { TabEditOp, TabMetadata } from "../../domain/tabEngine";
+import type { CursorLocation } from "./editor/hooks/useTabCursor";
+import { useRepositories } from "../../shell/RepositoryContext";
+import type { TabRefsPayload } from "../../domain/tabRefs";
+import { reconcileSidecarForSetSection, reconcileSidecarByName } from "./sidecarReconcile";
+
+const LazyTabEditor = dynamic(() => import("./editor/TabEditor"), { ssr: false });
+
+// Kept as a type alias so the lazy-loaded module is the single canonical import.
+type TabEditorPassthroughProps = {
+  filePath: string;
+  session: unknown;
+  score: unknown;
+  metadata: unknown;
+  onScoreChange?: (score: unknown) => void;
+  cursor: CursorLocation | null;
+  setCursor: (loc: CursorLocation) => void;
+  clearCursor: () => void;
+  moveBeat: (delta: 1 | -1) => void;
+  moveString: (delta: 1 | -1) => void;
+  moveBar: (delta: 1 | -1) => void;
+  onApplyEdit?: (op: TabEditOp) => void;
+  registerApply?: (applyFn: (op: TabEditOp) => void) => void;
+};
+// Cast the dynamic component to accept the full prop shape (Next's dynamic types are widened).
+const TypedLazyTabEditor = LazyTabEditor as unknown as React.ComponentType<TabEditorPassthroughProps>;
 
 const noopMigrate = () => {};
 
@@ -60,7 +91,8 @@ export function TabView({
   rootHandle,
   onMigrateAttachments,
 }: TabViewProps) {
-  const { content, loadError } = useTabContent(filePath);
+  const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
+  const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
   const {
     status,
     error: engineError,
@@ -70,17 +102,66 @@ export function TabView({
     playerStatus,
     isAudioReady,
     session,
+    score: engineScore,
   } = useTabEngine();
+  // C3: cursor and selected-note-details lifted to TabView so TabProperties can observe them.
+  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = useTabCursor(metadata);
+  const liveScore = tabScore ?? engineScore;
+  const selectedNoteDetails = useSelectedNoteDetails(liveScore, cursor);
+  // C3: stable proxy for TabEditor's apply fn, written by TabEditor via registerApply.
+  // This lets TabProperties call apply (with undo history) without a direct dependency.
+  const editorApplyRef = useRef<((op: TabEditOp) => void) | null>(null);
+  const propertiesApply = useCallback((op: TabEditOp): void => {
+    editorApplyRef.current?.(op);
+  }, []);
+
+  // C2: sidecar write — hold refs to avoid stale closures in the async callback.
+  const { tabRefs } = useRepositories();
+  const metadataRef = useRef<TabMetadata | null>(null);
+  metadataRef.current = metadata;
+  const filePathRef = useRef<string>(filePath);
+  filePathRef.current = filePath;
+
+  const updateSidecarOnEdit = useCallback(async (op: TabEditOp): Promise<void> => {
+    if (!tabRefs) return;
+    if (op.type !== "set-section" && op.type !== "add-bar" && op.type !== "remove-bar") return;
+    const fp = filePathRef.current;
+    const md = metadataRef.current;
+    if (!fp) return;
+    // add-bar / remove-bar need the current section list; set-section does not
+    // (metadata may still be null on the very first edit before the engine fires "loaded").
+    if ((op.type === "add-bar" || op.type === "remove-bar") && !md) return;
+
+    const current = (await tabRefs.read(fp)) ?? { version: 1 as const, sections: {} };
+
+    let next: TabRefsPayload;
+    if (op.type === "set-section") {
+      // Op-aware rename: find the old name from metadata BEFORE the engine updates.
+      // metadata still reflects the pre-edit state at this point (engine fires "loaded"
+      // asynchronously after applyEdit). We find the section at op.beat.
+      const oldSection = md?.sections.find((s) => s.startBeat === op.beat);
+      const oldName = oldSection?.name ?? null;
+      const newName = op.name;
+
+      next = reconcileSidecarForSetSection(current, oldName, newName);
+    } else {
+      // add-bar / remove-bar: reconcile by name (no rename involved).
+      // md is guaranteed non-null here (guard above).
+      next = reconcileSidecarByName(current, md!.sections);
+    }
+
+    await tabRefs.write(fp, next);
+  }, [tabRefs]);
   const playback = useTabPlayback({ session, isAudioReady, playerStatus, currentTick });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("properties-collapsed") === "true";
+    return localStorage.getItem(PROPERTIES_COLLAPSED_KEY) === "true";
   });
   const toggleProperties = useCallback(() => {
     setPropertiesCollapsed((prev) => {
       const next = !prev;
-      try { localStorage.setItem("properties-collapsed", String(next)); } catch { /* ignore */ }
+      try { localStorage.setItem(PROPERTIES_COLLAPSED_KEY, String(next)); } catch { /* ignore */ }
       return next;
     });
   }, []);
@@ -158,6 +239,9 @@ export function TabView({
           onStop={playback.stop}
           onSetTempoFactor={playback.setTempoFactor}
           onSetLoop={playback.setLoop}
+          paneReadOnly={readOnly ?? false}
+          perFileReadOnly={perFileReadOnly}
+          onToggleReadOnly={toggleReadOnly}
         />
         {status === "mounting" && (
           <div
@@ -167,10 +251,24 @@ export function TabView({
             Loading score…
           </div>
         )}
-        {/* KB-040 / TAB-008: when an editor surface lands, lazy-load it via
-            `next/dynamic({ ssr: false })` and gate behind `!readOnly` so the
-            chunk is excluded from the mobile bundle. */}
         <TabCanvas ref={canvasRef} />
+        {!effectiveReadOnly && filePath && (
+          <TypedLazyTabEditor
+            filePath={filePath}
+            session={session}
+            score={liveScore}
+            metadata={metadata}
+            onScoreChange={setTabScore}
+            cursor={cursor}
+            setCursor={setCursor}
+            clearCursor={clearCursor}
+            moveBeat={moveBeat}
+            moveString={moveString}
+            moveBar={moveBar}
+            registerApply={(fn) => { editorApplyRef.current = fn; }}
+            onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
+          />
+        )}
       </div>
       <TabProperties
         metadata={metadata}
@@ -179,10 +277,14 @@ export function TabView({
         filePath={filePath}
         documents={documents}
         backlinks={backlinks}
-        readOnly={readOnly}
+        readOnly={effectiveReadOnly}
         onPreviewDocument={onPreviewDocument}
         onOpenDocPicker={onAttachDocument ? (type, id) => setPickerTarget({ type, id }) : undefined}
         onDetachDocument={onDetachDocument}
+        selectedNoteDetails={selectedNoteDetails}
+        cursorBeat={cursor?.beat}
+        cursorString={cursor?.string}
+        onApplyEdit={propertiesApply}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker
@@ -209,3 +311,4 @@ export function TabView({
     </div>
   );
 }
+

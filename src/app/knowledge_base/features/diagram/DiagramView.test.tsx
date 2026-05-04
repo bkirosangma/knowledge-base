@@ -6,6 +6,7 @@ import { FooterProvider } from '../../shell/FooterContext'
 import { ShellErrorProvider } from '../../shell/ShellErrorContext'
 import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
 import { ToastProvider } from '../../shell/ToastContext'
+import { PROPERTIES_COLLAPSED_KEY } from '../../shared/constants/paneStorage'
 
 // Characterization-layer smoke tests for DiagramView. The component is too
 // intertwined with Canvas + 20 hooks to exercise every interaction here;
@@ -99,13 +100,13 @@ describe('DiagramView — smoke', () => {
   })
 
   it('DIAG-3.13-01: mount does not clobber properties-collapsed in localStorage', () => {
-    localStorage.setItem('properties-collapsed', 'true')
+    localStorage.setItem(PROPERTIES_COLLAPSED_KEY, 'true')
     const { container } = renderDV(baseProps())
     // Assert the pre-existing value survives a mount. This doesn't by itself
     // prove the useState initializer READ the value (nothing in this test
     // exercises the toggle path), but it pins the "mount doesn't reset the
     // key" guarantee.
-    expect(localStorage.getItem('properties-collapsed')).toBe('true')
+    expect(localStorage.getItem(PROPERTIES_COLLAPSED_KEY)).toBe('true')
     expect(container).toBeTruthy()
   })
 

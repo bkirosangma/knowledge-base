@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 
 const mountIntoMock = vi.fn();
 let mockStatus: string = "idle";
@@ -32,6 +33,7 @@ vi.mock("./hooks/useTabEngine", () => ({
     playerStatus: "paused" as const,
     isAudioReady: true,
     session: null,
+    score: null,
     mountInto: mountIntoMock,
   }),
 }));
@@ -67,7 +69,7 @@ function Wrap({ children, read = vi.fn().mockResolvedValue("\\title \"hi\"\n.") 
         value={{
           attachment: null, document: null, diagram: null,
           linkIndex: null, svg: null, vaultConfig: null,
-          tab: { read, write: vi.fn() },
+          tab: { read, write: vi.fn() }, tabRefs: null,
         }}
       >
         {children}
@@ -151,7 +153,7 @@ describe("TabView", () => {
           value={{
             attachment: null, document: null, diagram: null,
             linkIndex: null, svg: null, vaultConfig: null,
-            tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() },
+            tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() }, tabRefs: null,
           }}
         >
           <TabView filePath="bad.alphatex" />
@@ -208,7 +210,7 @@ describe("TabView", () => {
   });
 
   it("hydrates the collapsed state from localStorage on mount", async () => {
-    localStorage.setItem("properties-collapsed", "true");
+    localStorage.setItem(PROPERTIES_COLLAPSED_KEY, "true");
     mockStatus = "ready";
     mockMetadata = { ...baseMetadata };
     render(
@@ -217,7 +219,7 @@ describe("TabView", () => {
       </Wrap>,
     );
     expect(screen.getByTestId("tab-properties")).toHaveAttribute("data-collapsed", "true");
-    localStorage.removeItem("properties-collapsed");
+    localStorage.removeItem(PROPERTIES_COLLAPSED_KEY);
   });
 });
 
@@ -227,6 +229,9 @@ describe("TabView — DocumentPicker integration", () => {
     mockStatus = "idle";
     mockMetadata = null;
     mockError = null;
+    // effectiveReadOnly defaults true (perFileReadOnly=true); seed false so
+    // attach buttons render and the DocumentPicker tests can exercise them.
+    localStorage.setItem("tab-read-only:tabs/song.alphatex", "false");
   });
 
   it("opens DocumentPicker when section Attach is clicked, calls onAttachDocument on pick", async () => {
