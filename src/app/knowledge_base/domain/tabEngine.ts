@@ -55,6 +55,12 @@ export interface TabSession {
 
   /** The last loaded/edited score object; null before first load. */
   readonly score?: unknown | null;
+
+  /** Set muted/soloed track state (TAB-009 T8 implements this). */
+  setPlaybackState(state: {
+    mutedTrackIds: string[];
+    soloedTrackIds: string[];
+  }): void;
 }
 
 export interface RenderOpts {
@@ -91,17 +97,31 @@ export type TabEventPayload =
   | { event: "paused" }
   | { event: "error"; error: Error };
 
+export interface CursorLocation {
+  trackIndex: number;
+  voiceIndex: 0 | 1;   // multi-voice support (TAB-009)
+  beat: number;
+  string: number;
+}
+
 export type TabEditOp =
-  | { type: "set-fret"; beat: number; string: number; fret: number | null }
-  | { type: "set-duration"; beat: number; duration: NoteDuration }
-  | { type: "add-technique"; beat: number; string: number; technique: Technique }
-  | { type: "remove-technique"; beat: number; string: number; technique: Technique }
+  | { type: "set-fret"; beat: number; string: number; fret: number | null;
+      trackId?: string; voiceIndex?: 0 | 1 }
+  | { type: "set-duration"; beat: number; duration: NoteDuration;
+      trackId?: string; voiceIndex?: 0 | 1 }
+  | { type: "add-technique"; beat: number; string: number; technique: Technique;
+      trackId?: string; voiceIndex?: 0 | 1 }
+  | { type: "remove-technique"; beat: number; string: number; technique: Technique;
+      trackId?: string; voiceIndex?: 0 | 1 }
   | { type: "set-tempo"; beat: number; bpm: number }
   | { type: "set-section"; beat: number; name: string | null }
   | { type: "add-bar"; afterBeat: number }
   | { type: "remove-bar"; beat: number }
   | { type: "set-track-tuning"; trackId: string; tuning: string[] }
-  | { type: "set-track-capo"; trackId: string; fret: number };
+  | { type: "set-track-capo"; trackId: string; fret: number }
+  | { type: "add-track"; name: string; instrument: "guitar" | "bass";
+      tuning: string[]; capo: number }
+  | { type: "remove-track"; trackId: string };
 
 export interface TabMetadata {
   title: string;
@@ -110,10 +130,15 @@ export interface TabMetadata {
   tempo: number;
   key?: string;
   timeSignature: { numerator: number; denominator: number };
-  capo: number;
-  /** Scientific pitch low → high (e.g. ["E2", "A2", "D3", "G3", "B3", "E4"]). */
-  tuning: string[];
-  tracks: { id: string; name: string; instrument: string }[];
+  // NOTE: top-level capo + tuning removed in TAB-009 — now per-track below
+  tracks: {
+    id: string;                       // positional — String(track.index)
+    name: string;
+    instrument: "guitar" | "bass";    // narrowed from string
+    /** Scientific pitch low → high (e.g. ["E2", "A2", "D3", "G3", "B3", "E4"]). */
+    tuning: string[];                 // moved here from top-level
+    capo: number;                     // moved here from top-level
+  }[];
   sections: { name: string; startBeat: number }[];
   totalBeats: number;
   durationSeconds: number;
