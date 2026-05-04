@@ -226,7 +226,11 @@ describe("TabView sidecar write-side (C2)", () => {
     await waitFor(() => {
       expect(tabRefs.write).toHaveBeenCalledWith(
         "song.alphatex",
-        expect.objectContaining({ version: 1, sections: expect.any(Object) }),
+        expect.objectContaining({
+          version: 2,
+          sectionRefs: expect.any(Object),
+          trackRefs: expect.any(Array),
+        }),
       );
     });
   });
