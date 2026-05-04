@@ -46,6 +46,8 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
     playbackRange: { startTick: number; endTick: number } | null = null;
     isLooping = false;
     renderScoreMock = vi.fn();
+    changeTrackMute = vi.fn();
+    changeTrackSolo = vi.fn();
     texPayload: unknown = null;
 
     tex(_text: string) {
@@ -981,5 +983,118 @@ describe("AlphaTabSession.applyEdit — applyRemoveTrack (TAB-009 T6)", () => {
 
     session.applyEdit({ type: "set-fret", beat: 0, string: string0, fret: 11, trackId: "0" });
     expect(getNoteFretOnTrack(session, "0", 0, string0)).toBe(11);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AlphaTabSession.setPlaybackState — mute/solo forwarding (TAB-009 T8)
+// These tests exercise setPlaybackState, NOT applyEdit.  They live here
+// because mountWithMultiTrack() is defined in this file.
+// ---------------------------------------------------------------------------
+describe("AlphaTabSession.setPlaybackState — mute/solo (TAB-009 T8)", () => {
+  it("setPlaybackState forwards mute to alphaTab API (TAB-009-T8-01)", async () => {
+    const session = await mountWithMultiTrack(); // 2 tracks: index 0 and 1
+    vi.clearAllMocks();
+
+    session.setPlaybackState({ mutedTrackIds: ["1"], soloedTrackIds: [] });
+
+    // Reset call: all tracks muted=false
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 1 }),
+      ]),
+      false,
+    );
+    // Apply call: just track[1] muted=true
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledWith(
+      [expect.objectContaining({ index: 1 })],
+      true,
+    );
+  });
+
+  it("setPlaybackState forwards solo to alphaTab API (TAB-009-T8-02)", async () => {
+    const session = await mountWithMultiTrack();
+    vi.clearAllMocks();
+
+    session.setPlaybackState({ mutedTrackIds: [], soloedTrackIds: ["1"] });
+
+    // Reset call: all tracks soloed=false
+    expect(fakeApiInstance.changeTrackSolo).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 1 }),
+      ]),
+      false,
+    );
+    // Apply call: just track[1] soloed=true
+    expect(fakeApiInstance.changeTrackSolo).toHaveBeenCalledWith(
+      [expect.objectContaining({ index: 1 })],
+      true,
+    );
+  });
+
+  it("setPlaybackState handles mute and solo on same track (TAB-009-T8-03)", async () => {
+    const session = await mountWithMultiTrack();
+    vi.clearAllMocks();
+
+    session.setPlaybackState({ mutedTrackIds: ["0"], soloedTrackIds: ["0"] });
+
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledWith(
+      [expect.objectContaining({ index: 0 })],
+      true,
+    );
+    expect(fakeApiInstance.changeTrackSolo).toHaveBeenCalledWith(
+      [expect.objectContaining({ index: 0 })],
+      true,
+    );
+  });
+
+  it("empty state fires only reset calls — no apply calls (TAB-009-T8-04)", async () => {
+    const session = await mountWithMultiTrack();
+    vi.clearAllMocks();
+
+    session.setPlaybackState({ mutedTrackIds: [], soloedTrackIds: [] });
+
+    // Only the reset calls (mute=false and solo=false on all tracks)
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledTimes(1);
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 1 }),
+      ]),
+      false,
+    );
+    expect(fakeApiInstance.changeTrackSolo).toHaveBeenCalledTimes(1);
+    expect(fakeApiInstance.changeTrackSolo).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 1 }),
+      ]),
+      false,
+    );
+  });
+
+  it("unknown trackId is filtered out (TAB-009-T8-05)", async () => {
+    const session = await mountWithMultiTrack();
+    vi.clearAllMocks();
+
+    // "99" doesn't match any track — filter returns empty array, no apply call
+    session.setPlaybackState({ mutedTrackIds: ["99"], soloedTrackIds: [] });
+
+    // Only the reset call fires
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledTimes(1);
+    expect(fakeApiInstance.changeTrackMute).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 1 }),
+      ]),
+      false,
+    );
+    // No apply call with true
+    expect(fakeApiInstance.changeTrackMute).not.toHaveBeenCalledWith(
+      expect.anything(),
+      true,
+    );
   });
 });

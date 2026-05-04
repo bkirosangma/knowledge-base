@@ -47,6 +47,8 @@ interface AlphaTabApiLike {
   playerReady: { on(handler: () => void): void };
   playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
+  changeTrackMute(tracks: unknown[], mute: boolean): void;
+  changeTrackSolo(tracks: unknown[], solo: boolean): void;
 }
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
@@ -431,6 +433,21 @@ class AlphaTabSession implements TabSession {
 
   setMute(): void { /* TAB-009 multi-track */ }
   setSolo(): void { /* TAB-009 multi-track */ }
+
+  public setPlaybackState(state: {
+    mutedTrackIds: string[];
+    soloedTrackIds: string[];
+  }): void {
+    if (!this.latestScore) return;
+    const allTracks = this.latestScore.tracks;
+    const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.index)));
+    const soloed = allTracks.filter((t) => state.soloedTrackIds.includes(String(t.index)));
+    // Reset all, then apply state
+    this.api.changeTrackMute(allTracks, false);
+    this.api.changeTrackSolo(allTracks, false);
+    if (muted.length > 0) this.api.changeTrackMute(muted, true);
+    if (soloed.length > 0) this.api.changeTrackSolo(soloed, true);
+  }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {
     let set = this.listeners.get(event);
