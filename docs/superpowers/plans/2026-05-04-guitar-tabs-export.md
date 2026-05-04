@@ -8,6 +8,12 @@
 
 **Tech Stack:** TypeScript, React, Vitest + RTL, alphaTab `@coderline/alphatab` v1.6.x, FSA `showSaveFilePicker`. Spec: `docs/superpowers/specs/2026-05-04-guitar-tabs-export-design.md`. T0 probe: `docs/superpowers/plans/2026-05-04-guitar-tabs-export-verification.md`.
 
+**Pre-flight facts (verified before plan-write):**
+- alphaTab namespaces: `MidiFile`, `MidiFileFormat`, `MidiFileGenerator`, `AlphaSynthMidiFileHandler` live under `alphaTab.midi.*` (see `alphaTab.d.ts:11088`); `AudioExportOptions`, `IAudioExporter`, `AudioExportChunk` under `alphaTab.synth.*` (`alphaTab.d.ts:15753`). `print()` and `exportAudio()` are on `AlphaTabApi` instances directly.
+- `AudioExportOptions` is a `class` with several **required** fields (`sampleRate`, `useSyncPoints`, `masterVolume`, `metronomeVolume`, `trackVolume`) — we must not pass an underspecified plain object to the real type. Existing engine pattern is to define our own `AudioExportOptionsLike` interface inside `alphaTabEngine.ts` (mirrors `AlphaTabApiLike` at line 30 of that file). Construct + mutate (`{ sampleRate, useSyncPoints: true, masterVolume: 1, metronomeVolume: 0, trackVolume: <map> }`) — this matches what the runtime API expects.
+- Test accessor: existing engine class uses `private api: AlphaTabApiLike` (`alphaTabEngine.ts:355`). Tests cast through `unknown` to read it. Use `(session as unknown as { api: AlphaTabApiLike }).api` — **NOT** `_api`.
+- Active-pane signal: `PaneManager` exposes `focusedSide: "left" | "right"` (`shell/PaneManager.tsx:24`); `usePaneManager()` already returns it as part of its tuple. Wire palette commands through this.
+
 ---
 
 ## File map (locked at plan-write time)
@@ -312,13 +318,13 @@ describe("TabSession.exportMidi", () => {
     const session = await engine.mount(container, {});
     // Force score to null on the captured api instance for this scenario.
     // (Cast through unknown; the test mock exposes `score` as a writable field.)
-    (session as unknown as { _api: { score: unknown } })._api.score = null;
+    (session as unknown as { api: { score: unknown } }).api.score = null;
     expect(() => session.exportMidi()).toThrow(/score/i);
   });
 });
 ```
 
-> **Note on test introspection:** the engine implementation should expose its underlying api via a private-but-test-accessible property (e.g., assigning `this._api = api` in the session ctor for tests, or an exported `__getApiForTest`). Pick whichever pattern the existing engine tests use; if none, add a tiny test-only accessor.
+> **Test accessor:** the existing session class already declares `private api: AlphaTabApiLike` (`alphaTabEngine.ts:355`). TypeScript's `private` is a structural-time-only constraint; tests cast through `unknown` to read it. The pattern shown above (`(session as unknown as { api: AlphaTabApiLike }).api`) requires no engine code changes.
 
 - [ ] **Step 2.3: Run tests to verify they fail**
 
@@ -327,27 +333,39 @@ Expected: FAIL with `session.exportMidi is not a function`.
 
 - [ ] **Step 2.4: Implement `exportMidi`**
 
-In `src/app/knowledge_base/infrastructure/alphaTabEngine.ts`, locate the session class (or factory). Add:
+In `src/app/knowledge_base/infrastructure/alphaTabEngine.ts`:
+
+The existing engine does a dynamic `await import("@coderline/alphatab")` inside `mount()` (it returns the module namespace). The session class needs access to that module to construct `MidiFile` etc. Approach: capture the module on the session class at construction time. If `mount()` already passes `module` to the session ctor, use it; otherwise extend the session ctor to accept it (cheap, additive change). Then:
 
 ```ts
-import * as alphaTab from "@coderline/alphatab";
 import type { TabMidiFileFormat } from "../domain/tabEngine";
 
-// Inside the session class/factory:
+// Define inside the file (mirrors existing AlphaTabApiLike pattern):
+interface AlphaTabModuleLike {
+  midi: {
+    MidiFile: new () => { format: number; toBinary(): Uint8Array };
+    MidiFileFormat: { SingleTrackMultiChannel: 0; MultiTrack: 1 };
+    AlphaSynthMidiFileHandler: new (midi: unknown, smf1Mode: boolean) => unknown;
+    MidiFileGenerator: new (score: unknown, settings: unknown, handler: unknown) => { generate(): void };
+  };
+  // Also extended for T3 (synth.AudioExportOptions etc.)
+}
+
+// Inside the session class — `this.alphaTab` holds the captured module:
 exportMidi(format?: TabMidiFileFormat): Uint8Array {
-  const api = this._api;
-  const score = api.score;
+  const score = this.api.score;
   if (!score) throw new Error("Cannot export MIDI: no score loaded");
-  const midiFile = new alphaTab.midi.MidiFile();
-  midiFile.format = format ?? alphaTab.midi.MidiFileFormat.MultiTrack;
-  const handler = new alphaTab.midi.AlphaSynthMidiFileHandler(midiFile, /* smf1Mode */ true);
-  const generator = new alphaTab.midi.MidiFileGenerator(score, api.settings, handler);
+  const m = this.alphaTab.midi;
+  const midiFile = new m.MidiFile();
+  midiFile.format = format ?? m.MidiFileFormat.MultiTrack;
+  const handler = new m.AlphaSynthMidiFileHandler(midiFile, /* smf1Mode */ true);
+  const generator = new m.MidiFileGenerator(score, (this.api as unknown as { settings: unknown }).settings, handler);
   generator.generate();
   return midiFile.toBinary();
 }
 ```
 
-If `alphaTab.midi` is not directly accessible at the namespace shape above, fall back to a typed import path that the existing engine code uses (the import line at top of file). The contract — `MidiFile`, `MidiFileFormat`, `MidiFileGenerator`, `AlphaSynthMidiFileHandler`, `toBinary()` — is the load-bearing surface.
+If the session ctor doesn't currently receive the module, locate the `mount()` body — the existing dynamic import sits there. Pass `alphaTab` through to the session ctor (one new ctor parameter, one new `this.alphaTab` field). The existing tests don't break because the test mock still satisfies the new interface (the `vi.mock` factory returns `{ AlphaTabApi, Settings, model, midi }` already in T2 step 2.2).
 
 - [ ] **Step 2.5: Run tests to verify they pass**
 
@@ -485,19 +503,55 @@ Expected: 3 new tests FAIL with `session.exportAudio is not a function`.
 
 - [ ] **Step 3.4: Implement `exportAudio`**
 
-In `alphaTabEngine.ts` session class/factory:
+First, extend `AlphaTabApiLike` in `alphaTabEngine.ts` to declare the new methods (so `this.api.exportAudio(...)` is typed). Add the supporting `Like` interfaces near the existing ones:
+
+```ts
+interface AudioExportChunkLike {
+  samples: Float32Array;
+  currentTime: number;
+  endTime: number;
+  currentTick: number;
+  endTick: number;
+}
+
+interface IAudioExporterLike {
+  render(milliseconds: number): Promise<AudioExportChunkLike | undefined>;
+  destroy(): void;
+}
+
+interface AudioExportOptionsLike {
+  sampleRate: number;
+  useSyncPoints: boolean;
+  masterVolume: number;
+  metronomeVolume: number;
+  trackVolume: Map<number, number>;
+}
+
+// Add to AlphaTabApiLike:
+//   exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
+//   print(): void;
+//   readonly score: { tracks: { index: number }[] } | null;
+//   readonly settings: unknown;
+```
+
+Then the session method:
 
 ```ts
 import { encodeWav } from "../domain/wavEncoder";
 import type { ExportAudioOptions } from "../domain/tabEngine";
 
 async exportAudio(opts: ExportAudioOptions = {}): Promise<Uint8Array> {
-  const api = this._api;
-  if (!api.score) throw new Error("Cannot export audio: no score loaded");
+  if (!this.api.score) throw new Error("Cannot export audio: no score loaded");
   const sampleRate = opts.sampleRate ?? 44100;
-  const audioOpts = { sampleRate, useSyncPoints: true };
-  // (Track-volume mapping for mute/solo lands in T4.)
-  const exporter = await api.exportAudio(audioOpts);
+  // Track-volume mapping for mute/solo lands in T4 — for T3 we pass an empty Map (default = 1).
+  const audioOpts: AudioExportOptionsLike = {
+    sampleRate,
+    useSyncPoints: true,
+    masterVolume: 1,
+    metronomeVolume: 0,
+    trackVolume: new Map(),
+  };
+  const exporter = await this.api.exportAudio(audioOpts);
   const chunks: Float32Array[] = [];
   let aborted = false;
   try {
@@ -517,8 +571,9 @@ async exportAudio(opts: ExportAudioOptions = {}): Promise<Uint8Array> {
     (err as Error & { name: string }).name = "AbortError";
     throw err;
   }
-  // Channel count: alphaTab synth is stereo by default; verified at T0.
-  // If runtime inspection later reveals a different layout, adjust here.
+  // alphaTab's synth is stereo by default. Verify at impl time by inspecting one
+  // chunk's samples.length vs. expected `(milliseconds / 1000) * sampleRate * channels`.
+  // If samples.length matches mono (× 1), set channels = 1; if matches stereo (× 2), keep 2.
   return encodeWav(chunks, sampleRate, 2);
 }
 ```
@@ -598,12 +653,14 @@ Expected: 3 new tests fail (trackVolume not populated).
 
 - [ ] **Step 4.3: Implement track-volume mapping**
 
-In `alphaTabEngine.ts` `exportAudio`, replace `const audioOpts = { sampleRate, useSyncPoints: true };` with:
+Find the field in `alphaTabEngine.ts` that backs `setPlaybackState` (TAB-009 T8 — likely `private playbackState` or similar). Run `grep -nE "setPlaybackState|playbackState" src/app/knowledge_base/infrastructure/alphaTabEngine.ts` and use the actual name.
+
+In `exportAudio`, replace the line `trackVolume: new Map(),` (the placeholder from T3) with a constructed map. Place the construction *before* `audioOpts`:
 
 ```ts
-const tracks = (api.score as { tracks: { index: number }[] }).tracks;
-const muted = new Set(this._playbackState.mutedTrackIds.map((id) => Number(id)));
-const soloed = new Set(this._playbackState.soloedTrackIds.map((id) => Number(id)));
+const tracks = this.api.score?.tracks ?? [];
+const muted = new Set(this.playbackState.mutedTrackIds.map((id) => Number(id)));
+const soloed = new Set(this.playbackState.soloedTrackIds.map((id) => Number(id)));
 const anySoloed = soloed.size > 0;
 const trackVolume = new Map<number, number>();
 for (const t of tracks) {
@@ -615,10 +672,16 @@ for (const t of tracks) {
     trackVolume.set(t.index, 1);
   }
 }
-const audioOpts = { sampleRate, useSyncPoints: true, trackVolume };
+const audioOpts: AudioExportOptionsLike = {
+  sampleRate,
+  useSyncPoints: true,
+  masterVolume: 1,
+  metronomeVolume: 0,
+  trackVolume,
+};
 ```
 
-(`this._playbackState` is the field that backs `setPlaybackState` from TAB-009 T8 — confirm the property name in the existing class; if it's named differently, use that name.)
+(Substitute the actual field name found by grep — the grep is the source of truth, not this snippet.)
 
 - [ ] **Step 4.4: Run tests to verify they pass**
 
@@ -667,7 +730,7 @@ describe("TabSession.exportPdf", () => {
   it("does not throw if api.print is undefined", async () => {
     const engine = new AlphaTabEngine();
     const session = await engine.mount(container, {});
-    (session as unknown as { _api: { print?: unknown } })._api.print = undefined;
+    (session as unknown as { api: { print?: unknown } }).api.print = undefined;
     expect(() => session.exportPdf()).not.toThrow();
   });
 });
@@ -1602,24 +1665,23 @@ export function buildExportTabCommands(args: {
 
 - [ ] **Step 14.2: Register in `KnowledgeBaseInner`**
 
+`PaneManager` exposes `focusedSide: "left" | "right"` (verified `shell/PaneManager.tsx:24`). The existing `panes = usePaneManager()` call in `KnowledgeBaseInner` already returns it; if the destructure doesn't include it yet, extend the destructure.
+
 After the existing `useRegisterCommands(importGpCommands);` call:
 
 ```tsx
 const exportTabCommands = useMemo(
   () => buildExportTabCommands({
-    getActiveExport: () => {
-      // Active side detection mirrors how doc-bridge ref is read elsewhere.
-      // Default to left-side ref when both are present (TAB-009 follows same convention).
-      return rightTabExportRef.current ?? leftTabExportRef.current;
-    },
+    getActiveExport: () =>
+      panes.focusedSide === "right" ? rightTabExportRef.current : leftTabExportRef.current,
     isMobile,
   }),
-  [isMobile],
+  [isMobile, panes.focusedSide],
 );
 useRegisterCommands(exportTabCommands);
 ```
 
-> **Note:** if your codebase already has an `activePaneSide` signal (check `panes`/`paneManager`), prefer that over the right-then-left fallback. The fallback is correct for the common single-pane case.
+This dispatches export commands to the focused pane. With one pane open, `focusedSide` is whichever side that pane is on (`PaneManager` initializes to `"left"`).
 
 - [ ] **Step 14.3: Write the helper test**
 
@@ -1670,6 +1732,19 @@ describe("buildExportTabCommands", () => {
     expect(handle.exportMidi).toHaveBeenCalledOnce();
     expect(handle.exportWav).toHaveBeenCalledOnce();
     expect(handle.exportPdf).toHaveBeenCalledOnce();
+  });
+
+  it("getActiveExport is re-evaluated per invocation (split-pane focus changes)", () => {
+    const left = makeHandle();
+    const right = makeHandle();
+    let active: TabExportHandle = left;
+    const cmds = buildExportTabCommands({ getActiveExport: () => active, isMobile: false });
+    cmds[0]!.run();
+    expect(left.exportMidi).toHaveBeenCalledOnce();
+    expect(right.exportMidi).not.toHaveBeenCalled();
+    active = right;
+    cmds[0]!.run();
+    expect(right.exportMidi).toHaveBeenCalledOnce();
   });
 });
 ```
