@@ -688,15 +688,23 @@ export default function MarkdownEditor({
                   matches on toggle. */}
               {/* Single scroll context: the outer `editorContainerRef` div
                   owns the scrollbar (used by ReadingProgress + the TOC
-                  scrollspy + the inline Backlinks rail). The inner
-                  `markdown-editor` div is `h-full` so empty space below
-                  short content still hits ProseMirror; the rail is
-                  appended after EditorContent so it scrolls with the
-                  document. */}
+                  scrollspy + the inline Backlinks rail). The wrapper is
+                  a flex column with `min-h-full` and EditorContent uses
+                  `grow` (flex-grow: 1, basis: auto):
+                    - short doc → grow fills the viewport, ProseMirror's
+                      `min-height: 100%` keeps empty space clickable;
+                    - long doc → grow respects content size, the wrapper
+                      grows past the viewport, and the rail flows after
+                      ProseMirror's actual end (no overflow collision).
+                  Earlier `h-full` chain pinned both wrapper and
+                  EditorContent at viewport height, so long-doc content
+                  spilled out of EditorContent's fixed box and overlapped
+                  the rail (which sat at coordinate "viewport bottom"
+                  inside the wrapper). */}
               <div
-                className={`markdown-editor h-full${readOnly ? " editorial" : ""}`}
+                className={`markdown-editor min-h-full flex flex-col${readOnly ? " editorial" : ""}`}
               >
-                <EditorContent editor={editor} className="h-full" />
+                <EditorContent editor={editor} className="grow" />
                 {belowContent}
               </div>
               {uploadingChips.size > 0 && (
