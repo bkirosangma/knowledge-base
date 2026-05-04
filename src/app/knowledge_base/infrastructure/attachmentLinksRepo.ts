@@ -1,8 +1,23 @@
 /**
  * File System Access API implementation of `AttachmentLinksRepository`.
  * Persists the workspace-wide attachment-link store at
- * `<vault>/.kb/attachment-links.json`. Missing file → []; malformed JSON
- * → backup to `.broken` then []; wrong-shape JSON → FileSystemError.
+ * `<vault>/.kb/attachment-links.json`.
+ *
+ * Failure modes:
+ * - Missing file → returns [].
+ * - Malformed JSON → writes a one-shot backup to
+ *   `<vault>/.kb/attachment-links.json.broken` (best-effort, fixed name —
+ *   subsequent malformed reads overwrite the same backup) and returns [].
+ *   The backup is never auto-cleaned; user-driven cleanup is acceptable
+ *   because malformed-file scenarios are rare (we never write malformed
+ *   files ourselves).
+ * - Wrong-shape JSON (valid JSON, wrong AttachmentLink rows) → throws
+ *   `FileSystemError("malformed", ...)`. No backup is written in this
+ *   case; the caller must surface the error.
+ *
+ * Atomicity: writes are non-atomic — a crash mid-write may leave a
+ * truncated file. Callers (e.g. T9 onFlush) should expect partial-truncation
+ * recovery via the malformed-backup path on next boot.
  */
 
 import type { AttachmentLink, EntityType } from "../domain/attachmentLinks";
@@ -28,9 +43,11 @@ function isAttachmentLink(x: unknown): x is AttachmentLink {
   const o = x as Record<string, unknown>;
   return (
     typeof o.docPath === "string" &&
+    o.docPath !== "" &&
     typeof o.entityType === "string" &&
     VALID_TYPES.has(o.entityType as EntityType) &&
-    typeof o.entityId === "string"
+    typeof o.entityId === "string" &&
+    o.entityId !== ""
   );
 }
 
