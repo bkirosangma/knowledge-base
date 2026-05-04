@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
+import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 import {
   tabFileMatcher,
   diagramFileMatcher,
   mdFileMatcher,
+  collectAttachableFilePaths,
 } from "./fileTreeMatchers";
 
 // ─── Factories ───────────────────────────────────────────────────────────────
@@ -112,5 +114,70 @@ describe("mdFileMatcher", () => {
       docPath: DOC_PATH + "-archive.md",
     };
     expect(mdFileMatcher(DOC_PATH)(r)).toBe(false);
+  });
+});
+
+// ─── collectAttachableFilePaths ───────────────────────────────────────────────
+
+function fileNode(path: string, fileType: TreeNode["fileType"] = "document"): TreeNode {
+  return { name: path.split("/").pop()!, path, type: "file", fileType };
+}
+
+function folderNode(path: string, children: TreeNode[]): TreeNode {
+  return { name: path.split("/").pop()!, path, type: "folder", children };
+}
+
+describe("collectAttachableFilePaths", () => {
+  const tree: TreeNode[] = [
+    folderNode("docs", [
+      fileNode("docs/notes.md", "document"),
+      fileNode("docs/diagram.kbjson", "diagram"),
+      fileNode("docs/song.alphatex", "tab"),
+      fileNode("docs/image.svg", "svg"),
+      folderNode("docs/sub", [
+        fileNode("docs/sub/nested.md", "document"),
+        fileNode("docs/sub/nested.kbjson", "diagram"),
+      ]),
+    ]),
+    fileNode("root.md", "document"),
+  ];
+
+  it("FS-2.3-68: returns .md files in the target folder subtree", () => {
+    const paths = collectAttachableFilePaths(tree, "docs");
+    expect(paths).toContain("docs/notes.md");
+    expect(paths).toContain("docs/sub/nested.md");
+  });
+
+  it("FS-2.3-69: returns .kbjson files in the target folder subtree", () => {
+    const paths = collectAttachableFilePaths(tree, "docs");
+    expect(paths).toContain("docs/diagram.kbjson");
+    expect(paths).toContain("docs/sub/nested.kbjson");
+  });
+
+  it("FS-2.3-70: returns .alphatex files in the target folder subtree", () => {
+    const paths = collectAttachableFilePaths(tree, "docs");
+    expect(paths).toContain("docs/song.alphatex");
+  });
+
+  it("FS-2.3-68/69/70: does not include non-attachable extensions (svg)", () => {
+    const paths = collectAttachableFilePaths(tree, "docs");
+    expect(paths).not.toContain("docs/image.svg");
+  });
+
+  it("FS-2.3-71: returns empty array for a folder path not in the tree", () => {
+    const paths = collectAttachableFilePaths(tree, "nonexistent");
+    expect(paths).toEqual([]);
+  });
+
+  it("FS-2.3-71: returns empty array for an empty tree", () => {
+    const paths = collectAttachableFilePaths([], "docs");
+    expect(paths).toEqual([]);
+  });
+
+  it("does not include files from outside the target folder subtree", () => {
+    const paths = collectAttachableFilePaths(tree, "docs/sub");
+    expect(paths).not.toContain("docs/notes.md");
+    expect(paths).not.toContain("root.md");
+    expect(paths).toContain("docs/sub/nested.md");
   });
 });

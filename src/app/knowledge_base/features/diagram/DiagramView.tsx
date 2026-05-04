@@ -63,6 +63,9 @@ export interface DiagramViewProps {
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
   detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
   withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
+  /** Called before `fileExplorer.deleteFolder` so attachment rows for every
+   *  attachable file inside the folder subtree are cleaned up first. */
+  onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
 }
 
 export default function DiagramView(props: DiagramViewProps) {

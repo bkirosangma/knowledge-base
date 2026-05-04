@@ -48,6 +48,9 @@ export function useFileActions(
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
   onAfterDiagramSaved?: (diagramPath: string) => void,
+  /** Called before `fileExplorer.deleteFolder` so attachment rows for every
+   *  attachable file inside the folder subtree are cleaned up first. */
+  onBeforeDeleteFolder?: (folderPath: string) => Promise<void>,
 ) {
   // Keep the "current diagram state" accessible to handleLoadFile /
   // handleSave without listing every state value in their useCallback
@@ -61,9 +64,11 @@ export function useFileActions(
   // shrinking the dep list back to stable callables.
   const currentStateRef = useRef({
     isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
+    onBeforeDeleteFolder,
   });
   currentStateRef.current = {
     isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
+    onBeforeDeleteFolder,
   };
 
   const callbacksRef = useRef({ onAfterSave, onAfterDiscard, onAfterDiagramSaved });
@@ -243,6 +248,7 @@ export function useFileActions(
     if (confirmAction.type === "delete-file" && confirmAction.path) {
       await executeDeleteFile(confirmAction.path);
     } else if (confirmAction.type === "delete-folder" && confirmAction.path) {
+      await currentStateRef.current.onBeforeDeleteFolder?.(confirmAction.path);
       await fileExplorer.deleteFolder(confirmAction.path);
     } else if (confirmAction.type === "discard") {
       await executeDiscard();

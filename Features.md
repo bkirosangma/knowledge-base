@@ -572,6 +572,8 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
   - Diagram node/connection/flow deletion via `useDeletion` → `detachAttachmentsFor` inside `withBatch` call (T13).
   - Tab `remove-track` operation via `TabView.handleRemoveTrack` → `detachAttachmentsFor` in `withBatch` (T15).
   - File-tree delete of `.kbjson` / `.alphatex` / `.md` via `handleDeleteFileWithLinks` → `diagramFileMatcher` / `tabFileMatcher` / `mdFileMatcher` matchers (T16).
+  - File-tree delete of a **folder** — `collectAttachableFilePaths` walks the subtree to collect all `.md`, `.kbjson`, and `.alphatex` paths; `cleanupAttachmentsForFolder` calls `cleanupAttachmentsForPath` for each inside a single `withBatch`; wired into both the bridge path (`useFileActions` via `onBeforeDeleteFolder` callback) and the shell-modal path (T18).
+  - `collectAttachableFilePaths(tree, folderPath)` — helper in `fileTreeMatchers.ts` that walks a `TreeNode[]` subtree rooted at the given folder and returns every file path with an attachable extension.
 
 - ⚙️ **Diagram-undo subset snapshot** — `useDiagramHistory` records the attachment-links subset for only this diagram's entities on each undo/redo checkpoint (DIAG-3.10-45, T11). Tab-scoped rows (`tab-track`, `tab-section`) and rows for other diagrams are never included in diagram undo.
 

@@ -17,7 +17,7 @@ import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
 import { createDiagramRepository } from "./infrastructure/diagramRepo";
 import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
-import { tabFileMatcher, diagramFileMatcher, mdFileMatcher } from "./features/document/utils/fileTreeMatchers";
+import { tabFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -177,6 +177,10 @@ function KnowledgeBaseInner() {
   );
 
   const docManager = useDocuments({ onFlush });
+  // Stable useState setter — extracted so the boot-read effect depends on it
+  // instead of the whole docManager object literal, which is recreated every
+  // render and would trigger a hot disk-write loop (150k writes/10s).
+  const { setRows } = docManager;
 
   // Reset + boot-read whenever the repo identity changes (vault open / switch / close).
   useEffect(() => {
@@ -190,7 +194,7 @@ function KnowledgeBaseInner() {
       .read()
       .then((rows) => {
         if (cancelled) return;
-        docManager.setRows(rows);
+        setRows(rows);
         setBootLoaded(true);
       })
       .catch((e) => {
@@ -201,7 +205,7 @@ function KnowledgeBaseInner() {
     return () => {
       cancelled = true;
     };
-  }, [attachmentLinksRepo, docManager, reportError]);
+  }, [attachmentLinksRepo, setRows, reportError]);
 
   const linkManager = useLinkIndex();
   const searchManager = useVaultSearch();
@@ -402,6 +406,27 @@ function KnowledgeBaseInner() {
       docManager.detachAttachmentsFor(mdFileMatcher(path));
     }
   }, [docManager, reportError]);
+
+  /**
+   * Detach all attachment rows for every attachable file inside a folder
+   * subtree before the folder is unlinked. Walks the in-memory tree to
+   * collect paths, then runs cleanupAttachmentsForPath for each inside a
+   * single withBatch so only one flush fires.
+   */
+  const cleanupAttachmentsForFolder = useCallback(
+    async (folderPath: string) => {
+      const rootHandle = fileExplorer.dirHandleRef.current;
+      if (!rootHandle) return;
+      const filePaths = collectAttachableFilePaths(fileExplorer.tree, folderPath);
+      if (filePaths.length === 0) return;
+      await docManager.withBatch(async () => {
+        for (const filePath of filePaths) {
+          await cleanupAttachmentsForPath(filePath, rootHandle);
+        }
+      });
+    },
+    [fileExplorer.tree, fileExplorer.dirHandleRef, docManager, cleanupAttachmentsForPath],
+  );
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -1156,6 +1181,7 @@ function KnowledgeBaseInner() {
           readDocument={readDocument}
           getDocumentReferences={getDocumentReferences}
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+          onBeforeDeleteFolder={cleanupAttachmentsForFolder}
           onAfterDiagramSaved={(diagramPath) => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
@@ -1537,6 +1563,7 @@ function KnowledgeBaseInner() {
                 );
               }
             } else {
+              await cleanupAttachmentsForFolder(path);
               await fileExplorer.deleteFolder(path);
             }
           }}

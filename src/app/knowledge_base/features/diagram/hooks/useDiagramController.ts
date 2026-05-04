@@ -80,6 +80,9 @@ interface DiagramControllerInputs {
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
   detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
   withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
+  /** Called before `fileExplorer.deleteFolder` so attachment rows for every
+   *  attachable file inside the folder subtree are cleaned up first. */
+  onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
 }
 
 /**
@@ -102,7 +105,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     onAttachDocument, onDetachDocument, onCreateDocument, onMigrateLegacyDocuments,
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
-    rows, setRows, detachAttachmentsFor, withBatch,
+    rows, setRows, detachAttachmentsFor, withBatch, onBeforeDeleteFolder,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -289,6 +292,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
     onMigrateLegacyDocuments,
     attachments.flushPendingDeletes, attachments.clearPendingDeletes, onAfterDiagramSaved,
+    onBeforeDeleteFolder,
   );
 
   // ─── File loading lifecycle (auto-load + searchTarget) ───────────

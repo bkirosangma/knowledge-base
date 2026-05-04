@@ -120,6 +120,16 @@
 - **FS-2.3-66** ✅ **Header create buttons hidden on mobile** — when `useViewport().isMobile` is `true`, the New Diagram / New Document / New Folder buttons in the explorer header are not rendered. Refresh and the dot menu remain. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-67** ✅ **"Open different folder" button hidden on mobile** — the FolderOpen affordance next to the directory name is not rendered when `isMobile`; vault switching is desktop-only. _(ExplorerPanel.test.tsx)_
 
+### 2.3.k Folder-delete attachment cleanup (T18)
+- **FS-2.3-68** ✅ **`collectAttachableFilePaths` returns `.md` files in subtree** — given a tree with a folder containing `a.md`, `b.kbjson`, `c.png`, only `a.md` and `b.kbjson` are returned. _(fileTreeMatchers.test.ts)_
+- **FS-2.3-69** ✅ **`collectAttachableFilePaths` returns `.kbjson` files in subtree** — `.kbjson` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
+- **FS-2.3-70** ✅ **`collectAttachableFilePaths` returns `.alphatex` files in subtree** — `.alphatex` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
+- **FS-2.3-71** ✅ **`collectAttachableFilePaths` returns empty array for unknown folder** — a `folderPath` that does not appear in the tree yields `[]` without throwing. _(fileTreeMatchers.test.ts)_
+- **FS-2.3-72** ❌ **Delete folder (bridge path) removes attachment rows for `.md` files inside** — when `handleConfirmAction` fires for a `delete-folder` action, `onBeforeDeleteFolder` is called before `fileExplorer.deleteFolder`, cleaning up all `.md` attachment rows in the subtree.
+- **FS-2.3-73** ❌ **Delete folder (bridge path) removes attachment rows for `.kbjson` files inside** — same path; `.kbjson` diagram-entity attachment rows are removed.
+- **FS-2.3-74** ❌ **Delete folder (bridge path) removes attachment rows for `.alphatex` files inside** — same path; tab attachment rows are removed.
+- **FS-2.3-75** ❌ **Delete folder (shell modal path) removes attachment rows for all attachable types in one `withBatch`** — the `onConfirm` handler in the shell modal calls `cleanupAttachmentsForFolder` before `fileExplorer.deleteFolder`; mixed-type folders produce a single flush.
+
 ## 2.4 Confirmation Popover
 
 - **FS-2.4-01** ✅ **Mouse-anchored positioning** — `position: {x, y}` prop is applied as `left`/`top` inline styles on the root.

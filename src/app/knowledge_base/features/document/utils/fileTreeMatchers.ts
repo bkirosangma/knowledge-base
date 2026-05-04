@@ -1,4 +1,5 @@
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
+import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 /**
  * Attachment-row matcher for `.alphatex` file-tree deletions.
@@ -42,4 +43,55 @@ export function mdFileMatcher(
   path: string,
 ): (r: AttachmentLink) => boolean {
   return (r: AttachmentLink) => r.docPath === path;
+}
+
+/**
+ * Walk the subtree rooted at `folderPath` within `tree` and collect every
+ * file path whose extension matches our attachment-cleanup branches:
+ * `.md`, `.kbjson`, `.alphatex`. Used by folder-delete to compute the set
+ * of attachment-link paths to clean up before the folder is unlinked.
+ */
+export function collectAttachableFilePaths(
+  tree: TreeNode[],
+  folderPath: string,
+): string[] {
+  const paths: string[] = [];
+
+  function isAttachable(nodePath: string): boolean {
+    return (
+      nodePath.endsWith(".md") ||
+      nodePath.endsWith(".kbjson") ||
+      nodePath.endsWith(".alphatex")
+    );
+  }
+
+  function walk(nodes: TreeNode[]): void {
+    for (const node of nodes) {
+      if (node.type === "file" && isAttachable(node.path)) {
+        paths.push(node.path);
+      }
+      if (node.children) {
+        walk(node.children);
+      }
+    }
+  }
+
+  function findSubtree(nodes: TreeNode[], path: string): TreeNode[] | null {
+    for (const node of nodes) {
+      if (node.path === path) {
+        return node.children ?? [];
+      }
+      if (node.children) {
+        const found = findSubtree(node.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  const subtree = findSubtree(tree, folderPath);
+  if (subtree) {
+    walk(subtree);
+  }
+  return paths;
 }
