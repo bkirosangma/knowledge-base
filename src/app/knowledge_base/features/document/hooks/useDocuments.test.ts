@@ -484,3 +484,46 @@ describe("withBatch", () => {
     ]);
   });
 });
+
+describe("detachAttachmentsFor", () => {
+  it("removes matching rows; idempotent on second call", async () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("a.md", "flow", "f1");
+    });
+    let res!: { detached: number };
+    act(() => {
+      res = result.current.detachAttachmentsFor((r) => r.entityType === "node");
+    });
+    expect(res.detached).toBe(1);
+    expect(result.current.rows).toEqual([
+      { docPath: "a.md", entityType: "flow", entityId: "f1" },
+    ]);
+
+    act(() => {
+      res = result.current.detachAttachmentsFor((r) => r.entityType === "node");
+    });
+    expect(res.detached).toBe(0);
+    expect(result.current.rows).toEqual([
+      { docPath: "a.md", entityType: "flow", entityId: "f1" },
+    ]);
+  });
+
+  it("respects withBatch — flushes once for cascade detach", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("b.md", "node", "n1");
+    });
+    onFlush.mockClear();
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.detachAttachmentsFor((r) => r.entityId === "n1");
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(result.current.rows).toEqual([]);
+  });
+});

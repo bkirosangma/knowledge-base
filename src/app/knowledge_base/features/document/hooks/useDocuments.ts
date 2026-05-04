@@ -114,6 +114,22 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     [],
   );
 
+  const detachAttachmentsFor = useCallback(
+    (matcher: (row: AttachmentLink) => boolean): { detached: number } => {
+      // Count matches synchronously in the current state before calling setRows
+      let removedCount = 0;
+      for (const row of rows) {
+        if (matcher(row)) removedCount++;
+      }
+      setRows((prev) => {
+        const result = removeMatchingRows(prev, matcher);
+        return result.rows;
+      });
+      return { detached: removedCount };
+    },
+    [rows],
+  );
+
   // ─── Memoised DocumentMeta projection (back-compat) ──────────────
   const documents = useMemo<DocumentMeta[]>(() => {
     const byDoc = new Map<string, DocumentMeta>();
@@ -202,6 +218,7 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     detachDocument,
     removeDocument,
     migrateAttachments,
+    detachAttachmentsFor,
     getDocumentsForEntity,
     hasDocuments,
     collectDocPaths,
