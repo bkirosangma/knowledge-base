@@ -743,13 +743,30 @@ export function locateBeat(
   return null;
 }
 
-function scoreToMetadata(score: unknown): TabMetadata {
+/**
+ * Convert a MIDI integer (0–127) to scientific pitch notation using sharps.
+ * MIDI 0 = C-1, MIDI 60 = C4, MIDI 69 = A4.
+ * Accidentals are rendered as sharps (e.g. C#3 not Db3).
+ *
+ * Round-trips with `scientificPitchToMidi` for all sharp-form pitches.
+ */
+export function midiToScientificPitch(midi: number): string {
+  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const semitone = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return `${NOTE_NAMES[semitone]}${octave}`;
+}
+
+export function scoreToMetadata(score: unknown): TabMetadata {
   const s = (score && typeof score === "object" ? score : {}) as {
     title?: string;
     artist?: string;
     subtitle?: string;
     tempo?: number;
-    tracks?: { name?: string }[];
+    tracks?: Array<{
+      name?: string;
+      staves?: Array<{ tuning?: number[]; capo?: number }>;
+    }>;
   };
   return {
     title: s.title ?? "Untitled",
@@ -757,13 +774,19 @@ function scoreToMetadata(score: unknown): TabMetadata {
     subtitle: s.subtitle,
     tempo: typeof s.tempo === "number" ? s.tempo : 120,
     timeSignature: { numerator: 4, denominator: 4 },
-    capo: 0,
-    tuning: [],
-    tracks: (s.tracks ?? []).map((t, i) => ({
-      id: String(i),
-      name: t.name ?? `Track ${i + 1}`,
-      instrument: "guitar",
-    })),
+    tracks: (s.tracks ?? []).map((t, i) => {
+      const staff = t.staves?.[0];
+      const midiTuning = staff?.tuning ?? [];
+      return {
+        id: String(i),
+        name: t.name ?? `Track ${i + 1}`,
+        // Heuristic: 1–4 strings → bass; 0 or 5+ strings → guitar.
+        // 5-string bass is treated as guitar until a more refined heuristic is added.
+        instrument: (midiTuning.length > 0 && midiTuning.length <= 4 ? "bass" : "guitar") as "guitar" | "bass",
+        tuning: midiTuning.map(midiToScientificPitch),
+        capo: typeof staff?.capo === "number" ? staff.capo : 0,
+      };
+    }),
     sections: [],
     totalBeats: 0,
     durationSeconds: 0,

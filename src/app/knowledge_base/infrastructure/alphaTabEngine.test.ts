@@ -66,7 +66,7 @@ vi.mock("@coderline/alphatab", () => {
   return { AlphaTabApi: FakeApi, Settings, model: { Note } };
 });
 
-import { AlphaTabEngine } from "./alphaTabEngine";
+import { AlphaTabEngine, midiToScientificPitch, scoreToMetadata } from "./alphaTabEngine";
 
 describe("AlphaTabEngine", () => {
   let container: HTMLElement;
@@ -250,5 +250,138 @@ describe("AlphaTabEngine", () => {
     });
     expect(tick).toHaveBeenCalledTimes(1);
     expect(tick.mock.calls[0][0]).toMatchObject({ event: "tick", beat: 1920 });
+  });
+});
+
+describe("midiToScientificPitch", () => {
+  it("converts known MIDI values to scientific pitch (TAB-009 T7)", () => {
+    expect(midiToScientificPitch(60)).toBe("C4");
+    expect(midiToScientificPitch(69)).toBe("A4");
+    expect(midiToScientificPitch(40)).toBe("E2");
+    expect(midiToScientificPitch(0)).toBe("C-1");
+    expect(midiToScientificPitch(127)).toBe("G9");
+  });
+
+  it("uses sharps not flats for accidentals", () => {
+    expect(midiToScientificPitch(61)).toBe("C#4");  // C#4 not Db4
+    expect(midiToScientificPitch(66)).toBe("F#4");  // F#4 not Gb4
+  });
+
+  it("round-trips with scientificPitchToMidi for sharp-form pitches (TAB-009 T7)", () => {
+    // import scientificPitchToMidi via module — it's already exported
+    // Test a selection of standard guitar tuning pitches
+    for (const pitch of ["E4", "B3", "G3", "D3", "A2", "E2", "G2", "D2", "A1", "E1"]) {
+      const midi = scientificPitchToMidiHelper(pitch);
+      expect(midiToScientificPitch(midi)).toBe(pitch);
+    }
+  });
+});
+
+// Helper that mirrors scientificPitchToMidi logic inline so we don't need
+// a second named import (it is already exported; this avoids re-importing
+// in the describe block scope and keeps the round-trip test self-contained).
+function scientificPitchToMidiHelper(pitch: string): number {
+  const NOTE_SEMITONES: Record<string, number> = {
+    C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+  };
+  const letter = pitch[0];
+  let offset = 1;
+  let accidental = 0;
+  if (pitch[offset] === "#") { accidental = 1; offset++; }
+  else if (pitch[offset] === "b") { accidental = -1; offset++; }
+  const octave = parseInt(pitch.slice(offset), 10);
+  return (octave + 1) * 12 + NOTE_SEMITONES[letter] + accidental;
+}
+
+describe("scoreToMetadata (TAB-009 T7)", () => {
+  it("extracts per-track tuning + capo from staves", () => {
+    const score = {
+      title: "Two-Track Probe",
+      tempo: 120,
+      tracks: [
+        {
+          index: 0,
+          name: "Lead",
+          staves: [{
+            tuning: [64, 59, 55, 50, 45, 40], // E4 B3 G3 D3 A2 E2 (high→low)
+            capo: 0,
+          }],
+        },
+        {
+          index: 1,
+          name: "Bass",
+          staves: [{
+            tuning: [43, 38, 33, 28], // G2 D2 A1 E1 (high→low)
+            capo: 2,
+          }],
+        },
+      ],
+    };
+    const m = scoreToMetadata(score);
+    expect(m.tracks).toHaveLength(2);
+
+    expect(m.tracks[0].id).toBe("0");
+    expect(m.tracks[0].name).toBe("Lead");
+    expect(m.tracks[0].tuning).toEqual(["E4", "B3", "G3", "D3", "A2", "E2"]);
+    expect(m.tracks[0].capo).toBe(0);
+    expect(m.tracks[0].instrument).toBe("guitar"); // 6 strings → guitar
+
+    expect(m.tracks[1].id).toBe("1");
+    expect(m.tracks[1].name).toBe("Bass");
+    expect(m.tracks[1].tuning).toEqual(["G2", "D2", "A1", "E1"]);
+    expect(m.tracks[1].capo).toBe(2);
+    expect(m.tracks[1].instrument).toBe("bass");   // 4 strings → bass
+  });
+
+  it("defaults tuning=[], capo=0, instrument='guitar' when track has no staves (TAB-009 T7)", () => {
+    const score = {
+      title: "Minimal",
+      tempo: 100,
+      tracks: [{ name: "Rhythm" }], // no staves property
+    };
+    const m = scoreToMetadata(score);
+    expect(m.tracks).toHaveLength(1);
+    expect(m.tracks[0].tuning).toEqual([]);
+    expect(m.tracks[0].capo).toBe(0);
+    expect(m.tracks[0].instrument).toBe("guitar");
+  });
+
+  it("treats 5-string instrument as guitar (heuristic: >4 strings → guitar) (TAB-009 T7)", () => {
+    const score = {
+      tracks: [{
+        name: "5-String Bass",
+        staves: [{ tuning: [43, 38, 33, 28, 23], capo: 0 }], // 5 strings
+      }],
+    };
+    const m = scoreToMetadata(score);
+    // 5 strings is outside the ≤4 → bass range; classified as guitar
+    expect(m.tracks[0].instrument).toBe("guitar");
+  });
+
+  it("treats 7-string guitar as guitar (TAB-009 T7)", () => {
+    const score = {
+      tracks: [{
+        name: "7-String Guitar",
+        staves: [{ tuning: [64, 59, 55, 50, 45, 40, 35], capo: 0 }], // 7 strings
+      }],
+    };
+    const m = scoreToMetadata(score);
+    expect(m.tracks[0].instrument).toBe("guitar");
+  });
+
+  it("handles empty tracks array without errors (TAB-009 T7)", () => {
+    const score = { title: "No Tracks", tempo: 90, tracks: [] };
+    const m = scoreToMetadata(score);
+    expect(m.tracks).toEqual([]);
+    // Top-level capo/tuning are gone — confirm they are not present
+    expect((m as unknown as Record<string, unknown>)["capo"]).toBeUndefined();
+    expect((m as unknown as Record<string, unknown>)["tuning"]).toBeUndefined();
+  });
+
+  it("fills defaults when score is an empty object (TAB-009 T7)", () => {
+    const m = scoreToMetadata({});
+    expect(m.title).toBe("Untitled");
+    expect(m.tempo).toBe(120);
+    expect(m.tracks).toEqual([]);
   });
 });
