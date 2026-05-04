@@ -901,3 +901,85 @@ describe("AlphaTabSession.applyEdit — applyAddTrack (TAB-009 T5)", () => {
     expect(found?.name).toBe("New");
   });
 });
+
+// ---------------------------------------------------------------------------
+// applyRemoveTrack tests (TAB-009 T6)
+// Uses the same 4-bar, 2-track fixture from T5.
+// ---------------------------------------------------------------------------
+
+/** Build a session loaded with MT_FIXTURE_4BAR (2 tracks × 4 bars). */
+async function mountWithMultiTrack() {
+  const score = await buildMultiTrackScore4Bar();
+
+  const engine = new AlphaTabEngine();
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const session: any = await engine.mount(container, { readOnly: false });
+
+  fakeApiInstance.texPayload = score;
+  await session.load({ kind: "alphatex", text: MT_FIXTURE_4BAR });
+  return session;
+}
+
+describe("AlphaTabSession.applyEdit — applyRemoveTrack (TAB-009 T6)", () => {
+  it("remove-track splices the target track (TAB-009-T6-01)", async () => {
+    const session = await mountWithMultiTrack(); // 2 tracks: T0 at [0], T1 at [1]
+    session.applyEdit({ type: "remove-track", trackId: "1" });
+    expect(session.latestScore.tracks).toHaveLength(1);
+    expect(session.latestScore.tracks[0].name).toBe("T0");
+  });
+
+  it("remove-track of last track throws (TAB-009-T6-02)", async () => {
+    const session = await mountWithMultiTrack(); // 2 tracks
+    session.applyEdit({ type: "remove-track", trackId: "1" });
+    expect(() =>
+      session.applyEdit({ type: "remove-track", trackId: "0" }),
+    ).toThrow(/only track/i);
+  });
+
+  it("remove-track[0] slides remaining tracks down — new [0] was old [1] (TAB-009-T6-03)", async () => {
+    const session = await mountWithMultiTrack();
+    const oldT1Name = session.latestScore.tracks[1].name; // "T1"
+
+    session.applyEdit({ type: "remove-track", trackId: "0" });
+
+    const score = session.latestScore;
+    expect(score.tracks).toHaveLength(1);
+    expect(score.tracks[0].name).toBe(oldT1Name);
+    // .index must be reset to 0
+    expect(score.tracks[0].index).toBe(0);
+  });
+
+  it("findTrack('0') returns the slid-down track after remove of track[0] (TAB-009-T6-04)", async () => {
+    const session = await mountWithMultiTrack();
+    const oldT1Name = session.latestScore.tracks[1].name; // "T1"
+
+    session.applyEdit({ type: "remove-track", trackId: "0" });
+
+    const found = findTrack(session.latestScore, "0");
+    expect(found).not.toBeNull();
+    expect(found?.name).toBe(oldT1Name);
+  });
+
+  it("throws for unknown trackId (TAB-009-T6-05)", async () => {
+    const session = await mountWithMultiTrack();
+    expect(() =>
+      session.applyEdit({ type: "remove-track", trackId: "99" }),
+    ).toThrow(/Track 99 not found/i);
+  });
+
+  it("set-fret on surviving track still works after remove (TAB-009-T6-06)", async () => {
+    const session = await mountWithMultiTrack();
+    // Remove track[1]; track[0] remains at index 0
+    session.applyEdit({ type: "remove-track", trackId: "1" });
+
+    // Get the string that track[0] beat[0] has a note on
+    const beat0 = findBeatOnTrack(session, "0", 0);
+    const string0 = beat0?.notes?.[0]?.string ?? 6;
+
+    session.applyEdit({ type: "set-fret", beat: 0, string: string0, fret: 11, trackId: "0" });
+    expect(getNoteFretOnTrack(session, "0", 0, string0)).toBe(11);
+  });
+});

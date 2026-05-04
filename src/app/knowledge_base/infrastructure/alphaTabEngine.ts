@@ -489,6 +489,9 @@ class AlphaTabSession implements TabSession {
       case "add-track":
         this.applyAddTrack(op);
         break;
+      case "remove-track":
+        this.applyRemoveTrack(op);
+        break;
       default:
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
@@ -653,6 +656,22 @@ class AlphaTabSession implements TabSession {
     // 5. Wire it up via the public alphaTab API (sets parent back-refs + index).
     track.addStaff(staff);
     score.addTrack(track);
+  }
+
+  private applyRemoveTrack(op: Extract<TabEditOp, { type: "remove-track" }>): void {
+    const score = this.latestScore!;
+    if (score.tracks.length === 1) {
+      throw new Error("Cannot remove the only track in a score");
+    }
+    const targetPos = Number(op.trackId);
+    if (Number.isNaN(targetPos) || targetPos < 0 || targetPos >= score.tracks.length) {
+      throw new Error(`Track ${op.trackId} not found`);
+    }
+    score.tracks.splice(targetPos, 1);
+    // Reset .index on remaining tracks so subsequent findTrack lookups stay consistent.
+    for (let i = 0; i < score.tracks.length; i++) {
+      (score.tracks[i] as unknown as { index: number }).index = i;
+    }
   }
 }
 
