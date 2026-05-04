@@ -140,6 +140,10 @@ export type TabEditOp =
   | { type: "set-duration"; beat: number; duration: NoteDuration;
       trackId?: string; voiceIndex?: 0 | 1 }
   | { type: "add-technique"; beat: number; string: number; technique: Technique;
+      /** alphaTab bend value: 50 = ½-step, 100 = full-step. Defaults to 50 when omitted. */
+      amount?: number;
+      /** Slide direction. Defaults to "up" when omitted. */
+      direction?: "up" | "down";
       trackId?: string; voiceIndex?: 0 | 1 }
   | { type: "remove-technique"; beat: number; string: number; technique: Technique;
       trackId?: string; voiceIndex?: 0 | 1 }
