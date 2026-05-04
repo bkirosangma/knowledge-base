@@ -48,7 +48,6 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
     renderScoreMock = vi.fn();
     texPayload: unknown = null;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     tex(_text: string) {
       // fire scoreLoaded synchronously with the pre-parsed real Score
       if (this.texPayload !== null) {
@@ -68,7 +67,6 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
       this.scoreLoaded.fire(score);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     constructor(_el: HTMLElement, _settings: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       fakeApiInstance = this as any;
@@ -154,7 +152,6 @@ function getFirstBeatOfBar(session: any, barIdx: number): number {
   const bars = score.tracks[0].staves[0].bars;
   let counter = 0;
   for (let i = 0; i < barIdx; i++) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     counter += bars[i].voices[0].beats.length;
   }
   return counter;

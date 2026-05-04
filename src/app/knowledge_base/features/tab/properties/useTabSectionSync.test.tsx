@@ -27,8 +27,10 @@ function makeWrapper(tabRefs: Repositories["tabRefs"] = null) {
     linkIndex: null, svg: null, vaultConfig: null,
     tab: null, tabRefs,
   };
-  return ({ children }: { children: ReactNode }) =>
+  const Wrapper = ({ children }: { children: ReactNode }) =>
     createElement(StubRepositoryProvider, { value: stub, children });
+  Wrapper.displayName = "StubRepositoryProviderWrapper";
+  return Wrapper;
 }
 
 describe("useTabSectionSync", () => {
