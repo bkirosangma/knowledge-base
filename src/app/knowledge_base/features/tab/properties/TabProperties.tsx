@@ -133,6 +133,12 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                 onSetTrackCapo={onSetTrackCapo}
                 onAddTrack={onAddTrack}
                 onRemoveTrack={onRemoveTrack}
+                filePath={filePath}
+                documents={documents}
+                readOnly={readOnly}
+                onPreviewDocument={onPreviewDocument}
+                onOpenDocPicker={onOpenDocPicker}
+                onDetachDocument={onDetachDocument}
               />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
@@ -364,6 +370,12 @@ function Tracks({
   onSetTrackCapo,
   onAddTrack,
   onRemoveTrack,
+  filePath,
+  documents,
+  readOnly,
+  onPreviewDocument,
+  onOpenDocPicker,
+  onDetachDocument,
 }: {
   metadata: TabMetadata;
   activeTrackIndex: number;
@@ -376,10 +388,28 @@ function Tracks({
   onSetTrackCapo?: (trackId: string, fret: number) => void;
   onAddTrack?: (op: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number }) => void;
   onRemoveTrack?: (trackId: string) => void;
+  filePath?: string;
+  documents?: DocumentMeta[];
+  readOnly?: boolean;
+  onPreviewDocument?: (path: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
 }): ReactElement | null {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [instrument, setInstrument] = useState<"guitar" | "bass">("guitar");
+
+  // Mirror Sections: load the sidecar to resolve stable track UUIDs for attachment entityIds.
+  const { tabRefs } = useRepositories();
+  const [sidecar, setSidecar] = useState<TabRefsPayload | null>(null);
+  useEffect(() => {
+    if (!tabRefs || !filePath) { setSidecar(null); return; }
+    let cancelled = false;
+    tabRefs.read(filePath).then((payload) => {
+      if (!cancelled) setSidecar(payload);
+    }).catch(() => { if (!cancelled) setSidecar(null); });
+    return () => { cancelled = true; };
+  }, [tabRefs, filePath]);
 
   if (metadata.tracks.length === 0) return null;
 
@@ -422,6 +452,13 @@ function Tracks({
           const active = i === activeTrackIndex;
           const isMuted = mutedTrackIds.includes(track.id);
           const isSoloed = soloedTrackIds.includes(track.id);
+          const stableUuid = sidecar?.trackRefs[i]?.id;
+          const trackEntityId = stableUuid && filePath ? `${filePath}#track:${stableUuid}` : "";
+          const trackAttachments = trackEntityId
+            ? (documents ?? []).filter((d) =>
+                d.attachedTo?.some((a) => a.type === "tab-track" && a.id === trackEntityId),
+              )
+            : [];
           return (
             <li
               key={track.id}
@@ -450,6 +487,20 @@ function Tracks({
                 />
                 <span className="flex-1">{track.name}</span>
                 <span className="ml-auto inline-flex gap-1 items-center">
+                  {!readOnly && filePath && onOpenDocPicker && trackEntityId && (
+                    <button
+                      type="button"
+                      data-testid={`attach-track-${track.id}`}
+                      aria-label={`Attach doc to track ${track.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDocPicker("tab-track", trackEntityId);
+                      }}
+                      className="rounded p-0.5 text-mute hover:bg-line/30 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      <Paperclip size={12} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     aria-label={`Mute ${track.name}`}
@@ -494,6 +545,19 @@ function Tracks({
                   track={track}
                   onSetTuning={onSetTrackTuning}
                   onSetCapo={onSetTrackCapo}
+                />
+              )}
+              {filePath && trackAttachments.length > 0 && (
+                <TabReferencesList
+                  attachments={trackAttachments}
+                  backlinks={[]}
+                  readOnly={readOnly}
+                  onPreview={onPreviewDocument}
+                  onDetach={
+                    onDetachDocument
+                      ? (docPath) => onDetachDocument(docPath, "tab-track", trackEntityId)
+                      : undefined
+                  }
                 />
               )}
             </li>

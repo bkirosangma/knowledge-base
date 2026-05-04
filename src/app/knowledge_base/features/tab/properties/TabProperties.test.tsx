@@ -1086,3 +1086,144 @@ describe("TabProperties — cross-references", () => {
     expect(container.querySelector('[data-testid="tab-section-row-stable-verse-99"]')).not.toBeNull();
   });
 });
+
+// TAB-009 T23 — track row attachment badges + attach button
+describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
+  const TUNING_GUITAR = ["E2", "A2", "D3", "G3", "B3", "E4"];
+  const TUNING_BASS = ["E1", "A1", "D2", "G2"];
+
+  function makeTabRefs(trackRefs: { id: string; name: string }[]) {
+    return {
+      read: vi.fn().mockResolvedValue({
+        version: 2 as const,
+        sectionRefs: {},
+        trackRefs,
+      }),
+      write: vi.fn(),
+    };
+  }
+
+  it("track row shows attached docs scoped to that track via tab-track entityId (TAB-009 T23)", async () => {
+    const tabRefs = makeTabRefs([
+      { id: "tk-lead-uuid", name: "Lead" },
+      { id: "tk-bass-uuid", name: "Bass" },
+    ]);
+    const docs = [
+      {
+        id: "d-lead",
+        filename: "lead-tab-tips.md",
+        title: "Lead tab tips",
+        attachedTo: [{ type: "tab-track" as const, id: "song.alphatex#track:tk-lead-uuid" }],
+      },
+    ];
+    render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: TUNING_GUITAR, capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: TUNING_BASS, capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+          documents={docs}
+          onPreviewDocument={vi.fn()}
+        />
+      </Wrap>,
+    );
+    // Once sidecar resolves, the attached doc filename appears under the Lead track row.
+    // TabReferencesList renders the basename of the attachment filename, not the title.
+    await vi.waitFor(() => {
+      expect(screen.getByRole("button", { name: /lead-tab-tips\.md/i })).toBeInTheDocument();
+    });
+  });
+
+  it("attach button on a track row opens DocumentPicker with tab-track + entityId (TAB-009 T23)", async () => {
+    const tabRefs = makeTabRefs([
+      { id: "tk-lead-uuid", name: "Lead" },
+      { id: "tk-bass-uuid", name: "Bass" },
+    ]);
+    const onOpenDocPicker = vi.fn();
+    render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: TUNING_GUITAR, capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: TUNING_BASS, capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+          documents={[]}
+          onOpenDocPicker={onOpenDocPicker}
+        />
+      </Wrap>,
+    );
+    // Wait for the sidecar to load and attach buttons to appear.
+    const bassAttach = await vi.waitFor(() => screen.getByTestId("attach-track-1"));
+    fireEvent.click(bassAttach);
+    expect(onOpenDocPicker).toHaveBeenCalledWith("tab-track", "song.alphatex#track:tk-bass-uuid");
+  });
+
+  it("attach button is hidden if the track has no sidecar entry (TAB-009 T23)", async () => {
+    // sidecar has only 1 trackRef, but metadata has 2 tracks.
+    const tabRefs = makeTabRefs([{ id: "tk-lead-uuid", name: "Lead" }]);
+    const onOpenDocPicker = vi.fn();
+    const { queryByTestId } = render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: TUNING_GUITAR, capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: TUNING_BASS, capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+          documents={[]}
+          onOpenDocPicker={onOpenDocPicker}
+        />
+      </Wrap>,
+    );
+    // Wait for sidecar to resolve; Lead should have its button, Bass should not.
+    await vi.waitFor(() => expect(screen.getByTestId("attach-track-0")).toBeInTheDocument());
+    expect(queryByTestId("attach-track-1")).toBeNull();
+  });
+
+  it("clicking the attach button does not fire onSwitchActiveTrack (e.stopPropagation) (TAB-009 T23)", async () => {
+    const tabRefs = makeTabRefs([
+      { id: "tk-lead-uuid", name: "Lead" },
+      { id: "tk-bass-uuid", name: "Bass" },
+    ]);
+    const onSwitch = vi.fn();
+    const onOpenDocPicker = vi.fn();
+    render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata({
+            tracks: [
+              { id: "0", name: "Lead", instrument: "guitar", tuning: TUNING_GUITAR, capo: 0 },
+              { id: "1", name: "Bass", instrument: "bass", tuning: TUNING_BASS, capo: 0 },
+            ],
+          })}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+          documents={[]}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+          onOpenDocPicker={onOpenDocPicker}
+        />
+      </Wrap>,
+    );
+    const bassAttach = await vi.waitFor(() => screen.getByTestId("attach-track-1"));
+    fireEvent.click(bassAttach);
+    expect(onOpenDocPicker).toHaveBeenCalled();
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+});
