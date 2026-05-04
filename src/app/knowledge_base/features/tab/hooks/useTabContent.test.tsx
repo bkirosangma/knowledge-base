@@ -16,7 +16,7 @@ function renderWithTab(
   initialPath?: string | null,
 ) {
   const stub: Repositories = {
-    attachment: null, document: null, diagram: null,
+    attachment: null, attachmentLinks: null, document: null, diagram: null,
     linkIndex: null, svg: null, vaultConfig: null,
     tab: tab as Repositories["tab"], tabRefs: null,
   };
@@ -55,7 +55,7 @@ describe("useTabContent", () => {
   it("clears prior content when the path changes to null", async () => {
     read.mockResolvedValue("first");
     const stub: Repositories = {
-      attachment: null, document: null, diagram: null,
+      attachment: null, attachmentLinks: null, document: null, diagram: null,
       linkIndex: null, svg: null, vaultConfig: null,
       tab: { read, write } as Repositories["tab"], tabRefs: null,
     };
@@ -168,7 +168,7 @@ describe("useTabContent (editor flow)", () => {
 
   it("TAB-008b T5: filePath change resets dirty + saveError + cancels pending debounce", async () => {
     const stub: Repositories = {
-      attachment: null, document: null, diagram: null,
+      attachment: null, attachmentLinks: null, document: null, diagram: null,
       linkIndex: null, svg: null, vaultConfig: null,
       tab: { read, write } as Repositories["tab"], tabRefs: null,
     };

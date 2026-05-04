@@ -91,7 +91,7 @@ function Wrap({ children }: { children: ReactNode }) {
     <StubShellErrorProvider value={{ current: null, reportError: vi.fn(), dismiss: vi.fn() }}>
       <StubRepositoryProvider
         value={{
-          attachment: null,
+          attachment: null, attachmentLinks: null,
           document: null,
           diagram: null,
           linkIndex: null,

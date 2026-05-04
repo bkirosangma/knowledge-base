@@ -21,7 +21,7 @@ const meta = (sections: { name: string; startBeat: number }[]): TabMetadata => (
  */
 function makeWrapper(tabRefs: Repositories["tabRefs"] = null) {
   const stub: Repositories = {
-    attachment: null, document: null, diagram: null,
+    attachment: null, attachmentLinks: null, document: null, diagram: null,
     linkIndex: null, svg: null, vaultConfig: null,
     tab: null, tabRefs,
   };
