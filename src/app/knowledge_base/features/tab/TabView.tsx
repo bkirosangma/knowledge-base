@@ -21,6 +21,7 @@ import type { TabEditOp, TabMetadata, TabSession } from "../../domain/tabEngine"
 import type { CursorLocation } from "./editor/hooks/useTabCursor";
 import { useRepositories } from "../../shell/RepositoryContext";
 import { emptyTabRefs } from "../../domain/tabRefs";
+import { useTabExport } from "./hooks/useTabExport";
 import {
   updateSidecarOnEdit as updateSidecarPayload,
   type UpdateSidecarContext,
@@ -80,6 +81,7 @@ export interface TabViewProps {
     filePath: string,
     migrations: { from: string; to: string }[],
   ) => void;
+  onTabExportReady?: (handle: import("../../knowledgeBase.tabRouting.helper").TabExportHandle | null) => void;
 }
 
 export function TabView({
@@ -95,6 +97,7 @@ export function TabView({
   allDocPaths,
   rootHandle,
   onMigrateAttachments,
+  onTabExportReady,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
   const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
@@ -109,6 +112,22 @@ export function TabView({
     session,
     score: engineScore,
   } = useTabEngine();
+  const tabExport = useTabExport({
+    session: session as Parameters<typeof useTabExport>[0]["session"],
+    filePath: filePath ?? null,
+    paneReadOnly: effectiveReadOnly,
+  });
+  // Publish the export handle upward so KnowledgeBaseInner palette commands can dispatch to it.
+  useEffect(() => {
+    if (!onTabExportReady) return;
+    onTabExportReady({
+      exportMidi: tabExport.exportMidi,
+      exportWav: tabExport.exportWav,
+      exportPdf: tabExport.exportPdf,
+      paneReadOnly: effectiveReadOnly,
+    });
+    return () => onTabExportReady(null);
+  }, [onTabExportReady, tabExport.exportMidi, tabExport.exportWav, tabExport.exportPdf, effectiveReadOnly]);
   // C3: cursor and selected-note-details lifted to TabView so TabProperties can observe them.
   const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar, nextTrack, prevTrack } = useTabCursor(metadata);
   const liveScore = tabScore ?? engineScore;
@@ -386,6 +405,11 @@ export function TabView({
         onSetTrackCapo={handleSetTrackCapo}
         onAddTrack={handleAddTrack}
         onRemoveTrack={handleRemoveTrack}
+        exportMidi={tabExport.exportMidi}
+        exportWav={tabExport.exportWav}
+        exportPdf={tabExport.exportPdf}
+        wavState={tabExport.wavState}
+        exportingMidi={tabExport.exportingMidi}
       />
       {pickerTarget && onAttachDocument && (
         <DocumentPicker

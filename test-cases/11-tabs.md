@@ -224,8 +224,17 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 
 ---
 
-## Future sections (added with their owning ticket)
+## 11.11 Export (TAB-010)
 
-- **§11.11 Export** (TAB-010) — MIDI / WAV / PDF.
-
-Each ticket's PR adds the corresponding sub-section + flips its cases ✅ / 🧪 in the same change set, per the working-agreements contract.
+- **TAB-11.11-01** ✅ **Export MIDI: button click → save picker → file written** — `<base>.mid` suggested name; `MidiFileGenerator.toBinary()` produces a valid SMF1 multi-track MIDI buffer; FSA writable receives the bytes. _(unit: `useTabExport.test.tsx`, engine: `alphaTabEngine.export.test.ts`.)_
+- **TAB-11.11-02** ✅ **Export MIDI palette command** — `tabs.export-midi` from ⌘P drives the same flow as the panel button; `when` predicate gates on `!isMobile && handle != null && !paneReadOnly`. _(unit: `knowledgeBase.exportTab.test.tsx`.)_
+- **TAB-11.11-03** ✅ **Export WAV: progress row → save picker → 16-bit PCM WAV** — chunked render via `IAudioExporter.render(1000)` until undefined; `wavState.phase` transitions `idle → rendering → saving → idle`; encoded via `wavEncoder.encodeWav` with stereo 44.1kHz default. _(unit: `useTabExport.test.tsx`, `wavEncoder.test.ts`, engine: `alphaTabEngine.export.test.ts`.)_
+- **TAB-11.11-04** ✅ **Export WAV cancel: AbortController → silent reset** — Cancel button calls `controller.abort()`; engine throws `AbortError`; hook catches silently; `wavState` resets to idle; no error banner. _(unit: `useTabExport.test.tsx`, engine: `alphaTabEngine.export.test.ts`.)_
+- **TAB-11.11-05** ✅ **Export WAV respects mute/solo via `AudioExportOptions.trackVolume`** — muted tracks → 0; if any track is soloed, non-soloed tracks → 0; solo wins over mute for a soloed track. _(unit: `alphaTabEngine.export.test.ts`.)_
+- **TAB-11.11-06** ✅ **Print / Save as PDF: `api.print()` invocation** — `tabs.export-pdf` and panel button both invoke alphaTab's print popup; missing `api.print` (test stub) is silently no-op. _(unit: `useTabExport.test.tsx`, engine: `alphaTabEngine.export.test.ts`.)_
+- **TAB-11.11-07** ✅ **Mobile gating: panel hidden + palette commands gated** — `paneReadOnly = true` returns `null` from `<ExportSection>`; `buildExportTabCommands.when()` returns `false` on mobile or when handle is null or paneReadOnly. _(component: `ExportSection.test.tsx`, unit: `knowledgeBase.exportTab.test.tsx`.)_
+- **TAB-11.11-08** ✅ **FSA picker cancel is silent** — user dismisses the save dialog → `AbortError` from `showSaveFilePicker` → hook returns silently → no `reportError` call → UI back to idle. _(unit: `useTabExport.test.tsx`.)_
+- **TAB-11.11-09** ✅ **Filename derivation: strip path + `.alphatex`; null → "tab"** — `deriveExportBaseName` returns last path segment minus `.alphatex` suffix; null/empty/missing-segment → `"tab"`. _(unit: `deriveExportBaseName.test.ts`.)_
+- **TAB-11.11-10** ✅ **`exportingMidi` flag disables all Export buttons during in-flight MIDI export** — exporting either format flips the unified `anyBusy` gate; all three buttons disabled. _(component: `ExportSection.test.tsx`.)_
+- **TAB-11.11-11** ✅ **Split-pane focus: palette dispatches to `panes.focusedSide`** — `getActiveExport` reads the focused side's ref at invocation time; flipping focus routes the next command to the new pane. _(unit: `knowledgeBase.exportTab.test.tsx`.)_
+- **TAB-11.11-12** ✅ **TabExportHandle published on mount, cleared on unmount** — `TabView`'s `useEffect` posts the handle via `onTabExportReady` and posts `null` on cleanup. _(component: `TabView` integration via existing tab bucket; not separately tested at TAB-010 scope.)_

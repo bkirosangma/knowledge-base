@@ -13,6 +13,7 @@
  */
 import type {
   BeatRange,
+  ExportAudioOptions,
   MountOpts,
   TabEditOp,
   TabEngine,
@@ -23,11 +24,12 @@ import type {
   TabSource,
   Unsubscribe,
 } from "../domain/tabEngine";
+import { encodeWav } from "../domain/wavEncoder";
 import { SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string };
-  core: { engine: string; logLevel: number };
+  core: { engine: string; logLevel: number; fontDirectory: string };
 }
 
 interface AlphaTabApiLike {
@@ -49,6 +51,45 @@ interface AlphaTabApiLike {
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
+  exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
+  print?(): void;
+  readonly score: { tracks: { index: number }[] } | null;
+  readonly settings: unknown;
+}
+
+/** Minimal structural shape for a MidiFile used in exportMidi. */
+interface MidiFileLike {
+  format: number;
+  toBinary(): Uint8Array;
+}
+
+/** Minimal structural shape for a MidiFileGenerator used in exportMidi. */
+interface MidiFileGeneratorLike {
+  generate(): void;
+}
+
+/** One rendered chunk from the alphaTab audio exporter (TAB-010 T3). */
+interface AudioExportChunkLike {
+  samples: Float32Array;
+  currentTime: number;
+  endTime: number;
+  currentTick: number;
+  endTick: number;
+}
+
+/** Streaming audio exporter returned by AlphaTabApi.exportAudio() (TAB-010 T3). */
+interface IAudioExporterLike {
+  render(milliseconds: number): Promise<AudioExportChunkLike | undefined>;
+  destroy(): void;
+}
+
+/** Options for AlphaTabApi.exportAudio() (TAB-010 T3). */
+interface AudioExportOptionsLike {
+  sampleRate: number;
+  useSyncPoints: boolean;
+  masterVolume: number;
+  metronomeVolume: number;
+  trackVolume: Map<number, number>;
 }
 
 type AlphaTabApiCtor = new (el: HTMLElement, settings: AlphaTabSettingsLike) => AlphaTabApiLike;
@@ -327,10 +368,19 @@ export class AlphaTabEngine implements TabEngine {
     const TuningCtor = mod.model.Tuning as unknown as
       new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
 
+    // MIDI export constructors — captured here so they live inside the lazy chunk (TAB-010 T2).
+    const MidiFileCtor = mod.midi.MidiFile as unknown as new () => MidiFileLike;
+    const MidiFileFormatEnum = mod.midi.MidiFileFormat as { SingleTrackMultiChannel: 0; MultiTrack: 1 };
+    const AlphaSynthMidiFileHandlerCtor = mod.midi.AlphaSynthMidiFileHandler as unknown as
+      new (midi: MidiFileLike, smf1Mode: boolean) => unknown;
+    const MidiFileGeneratorCtor = mod.midi.MidiFileGenerator as unknown as
+      new (score: unknown, settings: unknown, handler: unknown) => MidiFileGeneratorLike;
+
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
     settings.core.logLevel = LOG_LEVEL_INFO;
+    settings.core.fontDirectory = "/font/";
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
@@ -339,6 +389,7 @@ export class AlphaTabEngine implements TabEngine {
       techniqueMutators,
       { MasterBarCtor, SectionCtor, BarCtor, VoiceCtor, BeatCtor, AutomationCtor, AutomationType, DurationEnum,
         TrackCtor, StaffCtor, TuningCtor },
+      { MidiFileCtor, MidiFileFormatEnum, AlphaSynthMidiFileHandlerCtor, MidiFileGeneratorCtor },
     );
     if (opts.initialSource) await session.load(opts.initialSource);
     return session;
@@ -349,6 +400,7 @@ class AlphaTabSession implements TabSession {
   private listeners = new Map<TabEvent, Set<TabEventHandler>>();
   private latestMetadata: TabMetadata | null = null;
   private latestScore: ScoreShape | null = null;
+  private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
   private disposed = false;
 
   constructor(
@@ -367,6 +419,12 @@ class AlphaTabSession implements TabSession {
       TrackCtor:  new () => TrackShape;
       StaffCtor:  new () => StaffShape;
       TuningCtor: new (name?: string, tuning?: number[] | null, isStandard?: boolean) => TuningShape;
+    },
+    private midiCtors: {
+      MidiFileCtor: new () => MidiFileLike;
+      MidiFileFormatEnum: { SingleTrackMultiChannel: 0; MultiTrack: 1 };
+      AlphaSynthMidiFileHandlerCtor: new (midi: MidiFileLike, smf1Mode: boolean) => unknown;
+      MidiFileGeneratorCtor: new (score: unknown, settings: unknown, handler: unknown) => MidiFileGeneratorLike;
     },
   ) {
     api.scoreLoaded.on((score) => this.handleScoreLoaded(score));
@@ -438,6 +496,7 @@ class AlphaTabSession implements TabSession {
     mutedTrackIds: string[];
     soloedTrackIds: string[];
   }): void {
+    this.playbackState = { mutedTrackIds: [...state.mutedTrackIds], soloedTrackIds: [...state.soloedTrackIds] };
     if (!this.latestScore) return;
     const allTracks = this.latestScore.tracks;
     const muted = allTracks.filter((t) => state.mutedTrackIds.includes(String(t.index)));
@@ -447,6 +506,76 @@ class AlphaTabSession implements TabSession {
     this.api.changeTrackSolo(allTracks, false);
     if (muted.length > 0) this.api.changeTrackMute(muted, true);
     if (soloed.length > 0) this.api.changeTrackSolo(soloed, true);
+  }
+
+  exportMidi(format?: import("../domain/tabEngine").TabMidiFileFormat): Uint8Array {
+    const score = this.api.score;
+    if (!score) {
+      throw new Error("exportMidi: no score loaded — call load() before exporting");
+    }
+    const { MidiFileCtor, MidiFileFormatEnum, AlphaSynthMidiFileHandlerCtor, MidiFileGeneratorCtor } = this.midiCtors;
+    const midiFile = new MidiFileCtor();
+    const resolvedFormat = format ?? MidiFileFormatEnum.MultiTrack;
+    midiFile.format = resolvedFormat;
+    const smf1Mode = resolvedFormat === MidiFileFormatEnum.MultiTrack;
+    const handler = new AlphaSynthMidiFileHandlerCtor(midiFile, smf1Mode);
+    const generator = new MidiFileGeneratorCtor(score, this.api.settings, handler);
+    generator.generate();
+    return midiFile.toBinary();
+  }
+
+  async exportAudio(opts: ExportAudioOptions = {}): Promise<Uint8Array> {
+    if (!this.api.score) throw new Error("Cannot export audio: no score loaded");
+    const sampleRate = opts.sampleRate ?? 44100;
+    const tracks = this.api.score?.tracks ?? [];
+    const muted = new Set(this.playbackState.mutedTrackIds.map((id) => Number(id)));
+    const soloed = new Set(this.playbackState.soloedTrackIds.map((id) => Number(id)));
+    const anySoloed = soloed.size > 0;
+    const trackVolume = new Map<number, number>();
+    for (const t of tracks) {
+      if (anySoloed) {
+        trackVolume.set(t.index, soloed.has(t.index) ? 1 : 0);
+      } else if (muted.has(t.index)) {
+        trackVolume.set(t.index, 0);
+      } else {
+        trackVolume.set(t.index, 1);
+      }
+    }
+    const audioOpts: AudioExportOptionsLike = {
+      sampleRate,
+      useSyncPoints: true,
+      masterVolume: 1,
+      metronomeVolume: 0,
+      trackVolume,
+    };
+    const exporter = await this.api.exportAudio(audioOpts);
+    const chunks: Float32Array[] = [];
+    let aborted = false;
+    try {
+      while (true) {
+        if (opts.signal?.aborted) { aborted = true; break; }
+        const chunk = await exporter.render(1000);
+        if (!chunk) break;
+        chunks.push(chunk.samples);
+        opts.onProgress?.({ currentTime: chunk.currentTime, endTime: chunk.endTime });
+        if (opts.signal?.aborted) { aborted = true; break; }
+      }
+    } finally {
+      exporter.destroy();
+    }
+    if (aborted) {
+      const err = new Error("Aborted");
+      (err as Error & { name: string }).name = "AbortError";
+      throw err;
+    }
+    // alphaTab's synth outputs stereo by default. Channel count is 2 (stereo).
+    // If alphaTab outputs mono in some configs, revisit this constant.
+    return encodeWav(chunks, sampleRate, 2);
+  }
+
+  exportPdf(): void {
+    const print = this.api.print;
+    if (typeof print === "function") print.call(this.api);
   }
 
   on(event: TabEvent, handler: TabEventHandler): Unsubscribe {

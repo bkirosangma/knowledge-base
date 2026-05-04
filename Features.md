@@ -718,10 +718,6 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ⚙️ **`scoreNavigation` helpers** (`src/app/knowledge_base/features/tab/editor/scoreNavigation.ts`) — `findBeat`, `findNote`, `findBarByBeat`; pure score-walk utilities used by `captureState` and `activeTechniques` computation.
 - ⚙️ **`sidecarReconcile` helpers** (`src/app/knowledge_base/features/tab/sidecarReconcile.ts`) — `reconcileSidecarForSetSection` (rename-aware, preserves `stableId`), `reconcileSidecarByName` (full-rebuild for add/remove-bar), `deriveUniqueSlug` (collision-free slug allocation). Extracted for isolated unit testing.
 
-### 11.9 Pending
-
-- ? **Export — MIDI / WAV / PDF (TAB-010)**
-
 ### 11.10 Editor v2 — multi-track + multi-voice (TAB-009 + TAB-009a)
 
 - ✅ **Active track switch** via Properties panel row click + `[` / `]` keyboard. Active row uses 3 visual signals (filled dot indicator, bold name, accent left-border). (`TabProperties.tsx` Tracks subcomponent, `useTabKeyboard.ts`, `useTabCursor.ts` `nextTrack`/`prevTrack`)
@@ -734,6 +730,17 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ✅ **Doc-side track backlinks** render with `· track <id>` annotation when a backlink targets a tab-track entity. (`DocumentProperties.tsx`, `BacklinksRail.tsx`)
 - ⚙️ **Sidecar `<file>.alphatex.refs.json` v2** stores stable `sectionRefs` (Record) + stable `trackRefs` (ordered array `{ id, name }[]` indexed by track position). v1 read forward-compat (empty trackRefs); v2 always emitted on write. (`tabRefsRepo.ts`, `sidecarReconcile.ts`)
 - ⚙️ **Domain track id is positional** (`String(track.index)`); alphaTab `Track` has no `id` field. After `applyRemoveTrack` splice, engine resets `.index` on remaining tracks. Stable UUIDs only at the attachment boundary. (`alphaTabEngine.ts` `findTrack`)
+
+### 11.11 Export (TAB-010)
+
+- ✅ **Export MIDI** — Properties panel button + `tabs.export-midi` palette command. Generates SMF Type 1 multi-track MIDI via alphaTab's `MidiFileGenerator` → `MidiFile.toBinary()`; saved through FSA `showSaveFilePicker` with suggested filename `<base>.mid`. (`features/tab/hooks/useTabExport.ts`, `infrastructure/alphaTabEngine.ts` `exportMidi`)
+- ✅ **Export WAV** — Properties panel button + `tabs.export-wav` palette command. Streaming chunked render via `api.exportAudio()`; respects current per-track mute/solo state via `AudioExportOptions.trackVolume` (solo-wins-over-mute precedence); inline progress bar in the panel with elapsed/total seconds + Cancel button (silent abort); encoded as 16-bit PCM WAV in `domain/wavEncoder.ts` (Float32 → Int16 with symmetric `[-0x7fff, 0x7fff]` mapping + clamping). (`features/tab/properties/ExportSection.tsx`, `domain/wavEncoder.ts`, `infrastructure/alphaTabEngine.ts` `exportAudio`)
+- ✅ **Print / Save as PDF** — Properties panel button + `tabs.export-pdf` palette command. Wraps alphaTab's `api.print()` (popup with A4-optimised score → user prints to PDF via OS print dialog). No native PDF export from alphaTab; this is the documented workaround. (`infrastructure/alphaTabEngine.ts` `exportPdf`)
+- ✅ **Inline progress UX** — WAV row morphs into "Rendering audio… Xs / Ys" + `<progress>` + Cancel during render; shows "Saving…" (no Cancel) while writing. Other Export buttons disabled during any in-flight export to prevent overlap. (`features/tab/properties/ExportSection.tsx` `WavProgressRow`)
+- ✅ **Mobile gating** — All Export surfaces hidden when `paneReadOnly` (TAB-012 mobile gate). Both panel sub-section and palette commands check the same flag.
+- ⚙️ **`useTabExport` hook** (`features/tab/hooks/useTabExport.ts`) — owns FSA `showSaveFilePicker` calls, filename derivation (via `deriveExportBaseName` — strips path segments + trailing `.alphatex`), AbortController for WAV cancel, error reporting via `useShellErrors().reportError`. AbortError from picker is silent (user cancelled). Cancel during render is silent.
+- ⚙️ **`TabExportHandle` ref bridge** (`knowledgeBase.tabRouting.helper.tsx` + `features/tab/TabView.tsx` + `knowledgeBase.tsx`) — `TabView` publishes the active session's three export callables upward via `onTabExportReady` callback flowing through `TabPaneContext`; `KnowledgeBaseInner` stashes them in per-side `leftTabExportRef` / `rightTabExportRef`; palette commands read `panes.focusedSide` to dispatch to the focused pane's handle.
+- ⚙️ **Bravura music font** (`public/font/Bravura.{woff2,woff,otf,svg,eot}` + `settings.core.fontDirectory = "/font/"`) — alphaTab's print popup needs the music font to render glyphs (closes parked-item #14).
 
 ---
 

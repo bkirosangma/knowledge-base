@@ -28,6 +28,7 @@ import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
 import { buildTabPaneContext, renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import type { TabExportHandle } from "./knowledgeBase.tabRouting.helper";
 import { useGpImport } from "./features/tab/hooks/useGpImport";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
@@ -94,6 +95,48 @@ export function buildImportGpCommands(args: {
     when: () => !args.isMobile && args.directoryName !== null,
     run: () => args.gpImport.pickFile(),
   }];
+}
+
+/**
+ * `buildExportTabCommands` is extracted from `KnowledgeBaseInner` so it
+ * (pure data → no React hooks, no side-effects beyond calling the handle
+ * methods) can be unit-tested without spinning up KnowledgeBaseInner.
+ *
+ * The `useMemo` deps array in the shell MUST include `panes.focusedSide`
+ * and `isMobile`; without them the registered command list can go stale.
+ */
+export function buildExportTabCommands(args: {
+  getActiveExport: () => TabExportHandle | null;
+  isMobile: boolean;
+}): Command[] {
+  const isInvocable = () => {
+    if (args.isMobile) return false;
+    const handle = args.getActiveExport();
+    return handle != null && !handle.paneReadOnly;
+  };
+  return [
+    {
+      id: "tabs.export-midi",
+      title: "Export tab as MIDI",
+      group: "Tab",
+      when: isInvocable,
+      run: () => { void args.getActiveExport()?.exportMidi(); },
+    },
+    {
+      id: "tabs.export-wav",
+      title: "Export tab as WAV",
+      group: "Tab",
+      when: isInvocable,
+      run: () => { void args.getActiveExport()?.exportWav(); },
+    },
+    {
+      id: "tabs.export-pdf",
+      title: "Print tab or save as PDF",
+      group: "Tab",
+      when: isInvocable,
+      run: () => args.getActiveExport()?.exportPdf(),
+    },
+  ];
 }
 
 function KnowledgeBaseInner() {
@@ -163,6 +206,8 @@ function KnowledgeBaseInner() {
 
   const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
   const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
+  const leftTabExportRef = useRef<TabExportHandle | null>(null);
+  const rightTabExportRef = useRef<TabExportHandle | null>(null);
 
   // Document dirty state lives inside `useDocumentContent`; mirror it up
   // so Header's dirty-stack indicator can union document + diagram drafts.
@@ -877,6 +922,16 @@ function KnowledgeBaseInner() {
   );
   useRegisterCommands(importGpCommands);
 
+  const exportTabCommands = useMemo(
+    () => buildExportTabCommands({
+      getActiveExport: () =>
+        panes.focusedSide === "right" ? rightTabExportRef.current : leftTabExportRef.current,
+      isMobile,
+    }),
+    [isMobile, panes.focusedSide],
+  );
+  useRegisterCommands(exportTabCommands);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
@@ -1052,6 +1107,10 @@ function KnowledgeBaseInner() {
         rootHandle: fileExplorer.dirHandleRef.current,
         onMigrateAttachments: (path, migrations) => {
           docManager.migrateAttachments(path, migrations);
+        },
+        onTabExportReady: (handle) => {
+          if (side === "left") leftTabExportRef.current = handle;
+          else rightTabExportRef.current = handle;
         },
       }));
     }

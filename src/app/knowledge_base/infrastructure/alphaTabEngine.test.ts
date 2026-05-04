@@ -63,7 +63,30 @@ vi.mock("@coderline/alphatab", () => {
     fret = 0;
     string = 0;
   }
-  return { AlphaTabApi: FakeApi, Settings, model: { Note } };
+  class FakeMidiFile {
+    format = 1;
+    toBinary() { return new Uint8Array(0); }
+  }
+  class FakeMidiHandler {
+    midiFile: unknown;
+    smf1Mode: boolean;
+    constructor(midiFile: unknown, smf1Mode: boolean) { this.midiFile = midiFile; this.smf1Mode = smf1Mode; }
+  }
+  class FakeMidiGenerator {
+    constructor(_score: unknown, _settings: unknown, _handler: unknown) {}
+    generate() {}
+  }
+  return {
+    AlphaTabApi: FakeApi,
+    Settings,
+    model: { Note },
+    midi: {
+      MidiFile: FakeMidiFile,
+      MidiFileFormat: { SingleTrackMultiChannel: 0, MultiTrack: 1 },
+      MidiFileGenerator: FakeMidiGenerator,
+      AlphaSynthMidiFileHandler: FakeMidiHandler,
+    },
+  };
 });
 
 import { AlphaTabEngine, midiToScientificPitch, scoreToMetadata } from "./alphaTabEngine";
