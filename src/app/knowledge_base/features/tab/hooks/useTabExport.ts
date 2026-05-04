@@ -94,8 +94,14 @@ export function useTabExport(args: UseTabExportArgs) {
     }
   }, [args.session, args.paneReadOnly, args.filePath, reportError]);
 
-  // T9 will replace this stub.
-  const exportPdf = useCallback(() => { /* T9 */ }, []);
+  const exportPdf = useCallback(() => {
+    if (!args.session || args.paneReadOnly) return;
+    try {
+      args.session.exportPdf();
+    } catch (e) {
+      reportError(e, "Export PDF");
+    }
+  }, [args.session, args.paneReadOnly, reportError]);
 
   return { exportMidi, exportWav, exportPdf, wavState, exportingMidi };
 }

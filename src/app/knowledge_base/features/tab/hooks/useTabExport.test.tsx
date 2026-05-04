@@ -155,3 +155,34 @@ describe("useTabExport — WAV", () => {
     expect(exportAudio).not.toHaveBeenCalled();
   });
 });
+
+describe("useTabExport — PDF", () => {
+  it("calls session.exportPdf()", () => {
+    const session = { exportMidi: vi.fn(), exportAudio: vi.fn(), exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: false }),
+      { wrapper },
+    );
+    act(() => { result.current.exportPdf(); });
+    expect(session.exportPdf).toHaveBeenCalledOnce();
+  });
+  it("no-ops when paneReadOnly", () => {
+    const session = { exportMidi: vi.fn(), exportAudio: vi.fn(), exportPdf: vi.fn() };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: true }),
+      { wrapper },
+    );
+    act(() => { result.current.exportPdf(); });
+    expect(session.exportPdf).not.toHaveBeenCalled();
+  });
+  it("reports thrown errors via reportError(e, 'Export PDF')", () => {
+    const session = { exportMidi: vi.fn(), exportAudio: vi.fn(), exportPdf: vi.fn(() => { throw new Error("Popup blocked"); }) };
+    const { result } = renderHook(
+      () => useTabExport({ session, filePath: "song.alphatex", paneReadOnly: false }),
+      { wrapper },
+    );
+    act(() => { result.current.exportPdf(); });
+    expect(reportErrorMock).toHaveBeenCalledOnce();
+    expect(reportErrorMock.mock.calls[0]![1]).toMatch(/PDF/i);
+  });
+});
