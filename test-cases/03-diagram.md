@@ -459,3 +459,11 @@ The audit ticket spelled the IDs as "DIAG-A11Y-1..5"; renumbered into the projec
 Acceptance gate (KB-030 ticket):
 - The diagram golden path is completable via keyboard only — covered by `e2e/diagramKeyboardOnly.spec.ts`.
 - `@axe-core/playwright` scan of the diagram pane returns zero violations — covered by `e2e/diagramAxe.spec.ts`.
+
+## 3.26 File-Tree Delete Attachment Cleanup (T16)
+
+`knowledgeBase.tsx` `handleDeleteFileWithLinks` + `cleanupAttachmentsForPath` — branches by extension before the unlink to detach stale attachment rows. Covers both the bridge-mounted delete path and the modal-confirm (no-bridge) delete path.
+
+- **DIAG-3.26-01** ✅ **`.kbjson` delete extracts entity ids and detaches matching node/connection/flow rows** — `diagramFileMatcher` built from `collectDiagramEntityIds`; rows for ids inside the deleted diagram are removed; rows for other diagrams are untouched. _(unit: `fileTreeMatchers.test.ts`)_
+- **DIAG-3.26-02** ✅ **`diagramFileMatcher` — empty id set matches nothing** — guard against false-positive detach when a diagram is empty. _(unit: `fileTreeMatchers.test.ts`)_
+- **DIAG-3.26-03** ❌ **`.kbjson` read failure proceeds with unlink, error reported** — `repo.read` rejects → `reportError` called → `handleDeleteFile` still fires (no attachment cleanup). _(integration: `knowledgeBase.tsx` orchestration; currently no unit test at handler level.)_

@@ -15,6 +15,9 @@ import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
 import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
+import { createDiagramRepository } from "./infrastructure/diagramRepo";
+import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
+import { tabFileMatcher, diagramFileMatcher, mdFileMatcher } from "./features/document/utils/fileTreeMatchers";
 import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -375,8 +378,40 @@ function KnowledgeBaseInner() {
     })();
   }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError, searchManager]);
 
-  const handleDeleteFileWithLinks = useCallback((path: string, event: React.MouseEvent) => {
+  /**
+   * Detach all attachment rows scoped to `path` before the file is unlinked.
+   * Extracted so it can be called from both the bridge-mounted delete path
+   * and the modal-confirm delete path (no-bridge case).
+   */
+  const cleanupAttachmentsForPath = useCallback(async (
+    path: string,
+    rootHandle: FileSystemDirectoryHandle,
+  ) => {
+    if (path.endsWith(".alphatex")) {
+      docManager.detachAttachmentsFor(tabFileMatcher(path));
+    } else if (path.endsWith(".kbjson")) {
+      try {
+        const repo = createDiagramRepository(rootHandle);
+        const data = await repo.read(path);
+        const ids = collectDiagramEntityIds(data);
+        docManager.detachAttachmentsFor(diagramFileMatcher(ids));
+      } catch (e) {
+        reportError(e as Error, `Reading ${path} for attachment cleanup`);
+      }
+    } else if (path.endsWith(".md")) {
+      docManager.detachAttachmentsFor(mdFileMatcher(path));
+    }
+  }, [docManager, reportError]);
+
+  const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
+    const rootHandle = fileExplorer.dirHandleRef.current;
+
     if (diagramBridgeRef.current) {
+      // Detach attachment rows BEFORE the unlink so undo can restore them.
+      if (rootHandle) {
+        await cleanupAttachmentsForPath(path, rootHandle);
+      }
+
       diagramBridgeRef.current.handleDeleteFile(path, event);
       if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
         void linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
@@ -389,7 +424,7 @@ function KnowledgeBaseInner() {
     } else {
       setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager]);
+  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager, cleanupAttachmentsForPath]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Snapshot tree before the FS move triggers a rescan.
@@ -1490,6 +1525,11 @@ function KnowledgeBaseInner() {
             const { type, path } = shellConfirmAction;
             setShellConfirmAction(null);
             if (type === "delete-file") {
+              // Detach attachment rows BEFORE the unlink (modal-confirm path).
+              const rootHandle = fileExplorer.dirHandleRef.current;
+              if (rootHandle) {
+                await cleanupAttachmentsForPath(path, rootHandle);
+              }
               await fileExplorer.deleteFile(path);
               if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
                 await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(

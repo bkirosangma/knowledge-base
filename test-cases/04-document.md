@@ -275,6 +275,7 @@
 - **DOC-4.11-25** ✅ **`DocumentView` bridge `save` goes through full save path** — the `DocumentPaneBridge` published to the parent exposes `handleSave` (not the bare `save`), so Cmd+S via the parent calls `history.onFileSave` in addition to disk write; `savedIndex` is correctly advanced. (`DocumentView.discard.test.tsx`)
 - **DOC-4.11-26** ✅ **`removeDocument` removes entry entirely** — after `removeDocument` is called with a doc path, that document no longer appears in the documents list.
 - **DOC-4.11-27** ✅ **`removeDocument` is a no-op for unknown path** — calling `removeDocument` with a path not in the list leaves state unchanged.
+- **DOC-4.11-28** ✅ **File-tree `.md` delete detaches all attachment rows whose `docPath` matches the deleted path** — `mdFileMatcher` returns true only for exact `docPath` equality; a path that merely shares a prefix (`notes/plan.md-archive.md`) is not matched. _(unit: `fileTreeMatchers.test.ts`.)_
 
 ## 4.12 Read-Only Mode (Document)
 
