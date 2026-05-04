@@ -36,6 +36,11 @@ export interface TabPropertiesProps {
    * T26 will wire this to the actual cursor-driven value.
    */
   activeTrackIndex?: number;
+  /**
+   * Callback fired when a track row is clicked or activated via Enter/Space.
+   * Optional; T26 will wire the actual handler. If undefined, row clicks are no-ops.
+   */
+  onSwitchActiveTrack?: (i: number) => void;
 }
 
 /**
@@ -51,6 +56,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     onPreviewDocument, onOpenDocPicker, onDetachDocument,
     selectedNoteDetails, cursorBeat, cursorString, onApplyEdit,
     activeTrackIndex = 0,
+    onSwitchActiveTrack,
   } = props;
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
@@ -80,7 +86,11 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
               <Header metadata={metadata} />
               <General metadata={metadata} activeTrackIndex={activeTrackIndex} />
               <Tuning metadata={metadata} activeTrackIndex={activeTrackIndex} />
-              <Tracks metadata={metadata} />
+              <Tracks
+                metadata={metadata}
+                activeTrackIndex={activeTrackIndex}
+                onSwitchActiveTrack={onSwitchActiveTrack}
+              />
               {selectedNoteDetails != null && !readOnly && onApplyEdit !== undefined && (
                 <SelectedNoteDetails
                   details={selectedNoteDetails}
@@ -155,19 +165,56 @@ function Tuning({ metadata, activeTrackIndex }: { metadata: TabMetadata; activeT
   );
 }
 
-function Tracks({ metadata }: { metadata: TabMetadata }): ReactElement | null {
+function Tracks({
+  metadata,
+  activeTrackIndex,
+  onSwitchActiveTrack,
+}: {
+  metadata: TabMetadata;
+  activeTrackIndex: number;
+  onSwitchActiveTrack?: (i: number) => void;
+}): ReactElement | null {
   if (metadata.tracks.length === 0) return null;
+  const handleSwitch = (i: number): void => {
+    if (onSwitchActiveTrack) onSwitchActiveTrack(i);
+  };
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">
         Tracks ({metadata.tracks.length})
       </h3>
       <ul className="space-y-1">
-        {metadata.tracks.map((track) => (
-          <li key={track.id} className="rounded border border-line/50 px-2 py-1">
-            <span>{track.name}</span>
-          </li>
-        ))}
+        {metadata.tracks.map((track, i) => {
+          const active = i === activeTrackIndex;
+          return (
+            <li
+              key={track.id}
+              data-track-row
+              className={`rounded border border-line/50 px-2 py-1 cursor-pointer border-l-2 focus-visible:ring-2 focus-visible:ring-accent ${
+                active
+                  ? "border-l-accent bg-accent/5 font-semibold"
+                  : "border-l-transparent text-mute"
+              }`}
+              tabIndex={0}
+              onClick={() => handleSwitch(i)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSwitch(i);
+                }
+              }}
+            >
+              <span
+                data-active-dot
+                data-filled={active}
+                className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
+                  active ? "bg-accent" : "border border-mute"
+                }`}
+              />
+              {track.name}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

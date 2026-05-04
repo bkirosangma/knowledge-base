@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import type { TabMetadata } from "../../../domain/tabEngine";
@@ -109,6 +109,129 @@ describe("TabProperties", () => {
     expect(screen.queryByText("Gmaj")).not.toBeInTheDocument();
     // Title still renders.
     expect(screen.getByText("Intro Riff")).toBeInTheDocument();
+  });
+
+  it("renders track rows with names (TAB-009 T16)", () => {
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    render(<Wrap><TabProperties metadata={metadata} collapsed={false} onToggleCollapse={vi.fn()} /></Wrap>);
+    expect(screen.getByText("Lead")).toBeInTheDocument();
+    expect(screen.getByText("Bass")).toBeInTheDocument();
+  });
+
+  it("clicking a track row fires onSwitchActiveTrack with that track's index", async () => {
+    const onSwitch = vi.fn();
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={metadata}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+        />
+      </Wrap>,
+    );
+    const bassRow = screen.getByText("Bass").closest("[data-track-row]") as HTMLElement;
+    fireEvent.click(bassRow);
+    expect(onSwitch).toHaveBeenCalledWith(1);
+  });
+
+  it("active row has 3 visual signals: accent border-l, bold name, filled dot", () => {
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    const { container } = render(
+      <Wrap>
+        <TabProperties metadata={metadata} collapsed={false} onToggleCollapse={vi.fn()} activeTrackIndex={0} />
+      </Wrap>,
+    );
+    const leadRow = screen.getByText("Lead").closest("[data-track-row]");
+    expect(leadRow?.className).toMatch(/border-l-accent/);
+    expect(leadRow?.className).toMatch(/font-semibold/);
+    const leadDot = leadRow?.querySelector("[data-active-dot]");
+    expect(leadDot?.getAttribute("data-filled")).toBe("true");
+
+    const bassRow = screen.getByText("Bass").closest("[data-track-row]");
+    expect(bassRow?.className).toMatch(/border-l-transparent/);
+    const bassDot = bassRow?.querySelector("[data-active-dot]");
+    expect(bassDot?.getAttribute("data-filled")).toBe("false");
+  });
+
+  it("Enter on a track row activates onSwitchActiveTrack", () => {
+    const onSwitch = vi.fn();
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={metadata}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+        />
+      </Wrap>,
+    );
+    const bassRow = screen.getByText("Bass").closest("[data-track-row]") as HTMLElement;
+    fireEvent.keyDown(bassRow, { key: "Enter" });
+    expect(onSwitch).toHaveBeenCalledWith(1);
+  });
+
+  it("Space on a track row activates onSwitchActiveTrack", () => {
+    const onSwitch = vi.fn();
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    render(
+      <Wrap>
+        <TabProperties
+          metadata={metadata}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          activeTrackIndex={0}
+          onSwitchActiveTrack={onSwitch}
+        />
+      </Wrap>,
+    );
+    const bassRow = screen.getByText("Bass").closest("[data-track-row]") as HTMLElement;
+    fireEvent.keyDown(bassRow, { key: " " });
+    expect(onSwitch).toHaveBeenCalledWith(1);
+  });
+
+  it("clicking a row when onSwitchActiveTrack is undefined is a no-op (no throw)", () => {
+    const metadata = makeMetadata({
+      tracks: [
+        { id: "0", name: "Lead", instrument: "guitar", tuning: ["E2", "A2", "D3", "G3", "B3", "E4"], capo: 0 },
+        { id: "1", name: "Bass", instrument: "bass", tuning: ["E1", "A1", "D2", "G2"], capo: 0 },
+      ],
+    });
+    render(
+      <Wrap>
+        <TabProperties metadata={metadata} collapsed={false} onToggleCollapse={vi.fn()} activeTrackIndex={0} />
+      </Wrap>,
+    );
+    expect(() => fireEvent.click(screen.getByText("Bass"))).not.toThrow();
   });
 });
 
