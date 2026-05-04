@@ -14,6 +14,8 @@ export type PreState =
   | { positionBefore: number }                         // for remove-bar (afterBeat for the re-insertion)
   | { tuning: string[] }                               // for set-track-tuning
   | { fret: number }                                   // for set-track-capo
+  | { trackCount: number }                             // for add-track (track count before add)
+  | { removedTrack: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number } } // for remove-track
   | Record<string, never>;                             // for add/remove-technique (no preState needed)
 
 /**
@@ -86,6 +88,18 @@ export function inverseOf(op: TabEditOp, preState: PreState): TabEditOp {
         trackId: op.trackId,
         fret: (preState as { fret: number }).fret,
       };
+
+    case "add-track":
+      return {
+        type: "remove-track",
+        trackId: String((preState as { trackCount: number }).trackCount),
+      };
+
+    case "remove-track": {
+      const r = (preState as { removedTrack?: { name: string; instrument: "guitar" | "bass"; tuning: string[]; capo: number } }).removedTrack;
+      if (!r) throw new Error("inverseOf(remove-track) needs removedTrack in preState");
+      return { type: "add-track", name: r.name, instrument: r.instrument, tuning: r.tuning, capo: r.capo };
+    }
   }
 
   throw new Error(`No inverse defined for op type: ${(op as { type: string }).type}`);

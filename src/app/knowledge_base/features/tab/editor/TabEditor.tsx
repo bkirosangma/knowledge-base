@@ -9,6 +9,7 @@ import { TabEditorToolbar } from "./TabEditorToolbar";
 import { TabEditorCanvasOverlay } from "./TabEditorCanvasOverlay";
 import type { PreState } from "../editHistory/inverseOf";
 import { findBeat, findNote, findBarByBeat } from "./scoreNavigation";
+import { midiToScientificPitch } from "../../../infrastructure/alphaTabEngine";
 
 export interface TabEditorProps {
   filePath: string;
@@ -99,6 +100,24 @@ export default function TabEditor({
       case "set-track-capo": {
         const track = s?.tracks?.[parseInt(op.trackId, 10)];
         return { fret: track?.staves?.[0]?.capo ?? 0 } as PreState;
+      }
+      case "add-track": {
+        const count = (s?.tracks?.length ?? 0) as number;
+        return { trackCount: count } as PreState;
+      }
+      case "remove-track": {
+        const idx = Number(op.trackId);
+        const track = s?.tracks?.[idx];
+        if (!track) {
+          return { removedTrack: { name: "Unknown", instrument: "guitar", tuning: [], capo: 0 } } as PreState;
+        }
+        const tuningMidi: number[] = (track.staves?.[0]?.tuning as number[] | undefined) ?? [];
+        const tuning = tuningMidi.map(midiToScientificPitch);
+        const capo = (track.staves?.[0]?.capo as number | undefined) ?? 0;
+        const stringCount = tuningMidi.length;
+        const instrument: "guitar" | "bass" = stringCount > 0 && stringCount <= 4 ? "bass" : "guitar";
+        const name = (track.name as string | undefined) ?? `Track ${idx + 1}`;
+        return { removedTrack: { name, instrument, tuning, capo } } as PreState;
       }
       default:
         return {} as PreState;
