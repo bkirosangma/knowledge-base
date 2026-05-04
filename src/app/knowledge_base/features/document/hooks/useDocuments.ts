@@ -14,8 +14,13 @@ import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 interface UseDocumentsOpts {
-  /** Called whenever the in-memory rows change. Within `withBatch`,
-   *  multiple mutations coalesce into one flush at the outer return. */
+  /** Called after the in-memory rows change. Inside `withBatch`, multiple
+   *  mutations coalesce into one call fired when the outermost batch returns
+   *  (sync, not time-debounced). Outside `withBatch`, fires on every commit.
+   *
+   *  Concurrent `withBatch` calls share the depth counter and coalesce into
+   *  a single flush at the last return — callers requiring per-batch flushes
+   *  must serialise their batches. */
   onFlush?: (rows: AttachmentLink[]) => void;
 }
 

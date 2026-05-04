@@ -462,4 +462,25 @@ describe("withBatch", () => {
     act(() => { result.current.attachDocument("a.md", "node", "n1"); });
     expect(onFlush).toHaveBeenCalledTimes(1);
   });
+
+  it("propagates inner throw and still flushes the partial mutations", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    let caughtError: unknown;
+    await act(async () => {
+      try {
+        await result.current.withBatch(async () => {
+          result.current.attachDocument("a.md", "node", "n1");
+          throw new Error("boom");
+        });
+      } catch (e) {
+        caughtError = e;
+      }
+    });
+    expect(caughtError instanceof Error && caughtError.message).toBe("boom");
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).toHaveBeenCalledWith([
+      expect.objectContaining({ docPath: "a.md", entityId: "n1" }),
+    ]);
+  });
 });
