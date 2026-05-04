@@ -70,8 +70,8 @@ export interface TabViewProps {
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
-  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
   getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
   allDocPaths?: string[];
@@ -206,7 +206,7 @@ export function TabView({
   }, [theme, status, session]);
 
   const [pickerTarget, setPickerTarget] = useState<
-    { type: "tab" | "tab-section"; id: string } | null
+    { type: "tab" | "tab-section" | "tab-track"; id: string } | null
   >(null);
 
   useTabSectionSync(

@@ -21,8 +21,8 @@ export interface TabPropertiesProps {
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   /** Selected note details to render in the "Selected note" subsection. */
   selectedNoteDetails?: SelectedNoteDetailsType | null;
   /** Global beat index of the current cursor position. Required when selectedNoteDetails is set. */
@@ -570,8 +570,8 @@ function Sections({
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
 }): ReactElement | null {
   // C2: Read the sidecar to resolve stable section IDs.
   const { tabRefs } = useRepositories();
@@ -657,8 +657,8 @@ function FileReferences({
   backlinks?: { sourcePath: string; section?: string }[];
   readOnly?: boolean;
   onPreviewDocument?: (path: string) => void;
-  onOpenDocPicker?: (entityType: "tab" | "tab-section", entityId: string) => void;
-  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section", entityId: string) => void;
+  onOpenDocPicker?: (entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
 }): ReactElement {
   const fileAttachments = (documents ?? []).filter((d) =>
     d.attachedTo?.some((a) => a.type === "tab" && a.id === filePath),
