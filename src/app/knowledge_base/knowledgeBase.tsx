@@ -28,6 +28,7 @@ import { useAllPaths } from "./shared/hooks/useAllPaths";
 import { useVaultSearch } from "./features/search/useVaultSearch";
 import SearchPanel from "./features/search/SearchPanel";
 import { buildTabPaneContext, renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
+import type { TabExportHandle } from "./knowledgeBase.tabRouting.helper";
 import { useGpImport } from "./features/tab/hooks/useGpImport";
 import { readForSearchIndex, findFirstNodeMatching } from "./infrastructure/searchStream";
 import type { SearchResult } from "./features/search/VaultIndex";
@@ -163,6 +164,8 @@ function KnowledgeBaseInner() {
 
   const leftDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
   const rightDocBridgeRef = useRef<DocumentPaneBridge | null>(null);
+  const leftTabExportRef = useRef<TabExportHandle | null>(null);
+  const rightTabExportRef = useRef<TabExportHandle | null>(null);
 
   // Document dirty state lives inside `useDocumentContent`; mirror it up
   // so Header's dirty-stack indicator can union document + diagram drafts.
@@ -1052,6 +1055,10 @@ function KnowledgeBaseInner() {
         rootHandle: fileExplorer.dirHandleRef.current,
         onMigrateAttachments: (path, migrations) => {
           docManager.migrateAttachments(path, migrations);
+        },
+        onTabExportReady: (handle) => {
+          if (side === "left") leftTabExportRef.current = handle;
+          else rightTabExportRef.current = handle;
         },
       }));
     }

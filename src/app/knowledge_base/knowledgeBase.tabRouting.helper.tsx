@@ -3,6 +3,13 @@ import type { PaneEntry } from "./shell/PaneManager";
 import type { DocumentMeta } from "./features/document/types";
 import { TabView } from "./features/tab/TabView";
 
+export interface TabExportHandle {
+  exportMidi: () => Promise<void>;
+  exportWav: () => Promise<void>;
+  exportPdf: () => void;
+  paneReadOnly: boolean;
+}
+
 /**
  * Wireup context for the tab pane. All fields optional so that unit tests
  * which call renderTabPaneEntry(entry) without a context still render a
@@ -20,6 +27,7 @@ export interface TabPaneContext {
   allDocPaths?: string[];
   rootHandle?: FileSystemDirectoryHandle | null;
   onMigrateAttachments?: (filePath: string, migrations: { from: string; to: string }[]) => void;
+  onTabExportReady?: (handle: TabExportHandle | null) => void;
 }
 
 /**
@@ -58,6 +66,7 @@ export interface BuildTabPaneContextArgs {
   allDocPaths: TabPaneContext["allDocPaths"];
   rootHandle: TabPaneContext["rootHandle"];
   onMigrateAttachments: TabPaneContext["onMigrateAttachments"];
+  onTabExportReady?: TabPaneContext["onTabExportReady"];
 }
 
 export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneContext {
@@ -76,5 +85,6 @@ export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneConte
     allDocPaths: args.allDocPaths,
     rootHandle: args.rootHandle,
     onMigrateAttachments: args.onMigrateAttachments,
+    onTabExportReady: args.onTabExportReady,
   };
 }
