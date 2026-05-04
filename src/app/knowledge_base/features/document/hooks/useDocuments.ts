@@ -118,7 +118,7 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     (matcher: (row: AttachmentLink) => boolean): { detached: number } => {
       // Count matches synchronously in the current state before calling setRows
       let removedCount = 0;
-      for (const row of rows) {
+      for (const row of rowsRef.current) {
         if (matcher(row)) removedCount++;
       }
       setRows((prev) => {
@@ -127,7 +127,7 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
       });
       return { detached: removedCount };
     },
-    [rows],
+    [],
   );
 
   // ─── Memoised DocumentMeta projection (back-compat) ──────────────
