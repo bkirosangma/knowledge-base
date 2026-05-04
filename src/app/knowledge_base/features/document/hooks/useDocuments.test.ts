@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useDocuments } from './useDocuments'
 import type { TreeNode } from '../../../shared/hooks/useFileExplorer'
@@ -426,5 +426,40 @@ describe("useDocuments rows model", () => {
     });
     expect(result.current.documents).toEqual([]);
     expect(result.current.rows).toEqual([]);
+  });
+});
+
+describe("withBatch", () => {
+  it("flushes once per outer batch regardless of inner mutations", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.attachDocument("a.md", "node", "n1");
+        result.current.attachDocument("a.md", "flow", "f1");
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("nested withBatch only flushes at outermost return", async () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    await act(async () => {
+      await result.current.withBatch(async () => {
+        result.current.attachDocument("a.md", "node", "n1");
+        await result.current.withBatch(async () => {
+          result.current.attachDocument("a.md", "flow", "f1");
+        });
+      });
+    });
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("single mutation outside batch flushes immediately", () => {
+    const onFlush = vi.fn();
+    const { result } = renderHook(() => useDocuments({ onFlush }));
+    act(() => { result.current.attachDocument("a.md", "node", "n1"); });
+    expect(onFlush).toHaveBeenCalledTimes(1);
   });
 });

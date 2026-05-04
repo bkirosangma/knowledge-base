@@ -1,7 +1,7 @@
 // src/app/knowledge_base/hooks/useDocuments.ts
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { DocumentMeta } from "../types";
 import {
   addRow,
@@ -13,8 +13,36 @@ import {
 import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
-export function useDocuments() {
+interface UseDocumentsOpts {
+  /** Called whenever the in-memory rows change. Within `withBatch`,
+   *  multiple mutations coalesce into one flush at the outer return. */
+  onFlush?: (rows: AttachmentLink[]) => void;
+}
+
+export function useDocuments(opts: UseDocumentsOpts = {}) {
   const [rows, setRows] = useState<AttachmentLink[]>([]);
+
+  const onFlushRef = useRef(opts.onFlush);
+  onFlushRef.current = opts.onFlush;
+
+  const batchDepthRef = useRef(0);
+  const pendingFlushRef = useRef(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (batchDepthRef.current > 0) {
+      pendingFlushRef.current = true;
+      return;
+    }
+    onFlushRef.current?.(rows);
+    pendingFlushRef.current = false;
+  }, [rows]);
 
   // ─── Tree helpers — unchanged behaviour ──────────────────────────
   const collectDocPaths = useCallback((tree: TreeNode[]): string[] => {
@@ -130,6 +158,22 @@ export function useDocuments() {
     [],
   );
 
+  const withBatch = useCallback(
+    async <T,>(fn: () => Promise<T> | T): Promise<T> => {
+      batchDepthRef.current += 1;
+      try {
+        return await fn();
+      } finally {
+        batchDepthRef.current -= 1;
+        if (batchDepthRef.current === 0 && pendingFlushRef.current) {
+          pendingFlushRef.current = false;
+          onFlushRef.current?.(rowsRef.current);
+        }
+      }
+    },
+    [],
+  );
+
   // ─── Back-compat shim (useCallback-wrapped to stabilize cascading deps)
   const setDocuments = useCallback((next: DocumentMeta[]) => {
     // Used by old onLoadDocuments call sites until T12.
@@ -157,5 +201,6 @@ export function useDocuments() {
     hasDocuments,
     collectDocPaths,
     existingDocPaths,
+    withBatch,
   };
 }
