@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (TAB-008 Editor v1 PR in flight on `plan/guitar-tabs-editor` — M2 ship-point underway; parked items #6 + #12 closed by TAB-008).
+**Last updated:** 2026-05-04 (TAB-009 multi-track + multi-voice merged via PR [#TBD] — M2 ship-point closed).
 
 ---
 
@@ -69,9 +69,10 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | TAB-007a | Tab properties cross-references (`slugifySectionName`, `getSectionIds`, `useTabSectionSync`, `migrateAttachments`, `TabReferencesList`, `TabPaneContext`) | [#108](https://github.com/bkirosangma/knowledge-base/pull/108) | ✅ Merged |
 | TAB-012 | Mobile read-only + playback (`readOnly` injection on `TabPaneContext`, `tabs.import-gp` mobile gate) | [#109](https://github.com/bkirosangma/knowledge-base/pull/109) | ✅ Merged |
 | (parked-cleanup) | `alphaTabEngine` `LOG_LEVEL_INFO`, `DocumentPicker` Create-row gating, skill `%`→`//` fixes | [#110](https://github.com/bkirosangma/knowledge-base/pull/110) | ✅ Merged |
-| **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, per-op undo/redo with real pre-state captures, sidecar (`<file>.alphatex.refs.json`) for stable section ids, lazy editor chunk, Edit/Read toggle, Selected-note details subsection, parked #6 consolidation | `plan/guitar-tabs-editor` | 🚧 PR in flight |
+| **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, per-op undo/redo with real pre-state captures, sidecar (`<file>.alphatex.refs.json`) for stable section ids, lazy editor chunk, Edit/Read toggle, Selected-note details subsection, parked #6 consolidation | [#111](https://github.com/bkirosangma/knowledge-base/pull/111) | ✅ Merged |
+| **TAB-009** | Editor v2 — multi-track + multi-voice + track-level attachments (TAB-009a folded in) | `plan/guitar-tabs-multi-track` | 🚧 PR in flight |
 
-**M2 (editor ship-point) is now in flight.** TAB-008 is the largest single ticket on the roadmap (~2 weeks; 33 commits across 22 plan tasks + 4 critical post-review fixes; 1881 unit tests).
+**M2 (editor ship-point) is closed except for TAB-010 export.** TAB-009 is the last editor ticket; TAB-010 Export is the final M2 item.
 
 ---
 
@@ -81,14 +82,11 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 All M1 tickets merged (TAB-001 → TAB-007a + TAB-011 + TAB-012). Mobile read-only + playback shipped via PR #109. Parked-cleanup landed via PR #110.
 
-### M2 editor ship-point — 🚧 In flight
+### M2 editor ship-point — 🚧 TAB-010 remaining
 
 | Ticket | Title | Effort | Status |
 |---|---|---|---|
-| **TAB-008** | Editor v1 — click-to-place fret, Q W E R T Y durations, technique keys, undo/redo, section-id sidecar, lazy chunk | ~2 weeks | 🚧 PR in flight on `plan/guitar-tabs-editor` |
-| **TAB-009** | Multi-track + multi-voice editing | 1 week | ⏳ Next after TAB-008 merges |
-| **TAB-009a** | Track-level attachment surface (folds into TAB-009) | 1 day | Depends on TAB-009 |
-| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | 2 days | Depends on TAB-008 |
+| **TAB-010** | Export — MIDI / WAV / PDF (alphaTab APIs) | 2 days | ⏳ Next after TAB-009 merges |
 
 ---
 
@@ -113,6 +111,7 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 15. **Bend/slide keyboard cycle deferred** — TAB-008 acceptance D5 specified "press `S` cycles slide-up → slide-down → off" and "repeated `B` cycles bend amounts". Shipped only "press once → apply default" + Properties panel adjustment. Open as TAB-008b polish ticket.
 16. **Editor canvas overlay uses fixed 32×18px cell geometry** — `TabEditorCanvasOverlay` doesn't track alphaTab's actual rendered staff position; cursor highlight will misalign on wrapped staves or non-trivial bar widths. Acceptable for short single-track tabs. Replace with alphaTab-driven hit-testing (`beatMouseDown` event already verified in T0) or per-render geometry probing.
 17. **`useTabContent` `dirty` state crosses file boundaries** — switching files while dirty leaves `dirty=true` from the prior file's edit because no path-change reset effect. Pending debounced flush correctly writes to the original path (closure captures it), but the UI shows the new file as dirty. Add a `useEffect` keyed on `filePath` that resets `dirty` / `saveError` / cancels pending timer.
+18. **alphaTab V2 voice render assumption — runtime verification needed** — T15's `VoiceToggle` assumes alphaTab auto-renders `voices[1]` content when a second voice is present. The `.d.ts` exposes `Bar.isMultiVoice` / `filledVoices` but no explicit render flag. A real two-voice fixture should be loaded in dev to confirm before any user-facing claim of multi-voice support. (TAB-008b polish ticket candidate.)
 
 ---
 
@@ -135,11 +134,12 @@ These are durable; pull from memory before making any change.
 ```
 src/app/knowledge_base/
   domain/
-    tabEngine.ts                   ← TabEngine, TabSession, TabSource, TabEditOp, TabMetadata, …; + slugifySectionName + getSectionIds (TAB-007a — pure helpers, kebab-case slug with NFKD diacritic strip; collision-suffixed by appearance order)
+    tabEngine.ts                   ← TabEngine, TabSession, TabSource, TabEditOp (incl. `add-track` / `remove-track` ops), TabMetadata (per-track tuning/capo at `metadata.tracks[i].tuning` / `.capo`), CursorLocation (incl. `voiceIndex`); + slugifySectionName + getSectionIds (TAB-007a)
     repositories.ts                ← TabRepository interface
+    tabRefs.ts                     ← Sidecar v2 schema: `{ version: 2, sectionRefs: Record<string, string>, trackRefs: { id, name }[] }`; v1 payloads read as v2 with `trackRefs: []`
     errors.ts                      ← FileSystemError + classifyError
   infrastructure/
-    alphaTabEngine.ts              ← AlphaTabEngine impl; lazy alphatab import; play/pause/stop/seek/etc.
+    alphaTabEngine.ts              ← AlphaTabEngine impl; lazy alphatab import; play/pause/stop/seek/etc.; exports `findTrack`, `scientificPitchToMidi`, `midiToScientificPitch` (TAB-009 helpers); `TabSession.setPlaybackState({ mutedTrackIds, soloedTrackIds })` for engine-side mute/solo
     alphaTabAssets.ts              ← SOUNDFONT_URL constant
     tabRepo.ts                     ← FSA-backed TabRepository factory
     gpToAlphatex.ts                ← Pure conversion utility (TAB-006)
@@ -150,8 +150,9 @@ src/app/knowledge_base/
     components/
       TabCanvas.tsx                ← forwardRef host div for AlphaTab to mount into
       TabToolbar.tsx               ← play/pause/stop/tempo/loop transport
+      VoiceToggle.tsx              ← TAB-009 V1/V2 segmented toggle component; wired into TabEditorToolbar
     properties/
-      TabProperties.tsx            ← TAB-007 metadata panel + TAB-007a cross-references (file-level + per-section References lists with merged attachments + backlinks; Attach affordances; deterministic section-id keys)
+      TabProperties.tsx            ← TAB-007 metadata panel + TAB-007a cross-references; TAB-009 Tracks subcomponent now interactive: active-row click to switch track, M/S mute/solo buttons, per-track tuning/capo inline editor, + Add track form, kebab + remove, attachment badges
       TabReferencesList.tsx        ← TAB-007a presentational component — merges DocumentMeta attachments and BacklinkEntry rows, de-dupe by sourcePath with attachment-wins precedence; readOnly hides detach
       useTabSectionSync.ts         ← TAB-007a hook — diffs section ids across metadata snapshots and emits position-aligned migrations to migrateAttachments; trailing deletions orphan-by-design; resets cache on filePath change
     hooks/
@@ -175,7 +176,7 @@ public/
   soundfonts/sonivox.sf2           ← 1.35 MB Sonivox GM SoundFont
   sw.js                            ← Service worker; cache-first lane for /soundfonts/*; kb-static-v3
 test-cases/
-  11-tabs.md                       ← TAB-11.x case catalog (86 cases; mirrors Features.md §11)
+  11-tabs.md                       ← TAB-11.x case catalog (154 cases incl. 34 in §11.10 multi-track; mirrors Features.md §11)
 Features.md                        ← §11 Guitar Tabs (subsections §11.1 Foundation, §11.2 Playback, §11.3 .gp import, §11.4 Properties panel, §11.5 Vault search & wiki-links, §11.6 Cross-references, §11.7 Pending)
 docs/superpowers/
   specs/2026-05-02-guitar-tabs-design.md         ← Source of truth design spec
@@ -218,24 +219,23 @@ docs/superpowers/
 
 ## Next Action
 
-**TAB-008 PR is in flight on `plan/guitar-tabs-editor`.** Once merged: rebase + delete branch, then proceed to **TAB-009: Multi-track + multi-voice editing** (~1 week). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Editor v1" / "M2 ship-point" sections (TAB-009 row).
+**TAB-009 PR is in flight on `plan/guitar-tabs-multi-track`.** Once merged: rebase + delete branch, then proceed to **TAB-010: Export — MIDI / WAV / PDF** (~2 days). Spec source: `docs/superpowers/specs/2026-05-02-guitar-tabs-design.md` → "Acceptance for M2 ship" — the export bullet is the last open item closing M2.
 
-**TAB-009 scope reminders for the brainstorm:**
-- Track add/remove (currently single-track only across the engine, applyEdit, cursor, and overlay).
-- Per-track tuning (currently only top-level `metadata.tuning`).
-- Per-track capo.
-- Multi-voice editing (alphaTab supports two voices per bar).
-- Track-level attachments (TAB-009a folds in here per the spec).
-- Cursor's `trackIndex` field already exists in `useTabCursor` but only `trackIndex=0` is supported in the editor today.
+**TAB-010 scope reminders for the brainstorm:**
+- alphaTab provides `api.exportMidi()`, `api.exportAudio()`, and PDF export via the rendering pipeline. Confirm exact signatures via a T0-style verification probe against `node_modules/@coderline/alphatab/dist/alphaTab.d.ts`.
+- Output goes to user-selected paths via `showSaveFilePicker` (FSA write) — mobile read-only mode forbids exports (mirror TAB-012 mobile gate).
+- Properties panel gets an Export sub-section (or palette commands `tabs.export-midi` / `tabs.export-wav` / `tabs.export-pdf`).
+- WAV export pulls from the existing SoundFont (Sonivox GM at `public/soundfonts/sonivox.sf2`) — no additional asset bundling needed.
 
-**Recommended ordering for TAB-009 plan:**
-1. Engine: extend `applyEdit` for `set-track-tuning` / `set-track-capo` (both ops already declared in `TabEditOp`); add `add-track` / `remove-track` if needed.
-2. UI: track switcher / track-list panel; cursor scoped to active track.
-3. Properties: per-track panel content.
+**Recommended ordering:**
+1. T0 verification probe — exact alphaTab export API surface.
+2. Engine: `TabSession.exportMidi() / .exportAudio() / .exportPdf()` methods.
+3. UI: palette commands + properties panel Export buttons.
+4. Mobile gate: same `useTabEditMode` paneReadOnly check.
 
-**Parked items relevant to TAB-009:** #11 (diagram attachment integrity audit — still open and user-explicit), #14 (Bravura font fix — could fold into TAB-009 to enable e2e tab tests at the same time as multi-track ones), #16 (overlay geometry — multi-track will surface the misalignment more visibly).
+**Parked items relevant to TAB-010:** None directly; #14 Bravura font 404 may surface differently for PDF since alphaTab needs the music font for rendering — verify in dev.
 
-**Optional polish ticket (TAB-008b)** — items #15 (bend/slide cycle), #17 (dirty cross-file state reset), and the I3 cosmetic typing cleanup. Only worth opening if a user trips on them.
+**Optional polish ticket (TAB-008b)** — items #15 (bend/slide cycle), #17 (dirty cross-file state reset), #18 (VoiceToggle voice render verification). Only worth opening if a user trips on them.
 
 ---
 
