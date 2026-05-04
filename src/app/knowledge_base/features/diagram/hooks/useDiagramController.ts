@@ -74,7 +74,7 @@ interface DiagramControllerInputs {
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
-  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
+  onAfterDiagramSaved?: (diagramPath: string) => void;
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;

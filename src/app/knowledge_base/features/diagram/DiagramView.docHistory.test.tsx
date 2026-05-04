@@ -191,6 +191,12 @@ describe('DiagramView — document attachment history', () => {
     await waitFor(() => {
       expect(setRows).toHaveBeenCalled()
     })
+    // Verify the updater function produces the expected attachment rows
+    const updater = (setRows as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    if (typeof updater === 'function') {
+      const result = updater([])
+      expect(result).toContainEqual(testAttachmentRow)
+    }
   })
 
   it('DIAG-3.10-38/39/42: handleAttach/Detach/CreateAndAttach each call the original prop', async () => {

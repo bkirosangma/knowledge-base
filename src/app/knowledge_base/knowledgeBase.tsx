@@ -1119,7 +1119,7 @@ function KnowledgeBaseInner() {
           readDocument={readDocument}
           getDocumentReferences={getDocumentReferences}
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-          onAfterDiagramSaved={(diagramPath, _docs) => {
+          onAfterDiagramSaved={(diagramPath) => {
             const rootHandle = fileExplorer.dirHandleRef.current;
             if (!rootHandle) return;
             const docFilenames = docManager.documents.map((d) => d.filename);

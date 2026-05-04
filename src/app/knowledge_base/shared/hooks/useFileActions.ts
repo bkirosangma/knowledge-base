@@ -47,7 +47,7 @@ export function useFileActions(
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>,
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
-  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void,
+  onAfterDiagramSaved?: (diagramPath: string) => void,
 ) {
   // Keep the "current diagram state" accessible to handleLoadFile /
   // handleSave without listing every state value in their useCallback
@@ -142,7 +142,7 @@ export function useFileActions(
       };
       history.onSave(JSON.stringify(onDiskData, null, 2));
       await callbacksRef.current.onAfterSave?.();
-      callbacksRef.current.onAfterDiagramSaved?.(fileExplorer.activeFile, []);
+      callbacksRef.current.onAfterDiagramSaved?.(fileExplorer.activeFile);
     }
   }, [fileExplorer.activeFile, fileExplorer.saveFile, setLoadSnapshot, history.onSave]);
 

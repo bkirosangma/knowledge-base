@@ -56,7 +56,7 @@ export interface DiagramViewProps {
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
-  onAfterDiagramSaved?: (diagramPath: string, docs: DocumentMeta[]) => void;
+  onAfterDiagramSaved?: (diagramPath: string) => void;
   /** Single-fire intent from vault-search to centre + select a node on mount. */
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];
