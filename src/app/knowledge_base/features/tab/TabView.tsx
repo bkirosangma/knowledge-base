@@ -41,6 +41,8 @@ type TabEditorPassthroughProps = {
   moveBeat: (delta: 1 | -1) => void;
   moveString: (delta: 1 | -1) => void;
   moveBar: (delta: 1 | -1) => void;
+  nextTrack: () => void;
+  prevTrack: () => void;
   onApplyEdit?: (op: TabEditOp) => void;
   registerApply?: (applyFn: (op: TabEditOp) => void) => void;
 };
@@ -108,7 +110,7 @@ export function TabView({
     score: engineScore,
   } = useTabEngine();
   // C3: cursor and selected-note-details lifted to TabView so TabProperties can observe them.
-  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar } = useTabCursor(metadata);
+  const { cursor, setCursor, clear: clearCursor, moveBeat, moveString, moveBar, nextTrack, prevTrack } = useTabCursor(metadata);
   const liveScore = tabScore ?? engineScore;
   const selectedNoteDetails = useSelectedNoteDetails(liveScore, cursor);
   // C3: stable proxy for TabEditor's apply fn, written by TabEditor via registerApply.
@@ -276,6 +278,8 @@ export function TabView({
             moveBeat={moveBeat}
             moveString={moveString}
             moveBar={moveBar}
+            nextTrack={nextTrack}
+            prevTrack={prevTrack}
             registerApply={(fn) => { editorApplyRef.current = fn; }}
             onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
           />

@@ -21,6 +21,8 @@ const baseDeps = () => {
   const moveBeat = vi.fn();
   const moveString = vi.fn();
   const moveBar = vi.fn();
+  const nextTrack = vi.fn();
+  const prevTrack = vi.fn();
   const activeDurationRef = { current: 4 as NoteDuration };
   return {
     apply,
@@ -31,6 +33,8 @@ const baseDeps = () => {
     moveBeat,
     moveString,
     moveBar,
+    nextTrack,
+    prevTrack,
     activeDurationRef,
   };
 };
@@ -286,5 +290,53 @@ describe("useTabKeyboard", () => {
     select.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(d.moveString).not.toHaveBeenCalled();
     document.body.removeChild(select);
+  });
+
+  it("'[' calls prevTrack and ']' calls nextTrack (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    fireKey("[");
+    expect(d.prevTrack).toHaveBeenCalledTimes(1);
+    expect(d.nextTrack).not.toHaveBeenCalled();
+    fireKey("]");
+    expect(d.nextTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("'[' / ']' do not fire when typing in an input (C4 guard, TAB-009 T12)", () => {
+    const d = baseDeps();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "]", bubbles: true }));
+    expect(d.prevTrack).not.toHaveBeenCalled();
+    expect(d.nextTrack).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it("'[' / ']' do not fire when cursor is null (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() => useTabKeyboard({ ...d, cursor: null, enabled: true }));
+    fireKey("[");
+    fireKey("]");
+    expect(d.prevTrack).not.toHaveBeenCalled();
+    expect(d.nextTrack).not.toHaveBeenCalled();
+  });
+
+  it("'[' / ']' preventDefault is called (TAB-009 T12)", () => {
+    const d = baseDeps();
+    renderHook(() =>
+      useTabKeyboard({ ...d, cursor: { trackIndex: 0, voiceIndex: 0, beat: 0, string: 6 }, enabled: true }),
+    );
+    const prevEvent = new KeyboardEvent("keydown", { key: "[", bubbles: true, cancelable: true });
+    const nextEvent = new KeyboardEvent("keydown", { key: "]", bubbles: true, cancelable: true });
+    window.dispatchEvent(prevEvent);
+    window.dispatchEvent(nextEvent);
+    expect(prevEvent.defaultPrevented).toBe(true);
+    expect(nextEvent.defaultPrevented).toBe(true);
   });
 });

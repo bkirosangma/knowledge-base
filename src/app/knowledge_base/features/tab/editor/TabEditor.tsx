@@ -34,6 +34,8 @@ export interface TabEditorProps {
   moveBeat: (delta: 1 | -1) => void;
   moveString: (delta: 1 | -1) => void;
   moveBar: (delta: 1 | -1) => void;
+  nextTrack: () => void;
+  prevTrack: () => void;
   /**
    * Called after each successful apply (fire-and-forget). Used by TabView
    * to trigger sidecar writes after section-affecting edits (C2).
@@ -59,6 +61,8 @@ export default function TabEditor({
   moveBeat,
   moveString,
   moveBar,
+  nextTrack,
+  prevTrack,
   onApplyEdit,
   registerApply,
 }: TabEditorProps): ReactElement {
@@ -157,6 +161,8 @@ export default function TabEditor({
     moveBeat,
     moveString,
     moveBar,
+    nextTrack,
+    prevTrack,
     apply: applyAndNotify,
     undo,
     redo,
