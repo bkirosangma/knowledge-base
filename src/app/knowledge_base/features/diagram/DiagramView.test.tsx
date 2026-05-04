@@ -71,6 +71,8 @@ function baseProps(
     onCreateDocument: vi.fn(async () => {}),
     rows: [],
     setRows: vi.fn(),
+    detachAttachmentsFor: vi.fn(() => ({ detached: 0 })),
+    withBatch: vi.fn(async (fn: () => unknown) => fn()) as never,
     backlinks: [],
     onDiagramBridge: vi.fn(),
     readDocument: vi.fn(async () => null),

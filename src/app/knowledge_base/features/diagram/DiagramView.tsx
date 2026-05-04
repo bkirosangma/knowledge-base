@@ -61,6 +61,8 @@ export interface DiagramViewProps {
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
+  detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
 }
 
 export default function DiagramView(props: DiagramViewProps) {

@@ -272,6 +272,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 `hooks/useKeyboardShortcuts.ts`
 - ✅ `Escape` — deselect and close context menu.
 - ✅ `Delete` / `Backspace` — delete selection (prompts on flow break).
+- ⚙️ **`useDeletion` attachment cleanup** (`hooks/useDeletion.ts`) — on every delete (node, layer, connection, direct flow), runs `detachAttachmentsFor` inside a `withBatch` call before state mutations; matcher covers the full cascaded entity set (layer→node→connection) and broken-flow ids. Tab-scoped rows (`tab-track`, `tab-section`) are never matched.
 - ✅ `Cmd/Ctrl+G` — create flow from multi-line selection.
 - ✅ `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` — undo / redo.
 - ✅ `E` — toggle read-only mode (alias for `Cmd/Ctrl+Shift+R`; disabled when focus is in an input/textarea/contenteditable).

@@ -78,6 +78,8 @@ interface DiagramControllerInputs {
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];
   setRows: (next: AttachmentLink[] | ((prev: AttachmentLink[]) => AttachmentLink[])) => void;
+  detachAttachmentsFor: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
+  withBatch: <T>(fn: () => Promise<T> | T) => Promise<T>;
 }
 
 /**
@@ -100,7 +102,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     onAttachDocument, onDetachDocument, onCreateDocument, onMigrateLegacyDocuments,
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
-    rows, setRows,
+    rows, setRows, detachAttachmentsFor, withBatch,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -314,6 +316,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     {
       setNodes: dispatch.setNodes, setConnections: dispatch.setConnections, setLayerDefs: dispatch.setLayers,
       setLayerManualSizes, setMeasuredSizes, setSelection, setFlows: dispatch.setFlows,
+      detachAttachmentsFor, withBatch,
     },
     scheduleRecord,
   );

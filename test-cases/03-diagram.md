@@ -173,6 +173,10 @@
 | DIAG-3.10-43 | ✅ | (KB-032 non-color signal) Rectangle node with `flowRole="start"` renders a "Start" text pill above the box; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. Survives "disable browser CSS color" because the role is in text content, not just glow. WCAG 1.4.1. — `Element.test.tsx` |
 | DIAG-3.10-44 | ✅ | (KB-032 non-color signal) Diamond (condition) node with `flowRole="start"` renders a "Start" text pill above the diamond; `flowRole="end"` renders an "End" pill; `middle` and missing flowRole render no pill. WCAG 1.4.1. — `ConditionElement.test.tsx` |
 | DIAG-3.10-45 | ✅ | Diagram-undo only affects this diagram's attachment subset — tab-scoped rows (`tab-track`, `tab-section`) and rows belonging to other diagrams in memory are untouched. Invariant: `DIAGRAM_ENTITY_TYPES` excludes tab types. — `useDiagramHistoryStore.test.ts` |
+| DIAG-3.10-46 | ✅ | Delete node — `detachAttachmentsFor` called once; matcher hits that node's rows, misses unrelated node and tab-track rows — `useDeletion.test.ts` |
+| DIAG-3.10-47 | ✅ | Delete node with cascade — `detachAttachmentsFor` matcher also covers connections referencing the deleted node; excludes connections not touching the node — `useDeletion.test.ts` |
+| DIAG-3.10-48 | ✅ | `confirmDeletion` (broken-flow path) — `detachAttachmentsFor` matcher covers the directly deleted connection and the broken-flow id; excludes unrelated flows and tab rows — `useDeletion.test.ts` |
+| DIAG-3.10-49 | ✅ | Direct flow delete (`case "flow"`) — `detachAttachmentsFor` matcher hits that flow id only; excludes other flows and node/tab rows — `useDeletion.test.ts` |
 
 ## 3.11 Selection
 
