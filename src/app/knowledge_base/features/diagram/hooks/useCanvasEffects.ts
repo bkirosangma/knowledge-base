@@ -100,10 +100,18 @@ export function useCanvasEffects(
       const minST = VIEWPORT_PADDING - vpHeight + minOverlap;
       const maxST = VIEWPORT_PADDING + w.h * z - minOverlap;
 
+      const slBefore = el.scrollLeft;
+      const stBefore = el.scrollTop;
       if (el.scrollLeft < minSL) { el.scrollLeft = minSL; }
       if (el.scrollLeft > maxSL) { el.scrollLeft = maxSL; }
       if (el.scrollTop < minST) { el.scrollTop = minST; }
       if (el.scrollTop > maxST) { el.scrollTop = maxST; }
+      if (el.scrollLeft !== slBefore || el.scrollTop !== stBefore) {
+        // TEMP probe: log clamper writes so we can tell whether the
+        // bounds clamp is fighting cursor-anchored pinch zoom.
+        // eslint-disable-next-line no-console
+        console.log(`[clamp-probe] sl ${slBefore.toFixed(1)}→${el.scrollLeft.toFixed(1)} st ${stBefore.toFixed(1)}→${el.scrollTop.toFixed(1)} (minSL=${minSL.toFixed(0)} maxSL=${maxSL.toFixed(0)} z=${z.toFixed(3)})`);
+      }
     };
     el.addEventListener("scroll", onScroll, { passive: false });
     return () => el.removeEventListener("scroll", onScroll);
