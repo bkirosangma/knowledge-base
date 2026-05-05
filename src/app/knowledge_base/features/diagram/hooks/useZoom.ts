@@ -6,17 +6,6 @@ const MAX_ZOOM = 3;
 const BASE_SENSITIVITY = 0.008;
 const MAX_SENSITIVITY = 0.04;
 
-/** Snap points for zoom — when close enough, snap to these values */
-const SNAP_POINTS = [1, 1.5, 2];
-const SNAP_THRESHOLD = 0.04; // ±4% to snap
-
-function snapZoom(z: number): number {
-  for (const sp of SNAP_POINTS) {
-    if (Math.abs(z - sp) < SNAP_THRESHOLD) return sp;
-  }
-  return z;
-}
-
 export function useZoom(
   canvasRef: React.RefObject<HTMLDivElement | null>,
   worldRef: React.RefObject<{ x: number; y: number; w: number; h: number }>,
@@ -102,8 +91,7 @@ export function useZoom(
       const absDelta = Math.abs(e.deltaY);
       const sensitivity = Math.min(MAX_SENSITIVITY, BASE_SENSITIVITY + absDelta * 0.0003);
       const delta = -e.deltaY * sensitivity;
-      const raw = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom * (1 + delta)));
-      const newZoom = snapZoom(raw);
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom * (1 + delta)));
       if (newZoom === oldZoom) return;
 
       const rect = el.getBoundingClientRect();
