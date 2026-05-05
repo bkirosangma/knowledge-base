@@ -85,6 +85,14 @@ export function useZoom(
       if (pendingPanDx !== 0) { el.scrollLeft += pendingPanDx; pendingPanDx = 0; }
       if (pendingPanDy !== 0) { el.scrollTop += pendingPanDy; pendingPanDy = 0; }
     };
+    const cancelPendingPan = () => {
+      if (panRaf !== null) {
+        cancelAnimationFrame(panRaf);
+        panRaf = null;
+      }
+      pendingPanDx = 0;
+      pendingPanDy = 0;
+    };
 
     const onWheel = (e: WheelEvent) => {
       // Pan: non-ctrl/meta wheel events. Chromium's native scroll on
@@ -108,6 +116,13 @@ export function useZoom(
       }
       e.preventDefault();
       lastPinchAt = Date.now();
+      // Cancel any pan deltas accumulated by leading non-ctrl events of
+      // this gesture. macOS occasionally dispatches 1–2 non-ctrl wheel
+      // events before classifying the gesture as a pinch; without this,
+      // the queued rAF flush applies the pan AFTER the first zoom math
+      // runs, producing a visible scroll jump that subsequent zoom
+      // anchors against ("pan, then snap back to zoom").
+      cancelPendingPan();
 
       const oldZoom = zoomRef.current;
       // Adaptive sensitivity: faster pinch (larger deltaY) = higher sensitivity
