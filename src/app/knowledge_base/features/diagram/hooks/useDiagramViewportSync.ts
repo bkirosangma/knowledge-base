@@ -98,6 +98,12 @@ export function useDiagramViewportSync(input: UseDiagramViewportSyncInput) {
       const dx = prev.x - world.x;
       const dy = prev.y - world.y;
       if ((dx !== 0 || dy !== 0) && canvasRef.current) {
+        // TEMP probe — flag any world-origin shift that scrolls the canvas
+        // outside of a wheel event. If this fires during a pinch, the
+        // jitter is from React-driven layout effects fighting the wheel
+        // handler's imperative scroll write.
+        // eslint-disable-next-line no-console
+        console.log(`[origin-shift] dx=${dx.toFixed(2)} dy=${dy.toFixed(2)} z=${zoomRef.current.toFixed(3)} → scroll +${(dx * zoomRef.current).toFixed(2)},${(dy * zoomRef.current).toFixed(2)}`);
         canvasRef.current.scrollLeft += dx * zoomRef.current;
         canvasRef.current.scrollTop += dy * zoomRef.current;
       }
