@@ -247,7 +247,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     dispatch.setTitle, dispatch.setLayers, dispatch.setNodes, dispatch.setConnections,
     setLayerManualSizes, dispatch.setLineCurve, dispatch.setFlows,
     title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
-    documents, activeFile, fileExplorer.markDirty,
+    activeFile, fileExplorer.markDirty,
   );
   const { history, scheduleRecord, isRestoringRef, applyDiagramToState, applySnapshotFromDisk, handleUndo, handleRedo, handleGoToEntry } = useDiagramHistoryStore({
     doc, dispatch, layerManualSizes, setLayerManualSizes, setMeasuredSizes,
