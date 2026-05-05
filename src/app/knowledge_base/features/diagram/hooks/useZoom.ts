@@ -73,6 +73,8 @@ export function useZoom(
     // of letting the canvas pan immediately before/after the zoom.
     let lastPinchAt = 0;
     const PINCH_WINDOW_MS = 200;
+    // TEMP probe counter (remove with the log below).
+    let panProbeN = 0;
 
     const onWheel = (e: WheelEvent) => {
       // Prevent browser gestures (back/forward navigation, pull-to-refresh)
@@ -92,8 +94,9 @@ export function useZoom(
         // Logs every non-ctrl wheel event so we can tell whether both
         // deltaX and deltaY arrive from the device for a diagonal swipe.
         // Remove once the diagonal-pan question is settled.
+        panProbeN++;
         // eslint-disable-next-line no-console
-        console.debug("[zoom-probe] pan", { dx: e.deltaX.toFixed(2), dy: e.deltaY.toFixed(2), mode: e.deltaMode });
+        console.log(`[zoom-probe #${panProbeN}] pan dx=${e.deltaX.toFixed(2)} dy=${e.deltaY.toFixed(2)} mode=${e.deltaMode}`);
         // Inside the pinch window, treat stray non-ctrl wheel events as
         // part of the gesture and swallow them so the canvas doesn't pan.
         if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) {
