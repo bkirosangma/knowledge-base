@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { computeFlowRoles } from "../utils/flowUtils";
 import type { Connection, FlowDef, NodeData, Selection } from "../types";
 
 interface DimSets {
@@ -56,7 +55,27 @@ export function useDiagramFlowFocus({ nodes, connections, flows, selection, setS
     if (!activeFlowId) return null;
     const flow = flows.find((f) => f.id === activeFlowId);
     if (!flow) return null;
-    return computeFlowRoles(flow.connectionIds, connections);
+
+    // Members are nodes that appear as either endpoint of any of the flow's connections.
+    const memberIds = new Set<string>();
+    for (const cid of flow.connectionIds) {
+      const c = connections.find((x) => x.id === cid);
+      if (c) {
+        memberIds.add(c.from);
+        memberIds.add(c.to);
+      }
+    }
+
+    const starts = new Set(flow.startNodeIds ?? []);
+    const ends = new Set(flow.endNodeIds ?? []);
+    const orders = flow.nodeOrders ?? {};
+
+    const map = new Map<string, { role: 'start' | 'end' | 'middle'; order: number | undefined }>();
+    for (const nid of memberIds) {
+      const role = starts.has(nid) ? 'start' : ends.has(nid) ? 'end' : 'middle';
+      map.set(nid, { role, order: orders[nid] });
+    }
+    return map;
   }, [selection, hoveredFlowId, flows, connections]);
 
   const typeDimSets = useMemo<DimSets | null>(() => {
