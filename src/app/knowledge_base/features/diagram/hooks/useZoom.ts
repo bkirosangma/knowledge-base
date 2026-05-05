@@ -73,26 +73,37 @@ export function useZoom(
     // of letting the canvas pan immediately before/after the zoom.
     let lastPinchAt = 0;
     const PINCH_WINDOW_MS = 200;
+    // Pan-batching state: trackpads send 60–120 wheel events/sec; applying
+    // each one synchronously fans out to every scroll listener (Minimap,
+    // viewport sync, bounds clamp) and forces layout each pass. Coalesce
+    // pending deltas into a single scroll write per animation frame.
+    let pendingPanDx = 0;
+    let pendingPanDy = 0;
+    let panRaf: number | null = null;
+    const flushPan = () => {
+      panRaf = null;
+      if (pendingPanDx !== 0) { el.scrollLeft += pendingPanDx; pendingPanDx = 0; }
+      if (pendingPanDy !== 0) { el.scrollTop += pendingPanDy; pendingPanDy = 0; }
+    };
 
     const onWheel = (e: WheelEvent) => {
-      // Prevent browser gestures (back/forward navigation, pull-to-refresh)
-      // when scrolling would overscroll at boundaries
-      const atLeft = el.scrollLeft <= 0;
-      const atRight = el.scrollLeft >= el.scrollWidth - el.clientWidth;
-      const atTop = el.scrollTop <= 0;
-      const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight;
-      if ((e.deltaX < 0 && atLeft) || (e.deltaX > 0 && atRight) ||
-          (e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-        e.preventDefault();
-      }
-
-      // Only zoom on pinch (ctrlKey) or meta+wheel
+      // Pan: non-ctrl/meta wheel events. Chromium's native scroll on
+      // `overflow: auto` axis-locks trackpad pan to the dominant axis
+      // even though the device sends both deltaX and deltaY for a
+      // diagonal swipe (verified by probe). JS-apply the scroll so
+      // diagonal motion moves both axes. preventDefault also stops
+      // browser back/forward gestures and pull-to-refresh.
       if (!e.ctrlKey && !e.metaKey) {
-        // Inside the pinch window, treat stray non-ctrl wheel events as
-        // part of the gesture and swallow them so the canvas doesn't pan.
-        if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) {
-          e.preventDefault();
-        }
+        e.preventDefault();
+        // Inside the pinch window, swallow stray non-ctrl wheel events
+        // dispatched at the start/end of a trackpad pinch so the canvas
+        // doesn't pan immediately before/after the zoom.
+        if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) return;
+        // deltaMode: 0 = pixel (trackpads, modern mice), 1 = line, 2 = page.
+        const factor = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? el.clientHeight : 1);
+        pendingPanDx += e.deltaX * factor;
+        pendingPanDy += e.deltaY * factor;
+        if (panRaf === null) panRaf = requestAnimationFrame(flushPan);
         return;
       }
       e.preventDefault();
@@ -162,6 +173,7 @@ export function useZoom(
       el.removeEventListener("wheel", onWheel);
       if (idleTimer) clearTimeout(idleTimer);
       if (renderTimer) clearTimeout(renderTimer);
+      if (panRaf !== null) cancelAnimationFrame(panRaf);
     };
   }, [canvasRef, worldRef]);
 
