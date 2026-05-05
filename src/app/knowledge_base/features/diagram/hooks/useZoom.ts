@@ -73,6 +73,18 @@ export function useZoom(
     // of letting the canvas pan immediately before/after the zoom.
     let lastPinchAt = 0;
     const PINCH_WINDOW_MS = 200;
+    // Pan-batching state: trackpads send 60–120 wheel events/sec; applying
+    // each one synchronously fans out to every scroll listener (Minimap,
+    // viewport sync, bounds clamp) and forces layout each pass. Coalesce
+    // pending deltas into a single scroll write per animation frame.
+    let pendingPanDx = 0;
+    let pendingPanDy = 0;
+    let panRaf: number | null = null;
+    const flushPan = () => {
+      panRaf = null;
+      if (pendingPanDx !== 0) { el.scrollLeft += pendingPanDx; pendingPanDx = 0; }
+      if (pendingPanDy !== 0) { el.scrollTop += pendingPanDy; pendingPanDy = 0; }
+    };
 
     const onWheel = (e: WheelEvent) => {
       // Pan: non-ctrl/meta wheel events. Chromium's native scroll on
@@ -89,8 +101,9 @@ export function useZoom(
         if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) return;
         // deltaMode: 0 = pixel (trackpads, modern mice), 1 = line, 2 = page.
         const factor = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? el.clientHeight : 1);
-        el.scrollLeft += e.deltaX * factor;
-        el.scrollTop += e.deltaY * factor;
+        pendingPanDx += e.deltaX * factor;
+        pendingPanDy += e.deltaY * factor;
+        if (panRaf === null) panRaf = requestAnimationFrame(flushPan);
         return;
       }
       e.preventDefault();
@@ -160,6 +173,7 @@ export function useZoom(
       el.removeEventListener("wheel", onWheel);
       if (idleTimer) clearTimeout(idleTimer);
       if (renderTimer) clearTimeout(renderTimer);
+      if (panRaf !== null) cancelAnimationFrame(panRaf);
     };
   }, [canvasRef, worldRef]);
 
