@@ -157,22 +157,8 @@ export function useZoom(
       }
 
       // Keep the world point under the current cursor.
-      const slBefore = el.scrollLeft;
-      const stBefore = el.scrollTop;
-      const slTarget = VIEWPORT_PADDING + worldPtX * newZoom - cursorX;
-      const stTarget = VIEWPORT_PADDING + worldPtY * newZoom - cursorY;
-      el.scrollLeft = slTarget;
-      el.scrollTop = stTarget;
-      // TEMP probe: log the scroll write so we can compare with the
-      // post-event scrollLeft a microtask later (read in onScroll below).
-      // eslint-disable-next-line no-console
-      console.log(`[zoom-probe] z ${oldZoom.toFixed(3)}→${newZoom.toFixed(3)} sl ${slBefore.toFixed(1)}→tgt ${slTarget.toFixed(1)} st ${stBefore.toFixed(1)}→tgt ${stTarget.toFixed(1)}`);
-      // Read back the actually-applied scrollLeft after the browser has
-      // had a chance to clamp on the new sizer width.
-      queueMicrotask(() => {
-        // eslint-disable-next-line no-console
-        console.log(`[zoom-probe]   after-microtask sl=${el.scrollLeft.toFixed(1)} st=${el.scrollTop.toFixed(1)}`);
-      });
+      el.scrollLeft = VIEWPORT_PADDING + worldPtX * newZoom - cursorX;
+      el.scrollTop = VIEWPORT_PADDING + worldPtY * newZoom - cursorY;
 
       // Debounce React state sync — only update after 50ms of no zoom events
       // This prevents expensive re-renders during active pinching
