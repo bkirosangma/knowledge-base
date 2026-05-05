@@ -31,7 +31,14 @@ export function useFlowManagement(
     setSelection({ type: 'flow', id: flowId });
   }, []);
 
-  const handleUpdateFlow = useCallback((oldId: string, updates: Partial<{ id: string; name: string; category: string }>) => {
+  const handleUpdateFlow = useCallback((oldId: string, updates: Partial<{
+    id: string;
+    name: string;
+    category: string;
+    nodeOrders: Record<string, number>;
+    startNodeIds: string[];
+    endNodeIds: string[];
+  }>) => {
     const newId = updates.id;
     setFlows((prev) => prev.map((f) => f.id === oldId ? { ...f, ...updates } : f));
     if (newId && newId !== oldId) {
