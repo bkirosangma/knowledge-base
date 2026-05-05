@@ -4,6 +4,7 @@ import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
 import DocInfoBadge from "./DocInfoBadge";
+import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
@@ -38,6 +39,9 @@ interface ConditionElementProps {
   documentPaths?: string[];
   onDocNavigate?: (path: string) => void;
   flowRole?: 'start' | 'end' | 'middle';
+  order?: number;
+  orderEditable?: boolean;
+  onOrderChange?: (next: number | undefined) => void;
 }
 
 function ConditionElement({
@@ -70,6 +74,9 @@ function ConditionElement({
   documentPaths,
   onDocNavigate,
   flowRole,
+  order,
+  orderEditable,
+  onOrderChange,
 }: ConditionElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const effectiveH = getEffectiveConditionHeight(h, w, outCount);
@@ -145,6 +152,14 @@ function ConditionElement({
         >
           {flowRole === 'start' ? 'Start' : 'End'}
         </span>
+      )}
+      {(orderEditable || order !== undefined) && (
+        <OrderBadge
+          value={order}
+          editable={!!orderEditable}
+          onChange={(next) => onOrderChange?.(next)}
+          nodeId={id}
+        />
       )}
       {/* SVG shape */}
       <svg
@@ -312,6 +327,9 @@ function arePropsEqual(p: ConditionElementProps, n: ConditionElementProps): bool
     p.borderColor === n.borderColor &&
     p.textColor === n.textColor &&
     p.flowRole === n.flowRole &&
+    p.order === n.order &&
+    p.orderEditable === n.orderEditable &&
+    p.onOrderChange === n.onOrderChange &&
     // Visual-state booleans
     p.showLabels === n.showLabels &&
     p.isDragging === n.isDragging &&

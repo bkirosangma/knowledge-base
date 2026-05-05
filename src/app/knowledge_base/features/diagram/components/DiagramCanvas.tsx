@@ -491,6 +491,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   flowDimSets={flowDimSets}
                   typeDimSets={typeDimSets}
                   flowOrderData={flowOrderData}
+                  isLocked={false}
                   handleAnchorDragStart={handleAnchorDragStart}
                   handleAnchorHover={handleAnchorHover}
                   handleAnchorHoverEnd={handleAnchorHoverEnd}

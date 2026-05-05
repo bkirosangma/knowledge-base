@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 import DocInfoBadge from "./DocInfoBadge";
+import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
@@ -44,6 +45,9 @@ interface ElementProps {
   documentPaths?: string[];
   onDocNavigate?: (path: string) => void;
   flowRole?: 'start' | 'end' | 'middle';
+  order?: number;
+  orderEditable?: boolean;
+  onOrderChange?: (next: number | undefined) => void;
 }
 
 function Element({
@@ -77,6 +81,9 @@ function Element({
   documentPaths,
   onDocNavigate,
   flowRole,
+  order,
+  orderEditable,
+  onOrderChange,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -159,6 +166,14 @@ function Element({
         >
           {flowRole === 'start' ? 'Start' : 'End'}
         </span>
+      )}
+      {(orderEditable || order !== undefined) && (
+        <OrderBadge
+          value={order}
+          editable={!!orderEditable}
+          onChange={(next) => onOrderChange?.(next)}
+          nodeId={id}
+        />
       )}
       {Icon && (
         <span className="mb-2" style={{ color: adaptedSubText }}>
@@ -275,6 +290,9 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.borderColor === n.borderColor &&
     p.textColor === n.textColor &&
     p.flowRole === n.flowRole &&
+    p.order === n.order &&
+    p.orderEditable === n.orderEditable &&
+    p.onOrderChange === n.onOrderChange &&
     // Visual-state booleans — without these, selection/drag/dim feedback
     // would lag a render
     p.showLabels === n.showLabels &&

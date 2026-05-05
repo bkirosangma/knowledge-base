@@ -46,7 +46,11 @@ export interface DiagramNodeLayerProps {
   typeDimSets: DimSets;
 
   // Flow order overlays
-  flowOrderData?: Map<string, { role: 'start' | 'end' | 'middle' }> | null;
+  flowOrderData?: Map<string, { role: 'start' | 'end' | 'middle'; order: number | undefined }> | null;
+
+  // Lock mode
+  isLocked?: boolean;
+  onChangeNodeOrder?: (nodeId: string, next: number | undefined) => void;
 
   // Handlers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +154,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     flowDimSets,
     typeDimSets,
     flowOrderData,
+    isLocked,
+    onChangeNodeOrder,
     handleAnchorDragStart,
     handleAnchorHover,
     handleAnchorHoverEnd,
@@ -230,6 +236,9 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           dimmed,
           onDoubleClick: handleNodeDoubleClick,
           flowRole: flowEntry?.role,
+          order: flowEntry?.order,
+          orderEditable: isLocked && !readOnly && flowEntry !== undefined,
+          onOrderChange: (next: number | undefined) => onChangeNodeOrder?.(node.id, next),
         };
 
         const showEdgeHandles =
