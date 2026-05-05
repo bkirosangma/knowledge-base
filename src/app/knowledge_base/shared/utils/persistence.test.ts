@@ -414,3 +414,44 @@ describe('createEmptyDiagram / loadDefaults', () => {
     expect(loadDefaults().title).toBe('Untitled')
   })
 })
+
+describe("FlowDef round-trip — nodeOrders / startNodeIds / endNodeIds", () => {
+  it("preserves the new flow fields through loadDiagramFromData", () => {
+    const data = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [],
+      flows: [
+        {
+          id: "flow-auth",
+          name: "Auth",
+          connectionIds: ["c1"],
+          nodeOrders: { "el-a": 1, "el-b": 2 },
+          startNodeIds: ["el-a"],
+          endNodeIds: ["el-b"],
+        },
+      ],
+    };
+    const loaded = loadDiagramFromData(data as never);
+    const flow = loaded.flows.find((f) => f.id === "flow-auth")!;
+    expect(flow.nodeOrders).toEqual({ "el-a": 1, "el-b": 2 });
+    expect(flow.startNodeIds).toEqual(["el-a"]);
+    expect(flow.endNodeIds).toEqual(["el-b"]);
+  });
+
+  it("loads flows that omit the new fields without crashing", () => {
+    const data = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [],
+      flows: [{ id: "flow-x", name: "X", connectionIds: [] }],
+    };
+    const loaded = loadDiagramFromData(data as never);
+    const flow = loaded.flows[0];
+    expect(flow.nodeOrders).toBeUndefined();
+    expect(flow.startNodeIds).toBeUndefined();
+    expect(flow.endNodeIds).toBeUndefined();
+  });
+});
