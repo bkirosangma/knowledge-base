@@ -10,8 +10,10 @@ import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
 import { DiagramProperties } from "./DiagramProperties";
+import { FlowProperties } from "./FlowProperties";
 import HistoryPanel from "../../../shared/components/HistoryPanel";
 import { Tooltip } from "../../../shared/components/Tooltip";
+import { useLockedFlow } from "../state/DiagramInteractionContext";
 
 interface PropertiesPanelProps {
   selection: Selection;
@@ -77,66 +79,17 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
 
+  const { lockedFlowId } = useLockedFlow();
+  const lockedFlow = lockedFlowId ? flows.find((f) => f.id === lockedFlowId) ?? null : null;
 
-  const sectionLabel = !selection || selection.type === "flow"
-    ? "Architecture"
-    : selection.type === "node"
-      ? "Element"
-      : selection.type === "layer"
-        ? "Layer"
-        : selection.type === "line"
-          ? "Connection"
-          : selection.type === "multi-node"
-            ? `${selection.ids.length} Elements`
-            : selection.type === "multi-layer"
-              ? `${selection.ids.length} Layers`
-              : `${selection.ids.length} Lines`;
-
-  if (collapsed) {
+  /**
+   * Returns the selection-driven JSX for whatever is currently selected
+   * (node, layer, line, multi-*, flow, or null → diagram-level).
+   * Shared by both the unlocked path and the element section of the locked stack.
+   */
+  function renderForSelection() {
     return (
-      <div
-        className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
-        style={{ width: hidden ? 0 : 36 }}
-      >
-        <Tooltip label="Expand properties">
-          <button
-            onClick={onToggleCollapse}
-            className="flex items-center justify-center px-2 py-3 border-b border-line hover:bg-surface-2 transition-colors"
-            aria-label="Expand properties"
-          >
-            <ChevronLeft size={16} className="text-mute" />
-          </button>
-        </Tooltip>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
-      data-testid="properties-panel"
-      style={{ width: hidden ? 0 : 280 }}
-    >
-      {onToggleCollapse ? (
-        <Tooltip label="Collapse properties">
-          <button
-            onClick={onToggleCollapse}
-            className="flex items-center gap-2 px-4 py-2.5 border-b border-line hover:bg-surface-2 transition-colors w-full"
-            aria-label="Collapse properties"
-          >
-            <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
-            <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
-            <ChevronRight size={14} className="ml-auto text-mute" />
-          </button>
-        </Tooltip>
-      ) : (
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line">
-          <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
-          <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-3 py-3">
+      <>
         {(!selection || selection.type === "flow") && (
           <DiagramProperties
             title={title}
@@ -200,6 +153,94 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
               </div>
             )}
           </div>
+        )}
+      </>
+    );
+  }
+
+  const sectionLabel = !selection || selection.type === "flow"
+    ? "Architecture"
+    : selection.type === "node"
+      ? "Element"
+      : selection.type === "layer"
+        ? "Layer"
+        : selection.type === "line"
+          ? "Connection"
+          : selection.type === "multi-node"
+            ? `${selection.ids.length} Elements`
+            : selection.type === "multi-layer"
+              ? `${selection.ids.length} Layers`
+              : `${selection.ids.length} Lines`;
+
+  if (collapsed) {
+    return (
+      <div
+        className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+        style={{ width: hidden ? 0 : 36 }}
+      >
+        <Tooltip label="Expand properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center justify-center px-2 py-3 border-b border-line hover:bg-surface-2 transition-colors"
+            aria-label="Expand properties"
+          >
+            <ChevronLeft size={16} className="text-mute" />
+          </button>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex-shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden${hidden ? " hidden" : ""}`}
+      data-testid="properties-panel"
+      style={{ width: hidden ? 0 : 280 }}
+    >
+      {onToggleCollapse ? (
+        <Tooltip label="Collapse properties">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 px-4 py-2.5 border-b border-line hover:bg-surface-2 transition-colors w-full"
+            aria-label="Collapse properties"
+          >
+            <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
+            <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
+            <ChevronRight size={14} className="ml-auto text-mute" />
+          </button>
+        </Tooltip>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line">
+          <span className="text-xs font-bold text-ink-2 uppercase tracking-wider">Properties</span>
+          <span className="text-[10px] text-mute font-medium">{sectionLabel}</span>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-3 py-3">
+        {lockedFlow ? (
+          <>
+            <div data-testid="flow-properties-panel">
+              <FlowProperties
+                id={lockedFlow.id}
+                flows={flows}
+                connections={connections}
+                nodes={nodes}
+                allFlowIds={flows.map((f) => f.id)}
+                onUpdate={onUpdateFlow}
+                onDelete={onDeleteFlow}
+                onSelectLine={onSelectLine}
+                onSelectNode={onSelectNode}
+                readOnly={readOnly}
+              />
+            </div>
+            {selection && selection.type !== "flow" && (
+              <div data-testid="element-properties-panel" className="mt-4 border-t pt-4">
+                {renderForSelection()}
+              </div>
+            )}
+          </>
+        ) : (
+          renderForSelection()
         )}
       </div>
 
