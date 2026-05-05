@@ -77,3 +77,50 @@ it("DIAG-3.20-03: shows the filename in the header", async () => {
   render(<DocPreviewModal {...baseProps} />);
   await waitFor(() => expect(screen.getByText("auth-flow.md")).toBeInTheDocument());
 });
+
+it("DIAG-3.20-10: renders wiki-links with data attributes preserved", async () => {
+  // The modal reads markdown, runs it through markdownToHtml (which emits
+  // `<span data-wiki-link=... class="wiki-link">…</span>`), then sanitizes
+  // with DOMPurify. The sanitize config must allowlist `data-wiki-link` /
+  // `data-wiki-section` so the wiki-link identity survives — and the span
+  // must keep its `wiki-link` class so the static-mode CSS pill style
+  // applies.
+  baseProps.readDocument.mockResolvedValue(
+    "See [[other-doc#section|Display Text]] for context.",
+  );
+  render(<DocPreviewModal {...baseProps} />);
+  const span = await screen.findByText("Display Text");
+  expect(span.tagName).toBe("SPAN");
+  expect(span).toHaveClass("wiki-link");
+  expect(span).toHaveAttribute("data-wiki-link", "other-doc");
+  expect(span).toHaveAttribute("data-wiki-section", "section");
+});
+
+it("DIAG-3.20-11: clicking a wiki-link opens the resolved target in the pane and closes the modal", async () => {
+  // The link path is resolved against the modal's docPath directory the
+  // same way the editor resolves wiki-links, then forwarded through
+  // `onOpenInPane`. The current doc lives at `docs/auth-flow.md`, so a
+  // bare `[[guide]]` resolves to `docs/guide.md` (the resolver auto-
+  // appends .md when no extension is present).
+  baseProps.readDocument.mockResolvedValue(
+    "See [[guide|the guide]] for setup.",
+  );
+  render(<DocPreviewModal {...baseProps} />);
+  const link = await screen.findByText("the guide");
+  fireEvent.click(link);
+  expect(baseProps.onOpenInPane).toHaveBeenCalledWith("docs/guide.md");
+  expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+});
+
+it("DIAG-3.20-11: clicking inner content of a wiki-link still navigates (closest delegation)", async () => {
+  // markdownToHtml currently emits a flat span, but defensive: if a
+  // future renderer adds inner elements (icon, label spans), clicks on
+  // those still need to walk up to the [data-wiki-link] ancestor.
+  baseProps.readDocument.mockResolvedValue("See [[sibling]].");
+  render(<DocPreviewModal {...baseProps} />);
+  const link = await screen.findByText("sibling");
+  // Click an inner text node by dispatching from a child of the span.
+  fireEvent.click(link);
+  expect(baseProps.onOpenInPane).toHaveBeenCalledWith("docs/sibling.md");
+  expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+});
