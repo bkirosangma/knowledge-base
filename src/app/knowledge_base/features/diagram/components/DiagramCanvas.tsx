@@ -75,6 +75,16 @@ export interface DiagramCanvasProps {
   world: { x: number; y: number; w: number; h: number };
   zoom: number;
   isZooming: boolean;
+  // Live refs the wheel handler in `useZoom` writes to imperatively.
+  // The sizer + canvasWrapper inline styles below READ from these refs
+  // (not from the React `zoom` / `world` props) so that any unrelated
+  // re-render mid-pinch — `setIsZooming(true)`, hover, selection, etc. —
+  // re-emits styles that still match the imperative DOM writes. Without
+  // this, React commits a stale `transform: scale(${zoom})` over the
+  // wheel handler's fresh write, producing a "scroll first, snap back
+  // to zoom" glitch while the React `zoom` state is debounced.
+  zoomRef: React.RefObject<number>;
+  worldRef: React.RefObject<{ x: number; y: number; w: number; h: number }>;
   // Document slices
   layerDefs: LayerDef[];
   regions: RegionBounds[];
@@ -189,7 +199,8 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     activeFile,
     patches,
     world,
-    zoom,
+    zoomRef,
+    worldRef,
     isZooming,
     layerDefs,
     regions,
@@ -307,8 +318,12 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
         <>
           <div
             style={{
-              width: VIEWPORT_PADDING * 2 + world.w * zoom,
-              height: VIEWPORT_PADDING * 2 + world.h * zoom,
+              // See `zoomRef`/`worldRef` prop comment: read from refs, not
+              // from React state, so this style stays in sync with the
+              // imperative DOM writes performed by the wheel handler in
+              // `useZoom`.
+              width: VIEWPORT_PADDING * 2 + worldRef.current!.w * zoomRef.current!,
+              height: VIEWPORT_PADDING * 2 + worldRef.current!.h * zoomRef.current!,
               position: "relative",
             }}
           >
@@ -317,7 +332,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                 position: "absolute",
                 left: VIEWPORT_PADDING,
                 top: VIEWPORT_PADDING,
-                transform: `scale(${zoom})`,
+                transform: `scale(${zoomRef.current!})`,
                 transformOrigin: "0 0",
                 willChange: isZooming ? "transform" : "auto",
               }}
