@@ -37,6 +37,7 @@ Eight discrete goals from the original ask:
 - As an author refining ordering for a 30-node flow, I lock the flow, dim the rest of the diagram, and click each member to bump its order without losing my place.
 - As a reader exploring an architecture diagram, I see a small attachment indicator on a node, click it, and read the linked deep-dive document inside a modal without leaving the canvas.
 - As a vault owner, I link from a node in one diagram to another full diagram so the second diagram is a "drill in" view of the first node's internals.
+- As the reader of a Claude-generated diagram, I open the Sources section of a node and click through to the canonical RFC or paper the skill based the description on, so I can verify the content against the primary material instead of taking the generation on faith.
 
 ## 4. Data model
 
@@ -265,26 +266,95 @@ The existing Step 3e ("Flow Explanation Documents" — 3–5 sentence + auto-tab
 - For each flow, decide on `nodeOrders` (a sequential `1..n` numbering when the archetype is order-sensitive, e.g. roadmaps; absent for purely topological architectures unless the topic implies order).
 - For each flow, decide on `startNodeIds` and `endNodeIds`. Roadmaps → all "Foundations" nodes as starts, all "Mastery" nodes as ends. Architecture → the request-entry and response-exit nodes. Skill emits the JSON; the result is editable later.
 
-## 9. Knowledge-base skill changes — full scope
+## 9. Source links — verification provenance
+
+Every primary entity gains an optional `sources?: SourceLink[]` field — a list of canonical online resources the entity is based on. The user reads them to verify what skill-generated content is grounded in.
+
+```ts
+interface SourceLink {
+  url: string;     // required, http(s) URL
+  title?: string;  // optional display label; falls back to URL host when blank
+}
+```
+
+### 9.1 Data model — sources land on every primary entity
+
+| Entity | Where the field lives |
+|---|---|
+| Diagram (top-level) | New optional `sources` key in the diagram JSON, alongside `title` / `layers` / `nodes` / `connections` / `flows`. |
+| Node | `SerializedNodeData.sources?` on disk, `NodeIdentity.sources?` at runtime. |
+| Connection | `Connection.sources?`. |
+| Layer | `LayerDef.sources?`. |
+| Flow | `FlowDef.sources?` (alongside the new `nodeOrders` / `startNodeIds` / `endNodeIds` from §4.1). |
+| Document | YAML frontmatter `sources:` list (parsed by `loadFrontmatter` / serialised by `serializeFrontmatter`). |
+| SVG | Sidecar `<filename>.meta.json` (avoids polluting SVG `<svg>` for renderers that strip metadata). |
+| Tab | AlphaTex header `\sources` macro extension, or trailing comment block parsed at load. |
+
+All optional. Absent = no Sources section rendered. Existing files load unchanged.
+
+### 9.2 UX — properties panel "Sources" section
+
+Each properties-panel surface (DiagramProperties, NodeProperties, LineProperties, LayerProperties, FlowProperties for diagrams; DocumentProperties, SvgProperties, TabProperties for the others) gains a collapsible "Sources" section that is **always visible** so the *absence* of sources is itself a visible signal:
+
+- One row per source: title (editable text, falls back to URL host when blank) + URL (editable text) + "Open" button (`target="_blank"` `rel="noopener noreferrer"`) + "Remove".
+- "Add source" button appends a blank row.
+- Read-only mode: rows render as clickable links; add / remove / edit affordances disabled.
+- Empty list renders a single muted line: "No sources recorded." in non-edit mode; the "Add source" button still shows in edit mode.
+
+### 9.3 Skill contract — sources mandatory at generation time
+
+For every skill command that generates content (`/kb diagram`, `/kb document`, `/kb svg`, `/kb guitar-tabs`, `/kb create`):
+
+- The skill MUST populate `sources` with **at least one** URL on the top-level entity (the diagram, document, SVG, or tab the command produces).
+- Per-entity sources (node, connection, flow, layer) are encouraged where the entity represents a specific concept with its own canonical source (e.g. an RFC for an "OAuth Service" node, a paper for a flow, a tutorial for a layer). The skill adds per-entity sources when web search returns a high-confidence per-concept result; otherwise it falls through to the top-level sources only.
+- Sources are gathered in a new **Step 1.5: Gather sources** between the existing context-gathering step and the generation step. The skill uses WebSearch for the topic, then for individual concept queries when per-entity sourcing is feasible.
+- After generation, the user can override or remove sources in the Properties panel; this is expected and not an error.
+
+### 9.4 Validation rules
+
+`commands/validate.md` adds:
+
+- Every `sources[i].url` must parse as `http://` or `https://`. Other schemes (`javascript:`, `data:`, `file:`) are rejected.
+- `sources[i].title` is optional; empty strings are normalised to `undefined` on `--fix`.
+- Empty `sources` is **not** an error — the generation-time mandate is a skill contract, not a schema constraint. Manually edited content may legitimately drop sources.
+- `transform --add-conventions` in `-i` mode prompts the user to add sources where missing; non-interactive `transform` is idempotent (never adds).
+
+### 9.5 Test cases (additions)
+
+Numbered in a new `test-cases/` bucket (e.g. SRC-9.x), or folded into the relevant existing bucket per entity. Final placement decided during the implementation plan.
+
+- SRC-9-NN: `sources` round-trips through serialize / deserialize for each entity type (diagram top-level, node, connection, layer, flow, document, SVG, tab).
+- SRC-9-NN: Properties panel "Sources" section renders existing sources, supports add / edit / remove.
+- SRC-9-NN: Read-only mode disables edit affordances; links remain clickable.
+- SRC-9-NN: "Open" opens the URL in a new tab with `rel="noopener noreferrer"`.
+- SRC-9-NN: `validate` flags malformed URLs (`not-a-url`, `javascript:foo`); accepts empty list.
+- SRC-9-NN: Each generation command emits a non-empty top-level `sources` list (skill self-test against a fixture topic via the test harness).
+
+## 10. Knowledge-base skill changes — full scope
 
 | File | Change |
 |---|---|
-| `commands/diagram.md` | §8.3 (Step 3e replacement) + §8.4 (emit new fields). |
-| `commands/edit.md` | Teach `nodeOrders` / `startNodeIds` / `endNodeIds` placement rules. Teach widened `attachedTo` source types. |
-| `commands/validate.md` | Validate `nodeOrders` keys are flow members; validate `startNodeIds` / `endNodeIds` are flow members. Validate widened `attachedTo`. **Do not** flag empty values as errors. |
-| `commands/transform.md` | Idempotent — never auto-populates the new fields. Only normalises shape (ensures fields are absent rather than `null` if the source had `null`). |
+| `commands/diagram.md` | §8.3 (Step 3e replacement) + §8.4 (emit new flow fields) + §9.3 (gather sources at Step 1.5; emit `sources` at top-level and per-entity where confident). |
+| `commands/document.md` | §9.3 (gather sources at Step 1.5; emit frontmatter `sources`). |
+| `commands/svg.md` | §9.3 (emit sources in `.meta.json` sidecar). |
+| `commands/guitar-tabs.md` | §9.3 (emit sources via AlphaTex header macro / trailing comment). |
+| `commands/create.md` | Inherits via the diagram and document sub-commands it dispatches. |
+| `commands/edit.md` | Teach `nodeOrders` / `startNodeIds` / `endNodeIds` placement rules. Teach widened `attachedTo` source types. Teach the new `sources` field on every entity. |
+| `commands/validate.md` | §9.4 rules + validate `nodeOrders` keys are flow members; validate `startNodeIds` / `endNodeIds` are flow members; validate widened `attachedTo`. **Do not** flag empty `nodeOrders` / `start*` / `sources` as errors. |
+| `commands/transform.md` | Idempotent — never auto-populates `nodeOrders` / `start*` / `sources`. Normalises shape. `--add-conventions` interactive mode may prompt for sources. |
 | `archetypes/roadmaps.md` | Add canonical example showing order numbers for traversal sequence and multi-start / multi-end for choose-your-path roadmaps. Add guidance on when to use shared order numbers (parallel topics). |
 | `archetypes/software-architecture.md` | Brief example: `flow-login` with order 1..6, `startNodeIds: [el-browser]`, `endNodeIds: [el-session-db]`. |
-| `archetypes/_archetype-template.md` | New section: "Ordering conventions" — what makes the archetype's flows ordered or unordered, what start / end means in this domain. |
+| `archetypes/_archetype-template.md` | New section "Ordering conventions" — what makes the archetype's flows ordered or unordered, what start / end means in this domain. New section "Sourcing conventions" — what kinds of canonical sources fit the archetype's domain (RFCs for protocols, papers for algorithms, etc.). |
 
-## 10. Migration and backwards compatibility
+## 11. Migration and backwards compatibility
 
-- **Diagram files**: new fields are additive optional. Existing diagrams load and save without change. Authors who don't touch the new UI never see the new badges.
-- **Attachment store**: the JSON shape gains a `source.type` field; existing entries (which are all documents) get a default `source: { type: 'document', path: <existing-path> }` on first load. The migration runs in-memory at load time and is persisted on the next save.
+- **Diagram files**: new fields are additive optional. Existing diagrams load and save without change. Authors who don't touch the new UI never see the new badges or the empty Sources section's "Add source" button (collapsible).
+- **Attachment store**: the JSON shape gains a `source.type` field; existing entries (all documents) get a default `source: { type: 'document', path: <existing-path> }` on first load. The migration runs in-memory at load time and is persisted on the next save.
+- **Document / SVG / tab files**: frontmatter / sidecar `sources` field is additive optional. Pre-existing files have an empty Sources section.
 - **Skill outputs**: previously generated diagrams are not retroactively rewritten. New diagrams generated post-change use the new model.
 - **Test cases**: previously-recorded DIAG-3.10-* cases that asserted the auto-derived start/end glow remain valid for *empty* flows but the assertion now is "no glow when no manual start/end" instead of "glow on graph sources". Test bodies update; IDs preserved.
 
-## 11. Test cases (additions to `test-cases/03-diagram.md`)
+## 12. Test cases (additions to `test-cases/03-diagram.md`)
 
 Numbering continues from existing IDs in §3.10 / §3.18. Sample shape:
 
@@ -316,7 +386,7 @@ For wiki-link anchors (under §4.x Document Editor):
 - DOC-NN-NN: header delete surfaces broken-anchor banner with "Remove anchors" / "Leave broken".
 - DOC-NN-NN: heading hover in editor reveals copy-link icon; click copies wiki-link with anchor; toast confirms.
 
-## 12. Out of scope / future work
+## 13. Out of scope / future work
 
 - Embedded inline diagram preview (rejected; modal-driven instead).
 - Per-step flow documents (rejected; primary + optional extensions).
@@ -326,13 +396,15 @@ For wiki-link anchors (under §4.x Document Editor):
 - Decimal order numbers / fractional re-ranking (rejected; integers only).
 - Membership editing inside lock mode (rejected; stays a separate operation).
 - Quick Inspector grows an "Order" field outside lock mode (deferred; only in-canvas badge in lock+edit for v1).
+- Liveness-checking source URLs (rejected; the user verifies content, not the validator).
+- Auto-attaching screenshot / archive snapshots of source URLs (deferred).
 
-## 13. Implementation slices (to be expanded in the implementation plan)
+## 14. Implementation slices (to be expanded in the implementation plan)
 
 The work decomposes into independently-shippable slices. Suggested order, smallest blast radius first:
 
-1. **Data-model extension** — add `nodeOrders` / `startNodeIds` / `endNodeIds` to `FlowDef`, persist round-trip, no UI yet. Tests: serialization round-trip.
-2. **Read-only rendering** — wire `useDiagramFlowFocus` to read manual fields; render order badge + glow + pill from manual data. `computeFlowRoles` removed in this slice. Tests: badge rendering, role rendering, no-data fallthrough.
+1. **Flow data-model extension** — add `nodeOrders` / `startNodeIds` / `endNodeIds` to `FlowDef`, persist round-trip, no UI yet. Tests: serialization round-trip.
+2. **Read-only flow rendering** — wire `useDiagramFlowFocus` to read manual fields; render order badge + glow + pill from manual data. `computeFlowRoles` removed in this slice. Tests: badge rendering, role rendering, no-data fallthrough.
 3. **FlowProperties editing** — Member nodes section, Number sequentially button, start/end checkboxes. Tests: edit round-trip, dirty marking, undo/redo.
 4. **Lock-into-Flow mode** — interaction context state, dim treatment, panel stack, banner, keyboard shortcut. Tests: state transitions, dim coverage, panel layout.
 5. **In-canvas order edit** — editable badge in lock+edit, click toggle for start/end. Tests: input behaviour, commit/cancel, role toggle.
@@ -340,15 +412,18 @@ The work decomposes into independently-shippable slices. Suggested order, smalle
 7. **AttachmentsSection + Modal** — widened picker, AttachmentIndicator, AttachmentPreviewModal with read-only renderers per type. Tests: per-type render, "Open in pane", delete cascade.
 8. **Wiki-link anchors** — parse/render anchors, scroll-to-anchor on open, copy-link affordance. Tests: parse, render, scroll, copy.
 9. **Anchor refactoring** — header diff, auto-rename, broken-anchor banner. Tests: rename refactor, delete warning.
-10. **Knowledge-base skill — Step 3e replacement** — rich primary doc generation, conservative extensions, interactive prompts. Tests: skill self-tests / fixture diagrams.
-11. **Knowledge-base skill — schema awareness** — edit.md / validate.md / transform.md / archetypes updated. Tests: validate fixtures.
+10. **Source links — data model + properties UX** — `sources?` field on every primary entity (diagram, node, connection, layer, flow, document, svg, tab) and the Properties panel "Sources" section across every relevant view. Tests: round-trip, render, edit, read-only, URL validation.
+11. **Knowledge-base skill — Step 3e replacement** — rich primary doc generation, conservative extensions, interactive prompts. Tests: skill self-tests / fixture diagrams.
+12. **Knowledge-base skill — schema awareness + sourcing** — edit.md / validate.md / transform.md / archetypes updated; commands/{diagram,document,svg,guitar-tabs}.md gain Step 1.5 source gathering and emission. Tests: validate fixtures, generation self-tests asserting non-empty sources.
 
-Each slice ships behind a feature flag is **not** required — the data model is additive and renderers fall through to "render nothing" until the field is populated. Slices 1–5 form a coherent flow-ordering MVP; 6–7 are the cross-entity attachment MVP; 8–9 are the anchor MVP; 10–11 are the skill MVP. PRs should bundle by MVP, not by slice.
+A feature flag is **not** required — the data model is additive and renderers fall through to "render nothing" until a field is populated. Slices 1–5 form a coherent flow-ordering MVP; 6–7 the cross-entity attachment MVP; 8–9 the anchor MVP; 10 the source-links MVP; 11–12 the skill MVP. PRs should bundle by MVP, not by slice.
 
-## 14. Open questions deferred to plan
+## 15. Open questions deferred to plan
 
 - Exact glyph choices for the on-canvas attachment indicator (placeholder unicode chosen above; final may need icon-registry additions).
 - Whether the link index's header parser uses the existing markdown parser or a lightweight regex (perf vs precision).
 - Whether the AttachmentPreviewModal's left rail is always shown or only when more than one attachment is present.
+- Whether SVG sources land in a sidecar `<filename>.meta.json` or as a structured comment block inside the SVG (sidecar simpler, comment co-located but fragile to renderer post-processing).
+- Whether AlphaTex sources are emitted as a `\sources` macro (cleaner) or trailing comment block (more compatible with vanilla AlphaTex parsers).
 
 These do not block the spec; they will be answered during implementation planning.
