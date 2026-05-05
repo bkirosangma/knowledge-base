@@ -48,6 +48,7 @@ interface ElementProps {
   order?: number;
   orderEditable?: boolean;
   onOrderChange?: (next: number | undefined) => void;
+  lockedNonMember?: boolean;
 }
 
 function Element({
@@ -84,6 +85,7 @@ function Element({
   order,
   orderEditable,
   onOrderChange,
+  lockedNonMember: _lockedNonMember,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -316,6 +318,7 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.onResize === n.onResize &&
     p.onDoubleClick === n.onDoubleClick &&
     p.onDocNavigate === n.onDocNavigate &&
+    p.lockedNonMember === n.lockedNonMember &&
     shallowEqArr(p.documentPaths, n.documentPaths)
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Map as MapIcon } from "lucide-react";
 import Canvas, { type CanvasPatch } from "./Canvas";
 import Layer, { type ResizeEdge } from "./Layer";
@@ -10,6 +10,8 @@ import DiagramNodeLayer from "./DiagramNodeLayer";
 import DiagramLabelEditor from "./DiagramLabelEditor";
 import DiagramLabelOverlay from "./DiagramLabelOverlay";
 import CanvasLiveRegion from "./CanvasLiveRegion";
+import { LockBanner } from "./LockBanner";
+import { useLockedFlow } from "../state/DiagramInteractionContext";
 import { VIEWPORT_PADDING } from "../hooks/useCanvasCoords";
 import { isItemSelected } from "../utils/selectionUtils";
 import { detectContextMenuTarget } from "../utils/geometry";
@@ -276,6 +278,13 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     previewDocPath,
   } = props;
 
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
+  const isLocked = lockedFlowId !== null;
+  const lockedFlow = useMemo(
+    () => flows.find((f) => f.id === lockedFlowId) ?? null,
+    [flows, lockedFlowId],
+  );
+
   return (
     <div
       ref={canvasRef}
@@ -306,6 +315,9 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       }}
     >
       <CanvasLiveRegion selection={selection} nodes={nodes} layers={layerDefs} />
+      {lockedFlow && (
+        <LockBanner flowName={lockedFlow.name} onUnlock={() => setLockedFlowId(null)} />
+      )}
       {!activeFile ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-2 z-50">
           <div className="flex flex-col items-center gap-3 text-mute">
@@ -427,6 +439,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   isMultiDrag={isMultiDrag}
                   flowDimSets={flowDimSets}
                   typeDimSets={typeDimSets}
+                  isLocked={isLocked}
                   ghostLine={ghostLine}
                   pendingSelection={pendingSelection}
                   labelDragStartT={labelDragStartT}
@@ -491,7 +504,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   flowDimSets={flowDimSets}
                   typeDimSets={typeDimSets}
                   flowOrderData={flowOrderData}
-                  isLocked={false}
+                  isLocked={isLocked}
                   handleAnchorDragStart={handleAnchorDragStart}
                   handleAnchorHover={handleAnchorHover}
                   handleAnchorHoverEnd={handleAnchorHoverEnd}
