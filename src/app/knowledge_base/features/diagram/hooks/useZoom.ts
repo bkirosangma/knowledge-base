@@ -42,15 +42,17 @@ export function useZoom(
 
     zoomRef.current = newZoom;
 
-    // Update DOM synchronously
-    const sizer = el.firstElementChild as HTMLElement;
+    // Update DOM synchronously. The canvas root's first child is the
+    // sr-only `CanvasLiveRegion` — we need the actual sizer / wrapper,
+    // tagged with data-attributes for direct lookup.
+    const sizer = el.querySelector("[data-diagram-sizer]") as HTMLElement | null;
+    const canvasWrapper = el.querySelector("[data-diagram-canvas-wrapper]") as HTMLElement | null;
     if (sizer) {
       sizer.style.width = `${VIEWPORT_PADDING * 2 + w.w * newZoom}px`;
       sizer.style.height = `${VIEWPORT_PADDING * 2 + w.h * newZoom}px`;
-      const canvasWrapper = sizer.firstElementChild as HTMLElement;
-      if (canvasWrapper) {
-        canvasWrapper.style.transform = `scale(${newZoom})`;
-      }
+    }
+    if (canvasWrapper) {
+      canvasWrapper.style.transform = `scale(${newZoom})`;
     }
 
     // Keep the same world point at center
@@ -144,16 +146,18 @@ export function useZoom(
 
       zoomRef.current = newZoom;
 
-      // Synchronously update DOM — no React re-render needed for visual zoom
+      // Synchronously update DOM — no React re-render needed for visual zoom.
+      // Look up the sizer + wrapper by data attribute: the canvas root's
+      // first child is the sr-only `CanvasLiveRegion`, not the sizer.
       const w = worldRef.current;
-      const sizer = el.firstElementChild as HTMLElement;
+      const sizer = el.querySelector("[data-diagram-sizer]") as HTMLElement | null;
+      const canvasWrapper = el.querySelector("[data-diagram-canvas-wrapper]") as HTMLElement | null;
       if (sizer) {
         sizer.style.width = `${VIEWPORT_PADDING * 2 + w.w * newZoom}px`;
         sizer.style.height = `${VIEWPORT_PADDING * 2 + w.h * newZoom}px`;
-        const canvasWrapper = sizer.firstElementChild as HTMLElement;
-        if (canvasWrapper) {
-          canvasWrapper.style.transform = `scale(${newZoom})`;
-        }
+      }
+      if (canvasWrapper) {
+        canvasWrapper.style.transform = `scale(${newZoom})`;
       }
 
       // Keep the world point under the current cursor.

@@ -317,17 +317,22 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       ) : (
         <>
           <div
+            data-diagram-sizer
             style={{
               // See `zoomRef`/`worldRef` prop comment: read from refs, not
               // from React state, so this style stays in sync with the
               // imperative DOM writes performed by the wheel handler in
-              // `useZoom`.
+              // `useZoom`. The `data-diagram-sizer` attribute lets that
+              // handler find this element via querySelector — the canvas
+              // root's first child is the sr-only `CanvasLiveRegion`, not
+              // the sizer, so `el.firstElementChild` is the wrong target.
               width: VIEWPORT_PADDING * 2 + worldRef.current!.w * zoomRef.current!,
               height: VIEWPORT_PADDING * 2 + worldRef.current!.h * zoomRef.current!,
               position: "relative",
             }}
           >
             <div
+              data-diagram-canvas-wrapper
               style={{
                 position: "absolute",
                 left: VIEWPORT_PADDING,
