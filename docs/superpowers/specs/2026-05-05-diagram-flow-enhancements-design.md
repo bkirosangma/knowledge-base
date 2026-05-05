@@ -174,6 +174,8 @@ The existing `CreateAttachDocModal` and `DocumentsSection` rename to `CreateAtta
 - Renders a stacked glyph row, one glyph per source type present (no count): `📄` document, `◇` diagram, `🎨` svg, `🎸` tab. (Final glyph choices subject to icon-registry constraints; if Lucide icons are required, the registry adds `FileText`, `Network`, `Music`, `Image` for the four types.)
 - Click → opens the unified attachment preview modal (§6.3). Pointer-events disabled when the diagram is dimmed by lock mode and the parent node is not a member.
 
+Connections, layers, and flows do not carry an on-canvas attachment indicator (no spatial budget on connections, redundant on layers/flows). Their attachments surface through the properties panel's AttachmentsSection only.
+
 ### 6.3 Unified attachment preview modal
 
 `features/diagram/components/DocPreviewModal.tsx` becomes `features/diagram/components/AttachmentPreviewModal.tsx`.
@@ -222,7 +224,8 @@ The existing link index already handles file rename refactoring. Anchor refactor
 
 - Each indexed document carries a `headers: { id, text, level }[]` array.
 - On document save, the new `headers` array is diffed against the indexed one.
-  - **Pure rename** — exactly one removed and one added with identical level: treat as rename. Auto-update every `data-wiki-section` reference in every document that wiki-links into this file. The change is part of the link-updates batch and undoable.
+  - **Pure rename** — text changed, level identical: rename if exactly one removal + one addition match. Level-only change with identical text is also a rename. Auto-update every `data-wiki-section` reference in every document that wiki-links into this file. The change is part of the link-updates batch and undoable.
+  - **Ambiguous diff** — multiple removals and multiple additions in the same save (no clear pairing): treat each removal as removal and each addition as addition; surface the broken-anchor banner.
   - **Removal** — header gone with no rename match: surface a "Broken anchor links" banner listing every referencing document. The author can choose "Remove anchors" (drop `#section` from each reference) or "Leave broken" (keep them; renders as plain text wiki-link).
   - **Addition only** — no action needed.
 
@@ -241,7 +244,7 @@ Per flow, the skill writes one rich primary document and optional sibling extens
 
 ### 8.2 Skill generation policy
 
-- **Default (non-interactive)**: generate the primary doc. Generate extensions only when the topic is clearly multi-faceted enough to benefit (signals: the flow spans more than two architectural layers, or the topic registry shows related-but-distinct concepts already, or the topic name itself contains conjunctions like "and"). Conservative bias.
+- **Default (non-interactive)**: generate the primary doc. Generate extensions only when the skill judges, while drafting the primary, that one or more outline sections are deep enough to stand alone as their own document and dilute the primary if kept inline. Conservative bias — when in doubt, keep the content inline rather than spawn a sibling.
 - **Interactive (`-i`)**: after drafting the primary doc, the skill identifies candidate subtopics (one per outline section that grew past a threshold of complexity) and asks the user whether to extract each into an extension. User picks; skill writes only those.
 - **Truly deeper dives are out of scope**: if a candidate subtopic is itself a multi-flow concept, the skill suggests starting a new `/kb document` or `/kb create` session and stops there.
 
