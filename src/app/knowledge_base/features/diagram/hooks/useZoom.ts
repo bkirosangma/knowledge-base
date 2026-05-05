@@ -177,28 +177,39 @@ export function useZoom(
 
     el.addEventListener("wheel", onWheel, { passive: false });
 
-    // TEMP probe — every scroll event, compare the ACTUAL scrollLeft/Top
-    // with the last wheel target. Differences here mean some non-wheel code
-    // path (clamper, layout effect, browser auto-clamp on resize) shifted
-    // the scroll. This is the only way to catch jitter that the wheel-side
-    // probe missed.
-    const onScrollDrift = () => {
-      const w = window as unknown as { __zoomLastTargetSL?: number; __zoomLastTargetST?: number; __zoomLastTargetAt?: number };
-      const dueAt = w.__zoomLastTargetAt;
-      if (dueAt === undefined) return;
-      const ageMs = performance.now() - dueAt;
-      if (ageMs > 250) return; // only check shortly after a wheel event
-      const dxL = el.scrollLeft - (w.__zoomLastTargetSL ?? 0);
-      const dyT = el.scrollTop - (w.__zoomLastTargetST ?? 0);
-      if (Math.abs(dxL) > 1 || Math.abs(dyT) > 1) {
-        // eslint-disable-next-line no-console
-        console.log(`[scroll-drift] +${ageMs.toFixed(0)}ms after wheel: actual sl=${el.scrollLeft.toFixed(0)} st=${el.scrollTop.toFixed(0)} (target sl=${w.__zoomLastTargetSL?.toFixed(0)} st=${w.__zoomLastTargetST?.toFixed(0)}) Δ=${dxL.toFixed(1)},${dyT.toFixed(1)}`);
+    // TEMP probe — sample the actual rendered state per animation frame
+    // during a pinch to see if transform/width/scroll values jitter on the
+    // DOM even when the wheel-side probe sees them as stable.
+    let probeRaf: number | null = null;
+    let probeFrames = 0;
+    const sampleFrame = () => {
+      probeRaf = null;
+      const sizer = el.firstElementChild as HTMLElement | null;
+      const wrapper = sizer?.firstElementChild as HTMLElement | null;
+      if (sizer && wrapper) {
+        probeFrames++;
+        if (probeFrames <= 30) {
+          // eslint-disable-next-line no-console
+          console.log(`[paint-probe #${probeFrames}] sl=${el.scrollLeft.toFixed(2)} st=${el.scrollTop.toFixed(2)} sizer.w=${sizer.style.width} wrapper.tr=${wrapper.style.transform} zoomRef=${zoomRef.current.toFixed(4)}`);
+        }
       }
+      // Re-arm if zooming is active
+      if (isZoomingRef.current) probeRaf = requestAnimationFrame(sampleFrame);
     };
-    el.addEventListener("scroll", onScrollDrift, { passive: true });
+    const startProbe = () => {
+      probeFrames = 0;
+      if (probeRaf === null) probeRaf = requestAnimationFrame(sampleFrame);
+    };
+    // Hook into the existing isZooming flip — when set true, start sampling
+    // (we re-use registerSetIsZooming via a small wrapper).
+    const origSetIsZooming = setIsZoomingState.current;
+    setIsZoomingState.current = (v: boolean) => {
+      origSetIsZooming(v);
+      if (v) startProbe();
+    };
 
     return () => {
-      el.removeEventListener("scroll", onScrollDrift);
+      if (probeRaf !== null) cancelAnimationFrame(probeRaf);
       el.removeEventListener("wheel", onWheel);
       if (idleTimer) clearTimeout(idleTimer);
       if (renderTimer) clearTimeout(renderTimer);
