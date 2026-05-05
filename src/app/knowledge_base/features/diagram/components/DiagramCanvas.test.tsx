@@ -139,4 +139,19 @@ describe("DiagramCanvas — onMouseDown deselect guard", () => {
     fireEvent.mouseDown(canvas, { button: 0 });
     expect(setSelection).not.toHaveBeenCalled();
   });
+
+  it("DIAG-11-03: calls handleCanvasMouseDown even when a flow is locked", async () => {
+    const handleCanvasMouseDown = vi.fn();
+    render(
+      <DiagramInteractionProvider>
+        <LockHelper flowId="flow-x" />
+        <DiagramCanvas {...makeProps({ handleCanvasMouseDown })} />
+      </DiagramInteractionProvider>,
+    );
+    // Wait for the LockHelper effect to fire.
+    await act(async () => {});
+    const canvas = screen.getByTestId("diagram-canvas-root");
+    fireEvent.mouseDown(canvas, { button: 0 });
+    expect(handleCanvasMouseDown).toHaveBeenCalledTimes(1);
+  });
 });
