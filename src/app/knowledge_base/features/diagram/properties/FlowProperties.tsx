@@ -19,7 +19,14 @@ export function FlowProperties({
   flows: FlowDef[];
   connections: Connection[];
   nodes: NodeData[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{
+    id: string;
+    name: string;
+    category: string;
+    nodeOrders: Record<string, number>;
+    startNodeIds: string[];
+    endNodeIds: string[];
+  }>) => void;
   onDelete?: (id: string) => void;
   onSelectLine?: (lineId: string) => void;
   onSelectNode?: (nodeId: string) => void;
@@ -73,6 +80,27 @@ export function FlowProperties({
       .filter((item): item is NonNullable<typeof item> => item != null);
   }, [flow, connections, nodes]);
 
+  const memberRows = useMemo(() => {
+    if (!flow) return [];
+    const orders = flow.nodeOrders ?? {};
+    const startSet = new Set(flow.startNodeIds ?? []);
+    const endSet = new Set(flow.endNodeIds ?? []);
+    return nodeItems
+      .map((n) => ({
+        id: n.id,
+        label: n.name,
+        order: orders[n.id],
+        isStart: startSet.has(n.id),
+        isEnd: endSet.has(n.id),
+      }))
+      .sort((x, y) => {
+        if (x.order !== undefined && y.order !== undefined) return x.order - y.order || x.label.localeCompare(y.label);
+        if (x.order !== undefined) return -1;
+        if (y.order !== undefined) return 1;
+        return x.label.localeCompare(y.label);
+      });
+  }, [flow, nodeItems]);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detachTarget, setDetachTarget] = useState<string | null>(null);
 
@@ -107,6 +135,78 @@ export function FlowProperties({
           onCommit={(v) => { onUpdate?.(id, { category: v }); return true; }}
           onClear={() => onUpdate?.(id, { category: "" })}
         />
+      </Section>
+
+      <Section title="Member nodes">
+        <div className="flex justify-end mb-1">
+          <button
+            type="button"
+            data-testid="flow-number-sequentially"
+            className="text-xs text-blue-700 hover:underline disabled:opacity-50"
+            disabled={readOnly || memberRows.length === 0}
+            onClick={() => {
+              const nodeOrders: Record<string, number> = {};
+              memberRows.forEach((r, i) => { nodeOrders[r.id] = i + 1; });
+              onUpdate?.(flow.id, { nodeOrders });
+            }}
+          >
+            Number sequentially
+          </button>
+        </div>
+        {memberRows.map((row) => (
+          <div
+            key={row.id}
+            data-testid={`flow-member-row-${row.id}`}
+            className="flex items-center gap-2 text-xs py-0.5"
+          >
+            <span className="flex-1 truncate">{row.label}</span>
+            <input
+              data-testid={`flow-member-order-input-${row.id}`}
+              type="text"
+              inputMode="numeric"
+              className="w-12 px-1 py-0.5 border rounded text-center"
+              defaultValue={row.order ?? ""}
+              disabled={readOnly}
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                const next = v === "" ? undefined : parseInt(v, 10);
+                const orders = { ...(flow.nodeOrders ?? {}) };
+                if (next === undefined || Number.isNaN(next)) delete orders[row.id];
+                else orders[row.id] = next;
+                onUpdate?.(flow.id, { nodeOrders: orders });
+              }}
+            />
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                data-testid={`flow-member-start-checkbox-${row.id}`}
+                checked={row.isStart}
+                disabled={readOnly}
+                onChange={() => {
+                  const set = new Set(flow.startNodeIds ?? []);
+                  row.isStart ? set.delete(row.id) : set.add(row.id);
+                  onUpdate?.(flow.id, { startNodeIds: [...set] });
+                }}
+              />
+              <span>Start</span>
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                data-testid={`flow-member-end-checkbox-${row.id}`}
+                checked={row.isEnd}
+                disabled={readOnly}
+                onChange={() => {
+                  const set = new Set(flow.endNodeIds ?? []);
+                  row.isEnd ? set.delete(row.id) : set.add(row.id);
+                  onUpdate?.(flow.id, { endNodeIds: [...set] });
+                }}
+              />
+              <span>End</span>
+            </label>
+          </div>
+        ))}
+        {memberRows.length === 0 && <p className="text-xs text-mute">No member nodes — flow has no connections.</p>}
       </Section>
 
       <Section title="Connections">
