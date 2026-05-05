@@ -144,6 +144,26 @@ export function useEditingLabel(): EditingLabelContextValue {
   return ctx;
 }
 
+// ─── Locked flow ─────────────────────────────────────────────────────
+
+export interface LockedFlowContextValue {
+  lockedFlowId: string | null;
+  setLockedFlowId: React.Dispatch<React.SetStateAction<string | null>>;
+}
+const LockedFlowContext = createContext<LockedFlowContextValue | null>(null);
+
+function LockedFlowProvider({ children }: { children: React.ReactNode }) {
+  const [lockedFlowId, setLockedFlowId] = useState<string | null>(null);
+  const value = useMemo(() => ({ lockedFlowId, setLockedFlowId }), [lockedFlowId]);
+  return <LockedFlowContext.Provider value={value}>{children}</LockedFlowContext.Provider>;
+}
+
+export function useLockedFlow(): LockedFlowContextValue {
+  const ctx = useContext(LockedFlowContext);
+  if (!ctx) throw new Error("useLockedFlow must be used within DiagramInteractionProvider");
+  return ctx;
+}
+
 // ─── Master provider ─────────────────────────────────────────────────
 
 export function DiagramInteractionProvider({ children }: { children: React.ReactNode }) {
@@ -152,7 +172,9 @@ export function DiagramInteractionProvider({ children }: { children: React.React
       <HoveredNodeProvider>
         <ContextMenuProvider>
           <AnchorPopupProvider>
-            <EditingLabelProvider>{children}</EditingLabelProvider>
+            <EditingLabelProvider>
+              <LockedFlowProvider>{children}</LockedFlowProvider>
+            </EditingLabelProvider>
           </AnchorPopupProvider>
         </ContextMenuProvider>
       </HoveredNodeProvider>
