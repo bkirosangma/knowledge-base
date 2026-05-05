@@ -64,11 +64,15 @@ export function useZoom(
     const el = canvasRef.current;
     if (!el) return;
 
-    // Lock zoom anchor to the initial cursor position during a pinch gesture
-    let anchorWorldPt: { x: number; y: number } | null = null;
-    let anchorCursor: { x: number; y: number } | null = null;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
     let renderTimer: ReturnType<typeof setTimeout> | null = null;
+    // Trackpad pinch on macOS occasionally fires 1–2 non-ctrlKey wheel
+    // events at the very start (and end) of a gesture before the OS
+    // classifies it as a pinch. Track the most recent ctrl-wheel
+    // timestamp so we can swallow those bracketing scroll events instead
+    // of letting the canvas pan immediately before/after the zoom.
+    let lastPinchAt = 0;
+    const PINCH_WINDOW_MS = 200;
 
     const onWheel = (e: WheelEvent) => {
       // Prevent browser gestures (back/forward navigation, pull-to-refresh)
@@ -83,8 +87,16 @@ export function useZoom(
       }
 
       // Only zoom on pinch (ctrlKey) or meta+wheel
-      if (!e.ctrlKey && !e.metaKey) return;
+      if (!e.ctrlKey && !e.metaKey) {
+        // Inside the pinch window, treat stray non-ctrl wheel events as
+        // part of the gesture and swallow them so the canvas doesn't pan.
+        if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) {
+          e.preventDefault();
+        }
+        return;
+      }
       e.preventDefault();
+      lastPinchAt = Date.now();
 
       const oldZoom = zoomRef.current;
       // Adaptive sensitivity: faster pinch (larger deltaY) = higher sensitivity
@@ -98,16 +110,13 @@ export function useZoom(
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
 
-      // Lock anchor on first zoom event of the gesture
-      if (!anchorWorldPt) {
-        const contentX = el.scrollLeft + cursorX;
-        const contentY = el.scrollTop + cursorY;
-        anchorWorldPt = {
-          x: (contentX - VIEWPORT_PADDING) / oldZoom,
-          y: (contentY - VIEWPORT_PADDING) / oldZoom,
-        };
-        anchorCursor = { x: cursorX, y: cursorY };
-      }
+      // Anchor on the cursor for THIS event. The previous "lock anchor on
+      // first event" pattern caused the world to drift away from the
+      // cursor over a multi-event gesture (the locked anchor stayed put
+      // while the actual cursor / fingers moved), which read as the
+      // diagram panning during zoom.
+      const worldPtX = (el.scrollLeft + cursorX - VIEWPORT_PADDING) / oldZoom;
+      const worldPtY = (el.scrollTop + cursorY - VIEWPORT_PADDING) / oldZoom;
 
       // Signal zooming start — pause animations
       if (!isZoomingRef.current) {
@@ -115,19 +124,12 @@ export function useZoom(
         setIsZoomingState.current(true);
       }
 
-      // Reset idle timer — release anchor and end zooming after 200ms idle
+      // Reset idle timer — end zooming after 200ms idle
       if (idleTimer) clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
-        anchorWorldPt = null;
-        anchorCursor = null;
         isZoomingRef.current = false;
         setIsZoomingState.current(false);
       }, 200);
-
-      const worldPtX = anchorWorldPt.x;
-      const worldPtY = anchorWorldPt.y;
-      const lockCursorX = anchorCursor!.x;
-      const lockCursorY = anchorCursor!.y;
 
       zoomRef.current = newZoom;
 
@@ -143,13 +145,11 @@ export function useZoom(
         }
       }
 
-      // Adjust scroll synchronously
-      const newContentX = VIEWPORT_PADDING + worldPtX * newZoom;
-      const newContentY = VIEWPORT_PADDING + worldPtY * newZoom;
-      el.scrollLeft = newContentX - lockCursorX;
-      el.scrollTop = newContentY - lockCursorY;
+      // Keep the world point under the current cursor.
+      el.scrollLeft = VIEWPORT_PADDING + worldPtX * newZoom - cursorX;
+      el.scrollTop = VIEWPORT_PADDING + worldPtY * newZoom - cursorY;
 
-      // Debounce React state sync — only update after 100ms of no zoom events
+      // Debounce React state sync — only update after 50ms of no zoom events
       // This prevents expensive re-renders during active pinching
       if (renderTimer) clearTimeout(renderTimer);
       renderTimer = setTimeout(() => {
