@@ -134,7 +134,7 @@ export interface DiagramCanvasProps {
   // Dimming
   flowDimSets: DimSets | null;
   typeDimSets: DimSets | null;
-  flowOrderData: ReturnType<typeof import("../utils/flowUtils").computeFlowRoles> | null;
+  flowOrderData: Map<string, { role: 'start' | 'end' | 'middle'; order: number | undefined }> | null;
   // Canvas / coord helpers
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
   // Mutations / events plumbed through to children
