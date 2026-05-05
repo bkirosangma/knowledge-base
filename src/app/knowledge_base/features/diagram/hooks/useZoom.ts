@@ -42,15 +42,17 @@ export function useZoom(
 
     zoomRef.current = newZoom;
 
-    // Update DOM synchronously
-    const sizer = el.firstElementChild as HTMLElement;
+    // Update DOM synchronously. The canvas root's first child is the
+    // sr-only `CanvasLiveRegion` — we need the actual sizer / wrapper,
+    // tagged with data-attributes for direct lookup.
+    const sizer = el.querySelector("[data-diagram-sizer]") as HTMLElement | null;
+    const canvasWrapper = el.querySelector("[data-diagram-canvas-wrapper]") as HTMLElement | null;
     if (sizer) {
       sizer.style.width = `${VIEWPORT_PADDING * 2 + w.w * newZoom}px`;
       sizer.style.height = `${VIEWPORT_PADDING * 2 + w.h * newZoom}px`;
-      const canvasWrapper = sizer.firstElementChild as HTMLElement;
-      if (canvasWrapper) {
-        canvasWrapper.style.transform = `scale(${newZoom})`;
-      }
+    }
+    if (canvasWrapper) {
+      canvasWrapper.style.transform = `scale(${newZoom})`;
     }
 
     // Keep the same world point at center
@@ -133,8 +135,6 @@ export function useZoom(
       if (!isZoomingRef.current) {
         isZoomingRef.current = true;
         setIsZoomingState.current(true);
-        // TEMP probe: kick off per-frame paint-state sampling
-        startProbe();
       }
 
       // Reset idle timer — end zooming after 200ms idle
@@ -146,28 +146,23 @@ export function useZoom(
 
       zoomRef.current = newZoom;
 
-      // Synchronously update DOM — no React re-render needed for visual zoom
+      // Synchronously update DOM — no React re-render needed for visual zoom.
+      // Look up the sizer + wrapper by data attribute: the canvas root's
+      // first child is the sr-only `CanvasLiveRegion`, not the sizer.
       const w = worldRef.current;
-      const sizer = el.firstElementChild as HTMLElement;
+      const sizer = el.querySelector("[data-diagram-sizer]") as HTMLElement | null;
+      const canvasWrapper = el.querySelector("[data-diagram-canvas-wrapper]") as HTMLElement | null;
       if (sizer) {
         sizer.style.width = `${VIEWPORT_PADDING * 2 + w.w * newZoom}px`;
         sizer.style.height = `${VIEWPORT_PADDING * 2 + w.h * newZoom}px`;
-        const canvasWrapper = sizer.firstElementChild as HTMLElement;
-        if (canvasWrapper) {
-          canvasWrapper.style.transform = `scale(${newZoom})`;
-        }
+      }
+      if (canvasWrapper) {
+        canvasWrapper.style.transform = `scale(${newZoom})`;
       }
 
       // Keep the world point under the current cursor.
-      const slTarget = VIEWPORT_PADDING + worldPtX * newZoom - cursorX;
-      const stTarget = VIEWPORT_PADDING + worldPtY * newZoom - cursorY;
-      el.scrollLeft = slTarget;
-      el.scrollTop = stTarget;
-      // TEMP probe — record the wheel-driven scroll target so a parallel
-      // scroll-event listener can spot any post-wheel mutation.
-      (window as unknown as { __zoomLastTargetSL?: number; __zoomLastTargetST?: number; __zoomLastTargetAt?: number }).__zoomLastTargetSL = slTarget;
-      (window as unknown as { __zoomLastTargetSL?: number; __zoomLastTargetST?: number; __zoomLastTargetAt?: number }).__zoomLastTargetST = stTarget;
-      (window as unknown as { __zoomLastTargetSL?: number; __zoomLastTargetST?: number; __zoomLastTargetAt?: number }).__zoomLastTargetAt = performance.now();
+      el.scrollLeft = VIEWPORT_PADDING + worldPtX * newZoom - cursorX;
+      el.scrollTop = VIEWPORT_PADDING + worldPtY * newZoom - cursorY;
 
       // Debounce React state sync — only update after 50ms of no zoom events
       // This prevents expensive re-renders during active pinching
@@ -178,33 +173,7 @@ export function useZoom(
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
-
-    // TEMP probe — sample the actual rendered state per animation frame
-    // during a pinch to see if transform/width/scroll values jitter on the
-    // DOM even when the wheel-side probe sees them as stable.
-    let probeRaf: number | null = null;
-    let probeFrames = 0;
-    const sampleFrame = () => {
-      probeRaf = null;
-      const sizer = el.firstElementChild as HTMLElement | null;
-      const wrapper = sizer?.firstElementChild as HTMLElement | null;
-      if (sizer && wrapper) {
-        probeFrames++;
-        if (probeFrames <= 30) {
-          // eslint-disable-next-line no-console
-          console.log(`[paint-probe #${probeFrames}] sl=${el.scrollLeft.toFixed(2)} st=${el.scrollTop.toFixed(2)} sizer.w=${sizer.style.width} wrapper.tr=${wrapper.style.transform} zoomRef=${zoomRef.current.toFixed(4)}`);
-        }
-      }
-      // Re-arm if zooming is active
-      if (isZoomingRef.current) probeRaf = requestAnimationFrame(sampleFrame);
-    };
-    const startProbe = () => {
-      probeFrames = 0;
-      if (probeRaf === null) probeRaf = requestAnimationFrame(sampleFrame);
-    };
-
     return () => {
-      if (probeRaf !== null) cancelAnimationFrame(probeRaf);
       el.removeEventListener("wheel", onWheel);
       if (idleTimer) clearTimeout(idleTimer);
       if (renderTimer) clearTimeout(renderTimer);
