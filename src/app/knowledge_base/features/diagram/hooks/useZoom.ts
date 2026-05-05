@@ -88,6 +88,12 @@ export function useZoom(
 
       // Only zoom on pinch (ctrlKey) or meta+wheel
       if (!e.ctrlKey && !e.metaKey) {
+        // TEMP: diagnose "diagonal trackpad pan only scrolls one axis".
+        // Logs every non-ctrl wheel event so we can tell whether both
+        // deltaX and deltaY arrive from the device for a diagonal swipe.
+        // Remove once the diagonal-pan question is settled.
+        // eslint-disable-next-line no-console
+        console.debug("[zoom-probe] pan", { dx: e.deltaX.toFixed(2), dy: e.deltaY.toFixed(2), mode: e.deltaMode });
         // Inside the pinch window, treat stray non-ctrl wheel events as
         // part of the gesture and swallow them so the canvas doesn't pan.
         if (Date.now() - lastPinchAt < PINCH_WINDOW_MS) {
