@@ -133,6 +133,8 @@ export function useZoom(
       if (!isZoomingRef.current) {
         isZoomingRef.current = true;
         setIsZoomingState.current(true);
+        // TEMP probe: kick off per-frame paint-state sampling
+        startProbe();
       }
 
       // Reset idle timer — end zooming after 200ms idle
@@ -199,13 +201,6 @@ export function useZoom(
     const startProbe = () => {
       probeFrames = 0;
       if (probeRaf === null) probeRaf = requestAnimationFrame(sampleFrame);
-    };
-    // Hook into the existing isZooming flip — when set true, start sampling
-    // (we re-use registerSetIsZooming via a small wrapper).
-    const origSetIsZooming = setIsZoomingState.current;
-    setIsZoomingState.current = (v: boolean) => {
-      origSetIsZooming(v);
-      if (v) startProbe();
     };
 
     return () => {
