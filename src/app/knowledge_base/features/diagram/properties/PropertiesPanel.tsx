@@ -79,7 +79,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
 
-  const { lockedFlowId } = useLockedFlow();
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
   const lockedFlow = lockedFlowId ? flows.find((f) => f.id === lockedFlowId) ?? null : null;
 
   /**
@@ -122,6 +122,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             getDocumentReferences={getDocumentReferences}
             deleteDocumentWithCleanup={deleteDocumentWithCleanup}
             onCreateAndAttach={onCreateAndAttach}
+            onLockFlow={(flowId) => setLockedFlowId(flowId)}
           />
         )}
         {selection?.type === "node" && (

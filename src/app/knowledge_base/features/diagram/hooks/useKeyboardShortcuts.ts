@@ -20,6 +20,8 @@ interface KeyboardShortcutsConfig {
   onToggleReadOnly: () => void;
   /** Called at most once per session when the user presses a key in read mode. */
   onFirstKeystrokeInReadMode?: () => void;
+  lockedFlowId: string | null;
+  setLockedFlowId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 function isEditingInput(): boolean {
@@ -42,6 +44,8 @@ export function useKeyboardShortcuts({
   readOnly,
   onToggleReadOnly,
   onFirstKeystrokeInReadMode,
+  lockedFlowId,
+  setLockedFlowId,
 }: KeyboardShortcutsConfig) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -93,6 +97,20 @@ export function useKeyboardShortcuts({
         if (sel?.type === "multi-line") handleCreateFlow(sel.ids);
       }
 
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "l") {
+        if (isEditingInput()) return;
+        e.preventDefault();
+        if (lockedFlowId !== null) {
+          setLockedFlowId(null);
+          return;
+        }
+        const sel = selectionRef.current;
+        if (sel?.type === "flow") {
+          setLockedFlowId(sel.id);
+        }
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         if (isEditingInput()) return;
         if (readOnly) return;
@@ -136,7 +154,7 @@ export function useKeyboardShortcuts({
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly, onFirstKeystrokeInReadMode]);
+  }, [cancelSelectionRect, handleUndo, handleRedo, deleteSelection, handleCreateFlow, setSelection, setContextMenu, setPendingDeletion, selectionRef, pendingSelectionRef, nodesRef, readOnly, onToggleReadOnly, onFirstKeystrokeInReadMode, lockedFlowId, setLockedFlowId]);
 
   // ─── Register commands into the global palette ───
   // Use refs so the memoized command array stays stable across selection changes.

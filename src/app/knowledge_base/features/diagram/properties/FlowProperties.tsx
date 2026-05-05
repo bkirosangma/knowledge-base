@@ -13,6 +13,7 @@ export function FlowProperties({
   attachedDocs,
   onAttach, onDetach, onPreview,
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
+  onLock,
   readOnly,
 }: {
   id: string;
@@ -41,6 +42,7 @@ export function FlowProperties({
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
   onCreateAndAttach?: (filename: string, editNow: boolean) => Promise<void>;
+  onLock?: (flowId: string) => void;
   readOnly?: boolean;
 }) {
   const flow = flows.find((f) => f.id === id);
@@ -136,6 +138,17 @@ export function FlowProperties({
           onClear={() => onUpdate?.(id, { category: "" })}
         />
       </Section>
+
+      {onLock && (
+        <button
+          type="button"
+          data-testid="flow-lock-button"
+          className="text-xs text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded px-2 py-1 mt-2"
+          onClick={() => onLock(flow.id)}
+        >
+          🔒 Lock into Flow (⌘L)
+        </button>
+      )}
 
       <Section title="Member nodes">
         <div className="flex justify-end mb-1">

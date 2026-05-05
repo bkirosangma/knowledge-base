@@ -8,7 +8,7 @@ import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity }
 import { createLayerId } from "../utils/idFactory";
 import { computeLayout, type ArrangeAlgorithm } from "../utils/autoArrange";
 import { getAnchorEdge, type AnchorId } from "../utils/anchors";
-import { useAnchorPopup, useContextMenu, useEditingLabel, useHovered, useSelection } from "../state/DiagramInteractionContext";
+import { useAnchorPopup, useContextMenu, useEditingLabel, useHovered, useLockedFlow, useSelection } from "../state/DiagramInteractionContext";
 import { useDiagramDocument } from "./useDiagramDocument";
 import { useDiagramHistoryStore } from "./useDiagramHistoryStore";
 import { useDiagramGeometry } from "./useDiagramGeometry";
@@ -352,12 +352,14 @@ export function useDiagramController(input: DiagramControllerInputs) {
     setHoveredNodeId, setEditingLabel, setEditingLabelValue,
     pendingSelection, handleSelectionRectStart, handleDragStart, scheduleRecord, readOnly,
   });
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu, deleteSelection, setPendingDeletion,
     handleCreateFlow, handleUndo, handleRedo,
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
     readOnly, onToggleReadOnly: toggleReadOnly,
     onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
+    lockedFlowId, setLockedFlowId,
   });
 
   // KB-030: Tab/Shift+Tab walks nodes; arrows nudge; Enter opens label

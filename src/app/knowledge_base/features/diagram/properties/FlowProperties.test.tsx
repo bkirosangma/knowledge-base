@@ -127,3 +127,23 @@ describe("FlowProperties — Member nodes section", () => {
     }));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Lock into Flow button
+// ---------------------------------------------------------------------------
+
+it("calls onLock when Lock into Flow button is clicked", () => {
+  const onLock = vi.fn();
+  render(
+    <FlowProperties
+      id="f"
+      flows={[{ id: "f", name: "F", connectionIds: [] }]}
+      connections={[]}
+      nodes={[]}
+      allFlowIds={["f"]}
+      onLock={onLock}
+    />,
+  );
+  fireEvent.click(screen.getByTestId("flow-lock-button"));
+  expect(onLock).toHaveBeenCalledWith("f");
+});

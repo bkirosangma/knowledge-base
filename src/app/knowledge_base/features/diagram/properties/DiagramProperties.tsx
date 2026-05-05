@@ -68,6 +68,7 @@ export function DiagramProperties({
   backlinks, onOpenDocument: _onOpenDocument, readOnly,
   documents, onPreviewDocument, onOpenDocPicker, onDetachDocument,
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
+  onLockFlow,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -106,6 +107,7 @@ export function DiagramProperties({
   };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
   onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onLockFlow?: (flowId: string) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -259,6 +261,7 @@ export function DiagramProperties({
               getDocumentReferences={getDocumentReferences}
               deleteDocumentWithCleanup={deleteDocumentWithCleanup}
               onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(expandedFlow.id, filename, editNow) ?? Promise.resolve()}
+              onLock={onLockFlow}
               readOnly={readOnly}
             />
           )}
