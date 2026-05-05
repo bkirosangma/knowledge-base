@@ -299,6 +299,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-surface-2 relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
       style={{ scrollbarWidth: "none" }}
       onMouseDown={(e) => {
+        if (lockedFlowId) return; // Lock mode: canvas click does not deselect.
         if (e.button === 0 && selection?.type === "flow") setSelection(null);
         handleCanvasMouseDown(e);
       }}
