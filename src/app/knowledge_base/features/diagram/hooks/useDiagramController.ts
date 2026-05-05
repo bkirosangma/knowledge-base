@@ -463,7 +463,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   };
 
   const canvas: DiagramCanvasProps = {
-    canvasRef, activeFile, patches, world, zoom, isZooming,
+    canvasRef, activeFile, patches, world, zoom, zoomRef, worldRef, isZooming,
     layerDefs: layers, regions: geometry.regions, displayNodes: geometry.displayNodes,
     connections, flows, lineCurve,
     lines: geometry.lines, sortedLines: geometry.sortedLines, ghostLine: geometry.ghostLine,
