@@ -472,3 +472,103 @@ describe("DiagramData round-trip — attachedTo", () => {
     ]);
   });
 });
+
+describe("sources round-trip — DiagramData / Node / Connection / LayerDef / FlowDef", () => {
+  it("persists DiagramData.sources round-trip (top-level)", () => {
+    const data: DiagramData = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [],
+      flows: [],
+      sources: [{ url: "https://rfc.example/oauth", title: "OAuth RFC" }],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.sources).toEqual([
+      { url: "https://rfc.example/oauth", title: "OAuth RFC" },
+    ]);
+  });
+
+  it("persists NodeData.sources both ways through serializeNodes / loadDiagramFromData", () => {
+    const sources = [{ url: "https://rfc.example/oauth" }];
+    const n: NodeData = { ...node({ id: "n1" }), sources };
+    const serialized = serializeNodes([n]);
+    expect(serialized[0].sources).toEqual(sources);
+    const data: DiagramData = {
+      title: "T",
+      layers: [],
+      nodes: serialized,
+      connections: [],
+      flows: [],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.nodes[0].sources).toEqual(sources);
+  });
+
+  it("drops empty NodeData.sources from serialized output", () => {
+    const n: NodeData = { ...node({ id: "n-empty" }), sources: [] };
+    const serialized = serializeNodes([n]);
+    expect(serialized[0]).not.toHaveProperty("sources");
+  });
+
+  it("persists Connection.sources round-trip", () => {
+    const conn: Connection = {
+      id: "c1",
+      from: "a",
+      to: "b",
+      fromAnchor: "right-1",
+      toAnchor: "left-1",
+      color: "#000",
+      label: "",
+      sources: [{ url: "https://rfc.example/conn" }],
+    };
+    const data: DiagramData = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [conn],
+      flows: [],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.connections[0].sources).toEqual([{ url: "https://rfc.example/conn" }]);
+  });
+
+  it("persists LayerDef.sources round-trip", () => {
+    const layer: LayerDef = {
+      id: "L1",
+      title: "Layer 1",
+      bg: "#eff3f9",
+      border: "#cdd5e0",
+      sources: [{ url: "https://rfc.example/layer", title: "Layer Spec" }],
+    };
+    const data: DiagramData = {
+      title: "T",
+      layers: [layer],
+      nodes: [],
+      connections: [],
+      flows: [],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.layers[0].sources).toEqual([
+      { url: "https://rfc.example/layer", title: "Layer Spec" },
+    ]);
+  });
+
+  it("persists FlowDef.sources round-trip", () => {
+    const flow: FlowDef = {
+      id: "flow-auth",
+      name: "Auth",
+      connectionIds: ["c1"],
+      sources: [{ url: "https://rfc.example/flow" }],
+    };
+    const data: DiagramData = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [],
+      flows: [flow],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.flows[0].sources).toEqual([{ url: "https://rfc.example/flow" }]);
+  });
+});

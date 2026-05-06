@@ -1,5 +1,6 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
 import type { EntityAttachment } from "../../features/document/types";
+import type { SourceLink } from "../types/sources";
 import { classifyError } from "../../domain/errors";
 import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
 import { getConditionDimensions } from "../../features/diagram/utils/conditionGeometry";
@@ -46,6 +47,7 @@ export function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
     ...(n.borderColor ? { borderColor: n.borderColor } : {}),
     ...(n.bgColor ? { bgColor: n.bgColor } : {}),
     ...(n.textColor ? { textColor: n.textColor } : {}),
+    ...(n.sources && n.sources.length > 0 ? { sources: n.sources } : {}),
   }));
 }
 
@@ -71,6 +73,7 @@ export function loadDiagram(): {
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  sources: SourceLink[];
 } {
   if (typeof window !== "undefined") {
     try {
@@ -85,6 +88,7 @@ export function loadDiagram(): {
           layerManualSizes: data.layerManualSizes ?? {},
           lineCurve: data.lineCurve ?? "orthogonal",
           flows: data.flows ?? [],
+          sources: data.sources ?? [],
         };
       }
     } catch {
@@ -103,6 +107,7 @@ export function loadDiagramFromData(data: DiagramData): {
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
   attachedTo?: EntityAttachment[];
+  sources?: SourceLink[];
 } {
   return {
     title: data.title ?? "Untitled",
@@ -113,6 +118,7 @@ export function loadDiagramFromData(data: DiagramData): {
     lineCurve: data.lineCurve ?? "orthogonal",
     flows: data.flows ?? [],
     attachedTo: data.attachedTo,
+    sources: data.sources,
   };
 }
 
@@ -136,6 +142,7 @@ export function loadDefaults(): {
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  sources: SourceLink[];
 } {
   return {
     title: "Untitled",
@@ -145,6 +152,7 @@ export function loadDefaults(): {
     layerManualSizes: {},
     lineCurve: "orthogonal",
     flows: [],
+    sources: [],
   };
 }
 
@@ -156,6 +164,7 @@ export function saveDiagram(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[] = [],
+  sources: SourceLink[] | undefined = undefined,
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -166,6 +175,7 @@ export function saveDiagram(
     layerManualSizes,
     lineCurve,
     flows,
+    ...(sources && sources.length > 0 ? { sources } : {}),
   };
   try {
     localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(data));
@@ -196,6 +206,7 @@ export function saveDraft(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[] = [],
+  sources: SourceLink[] | undefined = undefined,
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -206,6 +217,7 @@ export function saveDraft(
     layerManualSizes,
     lineCurve,
     flows,
+    ...(sources && sources.length > 0 ? { sources } : {}),
   };
   try {
     localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));

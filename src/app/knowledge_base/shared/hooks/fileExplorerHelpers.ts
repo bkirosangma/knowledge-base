@@ -51,6 +51,7 @@ export function isDiagramData(data: unknown): data is DiagramData {
   if (d.flows !== undefined && !Array.isArray(d.flows)) return false;
   if (d.documents !== undefined && !Array.isArray(d.documents)) return false;
   if (d.attachedTo !== undefined && !Array.isArray(d.attachedTo)) return false;
+  if (d.sources !== undefined && !Array.isArray(d.sources)) return false;
   if (d.layerManualSizes !== undefined && (typeof d.layerManualSizes !== "object" || d.layerManualSizes === null)) return false;
   return true;
 }

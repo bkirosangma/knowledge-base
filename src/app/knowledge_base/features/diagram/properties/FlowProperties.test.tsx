@@ -1,7 +1,10 @@
 import { it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { FlowProperties } from "./FlowProperties";
 import type { FlowDef, Connection, NodeData } from "../types";
+import type { SourceLink } from "../../../shared/types/sources";
 
 const flow: FlowDef = { id: "flow-1", name: "Auth Flow", connectionIds: [] };
 const baseProps = {
@@ -146,4 +149,53 @@ it("calls onLock when Lock into Flow button is clicked", () => {
   );
   fireEvent.click(screen.getByTestId("flow-lock-button"));
   expect(onLock).toHaveBeenCalledWith("f");
+});
+
+// ─── Sources section ────────────────────────────────────────────────────────
+
+describe("FlowProperties — Sources section", () => {
+  it("renders an existing source row and commits a new URL via onUpdate", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    function Host() {
+      const [sources, setSources] = useState<SourceLink[]>([
+        { url: "https://example.com", title: "Example" },
+      ]);
+      const flowWithSource: FlowDef = {
+        id: "flow-1",
+        name: "Auth Flow",
+        connectionIds: [],
+        sources,
+      };
+      return (
+        <FlowProperties
+          id="flow-1"
+          flows={[flowWithSource]}
+          connections={[]}
+          nodes={[]}
+          allFlowIds={["flow-1"]}
+          onUpdate={(id, updates) => {
+            onUpdate(id, updates);
+            if (updates.sources !== undefined) setSources(updates.sources);
+          }}
+        />
+      );
+    }
+    render(<Host />);
+    expect(screen.getByTestId("sources-row-0")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("sources-add"));
+    const urlInput = await screen.findByTestId("sources-url-input-1");
+    await user.type(urlInput, "https://docs.example.org");
+    await user.tab();
+
+    const lastCall = onUpdate.mock.calls.at(-1);
+    expect(lastCall?.[0]).toBe("flow-1");
+    expect(lastCall?.[1]).toEqual({
+      sources: [
+        { url: "https://example.com", title: "Example" },
+        { url: "https://docs.example.org", title: "" },
+      ],
+    });
+  });
 });

@@ -10,6 +10,7 @@ import DocumentPicker from "../../../shared/components/DocumentPicker";
 import type { AnchorId } from "../utils/anchors";
 import type { NodeData, LayerDef, Connection, FlowDef, LineCurveAlgorithm, Selection, RegionBounds } from "../types";
 import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
+import type { SourceLink } from "../../../shared/types/sources";
 import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
 import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
@@ -37,6 +38,7 @@ export interface DiagramOverlaysProps {
   levelMap: any;
   lineCurve: LineCurveAlgorithm;
   measuredSizes: Record<string, { w: number; h: number }>;
+  sources: SourceLink[];
 
   // Layout UI state
   propertiesCollapsed: boolean;
@@ -97,6 +99,7 @@ export interface DiagramOverlaysProps {
   setMeasuredSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
   setTitle: React.Dispatch<React.SetStateAction<string>>;
   setLineCurve: React.Dispatch<React.SetStateAction<LineCurveAlgorithm>>;
+  setSources: React.Dispatch<React.SetStateAction<SourceLink[]>>;
   setPendingDeletion: React.Dispatch<React.SetStateAction<PendingDeletion | null>>;
   setPendingReconnect: React.Dispatch<React.SetStateAction<{
     oldId: string;
@@ -191,6 +194,7 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     levelMap,
     lineCurve,
     measuredSizes: _measuredSizes,
+    sources,
     propertiesCollapsed,
     historyCollapsed,
     showMinimap,
@@ -223,6 +227,7 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     setMeasuredSizes,
     setTitle,
     setLineCurve,
+    setSources,
     setPendingDeletion,
     setPendingReconnect,
     setPickerTarget,
@@ -416,6 +421,13 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         activeFile={activeFile}
         attachmentsByType={attachmentsByType}
         openAttachmentPreviewFor={openAttachmentPreviewFor}
+        sources={sources}
+        onUpdateDiagram={(updates) => {
+          if (updates.sources !== undefined) {
+            setSources(updates.sources);
+            scheduleRecord("Edit sources");
+          }
+        }}
         history={activeFile ? {
           entries: history.entries,
           currentIndex: history.currentIndex,

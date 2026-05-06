@@ -7,6 +7,8 @@ import { Section, Row, EditableRow, ExpandableListRow, DropdownRow, type RegionB
 import DocumentsSection from "./DocumentsSection";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { FlowProperties } from "./FlowProperties";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 function FlowListItem({
   flow, isExpanded, onToggle, onHover,
@@ -72,6 +74,7 @@ export function DiagramProperties({
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
   onLockFlow,
   diagramFilename, attachmentsByType, openAttachmentPreviewFor,
+  sources, onUpdateDiagram,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -114,6 +117,8 @@ export function DiagramProperties({
   diagramFilename?: string | null;
   attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
   openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  sources?: SourceLink[];
+  onUpdateDiagram?: (updates: Partial<{ sources: SourceLink[] }>) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -294,6 +299,14 @@ export function DiagramProperties({
           readOnly={readOnly}
         />
       )}
+
+      <Section title="Sources">
+        <SourcesSection
+          sources={sources ?? []}
+          readOnly={readOnly}
+          onChange={(next) => onUpdateDiagram?.({ sources: next })}
+        />
+      </Section>
     </>
   );
 }

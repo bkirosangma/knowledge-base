@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../types";
+import type { SourceLink } from "../../../shared/types/sources";
 import { saveDraft } from "../../../shared/utils/persistence";
 import { useShellErrors } from "../../../shell/ShellErrorContext";
 
@@ -23,6 +24,7 @@ export function useDiagramPersistence(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[],
+  sources: SourceLink[],
   activeFile: string | null,
   onDirtyChange?: (fileName: string, dirty: boolean) => void,
 ) {
@@ -36,11 +38,12 @@ export function useDiagramPersistence(
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
     fl: FlowDef[],
+    src: SourceLink[],
   ) => {
     // Lightweight fingerprint: JSON of the serializable parts.
     // Document/flow attachments are workspace-level state (.kb/attachment-links.json),
     // not part of the diagram document, so they do not feed this fingerprint.
-    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl });
+    return JSON.stringify({ title: t, layers: l.length, nodes: n.map(nd => ({ id: nd.id, x: nd.x, y: nd.y, label: nd.label, sub: nd.sub, w: nd.w, layer: nd.layer })), connections: c, layerManualSizes: lms, lineCurve: lc, layerDefs: l, flows: fl, sources: src });
   }, []);
 
   const setLoadSnapshot = useCallback((
@@ -48,8 +51,9 @@ export function useDiagramPersistence(
     lms: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
     lc: LineCurveAlgorithm,
     fl: FlowDef[],
+    src: SourceLink[] = [],
   ) => {
-    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl);
+    snapshotRef.current = takeSnapshot(t, l, n, c, lms, lc, fl, src);
     setIsDirty(false);
   }, [takeSnapshot]);
 
@@ -62,7 +66,7 @@ export function useDiagramPersistence(
   useEffect(() => {
     if (!hydratedRef.current) return;
 
-    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
+    const currentSnap = takeSnapshot(title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, sources);
     const dirty = snapshotRef.current !== null && currentSnap !== snapshotRef.current;
     setIsDirty(dirty);
 
@@ -71,7 +75,7 @@ export function useDiagramPersistence(
         // Only write draft if actually changed from disk version
         if (dirty) {
           try {
-            saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows);
+            saveDraft(activeFile, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, sources);
             onDirtyChange?.(activeFile, true);
           } catch (e) {
             // Quota-exceeded during autosave is a real data-loss vector.
@@ -83,7 +87,7 @@ export function useDiagramPersistence(
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, activeFile, takeSnapshot, onDirtyChange, reportError]);
+  }, [title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, sources, activeFile, takeSnapshot, onDirtyChange, reportError]);
 
   return { isDirty, setLoadSnapshot };
 }

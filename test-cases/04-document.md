@@ -250,6 +250,7 @@
 - **DOC-4.9-08** ✅ **Click backlink navigates** — opens source.
 - **DOC-4.9-09** 🚫 **Collapse state persisted to localStorage.** — collapse state owned/persisted by parent component.
 - **DOC-4.9-10** ✅ **Collapsed width = 36 px.**
+- **DOC-4.9-11** ✅ **DocumentProperties propagates SourcesSection edits via `onUpdateSources` (MVP-4a)** — Add → typing a URL → blur fires `onUpdateSources` with the new `SourceLink[]`. _(unit: `DocumentProperties.test.tsx`)_
 
 ## 4.10 Link Index (`_links.json`)
 
@@ -312,6 +313,14 @@
 - **DOC-4.11-26** ✅ **`removeDocument` removes entry entirely** — after `removeDocument` is called with a doc path, that document no longer appears in the documents list.
 - **DOC-4.11-27** ✅ **`removeDocument` is a no-op for unknown path** — calling `removeDocument` with a path not in the list leaves state unchanged.
 - **DOC-4.11-28** ✅ **File-tree `.md` delete detaches all attachment rows whose `docPath` matches the deleted path** — `mdFileMatcher` returns true only for exact `docPath` equality; a path that merely shares a prefix (`notes/plan.md-archive.md`) is not matched. _(unit: `fileTreeMatchers.test.ts`.)_
+- **DOC-4.11-29** ✅ **DocumentMeta `sources` round-trip via YAML frontmatter (MVP-4a)** — `parseFrontmatter` reads `sources:` block list with `url` + optional `title`; `serializeFrontmatter` writes the same shape; `useDocumentContent` exposes `sources` on load and persists them on save. _(unit: `frontmatter.test.ts`, `useDocumentContent.test.ts`.)_
+- **DOC-4.11-30** ✅ **Frontmatter unknown keys round-trip unchanged through a sources edit (MVP-4a)** — keys other than `sources:` are preserved verbatim in `rawYaml`; editing `sources` does not touch them. _(unit: `frontmatter.test.ts`, `useDocumentContent.test.ts`.)_
+- **DOC-4.11-31** ✅ **Frontmatter parser normalises CRLF → LF (MVP-4a)** — CRLF input is normalised before parsing; serialized output is LF-only. _(unit: `frontmatter.test.ts`.)_
+- **DOC-4.11-32** ✅ **Frontmatter parser strips leading UTF-8 BOM (MVP-4a)** — a BOM at offset 0 is stripped before fence detection so a BOM-prefixed file with frontmatter parses correctly. _(unit: `frontmatter.test.ts`.)_
+- **DOC-4.11-33** ✅ **Frontmatter parser falls back gracefully on unclosed leading fence (MVP-4a)** — a leading `---` with no closing fence is treated as no-frontmatter; the full text is preserved as body, no corruption. _(unit: `frontmatter.test.ts`.)_
+- **DOC-4.11-34** ✅ **Non-leading `---` is NOT parsed as frontmatter (MVP-4a)** — only a `---` line at offset 0 opens a frontmatter block; mid-document `---` lines are body content. _(unit: `frontmatter.test.ts`.)_
+- **DOC-4.11-35** ✅ **`parseFrontmatter` / `serializeFrontmatter` is a fixed point on its own outputs (MVP-4a)** — round-tripping the serializer's output through parse → serialize yields the same bytes. _(unit: `frontmatter.test.ts`.)_
+- **DOC-4.11-36** ✅ **Document body edit preserves `sources` in frontmatter on save (MVP-4a)** — editing only the body via `updateContent` keeps the loaded `sources` intact; the next `save` writes a file with the original frontmatter and the new body. _(unit: `useDocumentContent.test.ts`.)_
 
 ## 4.12 Read-Only Mode (Document)
 

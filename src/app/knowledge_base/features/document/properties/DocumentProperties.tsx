@@ -6,6 +6,8 @@ import HistoryPanel from "../../../shared/components/HistoryPanel";
 import { Tooltip } from "../../../shared/components/Tooltip";
 import type { HistoryEntry } from "../../../shared/utils/historyPersistence";
 import UnlinkedMentions from "../components/UnlinkedMentions";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 interface HistoryPanelBridge {
   entries: HistoryEntry<unknown>[];
@@ -38,6 +40,10 @@ interface DocumentPropertiesProps {
    * When omitted, "Convert all" buttons hide.
    */
   onConvertMention?: (newContent: string) => void;
+  /** Source links parsed from the document's YAML frontmatter (MVP-4a). */
+  sources?: SourceLink[];
+  /** Replace the sources list — round-trips through `useDocumentContent.updateSources`. */
+  onUpdateSources?: (next: SourceLink[]) => void;
 }
 
 export default function DocumentProperties({
@@ -52,6 +58,8 @@ export default function DocumentProperties({
   readOnly,
   allFilePaths,
   onConvertMention,
+  sources,
+  onUpdateSources,
 }: DocumentPropertiesProps) {
   const stats = useMemo(() => {
     if (!content) return { words: 0, chars: 0, readingTime: "0 min" };
@@ -139,6 +147,16 @@ export default function DocumentProperties({
               {stats.readingTime} read
             </div>
           </div>
+        </div>
+
+        {/* Sources — http(s) URLs parsed from / written to YAML frontmatter (MVP-4a). */}
+        <div className="px-4 py-3 border-b border-line">
+          <div className="text-xs font-semibold text-mute uppercase tracking-wider mb-2">Sources</div>
+          <SourcesSection
+            sources={sources ?? []}
+            readOnly={readOnly}
+            onChange={onUpdateSources ?? (() => {})}
+          />
         </div>
 
         {/* Outbound Links */}

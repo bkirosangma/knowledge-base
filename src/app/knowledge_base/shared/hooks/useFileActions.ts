@@ -1,5 +1,6 @@
 import { useCallback, useRef, type MutableRefObject } from "react";
 import type { NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef, DocumentMeta } from "../utils/types";
+import type { SourceLink } from "../types/sources";
 import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/persistence";
 import type { DiagramSnapshot } from "./useDiagramHistory";
 import type { useFileExplorer } from "./useFileExplorer";
@@ -32,7 +33,7 @@ export function useFileActions(
   applyDiagramToState: ApplyDiagramToState,
   isRestoringRef: MutableRefObject<boolean>,
   isDirty: boolean,
-  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[]) => void,
+  setLoadSnapshot: (title: string, layers: LayerDef[], nodes: NodeData[], connections: Connection[], layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>, lineCurve: LineCurveAlgorithm, flows: FlowDef[], sources?: SourceLink[]) => void,
   confirmAction: ConfirmAction | null,
   setConfirmAction: React.Dispatch<React.SetStateAction<ConfirmAction | null>>,
   canvasRef: MutableRefObject<HTMLDivElement | null>,
@@ -44,6 +45,7 @@ export function useFileActions(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[],
+  sources: SourceLink[],
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>,
   onAfterSave?: () => Promise<void>,
   onAfterDiscard?: () => void,
@@ -63,11 +65,11 @@ export function useFileActions(
   // preserves "latest known state" reads inside the callbacks while
   // shrinking the dep list back to stable callables.
   const currentStateRef = useRef({
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, sources, onMigrateLegacyDocuments,
     onBeforeDeleteFolder,
   });
   currentStateRef.current = {
-    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, onMigrateLegacyDocuments,
+    isDirty, title, layerDefs, nodes, connections, layerManualSizes, lineCurve, flows, sources, onMigrateLegacyDocuments,
     onBeforeDeleteFolder,
   };
 
@@ -84,7 +86,7 @@ export function useFileActions(
     const s = currentStateRef.current;
     if (s.isDirty && outgoing && outgoing !== fileName) {
       await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
-        outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows,
+        outgoing, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, undefined, s.sources,
       );
     }
 
@@ -132,10 +134,10 @@ export function useFileActions(
     const s = currentStateRef.current;
     if (!fileExplorer.activeFile || !s.isDirty) return;
     const success = await (fileExplorer.saveFile as (...args: Parameters<typeof fileExplorer.saveFile>) => Promise<boolean>)(
-      fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows,
+      fileExplorer.activeFile, s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, serializeNodes, s.flows, undefined, s.sources,
     );
     if (success) {
-      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows);
+      setLoadSnapshot(s.title, s.layerDefs, s.nodes, s.connections, s.layerManualSizes, s.lineCurve, s.flows, s.sources);
       const onDiskData = {
         title: s.title,
         layers: s.layerDefs,
@@ -144,6 +146,7 @@ export function useFileActions(
         layerManualSizes: s.layerManualSizes,
         lineCurve: s.lineCurve,
         flows: s.flows,
+        ...(s.sources && s.sources.length > 0 ? { sources: s.sources } : {}),
       };
       history.onSave(JSON.stringify(onDiskData, null, 2));
       await callbacksRef.current.onAfterSave?.();

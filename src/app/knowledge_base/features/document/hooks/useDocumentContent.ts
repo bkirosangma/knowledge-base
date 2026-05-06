@@ -10,6 +10,8 @@ import {
   loadDocumentDraft,
   clearDraft,
 } from "../../../shared/utils/persistence";
+import { parseFrontmatter, serializeFrontmatter } from "../utils/frontmatter";
+import type { SourceLink } from "../../../shared/types/sources";
 
 const DRAFT_DEBOUNCE_MS = 500;
 
@@ -54,6 +56,8 @@ export function useDocumentContent(filePath: string | null) {
   const { document: documentRepo } = useRepositories();
   const { reportError } = useShellErrors();
   const [content, setContent] = useState("");
+  const [sources, setSources] = useState<SourceLink[] | undefined>(undefined);
+  const [rawYaml, setRawYaml] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loadError, setLoadError] = useState<FileSystemError | null>(null);
   // KB-002: when a draft was restored from localStorage on mount and the
@@ -67,6 +71,8 @@ export function useDocumentContent(filePath: string | null) {
   const [loadedPath, setLoadedPath] = useState<string | null>(null);
   const prevPathRef = useRef<string | null>(null);
   const contentRef = useRef("");
+  const sourcesRef = useRef<SourceLink[] | undefined>(undefined);
+  const rawYamlRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const loadErrorRef = useRef<FileSystemError | null>(null);
   const diskChecksumRef = useRef<string>("");
@@ -75,8 +81,16 @@ export function useDocumentContent(filePath: string | null) {
 
   // Keep refs in sync for save-on-switch and bridge getters
   contentRef.current = content;
+  sourcesRef.current = sources;
+  rawYamlRef.current = rawYaml;
   dirtyRef.current = dirty;
   loadErrorRef.current = loadError;
+
+  const serializeCurrent = useCallback((): string => serializeFrontmatter({
+    data: { sources: sourcesRef.current },
+    rawYaml: rawYamlRef.current,
+    body: contentRef.current,
+  }), []);
 
   // Save helper
   const save = useCallback(async () => {
@@ -88,8 +102,9 @@ export function useDocumentContent(filePath: string | null) {
     // real file with stale content.
     if (loadErrorRef.current) return;
     try {
-      await repo.write(filePath, contentRef.current);
-      diskChecksumRef.current = fnv1a(contentRef.current);
+      const serialized = serializeCurrent();
+      await repo.write(filePath, serialized);
+      diskChecksumRef.current = fnv1a(serialized);
       setDirty(false);
       // KB-002: a successful save means the in-memory state matches disk,
       // so any persisted draft is now redundant. Drop it and dismiss the
@@ -99,7 +114,7 @@ export function useDocumentContent(filePath: string | null) {
     } catch (e) {
       reportError(e, `Saving ${filePath}`);
     }
-  }, [filePath, reportError]);
+  }, [filePath, reportError, serializeCurrent]);
 
   // Load content when filePath changes; auto-save previous if dirty
   useEffect(() => {
@@ -120,7 +135,7 @@ export function useDocumentContent(filePath: string | null) {
       // failure leave the draft so a future reopen can restore.
       if (prevPath && dirtyRef.current && repo) {
         try {
-          await repo.write(prevPath, contentRef.current);
+          await repo.write(prevPath, serializeCurrent());
           clearDraft(prevPath);
         } catch (e) {
           reportError(e, `Auto-saving ${prevPath} on switch`);
@@ -130,6 +145,8 @@ export function useDocumentContent(filePath: string | null) {
       // Load new document
       if (!filePath) {
         setContent("");
+        setSources(undefined);
+        setRawYaml(null);
         setDirty(false);
         setLoadError(null);
         setLoadedPath(null);
@@ -139,6 +156,8 @@ export function useDocumentContent(filePath: string | null) {
       if (!repo) {
         // Pre-picker — can't read. Not an error; show empty.
         setContent("");
+        setSources(undefined);
+        setRawYaml(null);
         setDirty(false);
         setLoadError(null);
         setLoadedPath(filePath);
@@ -148,6 +167,7 @@ export function useDocumentContent(filePath: string | null) {
 
       try {
         const text = await repo.read(filePath);
+        const parsed = parseFrontmatter(text);
         const draft = loadDocumentDraft(filePath);
         // KB-002 restore-on-mount: if the stored draft differs from disk
         // it represents unsaved work — restore it as the in-memory state
@@ -155,7 +175,10 @@ export function useDocumentContent(filePath: string | null) {
         // draft matches disk it's stale (the user must have saved on
         // another tab) — silently clear it.
         if (draft && draft.content !== text) {
-          setContent(draft.content);
+          const draftParsed = parseFrontmatter(draft.content);
+          setContent(draftParsed.body);
+          setSources(draftParsed.data.sources);
+          setRawYaml(draftParsed.rawYaml);
           diskChecksumRef.current = fnv1a(text);
           setDirty(true);
           setLoadError(null);
@@ -163,7 +186,9 @@ export function useDocumentContent(filePath: string | null) {
           setPendingDraft({ savedAt: draft.savedAt });
         } else {
           if (draft) clearDraft(filePath);
-          setContent(text);
+          setContent(parsed.body);
+          setSources(parsed.data.sources);
+          setRawYaml(parsed.rawYaml);
           diskChecksumRef.current = fnv1a(text);
           setDirty(false);
           setLoadError(null);
@@ -183,7 +208,7 @@ export function useDocumentContent(filePath: string | null) {
         // loadedPath === filePath will correctly skip until a retry.
       }
     })();
-  }, [filePath, reportError]);
+  }, [filePath, reportError, serializeCurrent]);
 
   const updateContent = useCallback((markdown: string) => {
     // If the most recent load failed, edits are ignored so the user
@@ -214,9 +239,15 @@ export function useDocumentContent(filePath: string | null) {
   }, []);
 
   // Apply a snapshot string directly — no disk I/O. Used when history can
-  // restore the saved state without re-reading the file (history-first discard).
+  // restore the saved state without re-reading the file (history-first discard)
+  // and when the file watcher reloads after an external edit. The string is
+  // the raw on-disk markdown (frontmatter + body); we parse so the editor
+  // stays body-only and `sources` reflect the on-disk metadata.
   const resetToContent = useCallback((text: string) => {
-    setContent(text);
+    const parsed = parseFrontmatter(text);
+    setContent(parsed.body);
+    setSources(parsed.data.sources);
+    setRawYaml(parsed.rawYaml);
     setDirty(false);
   }, []);
 
@@ -229,7 +260,10 @@ export function useDocumentContent(filePath: string | null) {
     if (loadErrorRef.current) return;
     try {
       const text = await repo.read(filePath);
-      setContent(text);
+      const parsed = parseFrontmatter(text);
+      setContent(parsed.body);
+      setSources(parsed.data.sources);
+      setRawYaml(parsed.rawYaml);
       setDirty(false);
       // KB-002: discard wipes unsaved edits, so any persisted draft is
       // also discarded. Dismiss the restore banner too — it's about to
@@ -241,6 +275,12 @@ export function useDocumentContent(filePath: string | null) {
     }
   }, [filePath, reportError]);
 
+  const updateSources = useCallback((next: SourceLink[]) => {
+    if (loadErrorRef.current) return;
+    setSources(next.length === 0 ? undefined : next);
+    setDirty(true);
+  }, []);
+
   // KB-002: debounced autosave of dirty content into the per-vault draft
   // entry. Mirrors useDiagramPersistence's 500ms cadence. Failures route
   // through the shell banner so quota/permission issues are surfaced
@@ -249,13 +289,13 @@ export function useDocumentContent(filePath: string | null) {
     if (!filePath || !dirty) return;
     const t = setTimeout(() => {
       try {
-        saveDocumentDraft(filePath, content);
+        saveDocumentDraft(filePath, serializeCurrent());
       } catch (e) {
         reportError(e, `Auto-saving draft of ${filePath}`);
       }
     }, DRAFT_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [filePath, content, dirty, reportError]);
+  }, [filePath, content, sources, rawYaml, dirty, reportError, serializeCurrent]);
 
   // KB-002: "Keep" handler. Leaves the restored draft as the live
   // (dirty) in-memory state and just hides the banner — the next
@@ -292,5 +332,9 @@ export function useDocumentContent(filePath: string | null) {
     // KB-002 — draft restore banner state + control.
     pendingDraft,
     dismissDraftBanner,
+    // MVP-4a — sources read from / written to YAML frontmatter.
+    sources,
+    rawYaml,
+    updateSources,
   };
 }

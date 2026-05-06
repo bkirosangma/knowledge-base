@@ -146,7 +146,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
 
   // ─── Document + interaction state ────────────────────────────────
   const { doc, dispatch, defaults, measuredSizes, setMeasuredSizes } = useDiagramDocument();
-  const { title, layers, nodes, connections, lineCurve, flows } = doc;
+  const { title, layers, nodes, connections, lineCurve, flows, sources } = doc;
   const { selection, setSelection } = useSelection();
   const { hoveredNodeId, setHoveredNodeId } = useHovered();
   const { contextMenu, setContextMenu } = useContextMenu();
@@ -272,7 +272,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const { isDirty, setLoadSnapshot } = useDiagramPersistence(
     dispatch.setTitle, dispatch.setLayers, dispatch.setNodes, dispatch.setConnections,
     setLayerManualSizes, dispatch.setLineCurve, dispatch.setFlows,
-    title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
+    title, layers, nodes, connections, layerManualSizes, lineCurve, flows, sources,
     activeFile, fileExplorer.markDirty,
   );
   const { history, scheduleRecord, isRestoringRef, applyDiagramToState, applySnapshotFromDisk, handleUndo, handleRedo, handleGoToEntry } = useDiagramHistoryStore({
@@ -315,7 +315,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const fileActions = useFileActions(
     fileExplorer, history, applyDiagramToState, isRestoringRef, isDirty, setLoadSnapshot,
     confirmAction, setConfirmAction, canvasRef,
-    title, layers, nodes, connections, layerManualSizes, lineCurve, flows,
+    title, layers, nodes, connections, layerManualSizes, lineCurve, flows, sources,
     onMigrateLegacyDocuments,
     attachments.flushPendingDeletes, attachments.clearPendingDeletes, onAfterDiagramSaved,
     onBeforeDeleteFolder,
@@ -620,7 +620,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
 
   const overlays = {
     activeFile, readOnly, selection, title,
-    nodes, connections, flows, layerDefs: layers,
+    nodes, connections, flows, layerDefs: layers, sources,
     displayNodes: geometry.displayNodes, regions: geometry.regions, levelMap: geometry.levelMap,
     lineCurve, measuredSizes,
     propertiesCollapsed, historyCollapsed, showMinimap, showLabels,
@@ -638,7 +638,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     setNodes: dispatch.setNodes, setLayerDefs: dispatch.setLayers,
     setLayerManualSizes, setConnections: dispatch.setConnections,
     setFlows: dispatch.setFlows, setMeasuredSizes, setTitle: dispatch.setTitle,
-    setLineCurve: dispatch.setLineCurve,
+    setLineCurve: dispatch.setLineCurve, setSources: dispatch.setSources,
     setPendingDeletion, setPendingReconnect, setPickerTarget, setContextMenu, setAnchorPopup,
     setHoveredFlowId: flowFocus.setHoveredFlowId, setHoveredType: flowFocus.setHoveredType,
     setExpandedTypeInPanel: flowFocus.setExpandedTypeInPanel, setHistoryCollapsed,

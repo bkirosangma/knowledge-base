@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { AnchorId } from "./utils/anchors";
+import type { SourceLink } from "../../shared/types/sources";
 
 /** Stable identity + logical placement within a diagram. */
 export interface NodeIdentity {
@@ -8,6 +9,7 @@ export interface NodeIdentity {
   sub?: string;
   type?: string;
   layer: string;
+  sources?: SourceLink[];
 }
 
 /** Spatial placement. `w` is width; height is derived from shape. */
@@ -51,6 +53,7 @@ export interface LayerDef {
   bg: string;
   border: string;
   textColor?: string;
+  sources?: SourceLink[];
 }
 
 export interface FlowDef {
@@ -64,6 +67,7 @@ export interface FlowDef {
   startNodeIds?: string[];
   /** Manually authored end node IDs. Empty / absent = nothing rendered as end. */
   endNodeIds?: string[];
+  sources?: SourceLink[];
 }
 
 export interface Connection {
@@ -80,6 +84,7 @@ export interface Connection {
   labelPosition?: number;
   connectionType?: 'synchronous' | 'asynchronous';
   waypoints?: { x: number; y: number }[];
+  sources?: SourceLink[];
 }
 
 export interface SerializedNodeData {
@@ -99,6 +104,7 @@ export interface SerializedNodeData {
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
+  sources?: SourceLink[];
 }
 
 export type Selection =
