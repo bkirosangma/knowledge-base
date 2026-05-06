@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createDiagramRepository } from "../../../infrastructure/diagramRepo";
 import { fnv1a } from "../../../shared/utils/historyPersistence";
 import { loadDiagramFromData } from "../../../shared/utils/persistence";
-import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "../utils/documentAttachments";
+import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "../utils/entityAttachments";
 import { createLayerId } from "../utils/idFactory";
 import { computeLayout, type ArrangeAlgorithm } from "../utils/autoArrange";
 import { getAnchorEdge, type AnchorId } from "../utils/anchors";
