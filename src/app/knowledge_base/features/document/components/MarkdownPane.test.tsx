@@ -13,30 +13,28 @@ import { render, waitFor } from '@testing-library/react'
 //
 // Strategy 2 from the MVP-3 Task 4 plan: we test MarkdownPane's anchor
 // contract without dragging in Tiptap's mount timing.
-vi.mock('./MarkdownEditor', () => {
-  return {
-    default: ({
-      editorContainerRef,
-      onEditorReady,
-    }: {
-      editorContainerRef?: React.RefObject<HTMLDivElement | null>
-      onEditorReady?: () => void
-    }) => {
-      React.useEffect(() => {
-        onEditorReady?.()
-      }, [onEditorReady])
-      return (
-        <div
-          ref={editorContainerRef as React.RefObject<HTMLDivElement>}
-          data-testid="editor-stub"
-        >
-          <h1 data-heading-id="a">A</h1>
-          <h2 data-heading-id="b-section">B Section</h2>
-        </div>
-      )
-    },
-  }
-})
+function MarkdownEditorStub({
+  editorContainerRef,
+  onEditorReady,
+}: {
+  editorContainerRef?: React.RefObject<HTMLDivElement | null>
+  onEditorReady?: () => void
+}) {
+  React.useEffect(() => {
+    onEditorReady?.()
+  }, [onEditorReady])
+  return (
+    <div
+      ref={editorContainerRef as React.RefObject<HTMLDivElement>}
+      data-testid="editor-stub"
+    >
+      <h1 data-heading-id="a">A</h1>
+      <h2 data-heading-id="b-section">B Section</h2>
+    </div>
+  )
+}
+
+vi.mock('./MarkdownEditor', () => ({ default: MarkdownEditorStub }))
 
 import MarkdownPane from './MarkdownPane'
 
