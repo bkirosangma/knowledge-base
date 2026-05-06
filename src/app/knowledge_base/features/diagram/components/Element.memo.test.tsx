@@ -4,9 +4,9 @@ import Element from './Element'
 import ConditionElement from './ConditionElement'
 
 // KB-021 regression: custom React.memo equality should ignore handler
-// identity changes and `documentPaths` array-identity churn while still
-// re-rendering on data / visual-state prop changes. The render-count
-// proxy is a `vi.fn()` icon — Element invokes it once per render.
+// identity changes and `attachmentCounts` object-identity churn while
+// still re-rendering on data / visual-state prop changes. The render-
+// count proxy is a `vi.fn()` icon — Element invokes it once per render.
 
 function makeIconSpy() {
   return vi.fn().mockReturnValue(null) as unknown as React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>
@@ -44,15 +44,15 @@ describe('Element — KB-021 memo equality', () => {
     expect(icon).toHaveBeenCalledTimes(2)
   })
 
-  it('does NOT re-render when documentPaths is a new array with same content', () => {
+  it('does NOT re-render when attachmentCounts is a new object with same four values', () => {
     const icon = makeIconSpy()
     const { rerender } = render(
-      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} hasDocuments documentPaths={['/a.md']} />,
+      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} attachmentCounts={{ docs: 1, diagrams: 0, svgs: 0, tabs: 0 }} />,
     )
     expect(icon).toHaveBeenCalledTimes(1)
 
     rerender(
-      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} hasDocuments documentPaths={['/a.md']} />,
+      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} attachmentCounts={{ docs: 1, diagrams: 0, svgs: 0, tabs: 0 }} />,
     )
     expect(icon).toHaveBeenCalledTimes(1)
   })
@@ -75,15 +75,15 @@ describe('Element — KB-021 memo equality', () => {
     expect(icon).toHaveBeenCalledTimes(2)
   })
 
-  it('does re-render when documentPaths content changes', () => {
+  it('does re-render when attachmentCounts numeric content changes', () => {
     const icon = makeIconSpy()
     const { rerender } = render(
-      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} hasDocuments documentPaths={['/a.md']} />,
+      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} attachmentCounts={{ docs: 1, diagrams: 0, svgs: 0, tabs: 0 }} />,
     )
     expect(icon).toHaveBeenCalledTimes(1)
 
     rerender(
-      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} hasDocuments documentPaths={['/a.md', '/b.md']} />,
+      <Element id="n1" label="A" x={0} y={0} showLabels icon={icon} attachmentCounts={{ docs: 2, diagrams: 0, svgs: 0, tabs: 0 }} />,
     )
     expect(icon).toHaveBeenCalledTimes(2)
   })

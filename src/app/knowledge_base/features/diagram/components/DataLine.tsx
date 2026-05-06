@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState } from "react";
-import DocInfoBadge from "./DocInfoBadge";
+import { AttachmentIndicator, type AttachmentCounts } from "./AttachmentIndicator";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
@@ -104,9 +104,8 @@ interface DataLineProps {
   connectionType?: 'synchronous' | 'asynchronous';
   onSegmentDragStart?: (connectionId: string, points: { x: number; y: number }[], segmentIndex: number, e: React.MouseEvent) => void;
   isOrthogonal?: boolean;
-  hasDocuments?: boolean;
-  documentPaths?: string[];
-  onDocNavigate?: (path: string) => void;
+  attachmentCounts?: AttachmentCounts;
+  onAttachmentIndicatorClick?: () => void;
 }
 
 function DataLine({
@@ -134,9 +133,8 @@ function DataLine({
   connectionType,
   onSegmentDragStart,
   isOrthogonal,
-  hasDocuments,
-  documentPaths,
-  onDocNavigate,
+  attachmentCounts,
+  onAttachmentIndicatorClick,
 }: DataLineProps) {
   const theme = useObservedTheme();
   const color = adaptUserColor(rawColor, theme);
@@ -311,13 +309,14 @@ function DataLine({
           </text>
         </g>
       )}
-      {isHovered && hasDocuments && documentPaths && onDocNavigate && (
-        <foreignObject x={badgePt.x} y={badgePt.y - 20} width={30} height={30} style={{ overflow: 'visible' }}>
-          <DocInfoBadge
+      {isHovered && attachmentCounts && onAttachmentIndicatorClick && (
+        <foreignObject x={badgePt.x} y={badgePt.y - 20} width={60} height={30} style={{ overflow: 'visible' }}>
+          <AttachmentIndicator
+            counts={attachmentCounts}
             color={color}
             position={{ x: 0, y: 0 }}
-            documentPaths={documentPaths}
-            onNavigate={onDocNavigate}
+            onClick={onAttachmentIndicatorClick}
+            testId={id}
           />
         </foreignObject>
       )}

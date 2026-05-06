@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
-import DocInfoBadge from "./DocInfoBadge";
+import { AttachmentIndicator, type AttachmentCounts } from "./AttachmentIndicator";
 import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
@@ -41,9 +41,8 @@ interface ElementProps {
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
-  hasDocuments?: boolean;
-  documentPaths?: string[];
-  onDocNavigate?: (path: string) => void;
+  attachmentCounts?: AttachmentCounts;
+  onAttachmentIndicatorClick?: () => void;
   flowRole?: 'start' | 'end' | 'middle';
   order?: number;
   orderEditable?: boolean;
@@ -80,9 +79,8 @@ function Element({
   borderColor,
   bgColor,
   textColor,
-  hasDocuments,
-  documentPaths,
-  onDocNavigate,
+  attachmentCounts,
+  onAttachmentIndicatorClick,
   flowRole,
   order,
   orderEditable,
@@ -217,12 +215,13 @@ function Element({
         </div>
       )}
 
-      {isHovered && hasDocuments && documentPaths && onDocNavigate && (
-        <DocInfoBadge
+      {isHovered && attachmentCounts && onAttachmentIndicatorClick && (
+        <AttachmentIndicator
+          counts={attachmentCounts}
           color={borderColor ?? "#3b82f6"}
           position={{ x: w - 4, y: -8 }}
-          documentPaths={documentPaths}
-          onNavigate={onDocNavigate}
+          onClick={onAttachmentIndicatorClick}
+          testId={id}
         />
       )}
 
@@ -278,7 +277,7 @@ function Element({
  * Comparing only the props that actually drive Element's render output
  * (data, colors, flow role, and the visual-state booleans) lets the
  * memo survive parent renders that recreate handler identities or the
- * `documentPaths` array each time. The handler list is intentionally
+ * `attachmentCounts` object each time. The handler list is intentionally
  * skipped — `useDiagramController` produces them via `useCallback`, so
  * the OLD render's handler is functionally identical. `anchors` is
  * also skipped: it's derived from x / y / w / measuredHeight, all of
@@ -289,12 +288,10 @@ function Element({
  * re-render only the dragged node (its x / y / dimmed change) plus a
  * couple of overlay components — never the other 49 Elements.
  */
-function shallowEqArr<T>(a: T[] | undefined, b: T[] | undefined): boolean {
+function attachmentCountsEq(a: AttachmentCounts | undefined, b: AttachmentCounts | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+  return a.docs === b.docs && a.diagrams === b.diagrams && a.svgs === b.svgs && a.tabs === b.tabs;
 }
 
 function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
@@ -323,7 +320,6 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.showAnchors === n.showAnchors &&
     p.highlightedAnchor === n.highlightedAnchor &&
     p.dimmed === n.dimmed &&
-    p.hasDocuments === n.hasDocuments &&
     // Handlers — included so that closures depending on changing state
     // (e.g. `useNodeDrag`'s `handleDragStart` closes over `isBlocked`,
     // which flips with read-only mode) reach Element promptly. They're
@@ -337,11 +333,13 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.onMouseLeave === n.onMouseLeave &&
     p.onResize === n.onResize &&
     p.onDoubleClick === n.onDoubleClick &&
-    p.onDocNavigate === n.onDocNavigate &&
+    p.onAttachmentIndicatorClick === n.onAttachmentIndicatorClick &&
     p.lockedNonMember === n.lockedNonMember &&
     p.lockEditRoleToggle === n.lockEditRoleToggle &&
     p.onRoleToggle === n.onRoleToggle &&
-    shallowEqArr(p.documentPaths, n.documentPaths)
+    // MVP-2b: AttachmentCounts is a fresh object each call; deep-equal
+    // the four numeric fields rather than blow the memo on identity.
+    attachmentCountsEq(p.attachmentCounts, n.attachmentCounts)
   );
 }
 

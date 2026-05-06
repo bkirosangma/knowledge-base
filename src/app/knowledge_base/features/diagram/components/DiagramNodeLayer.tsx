@@ -8,6 +8,8 @@ import { getConditionAnchors, getConditionDimensions } from "../utils/conditionG
 import { isItemSelected } from "../utils/selectionUtils";
 import type { NodeData, Connection, Selection } from "../types";
 import type { EdgeHandleDirection } from "../hooks/useDragToConnect";
+import type { EntityAttachmentTarget } from "../../document/types";
+import type { AttachmentCounts } from "./AttachmentIndicator";
 
 interface DragDelta { dx: number; dy: number }
 interface DragPos { x: number; y: number }
@@ -75,9 +77,10 @@ export interface DiagramNodeLayerProps {
 
   // Utility accessors
   getNodeDimensions: (n: { id: string; w: number; shape?: string; conditionSize?: number; conditionOutCount?: number }) => { w: number; h: number };
-  hasDocuments: (entityType: string, entityId: string) => boolean;
-  getDocumentsForEntity: (entityType: string, entityId: string) => { filename: string }[];
-  onOpenDocument: (path: string) => void;
+  // MVP-2b 4-way attachment contract — counts feed `<AttachmentIndicator>`,
+  // `openAttachmentPreviewFor` is the unified click handler.
+  attachmentCountsForNode: (nodeId: string) => AttachmentCounts;
+  openAttachmentPreviewFor: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
 }
 
 /** The four persistent edge-handle dots shown on a selected, non-read-only node. */
@@ -171,9 +174,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     setNodes,
     scheduleRecord,
     getNodeDimensions,
-    hasDocuments,
-    getDocumentsForEntity,
-    onOpenDocument,
+    attachmentCountsForNode,
+    openAttachmentPreviewFor,
   } = props;
 
   return (
@@ -315,9 +317,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                   borderColor={node.borderColor}
                   bgColor={node.bgColor}
                   textColor={node.textColor}
-                  hasDocuments={hasDocuments("node", node.id)}
-                  documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                  onDocNavigate={onOpenDocument}
+                  attachmentCounts={attachmentCountsForNode(node.id)}
+                  onAttachmentIndicatorClick={() => openAttachmentPreviewFor({ type: "node", id: node.id })}
                 />
               </div>
             </React.Fragment>
@@ -342,9 +343,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                 {...commonProps}
                 anchors={anchors}
                 measuredHeight={dims.h}
-                hasDocuments={hasDocuments("node", node.id)}
-                documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                onDocNavigate={onOpenDocument}
+                attachmentCounts={attachmentCountsForNode(node.id)}
+                onAttachmentIndicatorClick={() => openAttachmentPreviewFor({ type: "node", id: node.id })}
               />
             </div>
             {showEdgeHandles && (

@@ -1,7 +1,9 @@
 import { useMemo, type ComponentType } from "react";
 import type { NodeData, Connection, LayerDef, FlowDef } from "../types";
 import type { LevelInfo } from "../utils/levelModel";
+import type { AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import DocumentsSection from "./DocumentsSection";
+import { AttachmentsSection } from "./AttachmentsSection";
 import { getDistinctTypes } from "../utils/typeUtils";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 import { AutocompleteInput } from "./AutocompleteInput";
@@ -9,6 +11,7 @@ import { Tooltip } from "../../../shared/components/Tooltip";
 
 export function NodeProperties({
   id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onPreviewDocument, readOnly,
+  attachmentsByType, openAttachmentPreviewFor, onOpenDocPicker, onDetachDocument,
 }: {
   id: string; nodes: NodeData[]; connections: Connection[]; regions: RegionBounds[];
   layerDefs: LayerDef[];
@@ -25,6 +28,10 @@ export function NodeProperties({
   backlinks?: { sourcePath: string; section?: string }[];
   onPreviewDocument?: (path: string) => void;
   readOnly?: boolean;
+  attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const node = nodes.find((n) => n.id === id);
 
@@ -308,6 +315,16 @@ export function NodeProperties({
         <DocumentsSection
           backlinks={backlinks}
           onPreviewDocument={onPreviewDocument}
+        />
+      )}
+
+      {attachmentsByType && (
+        <AttachmentsSection
+          buckets={attachmentsByType({ type: "node", id })}
+          onPreview={() => openAttachmentPreviewFor?.({ type: "node", id })}
+          onDetach={(filename) => onDetachDocument?.(filename, "node", id)}
+          onAttach={() => onOpenDocPicker?.("node", id)}
+          readOnly={readOnly}
         />
       )}
     </>

@@ -42,3 +42,25 @@ export interface LinkIndex {
   documents: Record<string, LinkIndexEntry>;
   backlinks: Record<string, BacklinkEntry>;
 }
+
+/** Minimal shape any attachable entity satisfies. `DocumentMeta` already conforms structurally; future `SvgFile`/`TabFile`/diagram entries will too once their persistence sidecars exist. */
+export interface Attachable {
+  filename: string;
+  title?: string;
+  attachedTo?: EntityAttachment[];
+}
+
+/** Per-source-type list shape. MVP-2b only populates `documents`; the other three are reserved for future SVG/Tab/Diagram-source MVPs. */
+export interface EntitySources {
+  documents: Attachable[];
+  diagrams: Attachable[]; // always [] in MVP-2b
+  svgs: Attachable[];     // always [] in MVP-2b
+  tabs: Attachable[];     // always [] in MVP-2b
+}
+
+export interface AttachmentBuckets {
+  docs: Attachable[];
+  diagrams: Attachable[];
+  svgs: Attachable[];
+  tabs: Attachable[];
+}

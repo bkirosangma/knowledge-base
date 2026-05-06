@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createDiagramRepository } from "../../../infrastructure/diagramRepo";
 import { fnv1a } from "../../../shared/utils/historyPersistence";
 import { loadDiagramFromData } from "../../../shared/utils/persistence";
-import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "../utils/documentAttachments";
+import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "../utils/entityAttachments";
 import { createLayerId } from "../utils/idFactory";
 import { computeLayout, type ArrangeAlgorithm } from "../utils/autoArrange";
 import { getAnchorEdge, type AnchorId } from "../utils/anchors";
@@ -15,6 +15,7 @@ import { useDiagramGeometry } from "./useDiagramGeometry";
 import { useDiagramFlowFocus } from "./useDiagramFlowFocus";
 import { useDiagramAnchorMenu } from "./useDiagramAnchorMenu";
 import { useDiagramAttachments } from "./useDiagramAttachments";
+import type { PreviewItem, PreviewItemType } from "../components/AttachmentPreviewModal";
 import { useDiagramQuickInspectorActions } from "./useDiagramQuickInspectorActions";
 import { useDiagramViewportSync } from "./useDiagramViewportSync";
 import { useDiagramFileLoading } from "./useDiagramFileLoading";
@@ -49,7 +50,12 @@ import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 import { useCanvasKeyboardNav } from "./useCanvasKeyboardNav";
 import { useDragEndRecorder } from "./useDragEndRecorder";
 import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
-import type { DocumentMeta } from "../../document/types";
+import type {
+  AttachmentBuckets,
+  DocumentMeta,
+  EntityAttachmentTarget,
+} from "../../document/types";
+import type { AttachmentCounts } from "../components/AttachmentIndicator";
 import type { ConfirmAction, FlowDef, RegionBounds } from "../types";
 import type { LevelMap } from "../utils/levelModel";
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
@@ -73,7 +79,7 @@ interface DiagramControllerInputs {
     exclude?: { entityType: string; entityId: string },
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   onAfterDiagramSaved?: (diagramPath: string) => void;
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];
@@ -83,6 +89,19 @@ interface DiagramControllerInputs {
   /** Called before `fileExplorer.deleteFolder` so attachment rows for every
    *  attachable file inside the folder subtree are cleaned up first. */
   onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
+  /**
+   * MVP-2b Task 7c: optional shell-passed selector mirroring
+   * `useDocuments.attachmentsByType`. When provided (production path from
+   * `knowledgeBase.tsx`), the controller uses it as the canonical source so
+   * the diagram view stays in lockstep with shell state. When omitted (test
+   * fixtures that mount the controller directly with `documents`), the
+   * controller falls back to the local computation defined below.
+   */
+  attachmentsByType?: (target: {
+    type: EntityAttachmentTarget;
+    id: string;
+    diagramPath?: string;
+  }) => AttachmentBuckets;
 }
 
 /**
@@ -106,6 +125,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
     rows, setRows, detachAttachmentsFor, withBatch, onBeforeDeleteFolder,
+    attachmentsByType: propAttachmentsByType,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -147,8 +167,14 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const [pendingReconnect, setPendingReconnect] = useState<{ oldId: string; updates: Record<string, unknown>; brokenFlows: FlowDef[] } | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pickerTarget, setPickerTarget] = useState<{ type: string; id: string } | null>(null);
-  const [previewDocPath, setPreviewDocPath] = useState<string | null>(null);
-  const [previewEntityName, setPreviewEntityName] = useState<string | undefined>(undefined);
+  // MVP-2b: collapsed `previewDocPath`/`previewEntityName` into a single
+  // `previewedItems: PreviewItem[] | null` slot that the new
+  // `AttachmentPreviewModal` consumes directly. PropertiesPanel's
+  // `onPreviewDocument(path, entityName?)` callers wrap their payload at
+  // the overlay boundary, so this rename is internal-only. Task 7 widens
+  // the open-handler to build multi-item arrays from
+  // `attachmentsByType(target)`; the slot itself already supports it.
+  const [previewedItems, setPreviewedItems] = useState<PreviewItem[] | null>(null);
   const labelDragStartT = useRef<number | null>(null);
 
   // ─── Shared refs (read by drag hooks; written by geometry) ───────
@@ -473,6 +499,70 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const hasDocuments = useCallback((entityType: string, entityId: string) => hasDocsFor(documents, entityType, entityId), [documents]);
   const getDocumentsForEntity = useCallback((entityType: string, entityId: string) => getDocsForEntity(documents, entityType, entityId), [documents]);
 
+  // ─── MVP-2b: 4-way attachment selectors + indicator/preview wiring ───
+  // Production path (Task 7c): `knowledgeBase.tsx` threads
+  // `useDocuments.attachmentsByType` down through `DiagramView`. When that
+  // prop is present we use it directly — it is the canonical hook output and
+  // stays in lockstep with shell state.
+  //
+  // Fallback path: tests and any future call sites that mount the controller
+  // with `documents: DocumentMeta[]` but no selector get the equivalent
+  // computation derived locally from `documents`. MVP-2b only ever populates
+  // `docs`; the other three buckets are reserved for future SVG / Tab /
+  // Diagram-source MVPs.
+  const localAttachmentsByType = useCallback(
+    (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }): AttachmentBuckets => {
+      const matches = (a: { type: string; id: string; diagramPath?: string }): boolean => {
+        if (a.type !== target.type) return false;
+        if (a.id !== target.id) return false;
+        if (target.diagramPath === undefined) return true;
+        if (a.diagramPath === undefined) return true; // legacy doc-centric rows lack diagramPath
+        return a.diagramPath === target.diagramPath;
+      };
+      return {
+        docs: documents.filter((d) => d.attachedTo?.some(matches)),
+        diagrams: [],
+        svgs: [],
+        tabs: [],
+      };
+    },
+    [documents],
+  );
+  const attachmentsByType = propAttachmentsByType ?? localAttachmentsByType;
+
+  const attachmentCountsForNode = useCallback(
+    (nodeId: string): AttachmentCounts => {
+      const b = attachmentsByType({ type: "node", id: nodeId });
+      return { docs: b.docs.length, diagrams: b.diagrams.length, svgs: b.svgs.length, tabs: b.tabs.length };
+    },
+    [attachmentsByType],
+  );
+
+  const attachmentCountsForConnection = useCallback(
+    (connId: string): AttachmentCounts => {
+      const b = attachmentsByType({ type: "connection", id: connId });
+      return { docs: b.docs.length, diagrams: b.diagrams.length, svgs: b.svgs.length, tabs: b.tabs.length };
+    },
+    [attachmentsByType],
+  );
+
+  const openAttachmentPreviewFor = useCallback(
+    (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => {
+      const buckets = attachmentsByType(target);
+      const items: PreviewItem[] = [
+        ...buckets.docs.map((d) => ({ type: "document" as const, filename: d.filename, title: d.title })),
+        ...buckets.diagrams.map((d) => ({ type: "diagram" as const, filename: d.filename, title: d.title })),
+        ...buckets.svgs.map((d) => ({ type: "svg" as const, filename: d.filename, title: d.title })),
+        ...buckets.tabs.map((d) => ({ type: "tab" as const, filename: d.filename, title: d.title })),
+      ];
+      if (items.length === 0) return;
+      setPreviewedItems(items);
+    },
+    [attachmentsByType],
+  );
+
+  const closeAttachmentPreview = useCallback(() => setPreviewedItems(null), []);
+
   // ─── Build prop bags ─────────────────────────────────────────────
   const toolbar = {
     activeFile, readOnly, onToggleReadOnly: toggleReadOnly,
@@ -511,8 +601,9 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleElementResize,
     handleNodeMouseEnter, handleNodeMouseLeave, handleNodeDoubleClick, handleNodeDragStart, handleRotationDragStart,
     commitLabel,
-    hasDocuments, getDocumentsForEntity, onOpenDocument,
-    getNodeDimensions: geometry.getNodeDimensions, nodes, previewDocPath,
+    onOpenDocument,
+    attachmentCountsForNode, attachmentCountsForConnection, openAttachmentPreviewFor,
+    getNodeDimensions: geometry.getNodeDimensions, nodes, previewedItems,
     onChangeNodeRole: handleChangeNodeRole,
   };
 
@@ -562,8 +653,12 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleCreateFlow, handleSelectLine,
     scheduleRecord, scrollToRect,
     getNodeDimensions: geometry.getNodeDimensions, getDocumentsForEntity,
-    previewDocPath, previewEntityName,
-    setPreviewDocPath, setPreviewEntityName,
+    hasDocuments,
+    attachmentsByType,
+    previewedItems,
+    setPreviewedItems,
+    openAttachmentPreviewFor,
+    closeAttachmentPreview,
     readDocument, getDocumentReferences,
     deleteDocumentWithCleanup: attachments.handleDeleteDocumentWithCleanup,
   };

@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { FileText, Paperclip, Plus, X } from "lucide-react";
 import type { FlowDef, Connection, NodeData } from "../types";
-import type { DocumentMeta } from "../../document/types";
+import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import { Section, EditableRow, EditableIdRow, ExpandableListRow } from "./shared";
-import CreateAttachDocModal from "../components/CreateAttachDocModal";
+import { AttachmentsSection } from "./AttachmentsSection";
+import { CreateAttachEntityModal } from "../components/CreateAttachEntityModal";
+import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import DetachDocModal from "../components/DetachDocModal";
 
 export function FlowProperties({
@@ -15,6 +17,7 @@ export function FlowProperties({
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
   onLock,
   readOnly,
+  attachmentsByType, openAttachmentPreviewFor, onOpenDocPicker, onDetachDocument,
 }: {
   id: string;
   flows: FlowDef[];
@@ -41,9 +44,13 @@ export function FlowProperties({
     exclude?: { entityType: string; entityId: string }
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
-  onCreateAndAttach?: (filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach?: (filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   onLock?: (flowId: string) => void;
   readOnly?: boolean;
+  attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const flow = flows.find((f) => f.id === id);
 
@@ -278,6 +285,16 @@ export function FlowProperties({
         )}
       </Section>
 
+      {attachmentsByType && (
+        <AttachmentsSection
+          buckets={attachmentsByType({ type: "flow", id })}
+          onPreview={() => openAttachmentPreviewFor?.({ type: "flow", id })}
+          onDetach={(filename) => onDetachDocument?.(filename, "flow", id)}
+          onAttach={() => onOpenDocPicker?.("flow", id)}
+          readOnly={readOnly}
+        />
+      )}
+
       {!readOnly && (
         <Section title="Danger">
           <div className="px-1 py-2">
@@ -292,11 +309,15 @@ export function FlowProperties({
       )}
 
       {showCreateModal && (
-        <CreateAttachDocModal
+        <CreateAttachEntityModal
+          open
           defaultFilename={`${flow.name.toLowerCase().replace(/\s+/g, "-")}-notes.md`}
-          onConfirm={async (filename, editNow) => {
+          onConfirm={async (filename, editNow, type) => {
+            // MVP-2b: only 'document' fires here (other tabs disable Confirm).
+            // The `type` is threaded through anyway so the data layer can
+            // branch on it once non-doc persistence ships.
             setShowCreateModal(false);
-            await onCreateAndAttach?.(filename, editNow);
+            await onCreateAndAttach?.(filename, editNow, type);
           }}
           onCancel={() => setShowCreateModal(false)}
         />

@@ -155,8 +155,8 @@
 |----|--------|----------|
 | DIAG-3.10-26 | ✅ | Attach existing doc to flow — appears in Documents section of FlowProperties — `FlowProperties.test.tsx` (onAttach called + doc filename rendered) |
 | DIAG-3.10-27 | ✅ | Attach same doc twice — second attach is a no-op (no duplicate in list) — `useDocuments.test.ts` (attachDocument idempotent) |
-| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachDocModal.test.tsx` covers modal; file-write + pane navigation is e2e |
-| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachDocModal.test.tsx` (onConfirm with editNow=false) |
+| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachEntityModal.test.tsx` covers modal; file-write + pane navigation is e2e |
+| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachEntityModal.test.tsx` (onConfirm with editNow=false) |
 | DIAG-3.10-30 | 🟡 | Detach doc — disappears from Documents section — modal interaction covered by `FlowProperties.test.tsx` + `DetachDocModal.test.tsx`; DOM removal is e2e |
 | DIAG-3.10-31 | ✅ | Detach doc with no other refs — "Also referenced by" section absent — `DetachDocModal.test.tsx` |
 | DIAG-3.10-32 | ✅ | Detach doc with other attachments — lists them deduplicated — `DetachDocModal.test.tsx` |
@@ -187,6 +187,9 @@
 | DIAG-3.10-57 | ❌ | When I press Cmd/Ctrl+L while a flow is selected, then the flow becomes locked; pressing again unlocks. |
 | DIAG-3.10-58 | ❌ | When I switch to a different file while a flow is locked, then the lock state clears. |
 | DIAG-3.10-59 | ❌ | Given lockedFlow + edit mode, when I click the role-toggle pill above a member node, then the role cycles none → start → end → none. |
+| DIAG-3.10-60 | ✅ | CreateAttachEntityModal — Document tab is active by default and Confirm enabled with a non-empty filename — `CreateAttachEntityModal.test.tsx` |
+| DIAG-3.10-61 | ✅ | CreateAttachEntityModal — Diagram / SVG / Tab tabs disable Confirm with a "persistence ships in a future MVP" notice — `CreateAttachEntityModal.test.tsx` |
+| DIAG-3.10-62 | ✅ | CreateAttachEntityModal — onConfirm forwards the active source type alongside (filename, editNow) — `CreateAttachEntityModal.test.tsx` |
 
 ## 3.11 Selection
 
@@ -215,7 +218,7 @@
 - **DIAG-3.12-10** ✅ **Menu closes on Escape** — window `keydown` (capture phase) handler invokes `onClose` for `Escape` key.
 - **DIAG-3.12-11** ✅ **Menu closes on outside click** — window `mousedown` outside the menu ref triggers `onClose`; mousedown inside does NOT (items call `e.stopPropagation`).
 
-Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowBreakWarningModal.test.tsx): DIAG-3.9-06/07/08 flow-break warning flow — heading pluralisation, Cancel/Continue callbacks, backdrop click; [DocInfoBadge.test.tsx](../src/app/knowledge_base/features/diagram/components/DocInfoBadge.test.tsx): single-vs-multiple dropdown, toggle, navigation; [Layer.test.tsx](../src/app/knowledge_base/features/diagram/components/Layer.test.tsx): render + isSelected/dimmed styles + drag/resize callbacks (DIAG-3.7); [FlowDots.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowDots.test.tsx): DIAG-3.10-11 animation duration + visibility gating (isLive, hovered, selected, dragging).
+Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowBreakWarningModal.test.tsx): DIAG-3.9-06/07/08 flow-break warning flow — heading pluralisation, Cancel/Continue callbacks, backdrop click; [AttachmentIndicator.test.tsx](../src/app/knowledge_base/features/diagram/components/AttachmentIndicator.test.tsx): empty / single-bucket / all-four-buckets render, click stops propagation, aria-label lists populated types; [Layer.test.tsx](../src/app/knowledge_base/features/diagram/components/Layer.test.tsx): render + isSelected/dimmed styles + drag/resize callbacks (DIAG-3.7); [FlowDots.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowDots.test.tsx): DIAG-3.10-11 animation duration + visibility gating (isLive, hovered, selected, dragging).
 
 ## 3.13 Properties Panel
 
@@ -275,6 +278,15 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-41** ✅ **Component mounts without throwing** — DiagramView renders with minimal stub props in JSDOM. — `DiagramView.test.tsx`
 - **DIAG-3.13-42** ✅ **`onDiagramBridge` called on mount** — bridge effect fires on first render and publishes the bridge object to the shell. — `DiagramView.test.tsx`
 - **DIAG-3.13-43** ✅ **activeFile rerender is safe** — swapping the `activeFile` prop from null → a path does not throw. — `DiagramView.test.tsx`
+
+### 3.13.h AttachmentsSection
+- **DIAG-3.13-44** ✅ **Renders Attachments title with count** — `AttachmentsSection` shows `"Attachments"` (or `"Attachments (N)"` when buckets non-empty); empty state shows no rows. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-45** ✅ **Per-type group headers + rows** — non-empty docs/diagrams/svgs/tabs buckets each render a labelled group with one row per attachment. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-46** ✅ **Preview button calls onPreview with (filename, type)** — clicking a row's title fires the preview callback. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-47** ✅ **Detach button calls onDetach with (filename, type)** — Detach link fires the detach callback. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-48** ✅ **Attach button calls onAttach** — `+ Attach` button fires `onAttach` (panel opens `CreateAttachEntityModal`). _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-49** ✅ **readOnly hides Attach + Detach** — read-only mode strips both buttons; preview links stay visible. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-50** 🟡 **Mounted in NodeProperties / LineProperties / FlowProperties / DiagramProperties** — `AttachmentsSection` is rendered at the bottom of all 4 entity-scoped panels with the right `EntityAttachmentTarget` (`node | connection | flow | root`); LayerProperties is excluded because `'layer'` is not in the union. Verified via TS-level wiring; full integration coverage deferred to e2e once the cross-entity attach flow lands end-to-end.
 
 ## 3.14 Keyboard Shortcuts
 
@@ -351,13 +363,13 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 
 ## 3.18 Document Integration
 
-- **DIAG-3.18-01** ✅ **DocInfoBadge visible when doc attached** — covered by `DocInfoBadge.test.tsx`
-- **DIAG-3.18-02** ✅ **DocInfoBadge hidden when none** — same test file.
-- **DIAG-3.18-03** 🟡 **Click badge opens attached doc** — `DocInfoBadge.test.tsx` asserts `onClick` fires with the right doc; pane routing is canvas-level.
+- **DIAG-3.18-01** ✅ **AttachmentIndicator visible when attachment present** — covered by `AttachmentIndicator.test.tsx` (renames from DocInfoBadge in MVP-2b; 4-way glyph row).
+- **DIAG-3.18-02** ✅ **AttachmentIndicator hidden when no attachments** — same test file (all-zero counts case).
+- **DIAG-3.18-03** 🟡 **Click indicator opens unified preview modal** — `AttachmentIndicator.test.tsx` asserts `onClick` fires once and stops propagation; modal wiring lands with Task 4.
 - **DIAG-3.18-04** 🟡 **`attachDocument` persists in diagram JSON** — the `documents` field round-trips via DIAG-3.19 save/load; the attach flow is canvas-level.
 - **DIAG-3.18-05** 🟡 **`detachDocument` removes reference.** Same — data shape covered via persistence; detach call site is canvas-level.
-- **DIAG-3.18-06** ✅ **`getDocumentsForEntity` filters by entity type + id** — `documentAttachments.test.ts` covers match/no-match cases, multi-entity attachments, type-mismatch leakage, and empty inputs.
-- **DIAG-3.18-07** ✅ **`hasDocuments` returns true when any exist** — `documentAttachments.test.ts` covers every `attachedTo.type` variant (`node` / `connection` / `flow` / `root`) and the undefined / empty-array paths.
+- **DIAG-3.18-06** ✅ **`getDocumentsForEntity` filters by entity type + id** — `entityAttachments.test.ts` covers match/no-match cases, multi-entity attachments, type-mismatch leakage, and empty inputs.
+- **DIAG-3.18-07** ✅ **`hasDocuments` returns true when any exist** — `entityAttachments.test.ts` covers every `attachedTo.type` variant (`node` / `connection` / `flow` / `root`) and the undefined / empty-array paths.
 
 ## 3.19 Persistence
 
@@ -384,8 +396,8 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 
 | ID | Status | Scenario |
 |----|--------|----------|
-| DIAG-3.20-01 | 🟡 | Click attached flow doc — DocPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `DocPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
-| DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — DocPreviewModal opens |
+| DIAG-3.20-01 | 🟡 | Click attached flow doc — AttachmentPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `AttachmentPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
+| DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — AttachmentPreviewModal opens |
 | DIAG-3.20-03 | ✅ | Preview modal renders markdown matching doc pane styles |
 | DIAG-3.20-04 | ✅ | Escape key closes preview modal |
 | DIAG-3.20-05 | ✅ | Backdrop click closes preview modal |
@@ -396,7 +408,7 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 | DIAG-3.20-10 | ✅ | Wiki-links in the previewed document render as pills (data-wiki-link / data-wiki-section attributes survive sanitization, `.wiki-link` pill style applies outside the contenteditable scope) |
 | DIAG-3.20-11 | ✅ | Clicking a wiki-link in the previewed document resolves the target via `resolveWikiLinkPath` against the previewed doc's directory, opens it via `onOpenInPane`, and closes the modal |
 
-Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), DIAG-3.20-10 (wiki-link rendering), DIAG-3.20-11 (wiki-link click navigation), filename in header.
+Additional unit coverage in [AttachmentPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/AttachmentPreviewModal.test.tsx): the MVP-2b 4-way contract cases (renders nothing when closed/empty, hides rail when single item, groups rail by type, dispatches document body for `type === 'document'`, placeholder bodies for `diagram`/`svg`/`tab`, "Open in pane" forwards filename + closes), plus the preserved DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content + filename in header), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-09 (entity name badge), DIAG-3.20-10 (wiki-link rendering with `data-wiki-link`/`data-wiki-section` surviving DOMPurify), DIAG-3.20-11 (wiki-link click navigation forwards `(filename, anchor)` and closes the modal).
 
 ## 3.21 Diagram File Watcher
 `features/diagram/hooks/useDiagramFileWatcher.ts`

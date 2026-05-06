@@ -527,7 +527,17 @@ function KnowledgeBaseInner() {
     panes.openFile(path, "document");
   }, [panes]);
 
-  const handleCreateAndAttach = useCallback(async (diagramPath: string, flowId: string, filename: string, editNow: boolean) => {
+  const handleCreateAndAttach = useCallback(async (
+    diagramPath: string,
+    flowId: string,
+    filename: string,
+    editNow: boolean,
+    // MVP-2b: ignored for non-doc; future MVP will branch on type.
+    // The non-doc tabs in CreateAttachEntityModal disable Confirm so
+    // this branch is only reached with type === "document" today, but
+    // the signature is widened so the data layer can branch later.
+    _type: import("./features/diagram/components/AttachmentPreviewModal").PreviewItemType,
+  ) => {
     const rootHandle = fileExplorer.dirHandleRef.current;
     if (!rootHandle) return;
     if (filename.includes("..") || filename.startsWith("/") || filename.includes("\0")) return;
@@ -1168,7 +1178,7 @@ function KnowledgeBaseInner() {
           onDetachDocument={(docPath, entityType, entityId) => {
             docManager.detachDocument(docPath, entityType, entityId);
           }}
-          onCreateAndAttach={(flowId, filename, editNow) => handleCreateAndAttach(entry.filePath ?? '', flowId, filename, editNow)}
+          onCreateAndAttach={(flowId, filename, editNow, type) => handleCreateAndAttach(entry.filePath ?? '', flowId, filename, editNow, type)}
           onCreateDocument={async (rootHandle, path) => {
             try {
               await docManager.createDocument(rootHandle, path);
@@ -1180,6 +1190,7 @@ function KnowledgeBaseInner() {
           setRows={docManager.setRows}
           detachAttachmentsFor={docManager.detachAttachmentsFor}
           withBatch={docManager.withBatch}
+          attachmentsByType={docManager.attachmentsByType}
           onMigrateLegacyDocuments={onMigrateLegacyDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}

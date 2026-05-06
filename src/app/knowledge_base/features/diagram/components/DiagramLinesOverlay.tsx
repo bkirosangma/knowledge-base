@@ -4,6 +4,8 @@ import React from "react";
 import DataLine from "./DataLine";
 import { isItemSelected } from "../utils/selectionUtils";
 import type { Connection, LineCurveAlgorithm, Selection } from "../types";
+import type { EntityAttachmentTarget } from "../../document/types";
+import type { AttachmentCounts } from "./AttachmentIndicator";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
@@ -64,10 +66,11 @@ export interface DiagramLinesOverlayProps {
   setEditingLabel: React.Dispatch<React.SetStateAction<{ type: "node" | "layer" | "line"; id: string } | null>>;
   setEditingLabelValue: React.Dispatch<React.SetStateAction<string>>;
 
-  // Utility accessors
-  hasDocuments: (entityType: string, entityId: string) => boolean;
-  getDocumentsForEntity: (entityType: string, entityId: string) => { filename: string }[];
-  onOpenDocument: (path: string) => void;
+  // MVP-2b 4-way attachment contract — counts feed `<AttachmentIndicator>`
+  // on each connection; `openAttachmentPreviewFor` is the unified click
+  // handler that builds a `PreviewItem[]` and pops the preview modal.
+  attachmentCountsForConnection: (connId: string) => AttachmentCounts;
+  openAttachmentPreviewFor: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
 }
 
 /**
@@ -107,9 +110,8 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
     scheduleRecord,
     setEditingLabel,
     setEditingLabelValue,
-    hasDocuments,
-    getDocumentsForEntity,
-    onOpenDocument,
+    attachmentCountsForConnection,
+    openAttachmentPreviewFor,
   } = props;
 
   const theme = useObservedTheme();
@@ -169,9 +171,8 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
                 editingLabelBeforeRef.current = conn.label;
               }
             }}
-            hasDocuments={hasDocuments("connection", line.id)}
-            documentPaths={getDocumentsForEntity("connection", line.id).map((d) => d.filename)}
-            onDocNavigate={onOpenDocument}
+            attachmentCounts={attachmentCountsForConnection(line.id)}
+            onAttachmentIndicatorClick={() => openAttachmentPreviewFor({ type: "connection", id: line.id })}
           />
         );
       })}

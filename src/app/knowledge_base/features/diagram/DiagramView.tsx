@@ -29,7 +29,11 @@ import DiagramOverlays from "./components/DiagramOverlays";
 import { DiagramInteractionProvider } from "./state/DiagramInteractionContext";
 import { useDiagramController } from "./hooks/useDiagramController";
 import type { useFileExplorer } from "../../shared/hooks/useFileExplorer";
-import type { DocumentMeta } from "../document/types";
+import type {
+  AttachmentBuckets,
+  DocumentMeta,
+  EntityAttachmentTarget,
+} from "../document/types";
 import type { AttachmentLink } from "../../domain/attachmentLinks";
 // Re-export bridge types so callers importing them from DiagramView keep working.
 // Definitions moved to `./types.ts` in KB-020 so the bridge hook can share them.
@@ -55,7 +59,7 @@ export interface DiagramViewProps {
     exclude?: { entityType: string; entityId: string },
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: import("./components/AttachmentPreviewModal").PreviewItemType) => Promise<void>;
   onAfterDiagramSaved?: (diagramPath: string) => void;
   /** Single-fire intent from vault-search to centre + select a node on mount. */
   searchTarget?: { nodeId: string };
@@ -66,6 +70,18 @@ export interface DiagramViewProps {
   /** Called before `fileExplorer.deleteFolder` so attachment rows for every
    *  attachable file inside the folder subtree are cleaned up first. */
   onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
+  /**
+   * MVP-2b Task 7c: optional shell-passed selector mirroring
+   * `useDocuments.attachmentsByType`. Production callers (the
+   * `knowledgeBase.tsx` shell) pass it through so the controller uses the
+   * canonical hook output; test fixtures may omit it and the controller
+   * falls back to its local computation derived from `documents`.
+   */
+  attachmentsByType?: (target: {
+    type: EntityAttachmentTarget;
+    id: string;
+    diagramPath?: string;
+  }) => AttachmentBuckets;
 }
 
 export default function DiagramView(props: DiagramViewProps) {

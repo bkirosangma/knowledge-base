@@ -9,12 +9,17 @@ import FlowBreakWarningModal from "./FlowBreakWarningModal";
 import DocumentPicker from "../../../shared/components/DocumentPicker";
 import type { AnchorId } from "../utils/anchors";
 import type { NodeData, LayerDef, Connection, FlowDef, LineCurveAlgorithm, Selection, RegionBounds } from "../types";
-import type { DocumentMeta } from "../../document/types";
+import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
 import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
 import { findBrokenFlowsByReconnect } from "../utils/flowUtils";
-import DocPreviewModal from "./DocPreviewModal";
+import {
+  AttachmentPreviewModal,
+  type PreviewItem,
+  type PreviewItemType,
+} from "./AttachmentPreviewModal";
+import { resolveWikiLinkPath } from "../../document/utils/wikiLinkParser";
 
 export interface DiagramOverlaysProps {
   // Core state
@@ -77,7 +82,7 @@ export interface DiagramOverlaysProps {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
 
   // useDiagramHistory result
   history: ReturnType<typeof useDiagramHistory>;
@@ -149,17 +154,26 @@ export interface DiagramOverlaysProps {
   }) => { w: number; h: number };
   getDocumentsForEntity: (type: string, id: string) => DocumentMeta[];
 
-  // Doc preview state
-  previewDocPath: string | null;
-  previewEntityName: string | undefined;
-  setPreviewDocPath: React.Dispatch<React.SetStateAction<string | null>>;
-  setPreviewEntityName: React.Dispatch<React.SetStateAction<string | undefined>>;
+  // Attachment preview state — MVP-2b: list of previewable items.
+  // Today only document items are emitted (PropertiesPanel's
+  // `onPreviewDocument` wraps `(path, entityName?)` into a single-item
+  // PreviewItem[]). Task 7 will widen the open-handler to build
+  // multi-item arrays from `attachmentsByType(target)`.
+  previewedItems: PreviewItem[] | null;
+  setPreviewedItems: React.Dispatch<React.SetStateAction<PreviewItem[] | null>>;
   readDocument: (path: string) => Promise<string | null>;
   getDocumentReferences: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
     attachments: Array<{ entityType: string; entityId: string }>;
     wikiBacklinks: string[];
   };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
+
+  // 4-way attachment selectors threaded down to AttachmentsSection in each
+  // properties panel. `attachmentsByType` returns the per-type buckets for
+  // a target; `openAttachmentPreviewFor` builds the multi-item preview
+  // payload from those buckets and seeds `previewedItems`.
+  attachmentsByType: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
 }
 
 export default function DiagramOverlays(props: DiagramOverlaysProps) {
@@ -243,13 +257,13 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     scrollToRect,
     getNodeDimensions,
     getDocumentsForEntity,
-    previewDocPath,
-    previewEntityName,
-    setPreviewDocPath,
-    setPreviewEntityName,
+    previewedItems,
+    setPreviewedItems,
     readDocument,
     getDocumentReferences,
     deleteDocumentWithCleanup,
+    attachmentsByType,
+    openAttachmentPreviewFor,
   } = props;
   // Unused in the JSX but needed for layout sizing; silence.
   void _measuredSizes;
@@ -385,14 +399,23 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         onOpenDocument={onOpenDocument}
         documents={documents}
         onPreviewDocument={(path, entityName) => {
-          setPreviewDocPath(path);
-          setPreviewEntityName(entityName);
+          // MVP-2b transitional adapter: PropertiesPanel still hands us
+          // a single (path, entityName?) payload. Wrap into a single-item
+          // PreviewItem[] so the new AttachmentPreviewModal contract is
+          // satisfied. Task 7 replaces this with the indicator-click
+          // builder that pulls every type bucket via attachmentsByType.
+          setPreviewedItems([
+            { type: "document", filename: path, entityName },
+          ]);
         }}
         onOpenDocPicker={(type, id) => setPickerTarget({ type, id })}
         onDetachDocument={onDetachDocument}
         getDocumentReferences={getDocumentReferences}
         deleteDocumentWithCleanup={deleteDocumentWithCleanup}
         onCreateAndAttach={onCreateAndAttach}
+        activeFile={activeFile}
+        attachmentsByType={attachmentsByType}
+        openAttachmentPreviewFor={openAttachmentPreviewFor}
         history={activeFile ? {
           entries: history.entries,
           currentIndex: history.currentIndex,
@@ -490,14 +513,21 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         />
       )}
 
-      {/* Doc Preview Modal */}
-      {previewDocPath && (
-        <DocPreviewModal
-          docPath={previewDocPath}
-          entityName={previewEntityName}
-          onClose={() => { setPreviewDocPath(null); setPreviewEntityName(undefined); }}
-          onOpenInPane={(path) => { onOpenDocument(path); setPreviewDocPath(null); setPreviewEntityName(undefined); }}
+      {/* Attachment Preview Modal (MVP-2b) */}
+      {previewedItems && previewedItems.length > 0 && (
+        <AttachmentPreviewModal
+          open
+          items={previewedItems}
+          onClose={() => setPreviewedItems(null)}
+          onOpenInPane={(filename, _anchor) => {
+            // Wiki-link anchor forwarding lands in a follow-up plan; for
+            // now we drop the anchor and route through onOpenDocument as
+            // the legacy modal did.
+            setPreviewedItems(null);
+            onOpenDocument(filename);
+          }}
           readDocument={readDocument}
+          resolveWikiLinkPath={resolveWikiLinkPath}
         />
       )}
     </>
