@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SourcesSection } from "./SourcesSection";
@@ -28,10 +29,11 @@ describe("SourcesSection", () => {
   });
 
   it("calls onChange with new array when adding a source", async () => {
+    const user = userEvent.setup();
     const onChange = vi.fn();
     function Host() {
       // mimics a controlled host: re-render with the latest array passed up
-      const [s, setS] = (require("react") as typeof import("react")).useState<SourceLink[]>([]);
+      const [s, setS] = useState<SourceLink[]>([]);
       return (
         <SourcesSection
           sources={s}
@@ -43,18 +45,19 @@ describe("SourcesSection", () => {
       );
     }
     render(<Host />);
-    await userEvent.click(screen.getByTestId("sources-add"));
+    await user.click(screen.getByTestId("sources-add"));
     const urlInput = await screen.findByTestId("sources-url-input-0");
-    await userEvent.type(urlInput, "https://x.com");
-    urlInput.blur();
+    await user.type(urlInput, "https://x.com");
+    await user.tab();
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last).toEqual([{ url: "https://x.com", title: "" }]);
   });
 
   it("rejects invalid URLs on blur (does not commit)", async () => {
+    const user = userEvent.setup();
     const onChange = vi.fn();
     function Host() {
-      const [s, setS] = (require("react") as typeof import("react")).useState<SourceLink[]>([]);
+      const [s, setS] = useState<SourceLink[]>([]);
       return (
         <SourcesSection
           sources={s}
@@ -66,10 +69,10 @@ describe("SourcesSection", () => {
       );
     }
     render(<Host />);
-    await userEvent.click(screen.getByTestId("sources-add"));
+    await user.click(screen.getByTestId("sources-add"));
     const urlInput = await screen.findByTestId("sources-url-input-0");
-    await userEvent.type(urlInput, "javascript:bad");
-    urlInput.blur();
+    await user.type(urlInput, "javascript:bad");
+    await user.tab();
     // No call to onChange should ever carry the invalid URL.
     const allValid = onChange.mock.calls.every(
       (call) => !(call[0] as SourceLink[]).some((s) => s.url === "javascript:bad"),

@@ -174,6 +174,7 @@ function SourceRow({ index, source, error, readOnly, onTitleChange, onUrlBlur, o
           value={source.title ?? ""}
           placeholder={label || "Title"}
           onChange={(e) => onTitleChange(e.target.value)}
+          aria-label="Source title"
           className="flex-1 min-w-0 bg-transparent text-ink placeholder:text-mute outline-none"
         />
         {openLink}
@@ -194,6 +195,7 @@ function SourceRow({ index, source, error, readOnly, onTitleChange, onUrlBlur, o
         placeholder="https://…"
         onChange={(e) => setUrlDraft(e.target.value)}
         onBlur={handleBlur}
+        aria-label="Source URL"
         className={`bg-transparent text-mute placeholder:text-mute outline-none ${
           error ? "text-danger" : ""
         }`}
