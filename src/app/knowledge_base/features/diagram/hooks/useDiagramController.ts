@@ -8,7 +8,7 @@ import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity }
 import { createLayerId } from "../utils/idFactory";
 import { computeLayout, type ArrangeAlgorithm } from "../utils/autoArrange";
 import { getAnchorEdge, type AnchorId } from "../utils/anchors";
-import { useAnchorPopup, useContextMenu, useEditingLabel, useHovered, useSelection } from "../state/DiagramInteractionContext";
+import { useAnchorPopup, useContextMenu, useEditingLabel, useHovered, useLockedFlow, useSelection } from "../state/DiagramInteractionContext";
 import { useDiagramDocument } from "./useDiagramDocument";
 import { useDiagramHistoryStore } from "./useDiagramHistoryStore";
 import { useDiagramGeometry } from "./useDiagramGeometry";
@@ -352,12 +352,34 @@ export function useDiagramController(input: DiagramControllerInputs) {
     setHoveredNodeId, setEditingLabel, setEditingLabelValue,
     pendingSelection, handleSelectionRectStart, handleDragStart, scheduleRecord, readOnly,
   });
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
+
+  const handleChangeNodeRole = useCallback((nodeId: string, next: 'start' | 'end' | null) => {
+    if (!lockedFlowId) return;
+    const flow = flowsRef.current.find((f) => f.id === lockedFlowId);
+    if (!flow) return;
+    const startSet = new Set(flow.startNodeIds ?? []);
+    const endSet = new Set(flow.endNodeIds ?? []);
+    startSet.delete(nodeId);
+    endSet.delete(nodeId);
+    if (next === 'start') startSet.add(nodeId);
+    if (next === 'end') endSet.add(nodeId);
+    handleUpdateFlow(lockedFlowId, { startNodeIds: [...startSet], endNodeIds: [...endSet] });
+  }, [lockedFlowId, flowsRef, handleUpdateFlow]);
+
+  // Clear lock when the user switches to a different diagram file.
+  useEffect(() => {
+    if (lockedFlowId !== null) setLockedFlowId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFile]);
+
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu, deleteSelection, setPendingDeletion,
     handleCreateFlow, handleUndo, handleRedo,
     selectionRef, pendingSelectionRef: pendingSelection, nodesRef,
     readOnly, onToggleReadOnly: toggleReadOnly,
     onFirstKeystrokeInReadMode: handleFirstKeystrokeInReadMode,
+    lockedFlowId, setLockedFlowId,
   });
 
   // KB-030: Tab/Shift+Tab walks nodes; arrows nudge; Enter opens label
@@ -491,6 +513,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     commitLabel,
     hasDocuments, getDocumentsForEntity, onOpenDocument,
     getNodeDimensions: geometry.getNodeDimensions, nodes, previewDocPath,
+    onChangeNodeRole: handleChangeNodeRole,
   };
 
   const quickInspector = {

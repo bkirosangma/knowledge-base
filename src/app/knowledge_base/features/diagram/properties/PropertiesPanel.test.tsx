@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
+import React from 'react'
 import PropertiesPanel from './PropertiesPanel'
 import type { NodeData, Connection, LayerDef, FlowDef, Selection } from '../types'
 import type { RegionBounds } from './shared'
 import { Database } from 'lucide-react'
+import {
+  DiagramInteractionProvider,
+  useLockedFlow,
+} from '../state/DiagramInteractionContext'
 
 // Covers DIAG-3.13-02: tab switching — PropertiesPanel shows the right
 // sub-panel based on selection.type.
@@ -29,17 +34,28 @@ const connection: Connection = {
 
 const flows: FlowDef[] = []
 
-function panel(selection: Selection) {
+/** Helper that locks a flow via context after mount. */
+function LockHelper({ flowId }: { flowId: string }) {
+  const { setLockedFlowId } = useLockedFlow()
+  React.useEffect(() => {
+    setLockedFlowId(flowId)
+  }, [flowId, setLockedFlowId])
+  return null
+}
+
+function panel(selection: Selection, testFlows: FlowDef[] = flows) {
   return (
-    <PropertiesPanel
-      selection={selection}
-      title="My Diagram"
-      nodes={[node]}
-      connections={[connection]}
-      regions={[region]}
-      layerDefs={[layerDef]}
-      flows={flows}
-    />
+    <DiagramInteractionProvider>
+      <PropertiesPanel
+        selection={selection}
+        title="My Diagram"
+        nodes={[node]}
+        connections={[connection]}
+        regions={[region]}
+        layerDefs={[layerDef]}
+        flows={testFlows}
+      />
+    </DiagramInteractionProvider>
   )
 }
 
@@ -90,17 +106,50 @@ describe('DIAG-3.13-02: PropertiesPanel tab switching', () => {
 
   it('collapsed prop renders chevron-left toggle instead of full panel', () => {
     render(
-      <PropertiesPanel
-        selection={null}
-        title="D"
-        nodes={[]} connections={[]} regions={[]} layerDefs={[]} flows={[]}
-        collapsed
-        onToggleCollapse={() => {}}
-      />,
+      <DiagramInteractionProvider>
+        <PropertiesPanel
+          selection={null}
+          title="D"
+          nodes={[]} connections={[]} regions={[]} layerDefs={[]} flows={[]}
+          collapsed
+          onToggleCollapse={() => {}}
+        />
+      </DiagramInteractionProvider>,
     )
     // Full panel content is not rendered when collapsed
     expect(screen.queryByText('Architecture')).toBeNull()
     // Expand button is visible
     expect(screen.getByLabelText('Expand properties')).toBeTruthy()
+  })
+})
+
+// DIAG-12-01: PropertiesPanel stacks FlowProperties + element panel when locked
+describe('DIAG-12-01: PropertiesPanel locked-flow stack mode', () => {
+  const flowWithMember: FlowDef = {
+    id: 'flow-1',
+    name: 'Flow One',
+    category: '',
+    connectionIds: ['c1'], // c1 connects n1 → n2, so n1 is a member
+  }
+
+  it('stacks FlowProperties + NodeProperties when locked and a member node is selected', async () => {
+    render(
+      <DiagramInteractionProvider>
+        <LockHelper flowId="flow-1" />
+        <PropertiesPanel
+          selection={{ type: 'node', id: 'n1' }}
+          title="My Diagram"
+          nodes={[node]}
+          connections={[connection]}
+          regions={[region]}
+          layerDefs={[layerDef]}
+          flows={[flowWithMember]}
+        />
+      </DiagramInteractionProvider>,
+    )
+    // Wait for the LockHelper effect to fire.
+    await act(async () => {})
+    expect(screen.getByTestId('flow-properties-panel')).toBeTruthy()
+    expect(screen.getByTestId('element-properties-panel')).toBeTruthy()
   })
 })

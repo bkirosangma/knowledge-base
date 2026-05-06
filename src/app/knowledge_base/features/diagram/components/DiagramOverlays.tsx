@@ -125,7 +125,14 @@ export interface DiagramOverlaysProps {
   handleRedo: () => void;
   handleGoToEntry: (index: number) => void;
   handleSelectFlow: (flowId: string | null) => void;
-  handleUpdateFlow: (oldId: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
+  handleUpdateFlow: (oldId: string, updates: Partial<{
+    id: string;
+    name: string;
+    category: string;
+    nodeOrders: Record<string, number>;
+    startNodeIds: string[];
+    endNodeIds: string[];
+  }>) => void;
   handleDeleteFlow: (flowId: string) => void;
   handleCreateFlow: (connectionIds: string[]) => void;
   handleSelectLine: (lineId: string) => void;

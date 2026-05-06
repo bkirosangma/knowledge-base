@@ -38,6 +38,7 @@ export interface DiagramLinesOverlayProps {
   isMultiDrag: boolean;
   flowDimSets: DimSets;
   typeDimSets: DimSets;
+  isLocked?: boolean;
 
   // Ghost-line preview (endpoint drag or line creation)
   ghostLine: {
@@ -94,6 +95,7 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
     isMultiDrag,
     flowDimSets,
     typeDimSets,
+    isLocked,
     ghostLine,
     pendingSelection,
     labelDragStartT,
@@ -122,7 +124,8 @@ export default function DiagramLinesOverlay(props: DiagramLinesOverlayProps) {
     >
       {sortedLines.map((line) => {
         const isBeingDragged = draggingEndpoint?.connectionId === line.id;
-        const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id)) || (typeDimSets != null && !typeDimSets.connIds.has(line.id));
+        const isLockedNonMember = !!isLocked && flowDimSets != null && !flowDimSets.connIds.has(line.id);
+        const dimmed = (!!draggingEndpoint && !isBeingDragged) || !!creatingLine || !!draggingId || !!draggingLayerId || isMultiDrag || (flowDimSets != null && !flowDimSets.connIds.has(line.id)) || (typeDimSets != null && !typeDimSets.connIds.has(line.id)) || isLockedNonMember;
         return (
           <DataLine
             key={line.id}

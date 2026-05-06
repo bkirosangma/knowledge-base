@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
 import DocInfoBadge from "./DocInfoBadge";
+import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
 
@@ -44,6 +45,12 @@ interface ElementProps {
   documentPaths?: string[];
   onDocNavigate?: (path: string) => void;
   flowRole?: 'start' | 'end' | 'middle';
+  order?: number;
+  orderEditable?: boolean;
+  onOrderChange?: (next: number | undefined) => void;
+  lockedNonMember?: boolean;
+  lockEditRoleToggle?: boolean;
+  onRoleToggle?: (next: 'start' | 'end' | null) => void;
 }
 
 function Element({
@@ -77,6 +84,12 @@ function Element({
   documentPaths,
   onDocNavigate,
   flowRole,
+  order,
+  orderEditable,
+  onOrderChange,
+  lockedNonMember: _lockedNonMember,
+  lockEditRoleToggle,
+  onRoleToggle,
 }: ElementProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -150,15 +163,39 @@ function Element({
       onMouseLeave={() => { setIsHovered(false); onMouseLeave?.(id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(id); }}
     >
-      {(flowRole === 'start' || flowRole === 'end') && (
-        <span
-          data-testid={`flow-role-pill-${id}`}
-          className={`absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none pointer-events-none ${
-            flowRole === 'start' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-          }`}
+      {(flowRole === 'start' || flowRole === 'end' || lockEditRoleToggle) && (
+        <button
+          type="button"
+          data-testid={lockEditRoleToggle ? `flow-role-toggle-${id}` : `flow-role-pill-${id}`}
+          onClick={lockEditRoleToggle ? () => {
+            const next = flowRole === 'start' ? 'end' : flowRole === 'end' ? null : 'start';
+            onRoleToggle?.(next);
+          } : undefined}
+          className={
+            "absolute left-1/2 -translate-x-1/2 -top-2 -translate-y-full rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none " +
+            (lockEditRoleToggle ? "" : "pointer-events-none ") +
+            (flowRole === 'start'
+              ? "bg-green-600 text-white"
+              : flowRole === 'end'
+                ? "bg-red-600 text-white"
+                : "bg-slate-200 text-slate-500 border border-dashed border-slate-400")
+          }
+          aria-label={
+            flowRole === 'start' ? "Start of flow" :
+            flowRole === 'end'   ? "End of flow"   :
+            lockEditRoleToggle   ? `Click to mark ${id} as start of flow` : ""
+          }
         >
-          {flowRole === 'start' ? 'Start' : 'End'}
-        </span>
+          {flowRole === 'start' ? 'Start' : flowRole === 'end' ? 'End' : '·'}
+        </button>
+      )}
+      {(orderEditable || order !== undefined) && (
+        <OrderBadge
+          value={order}
+          editable={!!orderEditable}
+          onChange={(next) => onOrderChange?.(next)}
+          nodeId={id}
+        />
       )}
       {Icon && (
         <span className="mb-2" style={{ color: adaptedSubText }}>
@@ -275,6 +312,9 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.borderColor === n.borderColor &&
     p.textColor === n.textColor &&
     p.flowRole === n.flowRole &&
+    p.order === n.order &&
+    p.orderEditable === n.orderEditable &&
+    p.onOrderChange === n.onOrderChange &&
     // Visual-state booleans — without these, selection/drag/dim feedback
     // would lag a render
     p.showLabels === n.showLabels &&
@@ -298,6 +338,9 @@ function arePropsEqual(p: ElementProps, n: ElementProps): boolean {
     p.onResize === n.onResize &&
     p.onDoubleClick === n.onDoubleClick &&
     p.onDocNavigate === n.onDocNavigate &&
+    p.lockedNonMember === n.lockedNonMember &&
+    p.lockEditRoleToggle === n.lockEditRoleToggle &&
+    p.onRoleToggle === n.onRoleToggle &&
     shallowEqArr(p.documentPaths, n.documentPaths)
   );
 }

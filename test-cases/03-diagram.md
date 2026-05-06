@@ -177,6 +177,16 @@
 | DIAG-3.10-47 | ✅ | Delete node with cascade — `detachAttachmentsFor` matcher also covers connections referencing the deleted node; excludes connections not touching the node — `useDeletion.test.ts` |
 | DIAG-3.10-48 | ✅ | `confirmDeletion` (broken-flow path) — `detachAttachmentsFor` matcher covers the directly deleted connection and the broken-flow id; excludes unrelated flows and tab rows — `useDeletion.test.ts` |
 | DIAG-3.10-49 | ✅ | Direct flow delete (`case "flow"`) — `detachAttachmentsFor` matcher hits that flow id only; excludes other flows and node/tab rows — `useDeletion.test.ts` |
+| DIAG-3.10-50 | ❌ | Given a flow with nodeOrders { a:1, b:2 }, when I focus the flow, then nodes a and b show blue corner numerals "1" and "2". |
+| DIAG-3.10-51 | ❌ | Given startNodeIds=[a], endNodeIds=[c], when I focus the flow, then a glows green with a "Start" pill and c glows red with an "End" pill. |
+| DIAG-3.10-52 | ❌ | Given empty startNodeIds and endNodeIds, when I focus the flow, then no node renders a glow border or pill. |
+| DIAG-3.10-53 | ❌ | When I lock a flow, then non-member nodes and connections render dimmed and pointer-events disabled. |
+| DIAG-3.10-54 | ❌ | When I lock a flow and click empty canvas, then the flow remains selected and locked. |
+| DIAG-3.10-55 | ❌ | When I lock a flow and click a member node, then PropertiesPanel stacks FlowProperties on top and NodeProperties below. |
+| DIAG-3.10-56 | ❌ | When the diagram is in edit mode and I lock a flow and click a member's order badge, then an editable input appears and Enter commits the new order. |
+| DIAG-3.10-57 | ❌ | When I press Cmd/Ctrl+L while a flow is selected, then the flow becomes locked; pressing again unlocks. |
+| DIAG-3.10-58 | ❌ | When I switch to a different file while a flow is locked, then the lock state clears. |
+| DIAG-3.10-59 | ❌ | Given lockedFlow + edit mode, when I click the role-toggle pill above a member node, then the role cycles none → start → end → none. |
 
 ## 3.11 Selection
 

@@ -10,8 +10,10 @@ import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
 import { DiagramProperties } from "./DiagramProperties";
+import { FlowProperties } from "./FlowProperties";
 import HistoryPanel from "../../../shared/components/HistoryPanel";
 import { Tooltip } from "../../../shared/components/Tooltip";
+import { useLockedFlow } from "../state/DiagramInteractionContext";
 
 interface PropertiesPanelProps {
   selection: Selection;
@@ -77,6 +79,85 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
 
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
+  const lockedFlow = lockedFlowId ? flows.find((f) => f.id === lockedFlowId) ?? null : null;
+
+  /**
+   * Returns the selection-driven JSX for whatever is currently selected
+   * (node, layer, line, multi-*, flow, or null → diagram-level).
+   * Shared by both the unlocked path and the element section of the locked stack.
+   */
+  function renderForSelection() {
+    return (
+      <>
+        {(!selection || selection.type === "flow") && (
+          <DiagramProperties
+            title={title}
+            regions={regions}
+            nodes={nodes}
+            connections={connections}
+            onUpdateTitle={onUpdateTitle}
+            onSelectLayer={onSelectLayer}
+            onSelectNode={onSelectNode}
+            lineCurve={lineCurve}
+            onUpdateLineCurve={onUpdateLineCurve}
+            flows={flows}
+            onHoverFlow={onHoverFlow}
+            onSelectFlow={onSelectFlow}
+            onUpdateFlow={onUpdateFlow}
+            onDeleteFlow={onDeleteFlow}
+            onSelectLine={onSelectLine}
+            activeFlowId={selection?.type === "flow" ? selection.id : undefined}
+            onSelectType={onSelectType}
+            onHoverType={onHoverType}
+            expandedType={expandedType}
+            onExpandType={onExpandType}
+            backlinks={backlinks}
+            onOpenDocument={onOpenDocument}
+            readOnly={readOnly}
+            documents={documents}
+            onPreviewDocument={onPreviewDocument}
+            onOpenDocPicker={onOpenDocPicker}
+            onDetachDocument={onDetachDocument}
+            getDocumentReferences={getDocumentReferences}
+            deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+            onCreateAndAttach={onCreateAndAttach}
+            onLockFlow={(flowId) => setLockedFlowId(flowId)}
+          />
+        )}
+        {selection?.type === "node" && (
+          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
+        )}
+        {selection?.type === "layer" && (
+          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
+        )}
+        {selection?.type === "line" && (
+          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
+        )}
+        {selection?.type === "multi-node" && (
+          <div className="text-sm text-mute italic py-4">{selection.ids.length} elements selected</div>
+        )}
+        {selection?.type === "multi-layer" && (
+          <div className="text-sm text-mute italic py-4">{selection.ids.length} layers selected</div>
+        )}
+        {selection?.type === "multi-line" && (
+          <div>
+            <div className="text-sm text-mute italic py-4">{selection.ids.length} lines selected</div>
+            {!readOnly && (
+              <div className="px-1">
+                <button
+                  className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                  onClick={() => onCreateFlow?.(selection.ids)}
+                >
+                  Create Flow
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
 
   const sectionLabel = !selection || selection.type === "flow"
     ? "Architecture"
@@ -137,69 +218,37 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {(!selection || selection.type === "flow") && (
-          <DiagramProperties
-            title={title}
-            regions={regions}
-            nodes={nodes}
-            connections={connections}
-            onUpdateTitle={onUpdateTitle}
-            onSelectLayer={onSelectLayer}
-            onSelectNode={onSelectNode}
-            lineCurve={lineCurve}
-            onUpdateLineCurve={onUpdateLineCurve}
-            flows={flows}
-            onHoverFlow={onHoverFlow}
-            onSelectFlow={onSelectFlow}
-            onUpdateFlow={onUpdateFlow}
-            onDeleteFlow={onDeleteFlow}
-            onSelectLine={onSelectLine}
-            activeFlowId={selection?.type === "flow" ? selection.id : undefined}
-            onSelectType={onSelectType}
-            onHoverType={onHoverType}
-            expandedType={expandedType}
-            onExpandType={onExpandType}
-            backlinks={backlinks}
-            onOpenDocument={onOpenDocument}
-            readOnly={readOnly}
-            documents={documents}
-            onPreviewDocument={onPreviewDocument}
-            onOpenDocPicker={onOpenDocPicker}
-            onDetachDocument={onDetachDocument}
-            getDocumentReferences={getDocumentReferences}
-            deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-            onCreateAndAttach={onCreateAndAttach}
-          />
-        )}
-        {selection?.type === "node" && (
-          <NodeProperties id={selection.id} nodes={nodes} connections={connections} regions={regions} layerDefs={layerDefs} onSelectLayer={onSelectLayer} onSelectNode={onSelectNode} onUpdate={onUpdateNode} allNodeIds={allNodeIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} onCreateLayer={onCreateLayer} onDeleteAnchor={onDeleteAnchor} levelInfo={levelMap?.get(selection.id)} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
-        )}
-        {selection?.type === "layer" && (
-          <LayerProperties id={selection.id} regions={regions} nodes={nodes} layerDefs={layerDefs} onSelectNode={onSelectNode} onUpdate={onUpdateLayer} allLayerIds={allLayerIds} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
-        )}
-        {selection?.type === "line" && (
-          <LineProperties id={selection.id} connections={connections} nodes={nodes} onUpdate={onUpdateConnection} allConnectionIds={allConnectionIds} flows={flows} onSelectFlow={onSelectFlow} onHoverFlow={onHoverFlow} backlinks={backlinks} onPreviewDocument={onPreviewDocument} readOnly={readOnly} />
-        )}
-        {selection?.type === "multi-node" && (
-          <div className="text-sm text-mute italic py-4">{selection.ids.length} elements selected</div>
-        )}
-        {selection?.type === "multi-layer" && (
-          <div className="text-sm text-mute italic py-4">{selection.ids.length} layers selected</div>
-        )}
-        {selection?.type === "multi-line" && (
-          <div>
-            <div className="text-sm text-mute italic py-4">{selection.ids.length} lines selected</div>
-            {!readOnly && (
-              <div className="px-1">
-                <button
-                  className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                  onClick={() => onCreateFlow?.(selection.ids)}
-                >
-                  Create Flow
-                </button>
+        {lockedFlow ? (
+          <>
+            <div data-testid="flow-properties-panel">
+              <FlowProperties
+                id={lockedFlow.id}
+                flows={flows}
+                connections={connections}
+                nodes={nodes}
+                allFlowIds={flows.map((f) => f.id)}
+                onUpdate={onUpdateFlow}
+                onDelete={onDeleteFlow}
+                onSelectLine={onSelectLine}
+                onSelectNode={onSelectNode}
+                attachedDocs={documents?.filter(d => d.attachedTo?.some(a => a.type === "flow" && a.id === lockedFlow.id)) ?? []}
+                onAttach={() => onOpenDocPicker?.("flow", lockedFlow.id)}
+                onDetach={(docPath) => onDetachDocument?.(docPath, "flow", lockedFlow.id)}
+                onPreview={(docPath) => onPreviewDocument?.(docPath, lockedFlow.name)}
+                getDocumentReferences={getDocumentReferences}
+                deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+                onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(lockedFlow.id, filename, editNow) ?? Promise.resolve()}
+                readOnly={readOnly}
+              />
+            </div>
+            {selection && selection.type !== "flow" && (
+              <div data-testid="element-properties-panel" className="mt-4 border-t pt-4">
+                {renderForSelection()}
               </div>
             )}
-          </div>
+          </>
+        ) : (
+          renderForSelection()
         )}
       </div>
 

@@ -3,6 +3,8 @@ import { installMockFS } from './fixtures/fsMock'
 
 // Covers DIAG-3.10-20/21/22/24/25 — flow start/end node glow +
 // off-flow label suppression. These require the full DiagramView render path.
+// Start/end glow is driven by the flow's manual `startNodeIds` / `endNodeIds`
+// (MVP-1 design — no graph-topology heuristic).
 
 // Three nodes in a linear flow (nA→nB→nC) plus one off-flow connection
 // (nD→nE) with a distinct label so we can assert it disappears.
@@ -21,7 +23,7 @@ const FLOW_DIAGRAM = {
     { id: 'c2', from: 'nB', to: 'nC', fromAnchor: 'right-1', toAnchor: 'left-1', color: '#94a3b8', label: 'in-flow-2', labelPosition: 0.5 },
     { id: 'c3', from: 'nD', to: 'nE', fromAnchor: 'right-1', toAnchor: 'left-1', color: '#94a3b8', label: 'off-flow',  labelPosition: 0.5 },
   ],
-  flows: [{ id: 'f1', name: 'Main Flow', connectionIds: ['c1', 'c2'] }],
+  flows: [{ id: 'f1', name: 'Main Flow', connectionIds: ['c1', 'c2'], startNodeIds: ['nA'], endNodeIds: ['nC'] }],
   documents: [],
   layerManualSizes: {},
   lineCurve: 'orthogonal',

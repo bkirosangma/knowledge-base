@@ -46,7 +46,12 @@ export interface DiagramNodeLayerProps {
   typeDimSets: DimSets;
 
   // Flow order overlays
-  flowOrderData?: Map<string, { role: 'start' | 'end' | 'middle' }> | null;
+  flowOrderData?: Map<string, { role: 'start' | 'end' | 'middle'; order: number | undefined }> | null;
+
+  // Lock mode
+  isLocked?: boolean;
+  onChangeNodeOrder?: (nodeId: string, next: number | undefined) => void;
+  onChangeNodeRole?: (nodeId: string, next: 'start' | 'end' | null) => void;
 
   // Handlers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +155,9 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     flowDimSets,
     typeDimSets,
     flowOrderData,
+    isLocked,
+    onChangeNodeOrder,
+    onChangeNodeRole,
     handleAnchorDragStart,
     handleAnchorHover,
     handleAnchorHoverEnd,
@@ -201,6 +209,9 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
         if (typeDimSets != null && !typeDimSets.nodeIds.has(node.id)) { dimmed = true; showAnchors = false; }
         if (readOnly) { showAnchors = false; }
 
+        const isMember = !flowDimSets || flowDimSets.nodeIds.has(node.id);
+        const lockedNonMember = !!isLocked && !isMember;
+
         let visualX = node.x;
         let visualY = node.y;
         if (isThisSingleDragged && elementDragPos) {
@@ -228,8 +239,14 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           onMouseEnter: handleNodeMouseEnter,
           onMouseLeave: handleNodeMouseLeave,
           dimmed,
+          lockedNonMember,
           onDoubleClick: handleNodeDoubleClick,
           flowRole: flowEntry?.role,
+          order: flowEntry?.order,
+          orderEditable: isLocked && !readOnly && flowEntry !== undefined,
+          onOrderChange: (next: number | undefined) => onChangeNodeOrder?.(node.id, next),
+          lockEditRoleToggle: !!(isLocked && !readOnly && isMember),
+          onRoleToggle: (next: 'start' | 'end' | null) => onChangeNodeRole?.(node.id, next),
         };
 
         const showEdgeHandles =
@@ -273,34 +290,36 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
                   dimmed
                 />
               )}
-              <ConditionElement
-                id={node.id}
-                label={node.label}
-                icon={node.icon}
-                x={visualX}
-                y={visualY}
-                w={condDims.w}
-                h={condDims.h}
-                outCount={node.conditionOutCount ?? 2}
-                rotation={node.rotation ?? 0}
-                showLabels
-                onDragStart={handleNodeDragStart}
-                {...commonProps}
-                onAddOutAnchor={readOnly ? undefined : () => {
-                  setNodes((prev) => prev.map((n) => {
-                    if (n.id !== node.id || n.shape !== "condition") return n;
-                    return { ...n, conditionOutCount: n.conditionOutCount + 1 };
-                  }));
-                  scheduleRecord("Add out anchor");
-                }}
-                onRotationDragStart={readOnly ? undefined : handleRotationDragStart}
-                borderColor={node.borderColor}
-                bgColor={node.bgColor}
-                textColor={node.textColor}
-                hasDocuments={hasDocuments("node", node.id)}
-                documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-                onDocNavigate={onOpenDocument}
-              />
+              <div style={{ pointerEvents: lockedNonMember ? "none" : undefined }}>
+                <ConditionElement
+                  id={node.id}
+                  label={node.label}
+                  icon={node.icon}
+                  x={visualX}
+                  y={visualY}
+                  w={condDims.w}
+                  h={condDims.h}
+                  outCount={node.conditionOutCount ?? 2}
+                  rotation={node.rotation ?? 0}
+                  showLabels
+                  onDragStart={handleNodeDragStart}
+                  {...commonProps}
+                  onAddOutAnchor={readOnly ? undefined : () => {
+                    setNodes((prev) => prev.map((n) => {
+                      if (n.id !== node.id || n.shape !== "condition") return n;
+                      return { ...n, conditionOutCount: n.conditionOutCount + 1 };
+                    }));
+                    scheduleRecord("Add out anchor");
+                  }}
+                  onRotationDragStart={readOnly ? undefined : handleRotationDragStart}
+                  borderColor={node.borderColor}
+                  bgColor={node.bgColor}
+                  textColor={node.textColor}
+                  hasDocuments={hasDocuments("node", node.id)}
+                  documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
+                  onDocNavigate={onOpenDocument}
+                />
+              </div>
             </React.Fragment>
           );
         }
@@ -313,19 +332,21 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
             {isThisMultiDragged && multiDragRawDelta && (
               <Element id={`${node.id}-ghost`} label={node.label} sub={node.sub} icon={node.icon} x={node.x + multiDragRawDelta.dx} y={node.y + multiDragRawDelta.dy} w={node.w} showLabels dimmed measuredHeight={dims.h} />
             )}
-            <Element
-              {...node}
-              x={visualX}
-              y={visualY}
-              showLabels
-              onDragStart={handleNodeDragStart}
-              {...commonProps}
-              anchors={anchors}
-              measuredHeight={dims.h}
-              hasDocuments={hasDocuments("node", node.id)}
-              documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
-              onDocNavigate={onOpenDocument}
-            />
+            <div style={{ pointerEvents: lockedNonMember ? "none" : undefined }}>
+              <Element
+                {...node}
+                x={visualX}
+                y={visualY}
+                showLabels
+                onDragStart={handleNodeDragStart}
+                {...commonProps}
+                anchors={anchors}
+                measuredHeight={dims.h}
+                hasDocuments={hasDocuments("node", node.id)}
+                documentPaths={getDocumentsForEntity("node", node.id).map(d => d.filename)}
+                onDocNavigate={onOpenDocument}
+              />
+            </div>
             {showEdgeHandles && (
               <EdgeHandles
                 nodeId={node.id}

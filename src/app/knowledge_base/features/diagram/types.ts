@@ -58,6 +58,12 @@ export interface FlowDef {
   name: string;
   connectionIds: string[];
   category?: string;
+  /** Optional per-node order in this flow. Absent = no badge. Multiple nodes may share a number. */
+  nodeOrders?: Record<string /* nodeId */, number>;
+  /** Manually authored start node IDs. Empty / absent = nothing rendered as start. */
+  startNodeIds?: string[];
+  /** Manually authored end node IDs. Empty / absent = nothing rendered as end. */
+  endNodeIds?: string[];
 }
 
 export interface Connection {

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Map as MapIcon } from "lucide-react";
 import Canvas, { type CanvasPatch } from "./Canvas";
 import Layer, { type ResizeEdge } from "./Layer";
@@ -10,6 +10,8 @@ import DiagramNodeLayer from "./DiagramNodeLayer";
 import DiagramLabelEditor from "./DiagramLabelEditor";
 import DiagramLabelOverlay from "./DiagramLabelOverlay";
 import CanvasLiveRegion from "./CanvasLiveRegion";
+import { LockBanner } from "./LockBanner";
+import { useLockedFlow } from "../state/DiagramInteractionContext";
 import { VIEWPORT_PADDING } from "../hooks/useCanvasCoords";
 import { isItemSelected } from "../utils/selectionUtils";
 import { detectContextMenuTarget } from "../utils/geometry";
@@ -134,7 +136,7 @@ export interface DiagramCanvasProps {
   // Dimming
   flowDimSets: DimSets | null;
   typeDimSets: DimSets | null;
-  flowOrderData: ReturnType<typeof import("../utils/flowUtils").computeFlowRoles> | null;
+  flowOrderData: Map<string, { role: 'start' | 'end' | 'middle'; order: number | undefined }> | null;
   // Canvas / coord helpers
   toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
   // Mutations / events plumbed through to children
@@ -181,6 +183,7 @@ export interface DiagramCanvasProps {
   nodes: NodeData[];
   // CSS state hints
   previewDocPath: string | null;
+  onChangeNodeRole?: (nodeId: string, next: 'start' | 'end' | null) => void;
 }
 
 /**
@@ -274,7 +277,15 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     getNodeDimensions,
     nodes,
     previewDocPath,
+    onChangeNodeRole,
   } = props;
+
+  const { lockedFlowId, setLockedFlowId } = useLockedFlow();
+  const isLocked = lockedFlowId !== null;
+  const lockedFlow = useMemo(
+    () => flows.find((f) => f.id === lockedFlowId) ?? null,
+    [flows, lockedFlowId],
+  );
 
   return (
     <div
@@ -290,7 +301,9 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-surface-2 relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
       style={{ scrollbarWidth: "none" }}
       onMouseDown={(e) => {
-        if (e.button === 0 && selection?.type === "flow") setSelection(null);
+        if (e.button === 0 && selection?.type === "flow" && !lockedFlowId) {
+          setSelection(null);
+        }
         handleCanvasMouseDown(e);
       }}
       onPointerMove={hoveredLine ? () => setHoveredLine(null) : undefined}
@@ -306,6 +319,9 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       }}
     >
       <CanvasLiveRegion selection={selection} nodes={nodes} layers={layerDefs} />
+      {lockedFlow && (
+        <LockBanner flowName={lockedFlow.name} onUnlock={() => setLockedFlowId(null)} />
+      )}
       {!activeFile ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-2 z-50">
           <div className="flex flex-col items-center gap-3 text-mute">
@@ -427,6 +443,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   isMultiDrag={isMultiDrag}
                   flowDimSets={flowDimSets}
                   typeDimSets={typeDimSets}
+                  isLocked={isLocked}
                   ghostLine={ghostLine}
                   pendingSelection={pendingSelection}
                   labelDragStartT={labelDragStartT}
@@ -491,6 +508,8 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   flowDimSets={flowDimSets}
                   typeDimSets={typeDimSets}
                   flowOrderData={flowOrderData}
+                  isLocked={isLocked}
+                  onChangeNodeRole={onChangeNodeRole}
                   handleAnchorDragStart={handleAnchorDragStart}
                   handleAnchorHover={handleAnchorHover}
                   handleAnchorHoverEnd={handleAnchorHoverEnd}
