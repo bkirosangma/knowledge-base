@@ -28,7 +28,7 @@ import { encodeWav } from "../domain/wavEncoder";
 import { SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
-  player: { enablePlayer: boolean; soundFont: string };
+  player: { enablePlayer: boolean; soundFont: string; outputMode: number };
   core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean };
 }
 
@@ -343,6 +343,12 @@ const PLAYER_STATE_PLAYING = 1;
 // TAB-004 and was too noisy in the browser console once playback shipped.
 const LOG_LEVEL_INFO = 2;
 
+// alphaTab PlayerOutputMode.WebAudioScriptProcessor — legacy ScriptProcessorNode
+// audio output, runs on the main audio thread. Used instead of the default
+// WebAudioAudioWorklets because alphaTab's worklet URL auto-detection fails
+// under Next.js/Turbopack chunked bundling (same root cause as `useWorkers=false`).
+const PLAYER_OUTPUT_SCRIPT_PROCESSOR = 1;
+
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
@@ -387,6 +393,7 @@ export class AlphaTabEngine implements TabEngine {
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
+    settings.player.outputMode = PLAYER_OUTPUT_SCRIPT_PROCESSOR;
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
     // Run rendering on the main thread. AlphaTab's web-worker auto-detect
