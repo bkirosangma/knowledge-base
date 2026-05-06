@@ -429,6 +429,7 @@ class AlphaTabSession implements TabSession {
   private latestMetadata: TabMetadata | null = null;
   private latestScore: ScoreShape | null = null;
   private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
+  private isPlayingNow = false;
   private disposed = false;
 
   constructor(
@@ -460,8 +461,10 @@ class AlphaTabSession implements TabSession {
     api.playerReady.on(() => this.emit({ event: "ready" }));
     api.playerStateChanged.on((args) => {
       if (args.state === PLAYER_STATE_PLAYING) {
+        this.isPlayingNow = true;
         this.emit({ event: "played" });
       } else if (args.state === PLAYER_STATE_PAUSED) {
+        this.isPlayingNow = false;
         this.emit({ event: "paused" });
       }
     });
@@ -701,11 +704,13 @@ class AlphaTabSession implements TabSession {
 
     // Capture playback state before renderScore: it triggers alphaTab's
     // _setupOrDestroyPlayer which rebuilds the player and clears the
-    // selection range + loop flag. Without this restore, the user loses
-    // their drag-selected loop region every time they make any edit
-    // (e.g. tempo).
+    // selection range + loop flag + tick position. Without this restore,
+    // any edit (tempo most visibly) wipes the user's drag-selected loop
+    // region AND resets playback to bar 0 even mid-play.
     const savedRange = this.api.playbackRange;
     const savedLooping = this.api.isLooping;
+    const savedTick = this.api.tickPosition;
+    const wasPlaying = this.isPlayingNow;
 
     this.api.renderScore(this.latestScore);
     // renderScore refreshes the visual side. The synth midi is generated
@@ -717,6 +722,11 @@ class AlphaTabSession implements TabSession {
     // Restore the user's selection + loop state.
     this.api.playbackRange = savedRange;
     this.api.isLooping = savedLooping;
+    // Restore the playhead. Tick position is score-relative (not real-time)
+    // so the same tick value still points at the same musical position even
+    // after a tempo change.
+    this.api.tickPosition = savedTick;
+    if (wasPlaying) this.api.play();
 
     return metadata;
   }
