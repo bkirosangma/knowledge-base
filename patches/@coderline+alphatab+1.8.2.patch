@@ -124,3 +124,29 @@ index b1ad674..857ef25 100644
                          this.tickPosition = startTick;
                          this._synthStopping = false;
                      }
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.mjs
+index 85240f9..5444636 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.mjs
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.mjs
+@@ -131,6 +131,21 @@ else {
+         if (alphaTab.Environment.webPlatform === alphaTab.WebPlatform.NodeJs) {
+             throw new alphaTab.AlphaTabError(alphaTab.AlphaTabErrorType.General, 'Audio Worklets not yet supported in Node.js');
+         }
++        // PATCHED (knowledge-base): the upstream loader resolves the
++        // worklet URL from `import.meta.url` (BrowserModule / WebPack /
++        // Vite) or falls back to `settings.core.scriptFile`. Under our
++        // Next.js / Turbopack setup neither path lands on a servable URL —
++        // import.meta.url points at node_modules (not served), and
++        // scriptFile is the FULL bundle (alphaTab.js with DOM access,
++        // unusable in a worklet). Derive the worklet URL from scriptFile
++        // by swapping the filename: `/alphatab/alphaTab.js` →
++        // `/alphatab/alphaTab.worklet.mjs`. Both files are vendored to
++        // `public/alphatab/` by the copy-alphatab npm script.
++        if (settings.core.scriptFile) {
++            const workletUrl = settings.core.scriptFile.replace(/alphaTab(\.min)?\.js$/, 'alphaTab.worklet.mjs');
++            alphaTab.Logger.debug('AlphaTab', 'Creating worklet from derived URL', workletUrl);
++            return context.audioWorklet.addModule(workletUrl);
++        }
+         if (alphaTab.Environment.webPlatform === alphaTab.WebPlatform.BrowserModule ||
+             alphaTab.Environment.isWebPackBundled ||
+             alphaTab.Environment.isViteBundled) {

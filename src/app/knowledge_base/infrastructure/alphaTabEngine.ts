@@ -407,7 +407,11 @@ export class AlphaTabEngine implements TabEngine {
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
-    settings.player.outputMode = PLAYER_OUTPUT_SCRIPT_PROCESSOR;
+    // outputMode default = WebAudioAudioWorklets (0). The previous
+    // `ScriptProcessor` override was a workaround for alphaTab failing to
+    // resolve its worklet URL under Turbopack — that's now fixed by the
+    // patched `alphaTab.mjs` which derives the worklet URL from
+    // `core.scriptFile` (see patches/@coderline+alphatab+1.8.2.patch).
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
     // Pin the worker script URL. AlphaTab uses this to spawn both its
