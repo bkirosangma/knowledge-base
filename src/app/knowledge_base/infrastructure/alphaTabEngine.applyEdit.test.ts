@@ -59,6 +59,7 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
     renderTracks() {}
     render() {}
     loadSoundFontFromUrl(_url: string, _append: boolean) {}
+    loadMidiForScore() {}
     destroy() {}
     play() { return true; }
     pause() {}

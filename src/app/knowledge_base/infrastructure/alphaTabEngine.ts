@@ -38,6 +38,10 @@ interface AlphaTabApiLike {
   renderTracks(tracks: unknown[]): void;
   renderScore(score: unknown, trackIndexes?: number[]): void;
   loadSoundFontFromUrl(url: string, append: boolean): void;
+  /** Re-generate the playback midi from the current score. Needed after
+   *  mutations that affect playback (tempo, notes) — renderScore alone
+   *  updates only the visual side. */
+  loadMidiForScore(): void;
   destroy(): void;
   play(): boolean;
   pause(): void;
@@ -695,6 +699,11 @@ class AlphaTabSession implements TabSession {
     const metadata = scoreToMetadata(this.latestScore);
     this.latestMetadata = metadata;
     this.api.renderScore(this.latestScore);
+    // renderScore refreshes the visual side. The synth midi is generated
+    // separately and won't pick up score mutations (notes, tempo, durations)
+    // unless we ask alphaTab to regen it. Without this, set-tempo edits
+    // visually update but playback stays at the old tempo until reload.
+    this.api.loadMidiForScore();
     return metadata;
   }
 

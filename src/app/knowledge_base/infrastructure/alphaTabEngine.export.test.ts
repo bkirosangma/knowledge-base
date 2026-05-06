@@ -40,6 +40,7 @@ class FakeApi {
   renderTracks = vi.fn();
   renderScore = vi.fn();
   loadSoundFontFromUrl = vi.fn();
+  loadMidiForScore = vi.fn();
   print = printMock;
   exportAudio = exportAudioMock;
   changeTrackMute = vi.fn();

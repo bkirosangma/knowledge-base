@@ -106,7 +106,7 @@ export function TabView({
   withBatch,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
-  const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
+  const { content, loadError, score: tabScore, setScore: setTabScore, dirty, flush, refresh } = useTabContent(filePath);
   const {
     status,
     error: engineError,
@@ -377,6 +377,9 @@ export function TabView({
             onToggleReadOnly={toggleReadOnly}
             title={metadata?.title}
             hasActiveFile
+            isDirty={dirty}
+            onSave={() => { void flush(); }}
+            onDiscard={() => { void refresh(); }}
           />
         )}
         <TabToolbar

@@ -11,7 +11,7 @@
  * TabProperties → handleAddTrack/etc → propertiesApply → editorApplyRef.current
  * wiring without needing a real AlphaTab engine.
  */
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act, within } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
@@ -165,8 +165,11 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
     const nameInput = await screen.findByLabelText("Name");
     fireEvent.change(nameInput, { target: { value: "Rhythm" } });
 
-    // Click Save.
-    const saveBtn = await screen.findByRole("button", { name: "Save" });
+    // Click Save inside the add-track form. PaneHeader also renders a "Save"
+    // button at the top of the pane, so disambiguate by scoping to the form
+    // (the one next to the Name input).
+    const form = nameInput.closest("form, fieldset, div") as HTMLElement;
+    const saveBtn = await within(form).findByRole("button", { name: "Save" });
     fireEvent.click(saveBtn);
 
     await waitFor(() => {

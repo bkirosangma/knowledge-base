@@ -50,6 +50,7 @@ class FakeApi {
   renderTracks() { renderTracksMock(); }
   render() { renderTracksMock(); }
   loadSoundFontFromUrl(_url: string, _append: boolean) { /* no-op for tests */ }
+  loadMidiForScore() { /* no-op for tests */ }
   destroy() { destroyMock(); }
   play() { playMock(); return true; }
   pause() { pauseMock(); }
