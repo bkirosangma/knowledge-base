@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
-import { AttachmentIndicator } from "./AttachmentIndicator";
+import { AttachmentIndicator, type AttachmentCounts } from "./AttachmentIndicator";
 import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
@@ -35,9 +35,8 @@ interface ConditionElementProps {
   borderColor?: string;
   bgColor?: string;
   textColor?: string;
-  hasDocuments?: boolean;
-  documentPaths?: string[];
-  onDocNavigate?: (path: string) => void;
+  attachmentCounts?: AttachmentCounts;
+  onAttachmentIndicatorClick?: () => void;
   flowRole?: 'start' | 'end' | 'middle';
   order?: number;
   orderEditable?: boolean;
@@ -72,9 +71,8 @@ function ConditionElement({
   borderColor,
   bgColor,
   textColor,
-  hasDocuments,
-  documentPaths,
-  onDocNavigate,
+  attachmentCounts,
+  onAttachmentIndicatorClick,
   flowRole,
   order,
   orderEditable,
@@ -281,13 +279,12 @@ function ConditionElement({
         </div>
       )}
 
-      {/* MVP-2b transitional: counts adapter; Task 7a wires attachmentCounts from useDiagramController. */}
-      {hovered && hasDocuments && documentPaths && onDocNavigate && (
+      {hovered && attachmentCounts && onAttachmentIndicatorClick && (
         <AttachmentIndicator
-          counts={{ docs: documentPaths.length, diagrams: 0, svgs: 0, tabs: 0 }}
+          counts={attachmentCounts}
           color={borderColor ?? "#a855f7"}
           position={{ x: w - 4, y: -8 }}
-          onClick={() => documentPaths[0] && onDocNavigate(documentPaths[0])}
+          onClick={onAttachmentIndicatorClick}
           testId={id}
         />
       )}
@@ -325,12 +322,10 @@ function ConditionElement({
  * data / visual-state props, ignore handler identities and recomputed
  * arrays. Includes condition-specific fields (`outCount`, `rotation`).
  */
-function shallowEqArr<T>(a: T[] | undefined, b: T[] | undefined): boolean {
+function attachmentCountsEq(a: AttachmentCounts | undefined, b: AttachmentCounts | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+  return a.docs === b.docs && a.diagrams === b.diagrams && a.svgs === b.svgs && a.tabs === b.tabs;
 }
 
 function arePropsEqual(p: ConditionElementProps, n: ConditionElementProps): boolean {
@@ -359,7 +354,6 @@ function arePropsEqual(p: ConditionElementProps, n: ConditionElementProps): bool
     p.showAnchors === n.showAnchors &&
     p.highlightedAnchor === n.highlightedAnchor &&
     p.dimmed === n.dimmed &&
-    p.hasDocuments === n.hasDocuments &&
     // Handlers — see Element.tsx for the rationale. Included so that
     // read-only-toggling closures reach the component promptly.
     p.onDragStart === n.onDragStart &&
@@ -370,10 +364,12 @@ function arePropsEqual(p: ConditionElementProps, n: ConditionElementProps): bool
     p.onDoubleClick === n.onDoubleClick &&
     p.onAddOutAnchor === n.onAddOutAnchor &&
     p.onRotationDragStart === n.onRotationDragStart &&
-    p.onDocNavigate === n.onDocNavigate &&
+    p.onAttachmentIndicatorClick === n.onAttachmentIndicatorClick &&
     p.lockEditRoleToggle === n.lockEditRoleToggle &&
     p.onRoleToggle === n.onRoleToggle &&
-    shallowEqArr(p.documentPaths, n.documentPaths)
+    // MVP-2b: AttachmentCounts is a fresh object each call; deep-equal
+    // the four numeric fields rather than blow the memo on identity.
+    attachmentCountsEq(p.attachmentCounts, n.attachmentCounts)
   );
 }
 

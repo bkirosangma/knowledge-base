@@ -50,7 +50,12 @@ import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 import { useCanvasKeyboardNav } from "./useCanvasKeyboardNav";
 import { useDragEndRecorder } from "./useDragEndRecorder";
 import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
-import type { DocumentMeta } from "../../document/types";
+import type {
+  AttachmentBuckets,
+  DocumentMeta,
+  EntityAttachmentTarget,
+} from "../../document/types";
+import type { AttachmentCounts } from "../components/AttachmentIndicator";
 import type { ConfirmAction, FlowDef, RegionBounds } from "../types";
 import type { LevelMap } from "../utils/levelModel";
 import type { AttachmentLink } from "../../../domain/attachmentLinks";
@@ -480,6 +485,65 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const hasDocuments = useCallback((entityType: string, entityId: string) => hasDocsFor(documents, entityType, entityId), [documents]);
   const getDocumentsForEntity = useCallback((entityType: string, entityId: string) => getDocsForEntity(documents, entityType, entityId), [documents]);
 
+  // ─── MVP-2b: 4-way attachment selectors + indicator/preview wiring ───
+  // Mirrors `useDocuments.attachmentsByType`, kept local to the controller
+  // because `useDiagramController` consumes `documents: DocumentMeta[]`
+  // directly (not a `useDocuments` instance). MVP-2b only ever populates
+  // `docs`; the other three buckets are reserved for future SVG / Tab /
+  // Diagram-source MVPs. Task 7c will replace this local definition with
+  // an `attachmentsByType` prop passed down from `knowledgeBase.tsx`.
+  const attachmentsByType = useCallback(
+    (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }): AttachmentBuckets => {
+      const matches = (a: { type: string; id: string; diagramPath?: string }): boolean => {
+        if (a.type !== target.type) return false;
+        if (a.id !== target.id) return false;
+        if (target.diagramPath === undefined) return true;
+        if (a.diagramPath === undefined) return true; // legacy doc-centric rows lack diagramPath
+        return a.diagramPath === target.diagramPath;
+      };
+      return {
+        docs: documents.filter((d) => d.attachedTo?.some(matches)),
+        diagrams: [],
+        svgs: [],
+        tabs: [],
+      };
+    },
+    [documents],
+  );
+
+  const attachmentCountsForNode = useCallback(
+    (nodeId: string): AttachmentCounts => {
+      const b = attachmentsByType({ type: "node", id: nodeId });
+      return { docs: b.docs.length, diagrams: b.diagrams.length, svgs: b.svgs.length, tabs: b.tabs.length };
+    },
+    [attachmentsByType],
+  );
+
+  const attachmentCountsForConnection = useCallback(
+    (connId: string): AttachmentCounts => {
+      const b = attachmentsByType({ type: "connection", id: connId });
+      return { docs: b.docs.length, diagrams: b.diagrams.length, svgs: b.svgs.length, tabs: b.tabs.length };
+    },
+    [attachmentsByType],
+  );
+
+  const openAttachmentPreviewFor = useCallback(
+    (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => {
+      const buckets = attachmentsByType(target);
+      const items: PreviewItem[] = [
+        ...buckets.docs.map((d) => ({ type: "document" as const, filename: d.filename, title: d.title })),
+        ...buckets.diagrams.map((d) => ({ type: "diagram" as const, filename: d.filename, title: d.title })),
+        ...buckets.svgs.map((d) => ({ type: "svg" as const, filename: d.filename, title: d.title })),
+        ...buckets.tabs.map((d) => ({ type: "tab" as const, filename: d.filename, title: d.title })),
+      ];
+      if (items.length === 0) return;
+      setPreviewedItems(items);
+    },
+    [attachmentsByType],
+  );
+
+  const closeAttachmentPreview = useCallback(() => setPreviewedItems(null), []);
+
   // ─── Build prop bags ─────────────────────────────────────────────
   const toolbar = {
     activeFile, readOnly, onToggleReadOnly: toggleReadOnly,
@@ -518,7 +582,8 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleElementResize,
     handleNodeMouseEnter, handleNodeMouseLeave, handleNodeDoubleClick, handleNodeDragStart, handleRotationDragStart,
     commitLabel,
-    hasDocuments, getDocumentsForEntity, onOpenDocument,
+    onOpenDocument,
+    attachmentCountsForNode, attachmentCountsForConnection, openAttachmentPreviewFor,
     getNodeDimensions: geometry.getNodeDimensions, nodes, previewedItems,
     onChangeNodeRole: handleChangeNodeRole,
   };
@@ -569,8 +634,12 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleCreateFlow, handleSelectLine,
     scheduleRecord, scrollToRect,
     getNodeDimensions: geometry.getNodeDimensions, getDocumentsForEntity,
+    hasDocuments,
+    attachmentsByType,
     previewedItems,
     setPreviewedItems,
+    openAttachmentPreviewFor,
+    closeAttachmentPreview,
     readDocument, getDocumentReferences,
     deleteDocumentWithCleanup: attachments.handleDeleteDocumentWithCleanup,
   };

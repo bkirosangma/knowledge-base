@@ -305,7 +305,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **Disables drag / delete / edit / property panel inputs.**
 
 ### 3.18 Document Integration
-- ✅ **AttachmentIndicator** (`components/AttachmentIndicator.tsx`) — type-aware on-canvas glyph row. Renders one lucide glyph per non-empty bucket of `{ docs, diagrams, svgs, tabs }`; click fires a single `onClick` (Task 7a wires it to the unified preview modal). MVP-2b ships the 4-way UI contract; in production today only `docs > 0` ever fires (Element / ConditionElement / DataLine adapt their existing `documentPaths` into the counts shape during the transition).
+- ✅ **AttachmentIndicator** (`components/AttachmentIndicator.tsx`) — type-aware on-canvas glyph row. Renders one lucide glyph per non-empty bucket of `{ docs, diagrams, svgs, tabs }`; click fires a single `onClick` that opens the unified preview modal via `useDiagramController.openAttachmentPreviewFor`. MVP-2b ships the 4-way UI contract; in production today only `docs > 0` ever fires — Element / ConditionElement / DataLine consume `attachmentCounts` + `onAttachmentIndicatorClick` directly from the controller's `attachmentCountsForNode` / `attachmentCountsForConnection` selectors.
 - ✅ **Attach / detach docs per entity** — persisted in the workspace-scoped attachment-links store (§7.1). Legacy per-diagram `documents` field is deprecated; stays as `[]` after lazy migration for backward-binary-compatibility.
 - ✅ **Backlinks surfaced in properties.**
 

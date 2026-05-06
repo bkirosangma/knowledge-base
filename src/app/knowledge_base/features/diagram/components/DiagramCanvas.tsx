@@ -24,7 +24,8 @@ import type {
   RegionBounds,
   Selection,
 } from "../types";
-import type { DocumentMeta } from "../../document/types";
+import type { EntityAttachmentTarget } from "../../document/types";
+import type { AttachmentCounts } from "./AttachmentIndicator";
 import type { PreviewItem } from "./AttachmentPreviewModal";
 import type { ContextMenuTarget } from "./ContextMenu";
 import type { AnchorId } from "../utils/anchors";
@@ -174,9 +175,14 @@ export interface DiagramCanvasProps {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   // Label commit
   commitLabel: (label: { type: "node" | "layer" | "line"; id: string }, value: string) => void;
-  // Document attachments
-  hasDocuments: (entityType: string, entityId: string) => boolean;
-  getDocumentsForEntity: (entityType: string, entityId: string) => DocumentMeta[];
+  // Document / multi-source attachments (MVP-2b 4-way contract).
+  // Per-entity counts feed `<AttachmentIndicator>`; `openAttachmentPreviewFor`
+  // is the unified click handler that builds a `PreviewItem[]` from the
+  // matching attachment buckets and pops the preview modal.
+  attachmentCountsForNode: (nodeId: string) => AttachmentCounts;
+  attachmentCountsForConnection: (connId: string) => AttachmentCounts;
+  openAttachmentPreviewFor: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  /** Legacy single-doc navigation (used by non-indicator surfaces, e.g. backlinks). */
   onOpenDocument: (path: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getNodeDimensions: (n: any) => { w: number; h: number };
@@ -279,8 +285,9 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     handleNodeDragStart,
     handleRotationDragStart,
     commitLabel,
-    hasDocuments,
-    getDocumentsForEntity,
+    attachmentCountsForNode,
+    attachmentCountsForConnection,
+    openAttachmentPreviewFor,
     onOpenDocument,
     getNodeDimensions,
     nodes,
@@ -463,9 +470,8 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   scheduleRecord={scheduleRecord}
                   setEditingLabel={setEditingLabel}
                   setEditingLabelValue={setEditingLabelValue}
-                  hasDocuments={hasDocuments}
-                  getDocumentsForEntity={getDocumentsForEntity}
-                  onOpenDocument={onOpenDocument}
+                  attachmentCountsForConnection={attachmentCountsForConnection}
+                  openAttachmentPreviewFor={openAttachmentPreviewFor}
                 />
 
                 {/* Animated flow dots */}
@@ -531,9 +537,8 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   setNodes={setNodes}
                   scheduleRecord={scheduleRecord}
                   getNodeDimensions={getNodeDimensions}
-                  hasDocuments={hasDocuments}
-                  getDocumentsForEntity={getDocumentsForEntity}
-                  onOpenDocument={onOpenDocument}
+                  attachmentCountsForNode={attachmentCountsForNode}
+                  openAttachmentPreviewFor={openAttachmentPreviewFor}
                 />
 
                 {/* Data line label overlay */}
