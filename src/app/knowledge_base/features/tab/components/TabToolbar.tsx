@@ -63,12 +63,16 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
   const commitTempoNow = (raw: string): boolean => {
     cancelPendingCommit();
     const parsed = Number.parseInt(raw, 10);
-    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) {
+    if (!Number.isFinite(parsed)) {
       setTempoDraft(String(tempoBpm));
       return false;
     }
-    if (parsed === tempoBpm) return false;
-    onSetTempoBpm?.(parsed);
+    // Clamp out-of-range values to the bounds instead of rejecting. Typing
+    // "5" lands at TEMPO_MIN, typing "9999" lands at TEMPO_MAX.
+    const clamped = Math.min(Math.max(parsed, TEMPO_MIN), TEMPO_MAX);
+    if (clamped !== parsed) setTempoDraft(String(clamped));
+    if (clamped === tempoBpm) return false;
+    onSetTempoBpm?.(clamped);
     return true;
   };
 
@@ -76,11 +80,12 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
     setTempoDraft(raw);
     cancelPendingCommit();
     const parsed = Number.parseInt(raw, 10);
-    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) return;
-    if (parsed === tempoBpm) return;
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.min(Math.max(parsed, TEMPO_MIN), TEMPO_MAX);
+    if (clamped === tempoBpm) return;
     commitTimerRef.current = setTimeout(() => {
       commitTimerRef.current = null;
-      onSetTempoBpm?.(parsed);
+      onSetTempoBpm?.(clamped);
     }, TEMPO_COMMIT_DEBOUNCE_MS);
   };
 
@@ -157,7 +162,7 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
                   e.currentTarget.blur();
                 }
               }}
-              className="w-10 border-0 bg-transparent p-0 text-right font-mono text-fg outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-10 border-0 bg-transparent p-0 text-right font-mono text-fg outline-none focus:outline-none focus-visible:outline-none focus-visible:[box-shadow:none] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             {tempoFocused && (
               <div className="absolute left-0 top-full z-30 mt-1 flex items-center gap-2 rounded border border-line bg-surface px-2 py-1.5 shadow-md">

@@ -74,15 +74,26 @@ describe("TabToolbar", () => {
     expect(screen.getByLabelText(/tempo/i)).toHaveTextContent("100");
   });
 
-  it("tempo input rejects out-of-range BPM by snapping back to current value", async () => {
+  it("tempo input clamps out-of-range BPM to TEMPO_MAX (400)", async () => {
     const onSetTempoBpm = vi.fn();
     render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
     const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
     await userEvent.clear(input);
     await userEvent.type(input, "9999");
     fireEvent.blur(input);
-    expect(onSetTempoBpm).not.toHaveBeenCalled();
-    expect(input.value).toBe("100");
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(400);
+    expect(input.value).toBe("400");
+  });
+
+  it("tempo input clamps below-minimum BPM to TEMPO_MIN (20)", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "5");
+    fireEvent.blur(input);
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(20);
+    expect(input.value).toBe("20");
   });
 
   it("loop toggle button flips onSetLooping with the boolean state", async () => {

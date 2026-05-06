@@ -483,22 +483,15 @@ class AlphaTabSession implements TabSession {
         this.emit({ event: "played" });
       } else if (args.state === PLAYER_STATE_PAUSED) {
         this.isPlayingNow = false;
-        // If a live tempo edit during playback diverged playbackSpeed from
-        // the baked midi, sync the synth to the score now (paused → no
-        // audible disruption). Preserve the playhead AND the user's loop
-        // selection: loadMidiForScore calls synth.stop() which can reset
-        // playbackRange + isLooping along with tickPosition.
-        if (this.api.playbackSpeed !== 1) {
-          const savedTick = this.api.tickPosition;
-          const savedRange = this.api.playbackRange;
-          const savedLooping = this.api.isLooping;
-          this.api.loadMidiForScore();
-          this.api.tickPosition = savedTick;
-          this.api.playbackRange = savedRange;
-          this.api.isLooping = savedLooping;
-          this.api.playbackSpeed = 1;
-          this.midiBakedTempo = this.latestMetadata?.tempo ?? this.midiBakedTempo;
-        }
+        // No deferred sync here. Earlier this branch regenerated the midi
+        // and reset playbackSpeed to 1, which assumed playbackSpeed was
+        // only set by applyEdit's old live-preview path. Now the toolbar
+        // (session tempo) drives playbackSpeed independently, so resetting
+        // it on pause would clobber the user's session preference and the
+        // properties-panel tempo would appear to override the toolbar on
+        // resume. The midi stays in sync with the score's authoritative
+        // tempo because applyEdit's set-tempo branch always regenerates
+        // it inline.
         this.emit({ event: "paused" });
       }
     });
