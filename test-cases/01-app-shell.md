@@ -143,6 +143,15 @@ Banner shown when a file changes on disk while the user has unsaved edits. See [
 - **SHELL-1.9-03** ✅ **Keep my edits button calls handler** — clicking "Keep my edits" invokes the `onKeep` callback exactly once. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-04** ✅ **Live region announces only the content message (KB-035)** — the visible content of the banner's status region is the message string (chrome buttons are inside the region but never change after first mount, so screen readers announce the message on appearance only). Verified by snapshotting the banner's accessible-name string. _(ConflictBanner.test.tsx)_
 
+### 1.9.1 Broken Anchor Banner
+
+Shell-level amber banner shown after a save deletes one or more headings that other docs link to. See [`src/app/knowledge_base/shared/components/BrokenAnchorBanner.tsx`](../src/app/knowledge_base/shared/components/BrokenAnchorBanner.tsx).
+
+- **SHELL-1.9.1-01** ✅ **Renders with testid and singular text for one heading + one ref** — `BrokenAnchorBanner` exposes `data-testid="broken-anchor-banner"` and reports `1 heading removed from <docPath>; 1 wiki-link now broken.` for `deletedIds=['intro']` + a single affected ref. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-02** ✅ **Plural copy for multiple headings and refs** — `2 headings removed from <docPath>; 3 wiki-links now broken.` for two deleted ids + three affected refs. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-03** ✅ **Remove anchors button calls `onRemoveAnchors`** — clicking the "Remove anchors" button invokes the handler exactly once. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-04** ✅ **Leave broken button calls `onLeaveBroken`** — clicking the "Leave broken" button invokes the handler exactly once. _(BrokenAnchorBanner.test.tsx)_
+
 ## 1.10 File Watcher
 
 Background polling primitive that manages a 5-second interval with named subscriber registry, with idle backoff to 30 s after 2 minutes of inactivity and round-robin subscriber staggering across 1-second slots (KB-041). See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx).

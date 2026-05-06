@@ -211,6 +211,13 @@
 - **DOC-4.8-17** ✅ **`stripWikiLinksForPath` handles doc path without extension** — `('[[notes/auth]]', 'notes/auth')` → `''`.
 - **DOC-4.8-18** ✅ **`stripWikiLinksForPath` removes section-anchored link** — `('See [[notes/auth#intro]].', 'notes/auth.md')` → `'See .'`.
 - **DOC-4.8-19** ✅ **`stripWikiLinksForPath` returns unchanged when doc not referenced** — `('No links here.', 'notes/auth.md')` → `'No links here.'`.
+- **DOC-4.8-20** ✅ **`stripWikiLinkAnchors` strips a single anchor on the target doc** — `('see [[doc-b.md#deleted]] for details', 'doc-b.md', ['deleted'])` → `'see [[doc-b.md]] for details'`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-21** ✅ **`stripWikiLinkAnchors` preserves alias text** — anchor is stripped, ` | Alias` survives intact. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-22** ✅ **`stripWikiLinkAnchors` ignores wiki-links to other docs** — links whose normalised path doesn't match `targetPath` are unchanged even when their anchor is in `deletedIds`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-23** ✅ **`stripWikiLinkAnchors` ignores anchorless and out-of-set anchors** — `[[doc-b.md]]` and `[[doc-b.md#kept]]` are unchanged when `deletedIds` is `['deleted']`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-24** ✅ **`stripWikiLinkAnchors` matches `/`-prefixed and `.md`-trailing variants** — `[[/doc-b#deleted]]`, `[[doc-b.md#deleted]]`, `[[doc-b#deleted]]` all collapse to their anchorless form. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-25** ✅ **`stripWikiLinkAnchors` returns input unchanged when `deletedIds` is empty** — short-circuit. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-26** ✅ **`stripWikiLinkAnchors` strips multiple distinct deleted anchors in one pass** — only the anchors listed in `deletedIds` are stripped; others are left intact. _(wikiLinkParser.test.ts)_
 
 ## 4.9 Document Properties Sidebar
 

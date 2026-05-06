@@ -6,19 +6,20 @@ import Header from "./shared/components/Header";
 import UnsupportedBrowserCard from "./shared/components/UnsupportedBrowserCard";
 import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
+import { BrokenAnchorBanner } from "./shared/components/BrokenAnchorBanner";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { createAttachmentLinksRepository } from "./infrastructure/attachmentLinksRepo";
 import type { AttachmentLink } from "./domain/attachmentLinks";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
-import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
+import { resolveWikiLinkPath, stripWikiLinkAnchors, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
 import { createDiagramRepository } from "./infrastructure/diagramRepo";
 import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
 import { tabFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
-import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
+import { propagateRename, propagateMoveLinks, readTextFile, writeTextFile } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
@@ -521,6 +522,32 @@ function KnowledgeBaseInner() {
     await fileExplorer.deleteFile(docPath);
     docManager.removeDocument(docPath);
   }, [fileExplorer, linkManager, docManager]);
+
+  const handleRemoveBrokenAnchors = useCallback(async () => {
+    const state = linkManager.brokenAnchorState;
+    if (!state) return;
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    const { docPath, deletedIds, affectedRefs } = state;
+    const sourcePaths = Array.from(new Set(affectedRefs.map((r) => r.sourcePath)));
+    for (const sourcePath of sourcePaths) {
+      try {
+        const parts = sourcePath.split("/");
+        let dh: FileSystemDirectoryHandle = rootHandle;
+        for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+        const fh = await dh.getFileHandle(parts[parts.length - 1]);
+        const oldContent = await readTextFile(fh);
+        const newContent = stripWikiLinkAnchors(oldContent, docPath, deletedIds);
+        if (newContent !== oldContent) {
+          await writeTextFile(rootHandle, sourcePath, newContent);
+          await linkManager.updateDocumentLinks(rootHandle, sourcePath, newContent);
+        }
+      } catch (err) {
+        reportError(err as Error, `Removing broken anchors in ${sourcePath}`);
+      }
+    }
+    linkManager.clearBrokenAnchorState();
+  }, [linkManager, fileExplorer.dirHandleRef, reportError]);
 
   // ─── Document operations ───
   const handleOpenDocument = useCallback((path: string, anchor?: string | null) => {
@@ -1449,6 +1476,16 @@ function KnowledgeBaseInner() {
           }
         }}
       />
+
+      {linkManager.brokenAnchorState !== null && linkManager.brokenAnchorState.affectedRefs.length > 0 && (
+        <BrokenAnchorBanner
+          docPath={linkManager.brokenAnchorState.docPath}
+          deletedIds={linkManager.brokenAnchorState.deletedIds}
+          affectedRefs={linkManager.brokenAnchorState.affectedRefs}
+          onRemoveAnchors={handleRemoveBrokenAnchors}
+          onLeaveBroken={linkManager.clearBrokenAnchorState}
+        />
+      )}
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">

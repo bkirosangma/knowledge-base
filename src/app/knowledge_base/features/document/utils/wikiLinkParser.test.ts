@@ -4,6 +4,7 @@ import {
   resolveWikiLinkPath,
   updateWikiLinkPaths,
   updateWikiLinkAnchors,
+  stripWikiLinkAnchors,
   stripWikiLinksForPath,
 } from './wikiLinkParser'
 
@@ -242,6 +243,64 @@ describe('updateWikiLinkAnchors', () => {
 
   it('returns input unchanged when rename map is empty', () => {
     expect(updateWikiLinkAnchors('[[doc-b.md#old]]', 'doc-b.md', {})).toBe('[[doc-b.md#old]]')
+  })
+})
+
+describe('stripWikiLinkAnchors', () => {
+  it('DOC-4.8-20: strips a single anchor from a wiki-link to the target doc', () => {
+    expect(stripWikiLinkAnchors(
+      'see [[doc-b.md#deleted]] for details',
+      'doc-b.md',
+      ['deleted'],
+    )).toBe('see [[doc-b.md]] for details')
+  })
+
+  it('DOC-4.8-21: preserves alias text when stripping the anchor', () => {
+    expect(stripWikiLinkAnchors(
+      'ref [[doc-b.md#deleted | The Old]]',
+      'doc-b.md',
+      ['deleted'],
+    )).toBe('ref [[doc-b.md | The Old]]')
+  })
+
+  it('DOC-4.8-22: ignores wiki-links to other docs', () => {
+    expect(stripWikiLinkAnchors(
+      '[[doc-c.md#deleted]] [[doc-b.md#deleted]]',
+      'doc-b.md',
+      ['deleted'],
+    )).toBe('[[doc-c.md#deleted]] [[doc-b.md]]')
+  })
+
+  it('DOC-4.8-23: ignores anchorless wiki-links and anchors not in deletedIds', () => {
+    expect(stripWikiLinkAnchors(
+      '[[doc-b.md]] and [[doc-b.md#kept]] and [[doc-b.md#deleted]]',
+      'doc-b.md',
+      ['deleted'],
+    )).toBe('[[doc-b.md]] and [[doc-b.md#kept]] and [[doc-b.md]]')
+  })
+
+  it('DOC-4.8-24: matches /-prefixed and .md-trailing path variants', () => {
+    expect(stripWikiLinkAnchors(
+      '[[/doc-b#deleted]] [[doc-b.md#deleted]] [[doc-b#deleted]]',
+      'doc-b.md',
+      ['deleted'],
+    )).toBe('[[/doc-b]] [[doc-b.md]] [[doc-b]]')
+  })
+
+  it('DOC-4.8-25: returns input unchanged when deletedIds is empty', () => {
+    expect(stripWikiLinkAnchors(
+      '[[doc-b.md#anything]]',
+      'doc-b.md',
+      [],
+    )).toBe('[[doc-b.md#anything]]')
+  })
+
+  it('DOC-4.8-26: strips multiple distinct deleted anchors in one pass', () => {
+    expect(stripWikiLinkAnchors(
+      'a [[doc-b.md#one]] b [[doc-b.md#two | Alias]] c [[doc-b.md#three]]',
+      'doc-b.md',
+      ['one', 'two'],
+    )).toBe('a [[doc-b.md]] b [[doc-b.md | Alias]] c [[doc-b.md#three]]')
   })
 })
 

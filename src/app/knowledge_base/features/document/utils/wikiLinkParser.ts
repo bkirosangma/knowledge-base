@@ -127,6 +127,38 @@ export function updateWikiLinkAnchors(
 }
 
 /**
+ * Strip section anchors from wiki-links targeting a specific doc.
+ *
+ *   stripWikiLinkAnchors(md, "doc-b.md", ["deleted-section"])
+ *
+ * matches `[[doc-b.md#deleted-section]]`, `[[doc-b.md#deleted-section | alias]]`,
+ * `[[/doc-b#deleted-section]]`, etc., and rewrites them WITHOUT the anchor:
+ * `[[doc-b.md]]` or `[[doc-b.md | alias]]`. Path and alias are preserved.
+ *
+ * Wiki-links to other docs, anchorless wiki-links, and links to anchors not
+ * in `deletedIds` are left untouched.
+ */
+export function stripWikiLinkAnchors(
+  markdown: string,
+  targetPath: string,
+  deletedIds: string[],
+): string {
+  if (deletedIds.length === 0) return markdown;
+  const targetBase = targetPath.replace(/\.(md|json)$/, "");
+  const deletedSet = new Set(deletedIds);
+  return markdown.replace(WIKI_LINK_REGEX, (fullMatch, inner: string) => {
+    const [pathAndSection, displayText] = inner.split("|").map((s: string) => s.trim());
+    const [linkPath, section] = pathAndSection.split("#").map((s: string) => s.trim());
+    if (!section || !deletedSet.has(section)) return fullMatch;
+    const normalized = linkPath.replace(/\.(md|json)$/, "");
+    if (normalized !== targetBase && normalized !== `/${targetBase}`) return fullMatch;
+    let replacement = linkPath;
+    if (displayText) replacement += ` | ${displayText}`;
+    return `[[${replacement}]]`;
+  });
+}
+
+/**
  * Remove all wiki-links that reference a specific document path.
  * Strips wiki-link syntax including aliases and section anchors.
  * Returns the markdown with matching links replaced by empty string.
