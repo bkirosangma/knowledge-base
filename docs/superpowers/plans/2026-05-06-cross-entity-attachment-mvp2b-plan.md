@@ -86,16 +86,17 @@ If any of the above fail, stop and surface to the user before starting Task 1.
 
 ---
 
-## Task 1: Rename `documentAttachments.ts` → `entityAttachments.ts` and add bucket selectors
+## Task 1: Rename `documentAttachments.ts` → `entityAttachments.ts`; add bucket selectors and shared types
 
 **Files:**
 - Delete: `src/app/knowledge_base/features/diagram/utils/documentAttachments.ts`
 - Delete: `src/app/knowledge_base/features/diagram/utils/documentAttachments.test.ts`
 - Create: `src/app/knowledge_base/features/diagram/utils/entityAttachments.ts`
 - Create: `src/app/knowledge_base/features/diagram/utils/entityAttachments.test.ts`
+- Modify: `src/app/knowledge_base/features/document/types.ts` (add `Attachable`, `EntitySources`, `AttachmentBuckets`)
 - Modify: `src/app/knowledge_base/features/diagram/hooks/useDiagramController.ts:7` (import path)
 
-**Goal:** Move existing helpers under the new filename, preserving their signatures (used by `useDiagramController:473-474`), and add a new bucket-returning helper that maps a target to `{docs, diagrams, svgs, tabs}`. In MVP-2b, `diagrams`/`svgs`/`tabs` always return `[]` because no rows of those source types exist.
+**Goal:** Move existing helpers under the new filename, preserving their signatures (used by `useDiagramController:473-474`); add a new bucket-returning helper that maps a target to `{docs, diagrams, svgs, tabs}`; co-locate the shared types `Attachable` / `EntitySources` / `AttachmentBuckets` next to `EntityAttachment` in `features/document/types.ts`. In MVP-2b, `diagrams`/`svgs`/`tabs` always return `[]` because no rows of those source types exist.
 
 - [ ] **Step 1.1: Read the current `documentAttachments.ts` and its test fixture**
 
@@ -106,20 +107,44 @@ cat src/app/knowledge_base/features/diagram/utils/documentAttachments.test.ts
 
 You should see two helpers (`hasDocuments`, `getDocumentsForEntity`) and a test fixture using `DocumentMeta[]` literals.
 
+- [ ] **Step 1.1a: Add shared types to `features/document/types.ts`**
+
+Open `src/app/knowledge_base/features/document/types.ts` and append:
+
+```ts
+/** Minimal shape any attachable entity satisfies. `DocumentMeta` already conforms structurally; future `SvgFile`/`TabFile`/diagram entries will too once their persistence sidecars exist. */
+export interface Attachable {
+  filename: string;
+  title?: string;
+  attachedTo?: EntityAttachment[];
+}
+
+/** Per-source-type list shape. MVP-2b only populates `documents`; the other three are reserved for future SVG/Tab/Diagram-source MVPs. */
+export interface EntitySources {
+  documents: Attachable[];
+  diagrams: Attachable[]; // always [] in MVP-2b
+  svgs: Attachable[];     // always [] in MVP-2b
+  tabs: Attachable[];     // always [] in MVP-2b
+}
+
+export interface AttachmentBuckets {
+  docs: Attachable[];
+  diagrams: Attachable[];
+  svgs: Attachable[];
+  tabs: Attachable[];
+}
+```
+
+These types are imported from `entityAttachments.ts` (Task 1) and from `useDocuments.ts` (Task 2) and from every consumer (`AttachmentsSection`, `useDiagramController`). Co-locating with `EntityAttachment` keeps the type contract in one place and avoids the `document → diagram` feature import direction issue.
+
 - [ ] **Step 1.2: Write the failing test for the new bucket helper**
 
 Create `src/app/knowledge_base/features/diagram/utils/entityAttachments.test.ts`:
 
 ```ts
 import { describe, it, expect } from "vitest";
-import type { DocumentMeta, EntityAttachment } from "../../document/types";
-import {
-  hasDocuments,
-  getDocumentsForEntity,
-  attachmentsByType,
-  type AttachmentBuckets,
-  type EntitySources,
-} from "./entityAttachments";
+import type { DocumentMeta, EntitySources } from "../../document/types";
+import { hasDocuments, getDocumentsForEntity, attachmentsByType } from "./entityAttachments";
 
 const docA: DocumentMeta = {
   id: "doc-a",
@@ -187,7 +212,14 @@ Expected: FAIL with "Cannot find module './entityAttachments'".
 Create `src/app/knowledge_base/features/diagram/utils/entityAttachments.ts`:
 
 ```ts
-import type { DocumentMeta, EntityAttachment, EntityAttachmentTarget } from "../../document/types";
+import type {
+  DocumentMeta,
+  EntityAttachment,
+  EntityAttachmentTarget,
+  Attachable,
+  EntitySources,
+  AttachmentBuckets,
+} from "../../document/types";
 
 /** True if any document in `documents` is attached to the given entity. (Back-compat with `documentAttachments.hasDocuments`.) */
 export function hasDocuments(
@@ -211,21 +243,6 @@ export function getDocumentsForEntity(
   );
 }
 
-/** Per-source-type list shape. MVP-2b only populates `documents`; the other three are reserved for future SVG/Tab/Diagram-source MVPs. */
-export interface EntitySources {
-  documents: DocumentMeta[];
-  diagrams: DocumentMeta[]; // always [] in MVP-2b
-  svgs: DocumentMeta[];     // always [] in MVP-2b
-  tabs: DocumentMeta[];     // always [] in MVP-2b
-}
-
-export interface AttachmentBuckets {
-  docs: DocumentMeta[];
-  diagrams: DocumentMeta[];
-  svgs: DocumentMeta[];
-  tabs: DocumentMeta[];
-}
-
 interface TargetQuery {
   type: EntityAttachmentTarget;
   id: string;
@@ -245,7 +262,7 @@ export function attachmentsByType(
   sources: EntitySources,
   target: TargetQuery,
 ): AttachmentBuckets {
-  const filter = (xs: DocumentMeta[]) =>
+  const filter = (xs: Attachable[]): Attachable[] =>
     xs.filter((x) => x.attachedTo?.some((a) => matchesTarget(a, target)));
   return {
     docs: filter(sources.documents),
@@ -369,26 +386,43 @@ Expected: FAIL with "result.current.attachmentsByType is not a function".
 
 - [ ] **Step 2.4: Add the selector to `useDocuments`**
 
-Open `src/app/knowledge_base/features/document/hooks/useDocuments.ts`. Just after the existing `getDocumentsForEntity` and `hasDocuments` `useCallback` selectors (around line 175–195), add:
+Open `src/app/knowledge_base/features/document/hooks/useDocuments.ts`. Just after the existing `getDocumentsForEntity` and `hasDocuments` `useCallback` selectors (around line 175–195), add an inline `useCallback` selector — **no import from `features/diagram/`**, so the hook stays self-contained and matches the existing pattern of inline selectors.
 
 ```ts
-import { attachmentsByType as attachmentsByTypeFn, type AttachmentBuckets } from "../../diagram/utils/entityAttachments";
+// At the top of useDocuments.ts, alongside existing imports:
+import type { EntityAttachmentTarget, AttachmentBuckets } from "../types";
+
+interface AttachmentTargetQuery {
+  type: EntityAttachmentTarget;
+  id: string;
+  diagramPath?: string;
+}
 
 // ... inside the hook body, alongside getDocumentsForEntity:
 
 const attachmentsByType = useCallback(
-  (target: { type: string; id: string; diagramPath?: string }): AttachmentBuckets =>
-    attachmentsByTypeFn(
-      { documents, diagrams: [], svgs: [], tabs: [] },
-      target as Parameters<typeof attachmentsByTypeFn>[1],
-    ),
+  (target: AttachmentTargetQuery): AttachmentBuckets => {
+    const matches = (a: { type: string; id: string; diagramPath?: string }): boolean => {
+      if (a.type !== target.type) return false;
+      if (a.id !== target.id) return false;
+      if (target.diagramPath === undefined) return true;
+      if (a.diagramPath === undefined) return true; // legacy doc-centric rows lack diagramPath
+      return a.diagramPath === target.diagramPath;
+    };
+    return {
+      docs: documents.filter((d) => d.attachedTo?.some(matches)),
+      diagrams: [],
+      svgs: [],
+      tabs: [],
+    };
+  },
   [documents],
 );
 ```
 
-Add `attachmentsByType` to the hook's return object alongside the existing selectors.
+Add `attachmentsByType` to the hook's return alongside the existing selectors. The `entityAttachments.attachmentsByType` pure helper from Task 1 stays available for non-hook callers (tests, future server-side consumers) but is not imported here.
 
-> **Note on import direction:** `useDocuments` lives under `features/document/`; `entityAttachments.ts` lives under `features/diagram/`. Cross-feature import is acceptable because the helper is a pure utility with no React dependency. If a project lint rule forbids feature-cross imports, hoist the helper to `shared/utils/entityAttachments.ts` in this same task and update Task 1's path everywhere it appears.
+> **Why inline:** matches `getDocumentsForEntity` / `hasDocuments` already in this hook, avoids `document → diagram` feature import direction, and keeps `useDocuments` self-contained. The shared types live in `features/document/types.ts` (Task 1 step 1.1a), so both `entityAttachments.ts` and `useDocuments.ts` import the same `AttachmentBuckets` shape — no drift.
 
 - [ ] **Step 2.5: Run the test — expect PASS**
 
@@ -944,7 +978,7 @@ export function AttachmentPreviewModal({
             data-testid="attachment-modal-close"
             onClick={onClose}
             aria-label="Close"
-            className="text-mute hover:text-fg"
+            className="text-mute hover:text-ink-2"
           >
             ×
           </button>
@@ -1336,7 +1370,7 @@ export function CreateAttachEntityModal({
                 "px-2 py-1 -mb-px border-b-2 " +
                 (t === activeType
                   ? "border-accent text-accent font-semibold"
-                  : "border-transparent text-mute hover:text-fg")
+                  : "border-transparent text-mute hover:text-ink-2")
               }
             >
               {TYPE_LABEL[t]}
@@ -1493,7 +1527,7 @@ Create `src/app/knowledge_base/features/diagram/properties/AttachmentsSection.te
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AttachmentsSection } from "./AttachmentsSection";
-import type { AttachmentBuckets } from "../utils/entityAttachments";
+import type { AttachmentBuckets } from "../../document/types";
 
 const empty: AttachmentBuckets = { docs: [], diagrams: [], svgs: [], tabs: [] };
 
@@ -1588,7 +1622,7 @@ Create `src/app/knowledge_base/features/diagram/properties/AttachmentsSection.ts
 
 import React from "react";
 import { FileText, Network, Image as ImageIcon, Music } from "lucide-react";
-import type { AttachmentBuckets } from "../utils/entityAttachments";
+import type { AttachmentBuckets } from "../../document/types";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import { Section } from "./shared";
 
@@ -1702,26 +1736,18 @@ git commit -m "feat(diagram): AttachmentsSection — outbound attachments groupe
 
 ---
 
-## Task 7: Wire indicator click → preview modal; mount AttachmentsSection in property panels
+## Task 7a: Wire `useDiagramController` to expose `attachmentsByType` + indicator/preview state
 
 **Files:**
-- Modify: `src/app/knowledge_base/features/diagram/components/DiagramOverlays.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/hooks/useDiagramController.ts`
 - Modify: `src/app/knowledge_base/features/diagram/components/Element.tsx`
 - Modify: `src/app/knowledge_base/features/diagram/components/DataLine.tsx`
 - Modify: `src/app/knowledge_base/features/diagram/components/DiagramLinesOverlay.tsx`
-- Modify: `src/app/knowledge_base/features/diagram/hooks/useDiagramController.ts`
-- Modify: `src/app/knowledge_base/features/diagram/properties/NodeProperties.tsx`
-- Modify: `src/app/knowledge_base/features/diagram/properties/LineProperties.tsx`
-- Modify: `src/app/knowledge_base/features/diagram/properties/LayerProperties.tsx`
-- Modify: `src/app/knowledge_base/features/diagram/properties/FlowProperties.tsx`
-- Modify: `src/app/knowledge_base/features/diagram/properties/DiagramProperties.tsx`
-- Modify: `src/app/knowledge_base/knowledgeBase.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/components/DiagramOverlays.tsx`
 
-**Goal:** End-to-end wiring. Indicator click sets `previewedItems`; `AttachmentPreviewModal` opens. Each properties panel renders `<AttachmentsSection>` with the right entity's buckets. Attach button opens `CreateAttachEntityModal`.
+**Goal:** Plumb `attachmentsByType` through the controller, compute per-element + per-connection counts, wire the indicator click → preview state, mount the modal in `DiagramOverlays`. After this task: hover-indicator on a node opens the preview modal end-to-end.
 
-This task is intentionally scoped wide because the wiring threads through several layers; subdividing it would split a single integration into halves that don't compile in isolation.
-
-- [ ] **Step 7.1: Add indicator click handler in `useDiagramController`**
+- [ ] **Step 7a.1: Add indicator click handler in `useDiagramController`**
 
 Locate the section of `useDiagramController.ts` returning helpers (around line 514). Add:
 
@@ -1750,7 +1776,7 @@ Add to the returned object: `attachmentsByType`, `openAttachmentPreviewFor`, `cl
 
 > **Watch the existing return.** The hook returns `hasDocuments`, `getDocumentsForEntity`, `onOpenDocument` today; preserve those for any consumers we haven't widened yet.
 
-- [ ] **Step 7.2: Compute `attachmentCounts` per element + per line**
+- [ ] **Step 7a.2: Compute `attachmentCounts` per element + per line**
 
 In `useDiagramController` (or wherever the per-element memos live), add:
 
@@ -1774,7 +1800,7 @@ const attachmentCountsForConnection = useCallback(
 
 Pass these helpers down through the same prop pipeline used by the previous `hasDocuments` / `getDocumentsForEntity` pair.
 
-- [ ] **Step 7.3: Update `Element.tsx` and `DataLine.tsx` to consume the new prop**
+- [ ] **Step 7a.3: Update `Element.tsx` and `DataLine.tsx` to consume the new prop**
 
 In each, remove the `hasDocuments` / `documentPaths` / `onDocNavigate` prop trio and replace with:
 
@@ -1785,7 +1811,7 @@ onAttachmentIndicatorClick: () => void;
 
 Render the new `<AttachmentIndicator counts={attachmentCounts} ... onClick={onAttachmentIndicatorClick} testId={elementId} />` in place of the old `<DocInfoBadge>` (already done in Task 3 for the local replace; now widen the data).
 
-- [ ] **Step 7.4: Update `DiagramLinesOverlay.tsx`**
+- [ ] **Step 7a.4: Update `DiagramLinesOverlay.tsx`**
 
 Replace:
 ```tsx
@@ -1803,11 +1829,40 @@ onAttachmentIndicatorClick={() =>
 
 Pass `attachmentCountsForConnection` and `openAttachmentPreviewFor` from props (they originate in `useDiagramController`).
 
-- [ ] **Step 7.5: Mount the modal in `DiagramOverlays.tsx`**
+- [ ] **Step 7a.5: Mount the modal in `DiagramOverlays.tsx`**
 
 Already done at the import level in Task 4; now wire the open handler. The overlay receives `previewedItems` + `closeAttachmentPreview` from the controller. The `onOpenInPane` handler (existing) is forwarded.
 
-- [ ] **Step 7.6: Render `<AttachmentsSection>` in each Properties panel**
+- [ ] **Step 7a.6: Smoke-test 7a integration**
+
+```bash
+npm run typecheck
+npm run test:run -- --reporter=basic
+```
+
+Expected: clean. The indicator should now light up on a node with attachments and clicking it opens the modal. AttachmentsSection is not yet rendered in the properties panels — that lands in Task 7b.
+
+- [ ] **Step 7a.7: Commit**
+
+```bash
+git add -A
+git commit -m "feat(diagram): wire attachmentsByType + indicator click → AttachmentPreviewModal"
+```
+
+---
+
+## Task 7b: Mount `AttachmentsSection` in every properties panel
+
+**Files:**
+- Modify: `src/app/knowledge_base/features/diagram/properties/NodeProperties.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/properties/LineProperties.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/properties/LayerProperties.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/properties/FlowProperties.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/properties/DiagramProperties.tsx`
+
+**Goal:** Render `<AttachmentsSection>` in each properties panel with the right `target`. Attach button opens `CreateAttachEntityModal`. Detach forwards to existing detach handlers (extended with the type param in Task 5).
+
+- [ ] **Step 7b.1: Render `<AttachmentsSection>` in each Properties panel**
 
 For each of the 5 properties files, add a section:
 
@@ -1829,7 +1884,33 @@ For `DiagramProperties`, the target is `{ type: "root", id: diagramFilename }`.
 
 `onDetachAttachment` and `openCreateAttachModal` are existing handlers on the controller (today they take `documentPath` only — extend them with the `type` param; in MVP-2b ignore non-doc types in the body).
 
-- [ ] **Step 7.7: Pass new selectors through `knowledgeBase.tsx` to the diagram controller**
+- [ ] **Step 7b.2: Smoke-test 7b integration**
+
+```bash
+npm run typecheck
+npm run test:run -- --reporter=basic
+```
+
+Expected: clean. Properties panels now show the `<AttachmentsSection>` for the selected entity.
+
+- [ ] **Step 7b.3: Commit**
+
+```bash
+git add -A
+git commit -m "feat(diagram): render AttachmentsSection in every properties panel"
+```
+
+---
+
+## Task 7c: Pass selectors through `knowledgeBase.tsx` to the diagram view
+
+**Files:**
+- Modify: `src/app/knowledge_base/knowledgeBase.tsx`
+- Modify: `src/app/knowledge_base/features/diagram/DiagramView.tsx` (signature widening only)
+
+**Goal:** Plumb `attachmentsByType` from the shell-mounted `useDocuments` down through `DiagramView` to `useDiagramController`. After this task: end-to-end behaviour is verifiable in the browser.
+
+- [ ] **Step 7c.1: Pass new selectors through `knowledgeBase.tsx` to the diagram controller**
 
 `knowledgeBase.tsx` already has `useDocuments` mounted (line ~179). Pass `attachmentsByType` to the diagram view alongside `documents`:
 
@@ -1842,9 +1923,9 @@ For `DiagramProperties`, the target is `{ type: "root", id: diagramFilename }`.
 />
 ```
 
-`DiagramView` forwards it to `useDiagramController`, which uses it as shown in Step 7.1.
+`DiagramView` forwards it to `useDiagramController`, which uses it as shown in Step 7a.1.
 
-- [ ] **Step 7.8: Smoke-test integration**
+- [ ] **Step 7c.2: Smoke-test full integration**
 
 ```bash
 npm run test:run -- --reporter=basic
@@ -1863,11 +1944,11 @@ Manually verify in dev mode (after `npm run dev`):
 
 > If preview MCP is unavailable (per `feedback_preview_verification_limits.md`), the verification ceiling is "clean build + clean console + automated tests pass."
 
-- [ ] **Step 7.9: Commit**
+- [ ] **Step 7c.3: Commit**
 
 ```bash
 git add -A
-git commit -m "feat(diagram): wire indicator → preview modal; mount AttachmentsSection in all properties panels"
+git commit -m "feat(diagram): plumb attachmentsByType through knowledgeBase shell to DiagramView"
 ```
 
 ---
