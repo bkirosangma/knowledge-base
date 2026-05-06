@@ -86,6 +86,11 @@ interface MarkdownEditorProps {
   /** Called when a pasted/dropped image write fails. Parent should surface
    *  the error via `ShellErrorContext`. */
   onImageError?: (err: unknown) => void;
+  /** Fired once when the underlying Tiptap editor finishes its initial
+   *  mount (`onCreate`). Lets parents that need to act on the rendered
+   *  DOM — e.g. scroll-to-anchor on open — wait for a real readiness
+   *  signal instead of `setTimeout(0)`. */
+  onEditorReady?: () => void;
 }
 
 
@@ -167,6 +172,7 @@ export default function MarkdownEditor({
   getBacklinkCount,
   attachmentRepo = null,
   onImageError,
+  onEditorReady,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -216,6 +222,13 @@ export default function MarkdownEditor({
   useEffect(() => {
     onBlockChangeRef.current = onBlockChange;
   }, [onBlockChange]);
+  // Stable ref for onEditorReady — read by Tiptap's `onCreate` once at
+  // editor mount, so the callback identity never participates in the
+  // useEditor dependency closure.
+  const onEditorReadyRef = useRef(onEditorReady);
+  useEffect(() => {
+    onEditorReadyRef.current = onEditorReady;
+  }, [onEditorReady]);
   const prevBlockStartRef = useRef(-1);
 
   // ── Wiki-link hover preview (DOC-4.17) ────────────────────────────────
@@ -391,6 +404,13 @@ export default function MarkdownEditor({
     ],
     content: markdownToHtml(content),
     editable: !readOnly,
+    onCreate: () => {
+      // Fires once after Tiptap finishes its initial mount — the editor
+      // DOM is in place and parents can safely interact with it
+      // (e.g. scroll-to-anchor on open). Read via ref so callback
+      // identity changes never recreate the editor.
+      onEditorReadyRef.current?.();
+    },
     onUpdate: ({ editor: ed }) => {
       if (rawSwapRef.current) {
         rawSwapRef.current = false;
