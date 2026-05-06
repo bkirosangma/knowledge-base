@@ -431,6 +431,11 @@ class AlphaTabSession implements TabSession {
   private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
   private isPlayingNow = false;
   private disposed = false;
+  /** Tempo baked into the synth's currently-loaded midi. Diverges from the
+   *  score's tempo when the user adjusts BPM mid-playback (we use
+   *  playbackSpeed for live preview, defer the midi regen until stop).
+   *  Initialised on scoreLoaded; updated whenever loadMidiForScore runs. */
+  private midiBakedTempo = 120;
 
   constructor(
     private api: AlphaTabApiLike,
@@ -465,6 +470,17 @@ class AlphaTabSession implements TabSession {
         this.emit({ event: "played" });
       } else if (args.state === PLAYER_STATE_PAUSED) {
         this.isPlayingNow = false;
+        // If a live tempo edit during playback diverged playbackSpeed from
+        // the baked midi, sync the synth to the score now (paused → no
+        // audible disruption). Preserve the playhead so resume picks up
+        // where it left off.
+        if (this.api.playbackSpeed !== 1) {
+          const savedTick = this.api.tickPosition;
+          this.api.loadMidiForScore();
+          this.api.tickPosition = savedTick;
+          this.api.playbackSpeed = 1;
+          this.midiBakedTempo = this.latestMetadata?.tempo ?? this.midiBakedTempo;
+        }
         this.emit({ event: "paused" });
       }
     });
@@ -651,6 +667,10 @@ class AlphaTabSession implements TabSession {
   private handleScoreLoaded(score: unknown): void {
     this.latestScore = score as ScoreShape;
     this.latestMetadata = scoreToMetadata(score);
+    // Whenever a fresh score is loaded (initial mount, applyEdit's
+    // renderScore for non-tempo ops), the synth re-generates midi from
+    // it — so the baked tempo is the score's current tempo.
+    this.midiBakedTempo = this.latestMetadata.tempo;
     this.emit({ event: "loaded", metadata: this.latestMetadata });
   }
 
@@ -700,19 +720,35 @@ class AlphaTabSession implements TabSession {
     const metadata = scoreToMetadata(this.latestScore);
     this.latestMetadata = metadata;
 
-    // Tempo-only edits don't change notation; they just shift playback timing.
-    // Use the lightweight `api.render()` (no scoreLoaded fire, no player
-    // teardown) plus `loadMidiForScore` to feed the existing player a new
-    // midi. The visual tempo marker repaints, the synth picks up the new
-    // tempo, and playback continues seamlessly — no flicker, no playback
-    // reset, no need to capture/restore selection or playhead because the
-    // player was never destroyed.
+    // Tempo-only edits don't change notation, just playback timing. The
+    // synth's `loadMidiFile` always calls `stop()` first (alphaTab source
+    // 46074), so any midi regen during playback audibly halts the synth
+    // and restarts it. Use a two-tier strategy:
     //
-    // We also emit "loaded" ourselves with the fresh metadata since render()
-    // doesn't trigger scoreLoaded.
+    //   • While playing — the score is already mutated above. Adjust
+    //     `api.playbackSpeed` to compensate for the gap between the
+    //     synth's baked midi tempo and the user's new target. No midi
+    //     regen, no synth pause, no flicker. Visual tempo marker repaints
+    //     via the lightweight `api.render()` (does NOT fire scoreLoaded).
+    //   • While paused / stopped — do the full midi regen now. Nothing's
+    //     playing, so the synth pause is invisible. Reset playbackSpeed
+    //     to 1 since the new midi is now correct on its own.
+    //
+    // The `playerStateChanged → paused` handler also runs the deferred
+    // sync when the user stops playback after a live tempo edit, so the
+    // next play uses the correctly-baked midi.
     if (op.type === "set-tempo") {
-      this.api.render();
-      this.api.loadMidiForScore();
+      if (this.isPlayingNow) {
+        const targetBpm = op.bpm;
+        const baked = this.midiBakedTempo > 0 ? this.midiBakedTempo : targetBpm;
+        this.api.playbackSpeed = targetBpm / baked;
+        this.api.render();
+      } else {
+        this.api.playbackSpeed = 1;
+        this.api.render();
+        this.api.loadMidiForScore();
+        this.midiBakedTempo = metadata.tempo;
+      }
       this.emit({ event: "loaded", metadata });
       return metadata;
     }
