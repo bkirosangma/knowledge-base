@@ -86,11 +86,24 @@ export function useDocumentContent(filePath: string | null) {
   dirtyRef.current = dirty;
   loadErrorRef.current = loadError;
 
-  const serializeCurrent = useCallback((): string => serializeFrontmatter({
-    data: { sources: sourcesRef.current },
-    rawYaml: rawYamlRef.current,
-    body: contentRef.current,
-  }), []);
+  const serializeCurrent = useCallback((): string => {
+    // Filter empty-URL draft rows at the serialization boundary, not at the
+    // state boundary. The SourcesSection UX pushes a `{ url: '', title: '' }`
+    // draft row into state immediately on Add so the user can type into it;
+    // we keep that draft in `sourcesRef.current` (so the UI renders it) but
+    // never write it to disk or the autosaved draft. If every entry filters
+    // out, the resulting empty array makes serializeFrontmatter omit the
+    // `sources:` key entirely — the desired behaviour.
+    const rawSources = sourcesRef.current;
+    const filtered = Array.isArray(rawSources)
+      ? rawSources.filter((s) => typeof s.url === "string" && s.url !== "")
+      : rawSources;
+    return serializeFrontmatter({
+      data: { sources: filtered },
+      rawYaml: rawYamlRef.current,
+      body: contentRef.current,
+    });
+  }, []);
 
   // Save helper
   const save = useCallback(async () => {

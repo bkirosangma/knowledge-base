@@ -267,6 +267,58 @@ describe("YAML quoting / escaping", () => {
   });
 });
 
+describe("parseFrontmatter — graceful degrade on empty-URL items", () => {
+  it("drops empty-URL items but keeps valid ones in the same block", () => {
+    const text =
+      "---\n" +
+      "sources:\n" +
+      "  - url: 'https://good.com'\n" +
+      "    title: 'Good'\n" +
+      "  - url: ''\n" +
+      "    title: 'Empty draft'\n" +
+      "---\n" +
+      "# Body";
+    const r = parseFrontmatter(text);
+    expect(r.data.sources).toEqual([
+      { url: "https://good.com", title: "Good" },
+    ]);
+    expect(r.body).toBe("# Body");
+  });
+
+  it("returns data.sources: [] when every source has an empty URL (the key is dropped on re-serialize)", () => {
+    const text =
+      "---\n" +
+      "sources:\n" +
+      "  - url: ''\n" +
+      "  - url: ''\n" +
+      "    title: 'still empty'\n" +
+      "---\n" +
+      "# Body";
+    const r = parseFrontmatter(text);
+    expect(r.data.sources).toEqual([]);
+    expect(r.body).toBe("# Body");
+  });
+
+  it("preserves unknown keys when a sources block degrades to empty (regression for Issue A)", () => {
+    // Pre-fix bug: a single `- url: ''` item caused parseSourcesBlock to
+    // return null → parseYamlLines threw → parseFrontmatter fell back to
+    // "no frontmatter" → the `tags: foo` line was silently dumped into the
+    // document body on next load. Now: the bad item is dropped, `tags`
+    // round-trips via rawYaml unchanged.
+    const text =
+      "---\n" +
+      "tags: foo\n" +
+      "sources:\n" +
+      "  - url: ''\n" +
+      "---\n" +
+      "# Body";
+    const r = parseFrontmatter(text);
+    expect(r.rawYaml).toBe("tags: foo");
+    expect(r.data.sources).toEqual([]);
+    expect(r.body).toBe("# Body");
+  });
+});
+
 describe("normalization — CRLF and BOM", () => {
   it("normalizes CRLF input and parses sources correctly", () => {
     const text =

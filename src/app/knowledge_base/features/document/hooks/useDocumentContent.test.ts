@@ -548,6 +548,55 @@ describe('useDocumentContent — sources frontmatter', () => {
     )
   })
 
+  it('regression (Issue B): empty-URL draft rows are filtered out on save — never written to disk', async () => {
+    // SourcesSection.handleAdd pushes a `{ url: '', title: '' }` draft row
+    // into state immediately on Add. Pre-fix, save() would persist that
+    // garbage row, which the parser then chokes on. Now: serializeCurrent
+    // filters empty-URL entries at the serialization boundary, so the file
+    // either gets a sources-less frontmatter or no frontmatter at all.
+    await seedFile(root, 'a.md', '# Body')
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('# Body'))
+
+    act(() => {
+      result.current.updateSources([{ url: '', title: '' }])
+    })
+    expect(result.current.dirty).toBe(true)
+    // In-memory state still holds the draft row so the UI can render it.
+    expect(result.current.sources).toEqual([{ url: '', title: '' }])
+
+    await act(async () => { await result.current.save() })
+    const written = root.files.get('a.md')!.file.data
+    // No `- url: ''` line — the draft row was filtered out at serialize time.
+    expect(written).not.toContain("url: ''")
+    // Empty filtered sources → no `sources:` key → no frontmatter at all.
+    expect(written).toBe('# Body')
+  })
+
+  it('regression (Issue B): empty-URL drafts are dropped, valid entries survive', async () => {
+    await seedFile(root, 'a.md', '# Body')
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('# Body'))
+
+    act(() => {
+      result.current.updateSources([
+        { url: 'https://good.com', title: 'Good' },
+        { url: '', title: '' },
+      ])
+    })
+    await act(async () => { await result.current.save() })
+    const written = root.files.get('a.md')!.file.data
+    expect(written).not.toContain("url: ''")
+    expect(written).toBe(
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://good.com'\n" +
+      "    title: 'Good'\n" +
+      '---\n' +
+      '# Body',
+    )
+  })
+
   it('body-edit preserves sources in frontmatter on save', async () => {
     const text =
       '---\n' +
