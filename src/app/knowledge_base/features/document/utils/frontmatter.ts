@@ -202,10 +202,13 @@ function parseSourcesBlock(lines: string[]): SourceLink[] | null {
   }
   if (current) out.push(current);
 
-  for (const s of out) {
-    if (typeof s.url !== "string" || s.url === "") return null;
-  }
-  return out;
+  // Graceful degrade: keep structurally valid items with non-empty string
+  // URLs and silently drop the rest. This protects against hand-authored
+  // `- url: ''` and similar — the alternative (returning null here) would
+  // bubble up and discard the entire frontmatter block, dumping unrelated
+  // keys into the document body on next load.
+  const valid = out.filter((s) => typeof s.url === "string" && s.url !== "");
+  return valid;
 }
 
 function applyKey(target: SourceLink, key: string, value: string): void {
