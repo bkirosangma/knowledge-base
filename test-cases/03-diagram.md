@@ -276,6 +276,15 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-42** ✅ **`onDiagramBridge` called on mount** — bridge effect fires on first render and publishes the bridge object to the shell. — `DiagramView.test.tsx`
 - **DIAG-3.13-43** ✅ **activeFile rerender is safe** — swapping the `activeFile` prop from null → a path does not throw. — `DiagramView.test.tsx`
 
+### 3.13.h AttachmentsSection
+- **DIAG-3.13-44** ✅ **Renders Attachments title with count** — `AttachmentsSection` shows `"Attachments"` (or `"Attachments (N)"` when buckets non-empty); empty state shows no rows. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-45** ✅ **Per-type group headers + rows** — non-empty docs/diagrams/svgs/tabs buckets each render a labelled group with one row per attachment. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-46** ✅ **Preview button calls onPreview with (filename, type)** — clicking a row's title fires the preview callback. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-47** ✅ **Detach button calls onDetach with (filename, type)** — Detach link fires the detach callback. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-48** ✅ **Attach button calls onAttach** — `+ Attach` button fires `onAttach` (panel opens `CreateAttachEntityModal`). _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-49** ✅ **readOnly hides Attach + Detach** — read-only mode strips both buttons; preview links stay visible. _(unit: `AttachmentsSection.test.tsx`)_
+- **DIAG-3.13-50** 🟡 **Mounted in NodeProperties / LineProperties / FlowProperties / DiagramProperties** — `AttachmentsSection` is rendered at the bottom of all 4 entity-scoped panels with the right `EntityAttachmentTarget` (`node | connection | flow | root`); LayerProperties is excluded because `'layer'` is not in the union. Verified via TS-level wiring; full integration coverage deferred to e2e once the cross-entity attach flow lands end-to-end.
+
 ## 3.14 Keyboard Shortcuts
 
 - **DIAG-3.14-01** ✅ **Escape deselects.** — e2e/diagramKeyboard.spec.ts

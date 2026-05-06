@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { NodeData, Connection, FlowDef } from "../types";
 import type { AnchorId } from "../utils/anchors";
+import type { AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 import DocumentsSection from "./DocumentsSection";
+import { AttachmentsSection } from "./AttachmentsSection";
 
 function DurationRow({ value, defaultValue, onChange, readOnly }: { value: number; defaultValue: number; onChange: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
@@ -54,6 +56,7 @@ function DurationRow({ value, defaultValue, onChange, readOnly }: { value: numbe
 
 export function LineProperties({
   id, connections, nodes, onUpdate, allConnectionIds, flows, onSelectFlow, onHoverFlow, backlinks, onPreviewDocument, readOnly,
+  attachmentsByType, openAttachmentPreviewFor, onOpenDocPicker, onDetachDocument,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
   onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
@@ -64,6 +67,10 @@ export function LineProperties({
   backlinks?: { sourcePath: string; section?: string }[];
   onPreviewDocument?: (path: string) => void;
   readOnly?: boolean;
+  attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  onOpenDocPicker?: (entityType: string, entityId: string) => void;
+  onDetachDocument?: (docPath: string, entityType: string, entityId: string) => void;
 }) {
   const conn = connections.find((c) => c.id === id);
 
@@ -176,6 +183,16 @@ export function LineProperties({
         <DocumentsSection
           backlinks={backlinks}
           onPreviewDocument={onPreviewDocument}
+        />
+      )}
+
+      {attachmentsByType && (
+        <AttachmentsSection
+          buckets={attachmentsByType({ type: "connection", id })}
+          onPreview={() => openAttachmentPreviewFor?.({ type: "connection", id })}
+          onDetach={(filename) => onDetachDocument?.(filename, "connection", id)}
+          onAttach={() => onOpenDocPicker?.("connection", id)}
+          readOnly={readOnly}
         />
       )}
     </>

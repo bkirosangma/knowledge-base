@@ -9,7 +9,7 @@ import FlowBreakWarningModal from "./FlowBreakWarningModal";
 import DocumentPicker from "../../../shared/components/DocumentPicker";
 import type { AnchorId } from "../utils/anchors";
 import type { NodeData, LayerDef, Connection, FlowDef, LineCurveAlgorithm, Selection, RegionBounds } from "../types";
-import type { DocumentMeta } from "../../document/types";
+import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
 import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
@@ -167,6 +167,13 @@ export interface DiagramOverlaysProps {
     wikiBacklinks: string[];
   };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
+
+  // 4-way attachment selectors threaded down to AttachmentsSection in each
+  // properties panel. `attachmentsByType` returns the per-type buckets for
+  // a target; `openAttachmentPreviewFor` builds the multi-item preview
+  // payload from those buckets and seeds `previewedItems`.
+  attachmentsByType: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
 }
 
 export default function DiagramOverlays(props: DiagramOverlaysProps) {
@@ -255,6 +262,8 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     readDocument,
     getDocumentReferences,
     deleteDocumentWithCleanup,
+    attachmentsByType,
+    openAttachmentPreviewFor,
   } = props;
   // Unused in the JSX but needed for layout sizing; silence.
   void _measuredSizes;
@@ -404,6 +413,9 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         getDocumentReferences={getDocumentReferences}
         deleteDocumentWithCleanup={deleteDocumentWithCleanup}
         onCreateAndAttach={onCreateAndAttach}
+        activeFile={activeFile}
+        attachmentsByType={attachmentsByType}
+        openAttachmentPreviewFor={openAttachmentPreviewFor}
         history={activeFile ? {
           entries: history.entries,
           currentIndex: history.currentIndex,

@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
-import type { DocumentMeta } from "../../document/types";
+import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
 import { Section, Row, EditableRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
+import { AttachmentsSection } from "./AttachmentsSection";
 import { FlowProperties } from "./FlowProperties";
 
 function FlowListItem({
@@ -70,6 +71,7 @@ export function DiagramProperties({
   documents, onPreviewDocument, onOpenDocPicker, onDetachDocument,
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
   onLockFlow,
+  diagramFilename, attachmentsByType, openAttachmentPreviewFor,
 }: {
   title: string; regions: RegionBounds[]; nodes: NodeData[]; connections: Connection[];
   onUpdateTitle?: (title: string) => void;
@@ -109,6 +111,9 @@ export function DiagramProperties({
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
   onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   onLockFlow?: (flowId: string) => void;
+  diagramFilename?: string | null;
+  attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
+  openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
   const nodeItems = nodes.map((n) => ({ id: n.id, name: n.label }));
@@ -264,6 +269,10 @@ export function DiagramProperties({
               onCreateAndAttach={(filename, editNow, type) => onCreateAndAttach?.(expandedFlow.id, filename, editNow, type) ?? Promise.resolve()}
               onLock={onLockFlow}
               readOnly={readOnly}
+              attachmentsByType={attachmentsByType}
+              openAttachmentPreviewFor={openAttachmentPreviewFor}
+              onOpenDocPicker={onOpenDocPicker}
+              onDetachDocument={onDetachDocument}
             />
           )}
         </Section>
@@ -273,6 +282,16 @@ export function DiagramProperties({
         <DocumentsSection
           backlinks={backlinks}
           onPreviewDocument={onPreviewDocument}
+        />
+      )}
+
+      {attachmentsByType && diagramFilename && (
+        <AttachmentsSection
+          buckets={attachmentsByType({ type: "root", id: diagramFilename })}
+          onPreview={() => openAttachmentPreviewFor?.({ type: "root", id: diagramFilename })}
+          onDetach={(filename) => onDetachDocument?.(filename, "root", diagramFilename)}
+          onAttach={() => onOpenDocPicker?.("root", diagramFilename)}
+          readOnly={readOnly}
         />
       )}
     </>
