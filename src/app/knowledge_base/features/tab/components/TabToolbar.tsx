@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import type { TabPlayerStatus } from "../hooks/useTabEngine";
 
 export interface TabToolbarProps {
@@ -9,17 +9,16 @@ export interface TabToolbarProps {
   audioBlocked: boolean;
   onToggle: () => void;
   onStop: () => void;
-  onSetTempoFactor: (factor: number) => void;
   onSetLooping: (enabled: boolean) => void;
+  /** Score tempo in BPM (from alphaTab metadata; first masterBar's tempo automation). */
+  tempoBpm: number;
+  /** Commit a new tempo to the score. When omitted (read mode or no editor),
+   *  the BPM displays as static text rather than an editable input. */
+  onSetTempoBpm?: (bpm: number) => void;
 }
 
-const TEMPO_OPTIONS: { label: string; value: number }[] = [
-  { label: "50%", value: 0.5 },
-  { label: "75%", value: 0.75 },
-  { label: "100%", value: 1 },
-  { label: "125%", value: 1.25 },
-  { label: "150%", value: 1.5 },
-];
+const TEMPO_MIN = 20;
+const TEMPO_MAX = 400;
 
 /**
  * Transport controls for the guitar-tab pane: play/pause toggle, stop,
@@ -31,9 +30,27 @@ const TEMPO_OPTIONS: { label: string; value: number }[] = [
 export function TabToolbar(props: TabToolbarProps): ReactElement {
   const {
     playerStatus, isAudioReady, audioBlocked,
-    onToggle, onStop, onSetTempoFactor, onSetLooping,
+    onToggle, onStop, onSetLooping,
+    tempoBpm, onSetTempoBpm,
   } = props;
   const isPlaying = playerStatus === "playing";
+
+  // Local input state so the user can type freely (e.g. clear and retype "120");
+  // we only commit to the score on blur/Enter when the value parses to a number
+  // inside [TEMPO_MIN, TEMPO_MAX].
+  const [tempoDraft, setTempoDraft] = useState<string>(String(tempoBpm));
+  useEffect(() => { setTempoDraft(String(tempoBpm)); }, [tempoBpm]);
+
+  const commitTempo = () => {
+    const parsed = Number.parseInt(tempoDraft, 10);
+    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) {
+      // Reject invalid input by snapping back to the score's current value.
+      setTempoDraft(String(tempoBpm));
+      return;
+    }
+    if (parsed === tempoBpm) return;
+    onSetTempoBpm?.(parsed);
+  };
 
   return (
     <div
@@ -62,16 +79,30 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
 
       <label className="flex items-center gap-1">
         <span className="text-mute">Tempo</span>
-        <select
-          aria-label="Tempo"
-          defaultValue="1"
-          onChange={(e) => onSetTempoFactor(Number(e.target.value))}
-          className="rounded border border-line bg-surface px-1 py-0.5"
-        >
-          {TEMPO_OPTIONS.map((opt) => (
-            <option key={opt.value} value={String(opt.value)}>{opt.label}</option>
-          ))}
-        </select>
+        {onSetTempoBpm ? (
+          <input
+            type="number"
+            aria-label="Tempo (BPM)"
+            min={TEMPO_MIN}
+            max={TEMPO_MAX}
+            step={1}
+            value={tempoDraft}
+            onChange={(e) => setTempoDraft(e.target.value)}
+            onBlur={commitTempo}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                setTempoDraft(String(tempoBpm));
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-16 rounded border border-line bg-surface px-1 py-0.5 text-right"
+          />
+        ) : (
+          <span aria-label="Tempo (BPM)" className="font-mono">{tempoBpm}</span>
+        )}
+        <span className="text-mute">BPM</span>
       </label>
 
       <label className="flex items-center gap-1">

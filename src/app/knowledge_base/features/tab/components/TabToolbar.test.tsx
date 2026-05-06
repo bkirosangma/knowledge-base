@@ -10,8 +10,8 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof TabToolbar>> =
     audioBlocked: false,
     onToggle: vi.fn(),
     onStop: vi.fn(),
-    onSetTempoFactor: vi.fn(),
     onSetLooping: vi.fn(),
+    tempoBpm: 120,
     ...overrides,
   };
 }
@@ -51,12 +51,33 @@ describe("TabToolbar", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
-  it("tempo dropdown calls onSetTempoFactor with the chosen factor", async () => {
-    const onSetTempoFactor = vi.fn();
-    render(<TabToolbar {...makeProps({ onSetTempoFactor })} />);
-    const select = screen.getByLabelText(/tempo/i) as HTMLSelectElement;
-    await userEvent.selectOptions(select, "0.75");
-    expect(onSetTempoFactor).toHaveBeenLastCalledWith(0.75);
+  it("tempo input commits BPM via onSetTempoBpm on blur when editable", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText(/tempo/i) as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "140");
+    await userEvent.tab();
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(140);
+  });
+
+  it("tempo renders as static text (not an input) when onSetTempoBpm is omitted", () => {
+    render(<TabToolbar {...makeProps({ tempoBpm: 100 })} />);
+    // No editable input present.
+    expect(screen.queryByRole("spinbutton", { name: /tempo/i })).toBeNull();
+    // Static span with the BPM value is.
+    expect(screen.getByLabelText(/tempo/i)).toHaveTextContent("100");
+  });
+
+  it("tempo input rejects out-of-range BPM by snapping back to current value", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText(/tempo/i) as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "9999");
+    await userEvent.tab();
+    expect(onSetTempoBpm).not.toHaveBeenCalled();
+    expect(input.value).toBe("100");
   });
 
   it("loop checkbox toggles onSetLooping with the boolean state", async () => {

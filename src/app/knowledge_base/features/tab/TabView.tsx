@@ -385,8 +385,9 @@ export function TabView({
           audioBlocked={playback.audioBlocked}
           onToggle={playback.toggle}
           onStop={playback.stop}
-          onSetTempoFactor={playback.setTempoFactor}
           onSetLooping={playback.setLooping}
+          tempoBpm={metadata?.tempo ?? 120}
+          onSetTempoBpm={effectiveReadOnly ? undefined : (bpm) => propertiesApply({ type: "set-tempo", beat: 0, bpm })}
         />
         {/* Inner relative wrapper — the editor's `absolute inset-0` overlay
             is scoped to this region (canvas only), so it can never cover
