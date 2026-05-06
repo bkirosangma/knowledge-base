@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import type { LinkIndex, OutboundLink } from "../types";
+import type { LinkIndex, LinkIndexEntry, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
+import { extractHeaders, type HeaderInfo } from "../utils/extractHeaders";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
 import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
 import { readOrNull } from "../../../domain/repositoryHelpers";
@@ -27,7 +28,7 @@ function getLinkType(resolvedPath: string): "document" | "diagram" | "tab" {
 function buildDocumentEntry(
   content: string,
   docDir: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
+): LinkIndexEntry {
   const parsed = parseWikiLinks(content);
   const outboundLinks: OutboundLink[] = [];
   const sectionLinks: { targetPath: string; section: string }[] = [];
@@ -39,22 +40,23 @@ function buildDocumentEntry(
       outboundLinks.push({ targetPath: resolved, type: getLinkType(resolved) });
     }
   }
-  return { outboundLinks, sectionLinks };
+  const headers = extractHeaders(content);
+  return { outboundLinks, sectionLinks, headers };
 }
 
 /** Build a link-index entry for a diagram JSON file.
  *  Edges = the list of .md files attached to nodes/connections/flows in the diagram. */
 function buildDiagramEntry(
   jsonContent: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: [] } {
+): LinkIndexEntry {
   try {
     const data = JSON.parse(jsonContent) as { documents?: { filename?: string }[] };
     const outboundLinks: OutboundLink[] = (data.documents ?? [])
       .filter((d) => typeof d.filename === "string" && d.filename.length > 0)
       .map((d) => ({ targetPath: d.filename as string, type: "document" as const }));
-    return { outboundLinks, sectionLinks: [] };
+    return { outboundLinks, sectionLinks: [], headers: [] };
   } catch {
-    return { outboundLinks: [], sectionLinks: [] };
+    return { outboundLinks: [], sectionLinks: [], headers: [] };
   }
 }
 
@@ -64,7 +66,7 @@ function buildDiagramEntry(
 function buildTabEntry(
   content: string,
   docDir: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
+): LinkIndexEntry {
   const REFERENCES_LINE = /^\s*\/\/\s*references\s*:\s*(.*)$/gim;
   const outboundLinks: OutboundLink[] = [];
   const sectionLinks: { targetPath: string; section: string }[] = [];
@@ -80,7 +82,7 @@ function buildTabEntry(
       }
     }
   }
-  return { outboundLinks, sectionLinks };
+  return { outboundLinks, sectionLinks, headers: [] };
 }
 
 function collectCrossReferences(index: LinkIndex): CrossReference[] {
@@ -151,6 +153,12 @@ export function useLinkIndex() {
       loaded = null;
     }
     if (loaded) {
+      // Backfill `headers` on entries persisted before MVP 3 added the field.
+      for (const entry of Object.values(loaded.documents)) {
+        if (!Array.isArray((entry as Partial<LinkIndexEntry>).headers)) {
+          (entry as LinkIndexEntry).headers = [];
+        }
+      }
       linkIndexRef.current = loaded;
       setLinkIndex(loaded);
       return loaded;
@@ -276,6 +284,7 @@ export function useLinkIndex() {
     index.documents[diagramPath] = {
       outboundLinks: docFilenames.map((f) => ({ targetPath: f, type: "document" as const })),
       sectionLinks: [],
+      headers: [],
     };
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
@@ -294,3 +303,30 @@ export function useLinkIndex() {
     fullRebuild,
   };
 }
+
+/** Diff two header sets (prev vs next) for the same document and classify the
+ *  change as rename(s) or deletion(s). Used by Task 8's auto-refactor: when a
+ *  user renames a single heading, link references to its old slug are
+ *  rewritten to the new one. Multi-edit churn falls through to deletions only
+ *  to avoid mis-pairing unrelated changes. */
+export function findHeaderRename(
+  prev: { id: string; text: string; level: number }[],
+  next: { id: string; text: string; level: number }[],
+): { renames: Array<{ from: string; to: string }>; deletions: string[] } {
+  const removed = prev.filter((p) => !next.some((n) => n.id === p.id));
+  const added = next.filter((n) => !prev.some((p) => p.id === n.id));
+  const renames: Array<{ from: string; to: string }> = [];
+  const deletions: string[] = [];
+  if (removed.length === 1 && added.length === 1) {
+    if (removed[0].level === added[0].level || removed[0].text === added[0].text) {
+      renames.push({ from: removed[0].id, to: added[0].id });
+    } else {
+      deletions.push(removed[0].id);
+    }
+  } else {
+    deletions.push(...removed.map((r) => r.id));
+  }
+  return { renames, deletions };
+}
+
+export type { HeaderInfo };

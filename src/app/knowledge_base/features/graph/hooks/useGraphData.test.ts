@@ -60,6 +60,7 @@ describe("useGraphData — buildGraphData", () => {
     idx.documents["a.md"] = {
       outboundLinks: [{ targetPath: "b.md", type: "document" }],
       sectionLinks: [],
+      headers: [],
     };
     const result = buildGraphData(t, idx);
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
@@ -82,6 +83,7 @@ describe("useGraphData — buildGraphData", () => {
     idx.documents["a.md"] = {
       outboundLinks: [{ targetPath: "b.md", type: "document" }],
       sectionLinks: [{ targetPath: "b.md", section: "foo" }],
+      headers: [],
     };
     const result = buildGraphData(t, idx);
     expect(result.links.length).toBe(1);
@@ -112,6 +114,7 @@ describe("useGraphData — applyFilters", () => {
       "docs/a.md": {
         outboundLinks: [{ targetPath: "diagrams/b.json", type: "diagram" }],
         sectionLinks: [],
+        headers: [],
       },
     },
     backlinks: {},
@@ -207,6 +210,7 @@ describe("useGraphData — recentOnly filter", () => {
     idx.documents["recent-099.md"] = {
       outboundLinks: [{ targetPath: "stale.md", type: "document" }],
       sectionLinks: [],
+      headers: [],
     };
     const data = buildGraphData(t, idx);
     const result = applyFiltersImpl(data, { ...ALL_TYPES, recentOnly: true });

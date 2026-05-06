@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useLinkIndex } from './useLinkIndex'
+import { useLinkIndex, findHeaderRename } from './useLinkIndex'
 import type { LinkIndex } from '../types'
 import { MockDir } from '../../../shared/testUtils/fsMock'
 
@@ -32,6 +32,7 @@ describe('loadIndex', () => {
         'a.md': {
           outboundLinks: [{ targetPath: 'b.md', type: 'document' }],
           sectionLinks: [],
+          headers: [],
         },
       },
       backlinks: {
@@ -87,7 +88,7 @@ describe('saveIndex (DOC-4.10-04)', () => {
   it('writes a timestamped JSON to .archdesigner/_links.json', async () => {
     const { result } = renderHook(() => useLinkIndex())
     const fresh: LinkIndex = {
-      updatedAt: '', documents: { 'a.md': { outboundLinks: [], sectionLinks: [] } }, backlinks: {},
+      updatedAt: '', documents: { 'a.md': { outboundLinks: [], sectionLinks: [], headers: [] } }, backlinks: {},
     }
     await act(async () => {
       // saveIndex is called via loadIndex / updateDocumentLinks, but also exposed
@@ -164,8 +165,9 @@ describe('removeDocumentFromIndex (DOC-4.10-08)', () => {
         'a.md': {
           outboundLinks: [{ targetPath: 'b.md', type: 'document' }],
           sectionLinks: [],
+          headers: [],
         },
-        'b.md': { outboundLinks: [], sectionLinks: [] },
+        'b.md': { outboundLinks: [], sectionLinks: [], headers: [] },
       },
       backlinks: {},
     }
@@ -185,10 +187,11 @@ describe('renameDocumentInIndex (DOC-4.10-09)', () => {
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
-        'old.md': { outboundLinks: [], sectionLinks: [] },
+        'old.md': { outboundLinks: [], sectionLinks: [], headers: [] },
         'c.md': {
           outboundLinks: [{ targetPath: 'old.md', type: 'document' }],
           sectionLinks: [{ targetPath: 'old.md', section: 's' }],
+          headers: [],
         },
       },
       backlinks: {},
@@ -367,3 +370,58 @@ describe('fullRebuild — .alphatex tabs (TAB-011)', () => {
     ]);
   });
 });
+
+describe('findHeaderRename', () => {
+  it('treats one-removed + one-added at same level as rename', () => {
+    const r = findHeaderRename(
+      [{ id: 'old', text: 'Old', level: 2 }],
+      [{ id: 'new', text: 'New', level: 2 }],
+    )
+    expect(r.renames).toEqual([{ from: 'old', to: 'new' }])
+    expect(r.deletions).toEqual([])
+  })
+
+  it('treats one-removed + one-added with same text different level as rename', () => {
+    // NOTE: Plan-as-written used id 'x' for both sides, but identical ids produce
+    // an empty diff so the "same text, different level" branch is never reached.
+    // We use distinct ids here so the implementation actually exercises the
+    // `removed[0].text === added[0].text` branch in findHeaderRename.
+    const r = findHeaderRename(
+      [{ id: 'x', text: 'X', level: 2 }],
+      [{ id: 'y', text: 'X', level: 3 }],
+    )
+    expect(r.renames).toEqual([{ from: 'x', to: 'y' }])
+  })
+
+  it('treats multi-removed multi-added as deletions only', () => {
+    const r = findHeaderRename(
+      [{ id: 'a', text: 'A', level: 1 }, { id: 'b', text: 'B', level: 1 }],
+      [{ id: 'c', text: 'C', level: 1 }, { id: 'd', text: 'D', level: 1 }],
+    )
+    expect(r.renames).toEqual([])
+    expect(r.deletions).toEqual(['a', 'b'])
+  })
+
+  it('addition only is no-op', () => {
+    const r = findHeaderRename(
+      [{ id: 'a', text: 'A', level: 1 }],
+      [{ id: 'a', text: 'A', level: 1 }, { id: 'b', text: 'B', level: 1 }],
+    )
+    expect(r).toEqual({ renames: [], deletions: [] })
+  })
+})
+
+describe('useLinkIndex.headers', () => {
+  it('populates headers from doc content', async () => {
+    await seedFile(root, 'a.md', '# A\n## B Section')
+    const { result } = renderHook(() => useLinkIndex())
+    let index: LinkIndex | null = null
+    await act(async () => {
+      index = await result.current.fullRebuild(asRoot(root), ['a.md'])
+    })
+    expect(index!.documents['a.md'].headers).toEqual([
+      { id: 'a', text: 'A', level: 1 },
+      { id: 'b-section', text: 'B Section', level: 2 },
+    ])
+  })
+})
