@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (MVP-2b merged as PR #129 squash `30ae048`; MVP 3 — Wiki-Link Anchors — execution begun on `feat/diagram-mvp3-wiki-link-anchors`).
+**Last updated:** 2026-05-06 (MVP 3 — Wiki-Link Anchors — merged as PR #132 squash `ca85890`; MVP 4 split into **MVP-4a** in flight on `feat/diagram-mvp4a-source-links` against `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md`, and **MVP-4b** deferred and unified with the SVG/Tab attachment-persistence deferral).
 
 ---
 
@@ -64,12 +64,12 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 |---|---|---|
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
 | **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | ✅ Merged via two PRs: **MVP-2a** PR #128 squash `006cf5f` (Tasks 1–2: data-model + persistence). **MVP-2b** PR #129 squash `30ae048` (4-way UI contract + document-only data layer). |
-| **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
-| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
+| **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Merged (PR #132, squash `ca85890`). All 10 tasks shipped. |
+| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (re-grounded MVP-4a) | 🟡 In flight. **MVP-4a** (diagram entities + document) on branch `feat/diagram-mvp4a-source-links` — 8 tasks. **MVP-4b** (SVG + Tab) deferred — unified with the SVG/Tab attachment-persistence deferral. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) execution begun** on `feat/diagram-mvp3-wiki-link-anchors` against `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` (10 tasks).
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) merged** via PR #132 on 2026-05-06 (squash commit `ca85890`, all 10 tasks of `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md`). **MVP-4a (Source Links — diagram entities + document) execution begun** on `feat/diagram-mvp4a-source-links` against `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (8 tasks).
 
 ---
 
@@ -94,7 +94,7 @@ The current `feat/diagram-flow-enhancements` branch holds the spec + plans only;
 
 ---
 
-## MVP 2 status — partial, plan needs re-grounding (2026-05-06)
+## MVP 2 status — both phases merged; SVG/Tab branches deferred (2026-05-06)
 
 **Shipped via PR #128 (squash `006cf5f`, branch `feat/diagram-mvp2-cross-entity-attachment` deleted post-merge):**
 - Task 1 (commit `1bfef4d`): `EntityAttachment` + `EntityAttachmentTarget` shared types in `features/document/types.ts`. Reviewed ✅ spec + ✅ quality.
@@ -118,12 +118,13 @@ The current `feat/diagram-flow-enhancements` branch holds the spec + plans only;
 - Treat SVG and Tab source-type branches as runtime no-ops with extension points (no rendered glyphs/tabs/rows when their lists are empty), not as guarded compile-time conditionals.
 - Re-target the renames and widening to the actual call sites surveyed below.
 
-### Deferred to a future MVP — "SVG/Tab attachment persistence"
+### Deferred to a future MVP — "SVG/Tab metadata persistence" (covers MVP-2 attachments + MVP-4b sources)
 
-To complete the four-way attachment story (whenever it's prioritised):
-- Design + ship an SVG sidecar shape (likely `<file>.svg.refs.json` modelled on `TabRefsPayload`).
-- Either bump `TabRefsPayload` to v3 with an optional `attachedTo` field or add a separate `<file>.alphatex.attachments.json` sidecar.
-- Pre-conditions: a brainstorm + spec slice before any of MVPs 3/4 lock in their own writes against these shapes.
+The same blocker stops two distinct features. Resolve it once and both unlock:
+
+- **For attachments (`attachedTo`, MVP 2 deferral):** design + ship an SVG sidecar shape (likely `<file>.svg.refs.json` modelled on `TabRefsPayload`); for tab, either bump `TabRefsPayload` to v3 with an optional `attachedTo` field or add a separate `<file>.alphatex.attachments.json` sidecar.
+- **For sources (`sources`, MVP-4b deferral):** the original MVP-4 plan called for SVG `<filename>.meta.json` and an AlphaTex `\sources` header (or trailing-comment fallback). Both fit the same metadata-persistence shape — the SVG sidecar can hold `{ sources, attachedTo }`; the tab sidecar/header can carry both fields.
+- **Pre-conditions:** a brainstorm + spec slice on the unified SVG/Tab metadata-persistence pattern. Once that lands, MVP-4b (SVG + Tab branches of the source-links UI) becomes a thin task — wire `<SourcesSection>` into `SvgProperties` / `TabProperties` (those panels currently exist for tabs as `features/tab/properties/TabProperties.tsx`; SVG would need a new `SvgProperties.tsx`) against the new metadata layer.
 
 ## Open follow-up items
 
@@ -174,13 +175,22 @@ These are durable; pull from `MEMORY.md` before any change.
 | `src/app/knowledge_base/features/document/components/HeadingCopyLink.tsx` | New in MVP 3 Task 6. |
 | `src/app/knowledge_base/shared/components/BrokenAnchorBanner.tsx` | New in MVP 3 Task 9. |
 
-### Source links (MVP 4)
+### Source links (MVP-4a)
 
 | Path | Concern |
 |---|---|
-| `src/app/knowledge_base/shared/types/sources.ts` | New in MVP 4 Task 1. |
-| `src/app/knowledge_base/shared/components/SourcesSection.tsx` | New in MVP 4 Task 6. |
-| `src/app/knowledge_base/features/svgEditor/utils/svgMetaSidecar.ts` | New in MVP 4 Task 5. |
+| `src/app/knowledge_base/shared/types/sources.ts` | New in MVP-4a Task 1. |
+| `src/app/knowledge_base/shared/components/SourcesSection.tsx` | New in MVP-4a Task 4. |
+| `src/app/knowledge_base/features/document/utils/frontmatter.ts` | New in MVP-4a Task 6 — first frontmatter parser in the codebase (today the codebase only **strips** frontmatter). |
+| `src/app/knowledge_base/features/diagram/properties/{Diagram,Node,Line,Layer,Flow}Properties.tsx` | Modified in MVP-4a Task 5 — wire `<SourcesSection>`. |
+| `src/app/knowledge_base/features/document/properties/DocumentProperties.tsx` | Modified in MVP-4a Task 7 — wire `<SourcesSection>`. |
+
+### Source links (MVP-4b — deferred)
+
+| Path | Concern |
+|---|---|
+| `src/app/knowledge_base/features/svgEditor/utils/svgMetaSidecar.ts` | Deferred — needs SVG metadata-persistence design slice. |
+| Tab `\sources` AlphaTex header / sidecar | Deferred — same. |
 
 ### Knowledge-base skill (MVP 5)
 
@@ -210,27 +220,31 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Execute MVP 3 (Wiki-Link Anchors) on `feat/diagram-mvp3-wiki-link-anchors` via `superpowers:subagent-driven-development`.**
+**Execute MVP-4a (Source Links — diagram entities + document) on `feat/diagram-mvp4a-source-links` via `superpowers:subagent-driven-development`.**
 
 Concrete next steps:
 
-1. ✅ **MVP-2a merged.** PR #128 merged 2026-05-06 (squash `006cf5f`).
-2. ✅ **MVP-2b merged.** PR #129 merged 2026-05-06 (squash `30ae048`).
-3. **MVP 3 plan:** `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` (10 tasks). Branch: `feat/diagram-mvp3-wiki-link-anchors` (created off the post-merge `main`).
-4. **Adaptations to bake into every Task subagent prompt** (the plan was written before some MVP-2b renames + against assumed file layouts that don't exist in the live tree — apply these inline rather than re-planning):
-   - **No `useLinkUpdates.ts`.** The header-rename refactor goes alongside `renameDocumentInIndex` in `src/app/knowledge_base/features/document/hooks/useLinkIndex.ts:206`. The save-pipeline hook is `knowledgeBase.tsx:~635` where `linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)` is already called.
-   - **`onOpenInPane` (in plan) ≡ `handleNavigateWikiLink` / `onNavigateLink` prop.** `knowledgeBase.tsx:587` (`(path: string)` — needs widening to accept `section`). `MarkdownPane.tsx:22` already accepts `(path, section?)`. Wiki-link extension already calls `onNavigate(path, section ?? undefined)` (`wikiLink.tsx:323`).
-   - **`MarkdownPane.test.tsx` does NOT exist** — Task 4's test file is **New**, not Modify.
-   - **Tiptap v3 named exports** — `import { Heading } from "@tiptap/extension-heading"`. The plan's default-import syntax will fail.
-   - **`AttachmentPreviewModal.onOpenInPane` already accepts `(filename, anchor)`.** Task 7's MVP-2 side is mostly done — focus on the **receiving** side (state + scroll) in `knowledgeBase.tsx` + `MarkdownPane`.
-   - **Don't accept a `setTimeout(0)` `readyToScroll` solution as final** — Tiptap fires editor lifecycle events the implementer should hook (`onCreate` / `onUpdate`).
-5. **After MVP 3 merges,** plan + execute MVP 4 (Source Links) using the same subagent pattern. **MVP 5 last** (skill update is forward-compatible).
+1. ✅ **MVP-2a merged.** PR #128 (squash `006cf5f`).
+2. ✅ **MVP-2b merged.** PR #129 (squash `30ae048`).
+3. ✅ **MVP 3 merged.** PR #132 (squash `ca85890`) — wiki-link anchors with header-rename auto-refactor + broken-anchor banner.
+4. **MVP-4a plan:** `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (8 tasks, re-grounded against actual code). Branch: `feat/diagram-mvp4a-source-links` (already created off the post-merge `main`).
+5. **Why a re-ground (vs. inline adaptation like MVP 3 used):** the original `2026-05-05-source-links-mvp-plan.md` targets `SvgMeta` (in `features/svgEditor/types.ts`) and `TabMeta` (in `features/tab/types.ts`) — neither type nor file exists. SVG/Tab branches require designing a new metadata-persistence sidecar — the **same blocker** that deferred SVG/Tab attachment persistence in MVP 2. Splitting into MVP-4a/4b mirrors the MVP-2a/2b precedent. The user's locked decision after MVP-2 ("brainstorm + spec slice before MVPs 3/4 lock in their own writes against these shapes") makes this non-negotiable.
+6. **Adaptations baked into the MVP-4a plan** (highlights — read the plan's File Map for the full list):
+   - **`DiagramData` is in `shared/utils/types.ts`, not `features/diagram/types.ts`** — same drift MVP-2a hit.
+   - **No frontmatter parser exists today** — the codebase only **strips** frontmatter (`getFirstHeading.ts:24`, `WikiLinkHoverCard.tsx:49`). Task 6 adds the first parser; YAML shape is constrained to keys we own; unknown keys must round-trip; non-leading `---` must NOT trigger parsing.
+   - **`DocumentMeta` (in `features/document/types.ts:19`) currently has only `id, filename, title, attachedTo?`** — Task 2 adds `sources?`.
+   - **`DocumentProperties` doesn't expose entity-update callbacks today** — Task 7 adds new `sources` + `onUpdateSources` props and threads them through `DocumentView`.
+   - **No new npm dep needed** — write the YAML parser inline; the shape is constrained to `{ sources?: SourceLink[] }` plus pass-through of unknown keys.
+7. **After MVP-4a merges,** the next session should pick up MVP 5 (KB Skill Update). MVP-4b stays deferred until the unified SVG/Tab metadata-persistence brainstorm + spec slice happens — those two deferrals (attachments + sources) get unblocked together by one piece of design work.
 
-### Open follow-up items surfaced by MVP-2b execution
+### Open follow-up items surfaced by MVP-2b execution (still active)
 
-- **`FlowProperties` has two doc-listing UIs in MVP-2b** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`. MVP-2b's plan said "no regression" so both stayed. A future cleanup should consolidate (likely retire the bespoke section once a confirmation flow is added to `AttachmentsSection.onDetach`).
-- **DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is already in `AttachmentsSection.test.tsx`).
-- **`'layer'` is not in `EntityAttachmentTarget`** — `LayerProperties` does not mount `AttachmentsSection`. Adding `'layer'` to the union is a small follow-up if/when layer-scoped attachments are required.
-- **Anchor-forwarding gap in `AttachmentPreviewModal`** — the modal's "Open in pane" header button passes `(filename, null)` because the wiki-link-anchors MVP (MVP 3) hasn't shipped yet. Pre-existing behaviour preserved.
+- **`FlowProperties` has two doc-listing UIs** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`. A future cleanup should consolidate (likely retire the bespoke section once a confirmation flow is added to `AttachmentsSection.onDetach`).
+- **DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is in `AttachmentsSection.test.tsx`).
+- **`'layer'` is not in `EntityAttachmentTarget`** — `LayerProperties` does not mount `AttachmentsSection`. Add `'layer'` to the union if/when layer-scoped attachments are required.
 
-If you hit a blocker on MVP 3/4/5, commit work in progress on the branch and add a new entry under "MVP 2 status" or open a new section here.
+### Open follow-up items surfaced by MVP 3 execution
+
+- **`AttachmentPreviewModal` header "Open in pane" still passes `(filename, null)`** in some call paths — review whether all entry points now plumb the anchor. Documented in commit `733c386` but worth a verification pass.
+
+If you hit a blocker on MVP-4a/4b/5, commit work in progress on the branch and add a new entry to the appropriate "MVP X status" section.
