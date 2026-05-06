@@ -29,7 +29,7 @@ import { SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string };
-  core: { engine: string; logLevel: number; fontDirectory: string };
+  core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean };
 }
 
 interface AlphaTabApiLike {
@@ -389,6 +389,11 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.soundFont = SOUNDFONT_URL;
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
+    // Run rendering on the main thread. AlphaTab's web-worker auto-detect
+    // resolves to the wrong URL under Next.js/Turbopack chunked bundling
+    // (the worker fails to load and rendering hangs silently with no
+    // console error). Main-thread render works fine for our score sizes.
+    settings.core.useWorkers = false;
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
