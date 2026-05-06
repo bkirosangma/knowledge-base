@@ -28,7 +28,7 @@ import { encodeWav } from "../domain/wavEncoder";
 import { getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
-  player: { enablePlayer: boolean; soundFont: string; outputMode: number };
+  player: { enablePlayer: boolean; soundFont: string; outputMode: number; bufferTimeInMilliseconds: number };
   core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean; scriptFile: string };
 }
 
@@ -399,6 +399,15 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
     settings.player.outputMode = PLAYER_OUTPUT_SCRIPT_PROCESSOR;
+    // Default is 500ms which causes audible loop-boundary leak (the next
+    // note past the selection plays through before the synth wraps).
+    // alphaTab's `applyPlaybackRangeFromHighlight` already subtracts 50
+    // ticks (~52ms at 120 BPM) to mitigate this, but with a 500ms buffer
+    // there's still ~450ms of post-boundary audio queued. Trim to 100ms
+    // so the safety margin actually covers the buffered audio. Plenty
+    // for desktop use; if mobile / slow systems show underrun stutters
+    // we can scale this back up.
+    settings.player.bufferTimeInMilliseconds = 100;
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
     // Pin the worker script URL. AlphaTab uses this to spawn both its
