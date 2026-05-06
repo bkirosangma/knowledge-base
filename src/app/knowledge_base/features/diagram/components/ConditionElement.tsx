@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 import { RotateCw, Plus } from "lucide-react";
 import type { AnchorId } from "../utils/anchors";
 import { getConditionPath, getConditionAnchors, getEffectiveConditionHeight } from "../utils/conditionGeometry";
-import DocInfoBadge from "./DocInfoBadge";
+import { AttachmentIndicator } from "./AttachmentIndicator";
 import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
@@ -281,12 +281,14 @@ function ConditionElement({
         </div>
       )}
 
+      {/* MVP-2b transitional: counts adapter; Task 7a wires attachmentCounts from useDiagramController. */}
       {hovered && hasDocuments && documentPaths && onDocNavigate && (
-        <DocInfoBadge
+        <AttachmentIndicator
+          counts={{ docs: documentPaths.length, diagrams: 0, svgs: 0, tabs: 0 }}
           color={borderColor ?? "#a855f7"}
           position={{ x: w - 4, y: -8 }}
-          documentPaths={documentPaths}
-          onNavigate={onDocNavigate}
+          onClick={() => documentPaths[0] && onDocNavigate(documentPaths[0])}
+          testId={id}
         />
       )}
 

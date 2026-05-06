@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState } from "react";
-import DocInfoBadge from "./DocInfoBadge";
+import { AttachmentIndicator } from "./AttachmentIndicator";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor, tokenColors } from "../utils/themeAdapter";
 
@@ -311,13 +311,15 @@ function DataLine({
           </text>
         </g>
       )}
+      {/* MVP-2b transitional: counts adapter; Task 7a wires attachmentCounts from useDiagramController. */}
       {isHovered && hasDocuments && documentPaths && onDocNavigate && (
-        <foreignObject x={badgePt.x} y={badgePt.y - 20} width={30} height={30} style={{ overflow: 'visible' }}>
-          <DocInfoBadge
+        <foreignObject x={badgePt.x} y={badgePt.y - 20} width={60} height={30} style={{ overflow: 'visible' }}>
+          <AttachmentIndicator
+            counts={{ docs: documentPaths.length, diagrams: 0, svgs: 0, tabs: 0 }}
             color={color}
             position={{ x: 0, y: 0 }}
-            documentPaths={documentPaths}
-            onNavigate={onDocNavigate}
+            onClick={() => documentPaths[0] && onDocNavigate(documentPaths[0])}
+            testId={id}
           />
         </foreignObject>
       )}

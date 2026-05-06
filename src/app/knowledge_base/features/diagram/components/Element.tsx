@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { type AnchorId, type AnchorPoint } from "../utils/anchors";
-import DocInfoBadge from "./DocInfoBadge";
+import { AttachmentIndicator } from "./AttachmentIndicator";
 import { OrderBadge } from "./OrderBadge";
 import { useObservedTheme } from "../../../shared/hooks/useObservedTheme";
 import { adaptUserColor } from "../utils/themeAdapter";
@@ -217,12 +217,14 @@ function Element({
         </div>
       )}
 
+      {/* MVP-2b transitional: counts adapter; Task 7a wires attachmentCounts from useDiagramController. */}
       {isHovered && hasDocuments && documentPaths && onDocNavigate && (
-        <DocInfoBadge
+        <AttachmentIndicator
+          counts={{ docs: documentPaths.length, diagrams: 0, svgs: 0, tabs: 0 }}
           color={borderColor ?? "#3b82f6"}
           position={{ x: w - 4, y: -8 }}
-          documentPaths={documentPaths}
-          onNavigate={onDocNavigate}
+          onClick={() => documentPaths[0] && onDocNavigate(documentPaths[0])}
+          testId={id}
         />
       )}
 

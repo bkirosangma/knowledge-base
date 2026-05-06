@@ -215,7 +215,7 @@
 - **DIAG-3.12-10** ✅ **Menu closes on Escape** — window `keydown` (capture phase) handler invokes `onClose` for `Escape` key.
 - **DIAG-3.12-11** ✅ **Menu closes on outside click** — window `mousedown` outside the menu ref triggers `onClose`; mousedown inside does NOT (items call `e.stopPropagation`).
 
-Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowBreakWarningModal.test.tsx): DIAG-3.9-06/07/08 flow-break warning flow — heading pluralisation, Cancel/Continue callbacks, backdrop click; [DocInfoBadge.test.tsx](../src/app/knowledge_base/features/diagram/components/DocInfoBadge.test.tsx): single-vs-multiple dropdown, toggle, navigation; [Layer.test.tsx](../src/app/knowledge_base/features/diagram/components/Layer.test.tsx): render + isSelected/dimmed styles + drag/resize callbacks (DIAG-3.7); [FlowDots.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowDots.test.tsx): DIAG-3.10-11 animation duration + visibility gating (isLive, hovered, selected, dragging).
+Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowBreakWarningModal.test.tsx): DIAG-3.9-06/07/08 flow-break warning flow — heading pluralisation, Cancel/Continue callbacks, backdrop click; [AttachmentIndicator.test.tsx](../src/app/knowledge_base/features/diagram/components/AttachmentIndicator.test.tsx): empty / single-bucket / all-four-buckets render, click stops propagation, aria-label lists populated types; [Layer.test.tsx](../src/app/knowledge_base/features/diagram/components/Layer.test.tsx): render + isSelected/dimmed styles + drag/resize callbacks (DIAG-3.7); [FlowDots.test.tsx](../src/app/knowledge_base/features/diagram/components/FlowDots.test.tsx): DIAG-3.10-11 animation duration + visibility gating (isLive, hovered, selected, dragging).
 
 ## 3.13 Properties Panel
 
@@ -351,9 +351,9 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 
 ## 3.18 Document Integration
 
-- **DIAG-3.18-01** ✅ **DocInfoBadge visible when doc attached** — covered by `DocInfoBadge.test.tsx`
-- **DIAG-3.18-02** ✅ **DocInfoBadge hidden when none** — same test file.
-- **DIAG-3.18-03** 🟡 **Click badge opens attached doc** — `DocInfoBadge.test.tsx` asserts `onClick` fires with the right doc; pane routing is canvas-level.
+- **DIAG-3.18-01** ✅ **AttachmentIndicator visible when attachment present** — covered by `AttachmentIndicator.test.tsx` (renames from DocInfoBadge in MVP-2b; 4-way glyph row).
+- **DIAG-3.18-02** ✅ **AttachmentIndicator hidden when no attachments** — same test file (all-zero counts case).
+- **DIAG-3.18-03** 🟡 **Click indicator opens unified preview modal** — `AttachmentIndicator.test.tsx` asserts `onClick` fires once and stops propagation; modal wiring lands with Task 4.
 - **DIAG-3.18-04** 🟡 **`attachDocument` persists in diagram JSON** — the `documents` field round-trips via DIAG-3.19 save/load; the attach flow is canvas-level.
 - **DIAG-3.18-05** 🟡 **`detachDocument` removes reference.** Same — data shape covered via persistence; detach call site is canvas-level.
 - **DIAG-3.18-06** ✅ **`getDocumentsForEntity` filters by entity type + id** — `entityAttachments.test.ts` covers match/no-match cases, multi-entity attachments, type-mismatch leakage, and empty inputs.
