@@ -15,6 +15,7 @@ import { useDiagramGeometry } from "./useDiagramGeometry";
 import { useDiagramFlowFocus } from "./useDiagramFlowFocus";
 import { useDiagramAnchorMenu } from "./useDiagramAnchorMenu";
 import { useDiagramAttachments } from "./useDiagramAttachments";
+import type { PreviewItem } from "../components/AttachmentPreviewModal";
 import { useDiagramQuickInspectorActions } from "./useDiagramQuickInspectorActions";
 import { useDiagramViewportSync } from "./useDiagramViewportSync";
 import { useDiagramFileLoading } from "./useDiagramFileLoading";
@@ -147,8 +148,14 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const [pendingReconnect, setPendingReconnect] = useState<{ oldId: string; updates: Record<string, unknown>; brokenFlows: FlowDef[] } | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pickerTarget, setPickerTarget] = useState<{ type: string; id: string } | null>(null);
-  const [previewDocPath, setPreviewDocPath] = useState<string | null>(null);
-  const [previewEntityName, setPreviewEntityName] = useState<string | undefined>(undefined);
+  // MVP-2b: collapsed `previewDocPath`/`previewEntityName` into a single
+  // `previewedItems: PreviewItem[] | null` slot that the new
+  // `AttachmentPreviewModal` consumes directly. PropertiesPanel's
+  // `onPreviewDocument(path, entityName?)` callers wrap their payload at
+  // the overlay boundary, so this rename is internal-only. Task 7 widens
+  // the open-handler to build multi-item arrays from
+  // `attachmentsByType(target)`; the slot itself already supports it.
+  const [previewedItems, setPreviewedItems] = useState<PreviewItem[] | null>(null);
   const labelDragStartT = useRef<number | null>(null);
 
   // ─── Shared refs (read by drag hooks; written by geometry) ───────
@@ -512,7 +519,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleNodeMouseEnter, handleNodeMouseLeave, handleNodeDoubleClick, handleNodeDragStart, handleRotationDragStart,
     commitLabel,
     hasDocuments, getDocumentsForEntity, onOpenDocument,
-    getNodeDimensions: geometry.getNodeDimensions, nodes, previewDocPath,
+    getNodeDimensions: geometry.getNodeDimensions, nodes, previewedItems,
     onChangeNodeRole: handleChangeNodeRole,
   };
 
@@ -562,8 +569,8 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleSelectFlow, handleUpdateFlow, handleDeleteFlow, handleCreateFlow, handleSelectLine,
     scheduleRecord, scrollToRect,
     getNodeDimensions: geometry.getNodeDimensions, getDocumentsForEntity,
-    previewDocPath, previewEntityName,
-    setPreviewDocPath, setPreviewEntityName,
+    previewedItems,
+    setPreviewedItems,
     readDocument, getDocumentReferences,
     deleteDocumentWithCleanup: attachments.handleDeleteDocumentWithCleanup,
   };

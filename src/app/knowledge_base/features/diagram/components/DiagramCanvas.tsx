@@ -25,6 +25,7 @@ import type {
   Selection,
 } from "../types";
 import type { DocumentMeta } from "../../document/types";
+import type { PreviewItem } from "./AttachmentPreviewModal";
 import type { ContextMenuTarget } from "./ContextMenu";
 import type { AnchorId } from "../utils/anchors";
 
@@ -182,7 +183,14 @@ export interface DiagramCanvasProps {
   // Geometry inputs needed for context-menu computation
   nodes: NodeData[];
   // CSS state hints
-  previewDocPath: string | null;
+  /**
+   * MVP-2b: replaces `previewDocPath` — used as a "is the attachment
+   * preview modal open?" flag to apply `blur-sm pointer-events-none`
+   * to the canvas viewport while the modal is mounted. The viewport
+   * doesn't care about the items' contents, only that the list is
+   * non-empty.
+   */
+  previewedItems: PreviewItem[] | null;
   onChangeNodeRole?: (nodeId: string, next: 'start' | 'end' | null) => void;
 }
 
@@ -276,7 +284,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     onOpenDocument,
     getNodeDimensions,
     nodes,
-    previewDocPath,
+    previewedItems,
     onChangeNodeRole,
   } = props;
 
@@ -298,7 +306,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
       role="application"
       aria-label="Diagram canvas. Tab to walk nodes, arrows to move."
       data-testid="diagram-canvas-root"
-      className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-surface-2 relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewDocPath ? " blur-sm pointer-events-none select-none" : ""}`}
+      className={`kb-diagram-viewport flex-1 min-w-0 overflow-auto bg-surface-2 relative ${draggingId || draggingLayerId || isMultiDrag ? "cursor-grabbing" : ""}${previewedItems && previewedItems.length > 0 ? " blur-sm pointer-events-none select-none" : ""}`}
       style={{ scrollbarWidth: "none" }}
       onMouseDown={(e) => {
         if (e.button === 0 && selection?.type === "flow" && !lockedFlowId) {

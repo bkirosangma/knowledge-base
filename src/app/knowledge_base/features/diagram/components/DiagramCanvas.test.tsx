@@ -98,7 +98,7 @@ function makeProps(
     onOpenDocument: vi.fn(),
     getNodeDimensions: vi.fn(() => ({ w: 120, h: 60 })),
     nodes: [],
-    previewDocPath: null,
+    previewedItems: null,
     ...overrides,
   };
 }

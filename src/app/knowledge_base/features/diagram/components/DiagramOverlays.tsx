@@ -14,7 +14,11 @@ import type { PendingDeletion } from "../hooks/useDeletion";
 import type { useFileExplorer } from "../../../shared/hooks/useFileExplorer";
 import type { useDiagramHistory } from "../../../shared/hooks/useDiagramHistory";
 import { findBrokenFlowsByReconnect } from "../utils/flowUtils";
-import DocPreviewModal from "./DocPreviewModal";
+import {
+  AttachmentPreviewModal,
+  type PreviewItem,
+} from "./AttachmentPreviewModal";
+import { resolveWikiLinkPath } from "../../document/utils/wikiLinkParser";
 
 export interface DiagramOverlaysProps {
   // Core state
@@ -149,11 +153,13 @@ export interface DiagramOverlaysProps {
   }) => { w: number; h: number };
   getDocumentsForEntity: (type: string, id: string) => DocumentMeta[];
 
-  // Doc preview state
-  previewDocPath: string | null;
-  previewEntityName: string | undefined;
-  setPreviewDocPath: React.Dispatch<React.SetStateAction<string | null>>;
-  setPreviewEntityName: React.Dispatch<React.SetStateAction<string | undefined>>;
+  // Attachment preview state — MVP-2b: list of previewable items.
+  // Today only document items are emitted (PropertiesPanel's
+  // `onPreviewDocument` wraps `(path, entityName?)` into a single-item
+  // PreviewItem[]). Task 7 will widen the open-handler to build
+  // multi-item arrays from `attachmentsByType(target)`.
+  previewedItems: PreviewItem[] | null;
+  setPreviewedItems: React.Dispatch<React.SetStateAction<PreviewItem[] | null>>;
   readDocument: (path: string) => Promise<string | null>;
   getDocumentReferences: (docPath: string, exclude?: { entityType: string; entityId: string }) => {
     attachments: Array<{ entityType: string; entityId: string }>;
@@ -243,10 +249,8 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
     scrollToRect,
     getNodeDimensions,
     getDocumentsForEntity,
-    previewDocPath,
-    previewEntityName,
-    setPreviewDocPath,
-    setPreviewEntityName,
+    previewedItems,
+    setPreviewedItems,
     readDocument,
     getDocumentReferences,
     deleteDocumentWithCleanup,
@@ -385,8 +389,14 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         onOpenDocument={onOpenDocument}
         documents={documents}
         onPreviewDocument={(path, entityName) => {
-          setPreviewDocPath(path);
-          setPreviewEntityName(entityName);
+          // MVP-2b transitional adapter: PropertiesPanel still hands us
+          // a single (path, entityName?) payload. Wrap into a single-item
+          // PreviewItem[] so the new AttachmentPreviewModal contract is
+          // satisfied. Task 7 replaces this with the indicator-click
+          // builder that pulls every type bucket via attachmentsByType.
+          setPreviewedItems([
+            { type: "document", filename: path, entityName },
+          ]);
         }}
         onOpenDocPicker={(type, id) => setPickerTarget({ type, id })}
         onDetachDocument={onDetachDocument}
@@ -490,14 +500,21 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
         />
       )}
 
-      {/* Doc Preview Modal */}
-      {previewDocPath && (
-        <DocPreviewModal
-          docPath={previewDocPath}
-          entityName={previewEntityName}
-          onClose={() => { setPreviewDocPath(null); setPreviewEntityName(undefined); }}
-          onOpenInPane={(path) => { onOpenDocument(path); setPreviewDocPath(null); setPreviewEntityName(undefined); }}
+      {/* Attachment Preview Modal (MVP-2b) */}
+      {previewedItems && previewedItems.length > 0 && (
+        <AttachmentPreviewModal
+          open
+          items={previewedItems}
+          onClose={() => setPreviewedItems(null)}
+          onOpenInPane={(filename, _anchor) => {
+            // Wiki-link anchor forwarding lands in a follow-up plan; for
+            // now we drop the anchor and route through onOpenDocument as
+            // the legacy modal did.
+            setPreviewedItems(null);
+            onOpenDocument(filename);
+          }}
           readDocument={readDocument}
+          resolveWikiLinkPath={resolveWikiLinkPath}
         />
       )}
     </>

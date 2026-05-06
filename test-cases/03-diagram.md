@@ -384,8 +384,8 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 
 | ID | Status | Scenario |
 |----|--------|----------|
-| DIAG-3.20-01 | 🟡 | Click attached flow doc — DocPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `DocPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
-| DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — DocPreviewModal opens |
+| DIAG-3.20-01 | 🟡 | Click attached flow doc — AttachmentPreviewModal opens — `FlowProperties.test.tsx` (onPreview fires on click); modal rendering covered by `AttachmentPreviewModal.test.tsx`; wiring callback → state → modal visible is e2e |
+| DIAG-3.20-02 | ❌ | Click wiki-link backlink in any entity panel — AttachmentPreviewModal opens |
 | DIAG-3.20-03 | ✅ | Preview modal renders markdown matching doc pane styles |
 | DIAG-3.20-04 | ✅ | Escape key closes preview modal |
 | DIAG-3.20-05 | ✅ | Backdrop click closes preview modal |
@@ -396,7 +396,7 @@ Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_bas
 | DIAG-3.20-10 | ✅ | Wiki-links in the previewed document render as pills (data-wiki-link / data-wiki-section attributes survive sanitization, `.wiki-link` pill style applies outside the contenteditable scope) |
 | DIAG-3.20-11 | ✅ | Clicking a wiki-link in the previewed document resolves the target via `resolveWikiLinkPath` against the previewed doc's directory, opens it via `onOpenInPane`, and closes the modal |
 
-Additional unit coverage in [DocPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/DocPreviewModal.test.tsx): DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-06 ("Open in pane" callback), DIAG-3.20-09 (entity name badge), DIAG-3.20-10 (wiki-link rendering), DIAG-3.20-11 (wiki-link click navigation), filename in header.
+Additional unit coverage in [AttachmentPreviewModal.test.tsx](../src/app/knowledge_base/features/diagram/components/AttachmentPreviewModal.test.tsx): the MVP-2b 4-way contract cases (renders nothing when closed/empty, hides rail when single item, groups rail by type, dispatches document body for `type === 'document'`, placeholder bodies for `diagram`/`svg`/`tab`, "Open in pane" forwards filename + closes), plus the preserved DIAG-3.20-08 (shows spinner + error states), DIAG-3.20-03 (renders markdown content + filename in header), DIAG-3.20-04 (Escape closes), DIAG-3.20-05 (backdrop click closes), DIAG-3.20-09 (entity name badge), DIAG-3.20-10 (wiki-link rendering with `data-wiki-link`/`data-wiki-section` surviving DOMPurify), DIAG-3.20-11 (wiki-link click navigation forwards `(filename, anchor)` and closes the modal).
 
 ## 3.21 Diagram File Watcher
 `features/diagram/hooks/useDiagramFileWatcher.ts`
