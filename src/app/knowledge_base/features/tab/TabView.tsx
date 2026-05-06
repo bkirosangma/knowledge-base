@@ -9,6 +9,7 @@ import { TabToolbar } from "./components/TabToolbar";
 import PaneHeader from "../../shared/components/PaneHeader";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
+import { useSessionTempoBpm } from "./hooks/useSessionTempoBpm";
 import { useTabPlayback } from "./hooks/useTabPlayback";
 import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
@@ -241,27 +242,25 @@ export function TabView({
   // the visible state matches the session's `isLooping`. Resets on filePath
   // change because each new mount creates a fresh session with looping off.
   const [looping, setLooping] = useState(false);
-  // Toolbar tempo: session-only "what tempo do I want to hear" preference.
-  // Drives api.playbackSpeed via setTempoFactor — does NOT mutate the score
-  // and does NOT persist on save. The properties panel owns the
-  // authoritative score tempo (which DOES persist).
-  const [sessionTempoBpm, setSessionTempoBpm] = useState<number>(120);
+  // Toolbar tempo: session-level practice preference, persisted per-file
+  // in localStorage (NOT the alphatex file). Until the user explicitly
+  // sets a session tempo for this file, the toolbar tracks the score's
+  // authoritative tempo (returned via `sessionBpm = stored ?? scoreBpm`).
+  // Once set, it sticks across reloads and across properties-panel edits.
+  const { sessionBpm: sessionTempoBpm, setSessionBpm: setSessionTempoBpm } = useSessionTempoBpm(
+    filePath ?? null,
+    metadata?.tempo ?? 120,
+  );
 
   // T25: reset mute/solo state on filePath change (pane reload semantics).
   // Loop state resets too — same lifecycle as the session.
+  // Session tempo is NOT reset here: it's persisted per-file via
+  // useSessionTempoBpm, which restores from localStorage on filePath change.
   useEffect(() => {
     setMutedTrackIds([]);
     setSoloedTrackIds([]);
     setLooping(false);
   }, [filePath]);
-
-  // When the score's authoritative tempo changes (file load OR properties
-  // edit), realign the session toolbar to match it. The user can then
-  // diverge it again with the toolbar input for practice (slower / faster
-  // playback) without affecting persistence.
-  useEffect(() => {
-    if (metadata?.tempo) setSessionTempoBpm(metadata.tempo);
-  }, [metadata?.tempo]);
 
   // Apply the session-tempo preference to the synth via playbackSpeed.
   // playbackSpeed is a multiplier on the existing midi — no score mutation,
