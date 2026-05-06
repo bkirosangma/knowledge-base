@@ -55,6 +55,38 @@ PLACEMENT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_suggest_placement
 
 5. **If no vault detected**: skip this step and use `<cwd>/<topic-slug>/` as the topic folder.
 
+## Step 1c: Select Document Template via Archetype
+
+Run the archetype selection script to choose a template based on the topic and purpose:
+
+```bash
+ARCHETYPE_RESULT=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_archetype.py \
+  --archetypes-dir ~/.claude/skills/knowledge-base/archetypes \
+  --topic "<topic>" \
+  --output-type document \
+  --purpose-hint "<topic>")
+```
+
+Parse the 3-token output: `<name> <subtype> <path>`.
+
+- If output is `no-match`: skip this step. Generate the document using the existing free-form structure heuristics (Step 4 below).
+- If `subtype` is one of: `theory-primer`, `biography`, `song-breakdown`, `instrument-profile`, `tradition-overview`, `history-timeline`, `comparative`, or `default`: read the template at `<path>` and follow its body section structure when generating the document.
+- If `subtype` is `-` (single-file archetype): treat as no-match and skip.
+
+When a template is selected, the document MUST include the shared frontmatter and closing sections defined in the template. The body sections follow the template's order. Substantive prose still applies — the template defines structure, not content.
+
+## Step 1.5: Gather Sources
+
+Sources are mandatory. Use WebSearch to find 2–4 canonical online resources for the topic. Prefer the topic's primary literature over derivative blog posts. Record as:
+
+```yaml
+sources:
+  - url: https://...
+    title: Optional display label
+```
+
+These go into the document's YAML frontmatter (top of file, between `---` delimiters).
+
 ## Step 2: Detect Vault and Gather Context
 
 The SKILL.md dispatcher handles vault detection and compound intelligence gathering before this command runs. Use the passed-in `vaultRoot`, `vaultConfig`, and `gatheredContext`.
@@ -117,6 +149,12 @@ Write a comprehensive, well-structured markdown document. This is the core outpu
 ### Document Structure
 
 ```markdown
+---
+sources:
+  - url: https://...
+    title: Optional display label
+---
+
 # <Topic Title>
 
 <Opening paragraph: 1-3 sentences establishing what this topic is and why it matters.>
@@ -153,7 +191,7 @@ Write a comprehensive, well-structured markdown document. This is the core outpu
 6. **Code examples** where relevant — use fenced code blocks with language hints
 7. **Diagrams** — if a related diagram exists in the vault, reference it: `See [[diagram-name.json]] for a visual overview.`
 8. **Cross-references** — if related documents exist in the vault, include `[[other-doc]]` wiki-links in the body text or in a "Related" section at the end
-9. **No YAML frontmatter** — the document is plain markdown. Metadata is tracked in the topic registry, not in the file itself
+9. **YAML frontmatter for sources** — the document begins with a `---` frontmatter block carrying the `sources` list gathered in Step 1.5. Use **block-list syntax only** (each entry on its own line, prefixed with `- url:`); inline form (`sources: [{...}]`) is silently treated as an unknown key by the app's frontmatter parser. Other metadata is tracked in the topic registry, not in the file itself
 
 ### Section Selection Heuristics
 

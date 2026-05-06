@@ -175,6 +175,20 @@ Please reload the diagram in the knowledge-base app and verify:
 4. Any new flow shows its companion explanation doc in the Flow Properties panel
 ```
 
+## Allowed mutations
+
+### Flow ordering and start/end
+
+`/kb edit` accepts changes to:
+- `flows[].nodeOrders` — replace, add, or remove keys; values must be integers.
+- `flows[].startNodeIds` and `flows[].endNodeIds` — replace, add, or remove. Each entry must be a flow member (i.e. appear as `from` or `to` of one of the flow's `connectionIds`). Reject changes that violate this and report the offending IDs.
+- `nodes[].sources`, `connections[].sources`, `layers[].sources`, `flows[].sources`, top-level `sources` — replace, add, or remove. Each `url` MUST be `http://` or `https://`. Reject other schemes.
+
+### Cross-entity attachment
+
+`/kb edit` accepts changes to:
+- Any entity's `attachedTo` array. The target's `type` must be one of `root | node | connection | flow | type | tab | tab-section | tab-track`. The `id` must reference an existing entity (validated against the relevant diagram / tab / etc.).
+
 ## Common Mistakes to Avoid
 
 | Mistake | Correct approach |

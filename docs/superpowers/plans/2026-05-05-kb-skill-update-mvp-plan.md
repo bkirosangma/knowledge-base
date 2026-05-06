@@ -12,6 +12,31 @@
 
 ---
 
+## Adaptations for execution (added 2026-05-06 before dispatch)
+
+This plan was authored 2026-05-05, before MVPs 1–4a actually shipped. Pre-flight verification on 2026-05-06 confirmed:
+
+1. **`SourceLink` shape matches the plan** — `{url, title?}` lives at `src/app/knowledge_base/shared/types/sources.ts`. URL must be `http(s)://` (validator `isValidSourceUrl` rejects others).
+2. **`EntityAttachmentTarget` union matches the plan exactly** — `'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'tab-section' | 'tab-track'`. Note: `'layer'` is NOT in the union; do not add it to skill output.
+3. **Document `sources` ships as YAML frontmatter** with **block-list syntax only** (per S8527: inline `sources: [{…}]` is silently treated as an unknown key). Task 4 + Task 8 must constrain output to block-list form and document this in `validate.md`.
+4. **Skill files exist at `~/.claude/skills/knowledge-base/`** with all anchors named in the plan:
+   - `commands/diagram.md`: Step 1c (line 36), Step 3a → "Define flows" (line 144), Step 3b (line 151), Step 3e (line 183), Step 5 (line 339).
+   - `commands/document.md`: Step 1 / 1b / 1c, then Step 2. Insert new "Step 1.5" between Step 1c (line 58) and Step 2.
+   - `commands/{edit,validate,transform}.md`, `archetypes/{roadmaps,software-architecture,_archetype-template}.md` all exist.
+   - `~/.claude/skills/knowledge-base/` is itself a git repo on `main`; a pre-existing in-progress edit to `archetypes/_archetype-template.md` (a Universal-Layout-Principles note) is unrelated to this MVP — **do not revert it; commit MVP 5 changes alongside it or on a fresh skill-repo branch**.
+
+### Tasks DEFERRED to MVP-4b (do NOT execute in this MVP)
+
+- **Task 5 — `commands/svg.md`** — DEFERRED. The `<filename>.svg.meta.json` sidecar persistence layer does not exist; MVP-4b is gated on the unified SVG/Tab metadata-persistence brainstorm + spec slice (see handoff "MVP 2 status — SVG/Tab branches deferred"). Writing this skill instruction now would emit content the running app silently drops.
+- **Task 6 — `commands/guitar-tabs.md`** — DEFERRED. Same blocker: the AlphaTex `\sources` macro / `// sources:` fallback comment has no app-side parser. Defer until MVP-4b lands.
+- Update Task 11 fixtures and Task 12 manual verification to omit SVG/Tab paths.
+
+### Re-grounding rules for executing subagents
+
+If a plan anchor doesn't match the actual file content (e.g. a heading was renamed), **re-ground in place**: edit the plan task to point at the actual anchor, then proceed. Do not loop searching for a missing anchor — that's the failure mode that burned Task 13 in MVP 2 (rate-limit mid-implementation). Skill files outside this repo are the bulk of the deliverable; the repo branch carries this plan + handoff updates + any new fixtures only.
+
+---
+
 ## File Map
 
 | File | Action |
@@ -275,7 +300,9 @@ Locate the existing template that this command writes for new documents. Add a `
 
 ---
 
-## Task 5: Update `commands/svg.md` — Step 1.5 (sources via sidecar)
+## Task 5: Update `commands/svg.md` — Step 1.5 (sources via sidecar) — **DEFERRED to MVP-4b**
+
+> **DO NOT EXECUTE.** SVG sidecar persistence does not exist in the app yet. Folded into MVP-4b alongside the unified SVG/Tab metadata-persistence design slice.
 
 **Files:**
 - Modify: `~/.claude/skills/knowledge-base/commands/svg.md`
@@ -300,7 +327,9 @@ The app reads this sidecar on SVG load and surfaces it in the SvgProperties Sour
 
 ---
 
-## Task 6: Update `commands/guitar-tabs.md` — Step 1.5
+## Task 6: Update `commands/guitar-tabs.md` — Step 1.5 — **DEFERRED to MVP-4b**
+
+> **DO NOT EXECUTE.** AlphaTex `\sources` parser does not exist in the app yet. Folded into MVP-4b alongside the unified SVG/Tab metadata-persistence design slice.
 
 **Files:**
 - Modify: `~/.claude/skills/knowledge-base/commands/guitar-tabs.md`

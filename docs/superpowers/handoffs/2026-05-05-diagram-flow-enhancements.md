@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (MVP 3 — Wiki-Link Anchors — merged as PR #132 squash `ca85890`; MVP 4 split into **MVP-4a** in flight on `feat/diagram-mvp4a-source-links` against `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md`, and **MVP-4b** deferred and unified with the SVG/Tab attachment-persistence deferral).
+**Last updated:** 2026-05-06 (MVP 5 — KB Skill Update — implemented on skill repo branch `feat/mvp5-flow-enhancements` at `~/.claude/skills/knowledge-base/`: 11 commits, 11 files, +579/-28 lines covering Tasks 1, 2, 3, 4, 7, 8, 9, 10, 11. Tasks 5 and 6 deferred to MVP-4b alongside the SVG/Tab metadata-persistence design slice. Two `--fix` gaps surfaced by Task 11 fixtures and deferred to MVP-5b — see Open follow-up items. Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries the handoff updates + plan re-grounding only.).
 
 ---
 
@@ -65,11 +65,11 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
 | **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | ✅ Merged via two PRs: **MVP-2a** PR #128 squash `006cf5f` (Tasks 1–2: data-model + persistence). **MVP-2b** PR #129 squash `30ae048` (4-way UI contract + document-only data layer). |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Merged (PR #132, squash `ca85890`). All 10 tasks shipped. |
-| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (re-grounded MVP-4a) | 🟡 In flight. **MVP-4a** (diagram entities + document) on branch `feat/diagram-mvp4a-source-links` — 8 tasks. **MVP-4b** (SVG + Tab) deferred — unified with the SVG/Tab attachment-persistence deferral. |
-| **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
+| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (re-grounded MVP-4a) | ✅ **MVP-4a** merged via PR #133 squash `cb41629` (8 tasks: diagram entities + document) plus hardening follow-up PR #135 squash `55319f8` (empty-URL frontmatter graceful-degrade). **MVP-4b** (SVG + Tab) deferred — unified with the SVG/Tab attachment-persistence deferral. |
+| **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | 🟢 Implemented. 10 of 12 tasks shipped (5 + 6 deferred to MVP-4b). Skill-repo branch `feat/mvp5-flow-enhancements` has 11 commits at `~/.claude/skills/knowledge-base/` (origin remote present but URL-less; skill lives on disk only). Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries handoff/plan docs only. Two `--fix` gaps deferred to MVP-5b. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) merged** via PR #132 on 2026-05-06 (squash commit `ca85890`, all 10 tasks of `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md`). **MVP-4a (Source Links — diagram entities + document) execution begun** on `feat/diagram-mvp4a-source-links` against `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (8 tasks).
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) merged** via PR #132 on 2026-05-06 (squash commit `ca85890`, all 10 tasks of `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md`). **MVP-4a (Source Links — diagram entities + document) merged** via PR #133 on 2026-05-06 (squash commit `cb41629`, all 8 tasks of `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md`); a hardening follow-up landed via PR #135 squash `55319f8` (empty-URL frontmatter graceful-degrade — drafts filter at save boundary, parser preserves unknown rows on parse failure). **MVP 5 (KB Skill Update) execution begun** on `feat/diagram-mvp5-kb-skill-update` against `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` (12 tasks).
 
 ---
 
@@ -220,22 +220,21 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Execute MVP-4a (Source Links — diagram entities + document) on `feat/diagram-mvp4a-source-links` via `superpowers:subagent-driven-development`.**
+**MVP 5 implementation is complete. Open the MVP 5 documentation PR, then choose between the two remaining deferred slices: MVP-4b (SVG/Tab metadata persistence) or MVP-5b (validate/fix hardening).**
 
 Concrete next steps:
 
-1. ✅ **MVP-2a merged.** PR #128 (squash `006cf5f`).
-2. ✅ **MVP-2b merged.** PR #129 (squash `30ae048`).
-3. ✅ **MVP 3 merged.** PR #132 (squash `ca85890`) — wiki-link anchors with header-rename auto-refactor + broken-anchor banner.
-4. **MVP-4a plan:** `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (8 tasks, re-grounded against actual code). Branch: `feat/diagram-mvp4a-source-links` (already created off the post-merge `main`).
-5. **Why a re-ground (vs. inline adaptation like MVP 3 used):** the original `2026-05-05-source-links-mvp-plan.md` targets `SvgMeta` (in `features/svgEditor/types.ts`) and `TabMeta` (in `features/tab/types.ts`) — neither type nor file exists. SVG/Tab branches require designing a new metadata-persistence sidecar — the **same blocker** that deferred SVG/Tab attachment persistence in MVP 2. Splitting into MVP-4a/4b mirrors the MVP-2a/2b precedent. The user's locked decision after MVP-2 ("brainstorm + spec slice before MVPs 3/4 lock in their own writes against these shapes") makes this non-negotiable.
-6. **Adaptations baked into the MVP-4a plan** (highlights — read the plan's File Map for the full list):
-   - **`DiagramData` is in `shared/utils/types.ts`, not `features/diagram/types.ts`** — same drift MVP-2a hit.
-   - **No frontmatter parser exists today** — the codebase only **strips** frontmatter (`getFirstHeading.ts:24`, `WikiLinkHoverCard.tsx:49`). Task 6 adds the first parser; YAML shape is constrained to keys we own; unknown keys must round-trip; non-leading `---` must NOT trigger parsing.
-   - **`DocumentMeta` (in `features/document/types.ts:19`) currently has only `id, filename, title, attachedTo?`** — Task 2 adds `sources?`.
-   - **`DocumentProperties` doesn't expose entity-update callbacks today** — Task 7 adds new `sources` + `onUpdateSources` props and threads them through `DocumentView`.
-   - **No new npm dep needed** — write the YAML parser inline; the shape is constrained to `{ sources?: SourceLink[] }` plus pass-through of unknown keys.
-7. **After MVP-4a merges,** the next session should pick up MVP 5 (KB Skill Update). MVP-4b stays deferred until the unified SVG/Tab metadata-persistence brainstorm + spec slice happens — those two deferrals (attachments + sources) get unblocked together by one piece of design work.
+1. ✅ **MVP 1 merged.** PR #127 (squash `2ff16da`).
+2. ✅ **MVP-2a merged.** PR #128 (squash `006cf5f`).
+3. ✅ **MVP-2b merged.** PR #129 (squash `30ae048`).
+4. ✅ **MVP 3 merged.** PR #132 (squash `ca85890`).
+5. ✅ **MVP-4a merged.** PR #133 (squash `cb41629`) + hardening PR #135 (squash `55319f8`).
+6. 🟢 **MVP 5 implemented** on skill-repo branch `feat/mvp5-flow-enhancements` (11 commits at `~/.claude/skills/knowledge-base/`). Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries handoff/plan docs and is ready to push + open PR.
+7. **Open PR for MVP 5 documentation** on the project-repo branch. The PR's content is small (handoff updates + MVP 5 plan re-grounding); the bulk of the deliverable lives in the skill repo at `~/.claude/skills/knowledge-base/` (no remote — local-only).
+8. **MVP-4b** (SVG + Tab branches of cross-entity attachment AND source links) stays deferred. Pre-conditions: brainstorm + spec slice on the unified SVG/Tab metadata-persistence pattern. Once landed, MVP-4b becomes thin (wire `<SourcesSection>` into `SvgProperties`/`TabProperties` against the new layer) and re-enables MVP 5 Tasks 5 and 6 in the skill (svg.md, guitar-tabs.md).
+9. **MVP-5b** (validate/fix hardening) — small targeted skill-only follow-up, scope listed under "Open follow-up items surfaced by MVP 5 execution" above. Estimated 4-6 hours. No app-side changes. The Task 11 fixtures already pin the expected behaviour.
+
+The Diagram Flow Enhancements feature itself is **functionally complete** at the app layer (MVPs 1, 2a, 2b, 3, 4a all merged) and **operationally complete** at the skill layer (MVP 5 implemented). What remains (MVP-4b, MVP-5b) is hardening, not core scope.
 
 ### Open follow-up items surfaced by MVP-2b execution (still active)
 
@@ -247,4 +246,19 @@ Concrete next steps:
 
 - **`AttachmentPreviewModal` header "Open in pane" still passes `(filename, null)`** in some call paths — review whether all entry points now plumb the anchor. Documented in commit `733c386` but worth a verification pass.
 
-If you hit a blocker on MVP-4a/4b/5, commit work in progress on the branch and add a new entry to the appropriate "MVP X status" section.
+### Open follow-up items surfaced by MVP 5 execution (active)
+
+- **`kb_validate.py --fix` does not strip bad source entries.** Task 8 wired the validator to *report* bad URLs as `fixable=True` ("would drop entry on --fix"), and the markdown rules in `commands/validate.md` claim `--fix` strips them — but the existing `fix()` function in `scripts/kb_validate.py` (lines 462–602) does not iterate `sources` arrays. After `--fix`, files with bad sources are unchanged and validation still reports the same errors. The Task 11 source-validation fixture (`test-fixtures/2026-05-05-source-validation.json`) exposes this gap. **Action:** extend `fix()` to also walk `sources` (per-entity + top-level), drop entries that fail `RE_HTTP_URL`, and normalise empty `title` to omitted.
+- **Top-level `data.sources` is not validated.** `_validate_sources` is called for nodes/connections/flows/documents but not for top-level `DiagramData.sources`. The Task 11 fixture's diverse bad top-level entries round-trip silently. **Action:** add a fifth call site for top-level sources in `kb_validate.py`.
+- **Document-frontmatter inline-vs-block-list rule is documented but not enforced.** `commands/validate.md` rule #8 covers it; `kb_validate_doc.py` does not. **Action:** add a regex pre-check that flags `^sources:\s*\[` in the raw frontmatter and have `kb_transform.py --add-conventions` rewrite to block form.
+- **Roadmaps archetype's `flow-minimum-path` JSON example was replaced by the new `flow-fullstack-path` example.** The surrounding "Recommended flows for any roadmap" table still references `flow-minimum-path` by name, so the *concept* survives even though the JSON example moved on. If newcomers want a starter example, restore a minimal companion example alongside `flow-fullstack-path`.
+
+These four items group naturally as **MVP-5b: validate/fix hardening** — small targeted scope, no app-side changes needed. Estimated 4-6 hours.
+
+### Open follow-up items surfaced by MVP-4a execution (still active)
+
+- **DIAG-3.19-23 Sources Undo/Redo + Dirty Fingerprint** stays 🟡 — has no automated test. Wired through history (per S8525 / S8521) but not pinned by a test case. Add a test the next time the diagram history layer is touched.
+- **`SourcesSection` accessibility pass** — initial review surfaced minor a11y gaps that were patched (`aria-label` on Title/URL inputs in cleanup commit `b892088`). Re-audit when the section gets reused outside diagram/document panels (e.g. when MVP-4b SVG/Tab branches land).
+- **Frontmatter parser scope** — only accepts block-list `sources:` syntax (per S8527). Inline `sources: [{…}]` is silently treated as an unknown key. Document this in the KB skill's `validate.md` rules (relevant to MVP 5 Task 6).
+
+If you hit a blocker on MVP 5, commit work in progress on the branch and add a new entry to the appropriate "MVP X status" section.
