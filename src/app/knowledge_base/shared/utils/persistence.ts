@@ -1,4 +1,5 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
+import type { EntityAttachment } from "../../features/document/types";
 import { classifyError } from "../../domain/errors";
 import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
 import { getConditionDimensions } from "../../features/diagram/utils/conditionGeometry";
@@ -101,6 +102,7 @@ export function loadDiagramFromData(data: DiagramData): {
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  attachedTo?: EntityAttachment[];
 } {
   return {
     title: data.title ?? "Untitled",
@@ -110,6 +112,7 @@ export function loadDiagramFromData(data: DiagramData): {
     layerManualSizes: data.layerManualSizes ?? {},
     lineCurve: data.lineCurve ?? "orthogonal",
     flows: data.flows ?? [],
+    attachedTo: data.attachedTo,
   };
 }
 
