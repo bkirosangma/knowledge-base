@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-05 (after spec + 5 plans committed; no MVPs implemented yet).
+**Last updated:** 2026-05-06 (after MVP 1 implementation complete; PR pending — see Task 17).
 
 ---
 
@@ -62,14 +62,14 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 ### Plans (5 MVPs)
 | MVP | Plan file | Status |
 |---|---|---|
-| **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Committed (`77a9a76`). 17 tasks. ❌ Not implemented. |
+| **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Implemented (PR #TBD — see Task 17). All 17 tasks complete. |
 | **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
 | **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**Nothing implemented yet.** All deliverables to date are documents (spec + plans). Implementation starts with **MVP 1 Task 1** (extend `FlowDef` in `types.ts`).
+**MVP 1 (Flow Ordering) complete.** All 17 tasks shipped on branch `feat/diagram-mvp1-flow-ordering`. PR pending (Task 17). Next: **MVP 2 (Cross-Entity Attachment)**.
 
 ---
 
@@ -179,13 +179,14 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Implement MVP 1: Flow Ordering.**
+**Implement MVP 2: Cross-Entity Attachment.**
 
-1. Read `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` end-to-end.
-2. Re-read **Spec key decisions** above to confirm the data-model invariants.
-3. Branch: `git checkout -b feat/diagram-mvp1-flow-ordering` (off `main`).
-4. Use `superpowers:subagent-driven-development` to execute task-by-task. Each plan task has its own commit; the subagent loop reviews between tasks.
-5. After Task 17 (final validation), open the PR per the script in Task 17.4.
-6. **After the PR merges, update this doc** per the Doc-update protocol — flip MVP 1 to ✅ and rewrite Next Action to "Implement MVP 2: Cross-Entity Attachment" (or 3 / 4 in parallel if you have capacity).
+1. Merge MVP 1 PR first (if not yet merged — check `gh pr list --state open`). If the PR is still open, wait or stack MVP 2 on a separate branch off `main` (they are independent).
+2. Read `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` end-to-end (12 tasks).
+3. Re-read **Spec key decisions** §6 above: attachment is reciprocal/unified across `document/diagram/svg/tab` → `node/connection/flow`. Single `<AttachmentIndicator>`, single `<AttachmentPreviewModal>`.
+4. Branch off `main`: `git checkout -b feat/diagram-mvp2-cross-entity-attachment`.
+5. Use `superpowers:subagent-driven-development` to execute task-by-task. Each plan task has its own commit.
+6. After the final task, open the PR per the instructions in that plan's last task.
+7. **After the PR merges, update this doc** per the Doc-update protocol — flip MVP 2 to ✅ and rewrite Next Action to "Implement MVP 3, 4 in parallel (or sequentially)".
 
-If you hit a blocker mid-MVP, commit the work in progress on the branch and update the **Open follow-up items** section here with what's blocking and what you tried. That keeps the next session's resume cheap.
+If you hit a blocker mid-MVP, commit the work in progress on the branch and update the **Open follow-up items** section here with what's blocking and what you tried.
