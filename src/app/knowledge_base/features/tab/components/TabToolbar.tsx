@@ -51,7 +51,7 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
   return (
     <div
       data-testid="tab-toolbar"
-      className="flex items-center gap-3 border-b border-line bg-surface px-3 py-2 text-sm"
+      className="relative z-20 flex items-center gap-3 border-b border-line bg-surface px-3 py-2 text-sm"
     >
       <button
         type="button"
