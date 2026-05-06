@@ -367,6 +367,12 @@ export function useDiagramController(input: DiagramControllerInputs) {
     handleUpdateFlow(lockedFlowId, { startNodeIds: [...startSet], endNodeIds: [...endSet] });
   }, [lockedFlowId, flowsRef, handleUpdateFlow]);
 
+  // Clear lock when the user switches to a different diagram file.
+  useEffect(() => {
+    if (lockedFlowId !== null) setLockedFlowId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFile]);
+
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu, deleteSelection, setPendingDeletion,
     handleCreateFlow, handleUndo, handleRedo,
