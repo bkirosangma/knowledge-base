@@ -1,0 +1,26 @@
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
+index 033314e..a6f411d 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
+@@ -55440,7 +55440,7 @@ class AlphaTabApiBase {
+                     realMasterBarEnd +
+                         this._selectionEnd.beat.playbackStart +
+                         this._selectionEnd.beat.playbackDuration -
+-                        50;
++                        200;
+                 this.playbackRange = range;
+             }
+             else {
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.js b/node_modules/@coderline/alphatab/dist/alphaTab.js
+index b1ad674..5bb4a25 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.js
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.js
+@@ -55446,7 +55446,7 @@
+                         realMasterBarEnd +
+                             this._selectionEnd.beat.playbackStart +
+                             this._selectionEnd.beat.playbackDuration -
+-                            50;
++                            200;
+                     this.playbackRange = range;
+                 }
+                 else {
