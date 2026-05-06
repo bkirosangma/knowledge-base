@@ -1,3 +1,5 @@
+import type { SourceLink } from "../../shared/types/sources";
+
 export type EntityAttachmentTarget =
   | 'root'
   | 'node'
@@ -21,6 +23,7 @@ export interface DocumentMeta {
   filename: string;       // relative path from vault root
   title: string;
   attachedTo?: EntityAttachment[];
+  sources?: SourceLink[];
 }
 
 export interface OutboundLink {
