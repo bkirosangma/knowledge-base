@@ -76,6 +76,9 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-13** ✅ **Split ratio persisted** — mouseUp writes ratio to localStorage under `storageKey`.
 - **SHELL-1.4-14** ❌ **Layout restored on directory load** — re-open known folder → previous pane layout is restored. Owned by `KnowledgeBaseInner` + File System Access directory picker; e2e Playwright test not yet written.
 - **SHELL-1.4-15** ✅ **Active pane carries an sr-only "Focused" label (KB-032 non-color signal)** — the focus border `<div>` for the active side wraps `<span class="sr-only">Focused</span>`; only one such label exists in the DOM at any time. Survives "disable browser CSS color" because screen readers read the text directly. WCAG 1.4.1. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-16** ✅ **`openFile` writes anchor onto the active `PaneEntry`** — calling `openFile(path, "document", { anchor: "intro" })` results in `activeEntry.anchor === "intro"`. Wiki-link MVP 3 plumbing for `[[doc.md#section]]`. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-17** ✅ **`openFile` defaults anchor to `null`** — calling `openFile(path, "document")` (no opts) or `openFile(path, "document", {})` leaves `activeEntry.anchor === null`, so a stale anchor never bleeds into a fresh navigation. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-18** ✅ **Subsequent navigation without anchor resets the entry's anchor** — after `openFile(path, "document", { anchor: "intro" })` then `openFile(path, "document")`, `activeEntry.anchor === null`. Each navigation produces a fresh entry, so an old `#section` cannot persist. _(unit: `PaneManager.test.tsx`)_
 
 ## 1.5 Contexts (Toolbar / Footer)
 

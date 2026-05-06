@@ -14,6 +14,12 @@ export interface PaneEntry {
    *  this as a single-fire signal — re-renders with the same entry
    *  must not re-trigger. */
   searchTarget?: { nodeId: string };
+  /** `#section` slug from a wiki-link target, e.g. `[[doc.md#intro]]`.
+   *  Forwarded to `MarkdownPane.anchor` so the receiving document
+   *  scrolls the matching heading into view. Per-pane, so a navigation
+   *  in the left pane never moves the right pane's scroll target.
+   *  `null` when the navigation carried no anchor. */
+  anchor?: string | null;
 }
 
 interface PaneManagerProps {
@@ -40,9 +46,14 @@ export function usePaneManager() {
   const openFile = useCallback((
     filePath: string,
     fileType: PaneType,
-    opts?: { searchTarget?: { nodeId: string } },
+    opts?: { searchTarget?: { nodeId: string }; anchor?: string | null },
   ) => {
-    const entry: PaneEntry = { filePath, fileType, searchTarget: opts?.searchTarget };
+    const entry: PaneEntry = {
+      filePath,
+      fileType,
+      searchTarget: opts?.searchTarget,
+      anchor: opts?.anchor ?? null,
+    };
     if (!isSplit) {
       setLeftPane(entry);
     } else if (focusedSide === "right") {
@@ -55,9 +66,14 @@ export function usePaneManager() {
   const enterSplit = useCallback((
     filePath: string,
     fileType: PaneType,
-    opts?: { searchTarget?: { nodeId: string } },
+    opts?: { searchTarget?: { nodeId: string }; anchor?: string | null },
   ) => {
-    const entry: PaneEntry = { filePath, fileType, searchTarget: opts?.searchTarget };
+    const entry: PaneEntry = {
+      filePath,
+      fileType,
+      searchTarget: opts?.searchTarget,
+      anchor: opts?.anchor ?? null,
+    };
     setRightPane(entry);
     setFocusedSide("right");
   }, []);

@@ -523,8 +523,8 @@ function KnowledgeBaseInner() {
   }, [fileExplorer, linkManager, docManager]);
 
   // ─── Document operations ───
-  const handleOpenDocument = useCallback((path: string) => {
-    panes.openFile(path, "document");
+  const handleOpenDocument = useCallback((path: string, anchor?: string | null) => {
+    panes.openFile(path, "document", { anchor: anchor ?? null });
   }, [panes]);
 
   const handleCreateAndAttach = useCallback(async (
@@ -569,9 +569,9 @@ function KnowledgeBaseInner() {
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads on `activeFile` change, so opening the pane is
   // all the shell needs to do.
-  const handleSelectFile = useCallback((path: string) => {
+  const handleSelectFile = useCallback((path: string, section?: string | null) => {
     if (path.endsWith(".md")) {
-      handleOpenDocument(path);
+      handleOpenDocument(path, section ?? null);
     } else if (path.endsWith(".svg")) {
       panes.openFile(path, "svgEditor");
     } else if (path.endsWith(".alphatex")) {
@@ -585,7 +585,7 @@ function KnowledgeBaseInner() {
   // folder first, then bare path, then root-level fallbacks. Same helper
   // `useLinkIndex` uses to build the index, so the resolution matches.
   const handleNavigateWikiLink = useCallback(
-    (path: string) => {
+    (path: string, section?: string | null) => {
       const set = new Set(allPaths);
       const activeFilePath = panes.activeEntry?.filePath ?? null;
       const docDir = activeFilePath
@@ -602,7 +602,7 @@ function KnowledgeBaseInner() {
         candidates.push(`${path}.md`, `${path}.json`);
       }
       const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
-      handleSelectFile(resolved);
+      handleSelectFile(resolved, section ?? null);
     },
     [allPaths, panes.activeEntry, handleSelectFile],
   );
@@ -1272,6 +1272,7 @@ function KnowledgeBaseInner() {
       <DocumentView
         focused={focused}
         filePath={entry.filePath}
+        anchor={entry.anchor ?? null}
         dirHandleRef={fileExplorer.dirHandleRef}
         // Force focus-mode on mobile so markdown toolbar + Properties panel
         // collapse for a reader-first chrome.
