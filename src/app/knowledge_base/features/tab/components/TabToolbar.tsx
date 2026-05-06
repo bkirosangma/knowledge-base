@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { TabPlayerStatus } from "../hooks/useTabEngine";
 
 export interface TabToolbarProps {
@@ -19,6 +19,7 @@ export interface TabToolbarProps {
 
 const TEMPO_MIN = 20;
 const TEMPO_MAX = 400;
+const TEMPO_COMMIT_DEBOUNCE_MS = 250;
 
 /**
  * Transport controls for the guitar-tab pane: play/pause toggle, stop,
@@ -35,21 +36,47 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
   } = props;
   const isPlaying = playerStatus === "playing";
 
-  // Local input state so the user can type freely (e.g. clear and retype "120");
-  // we only commit to the score on blur/Enter when the value parses to a number
-  // inside [TEMPO_MIN, TEMPO_MAX].
+  // Local input state so the user can type freely (e.g. clear and retype "120").
+  // We commit live (debounced) so the rendered tempo + playback react as the
+  // user types, without re-applying on every keystroke.
   const [tempoDraft, setTempoDraft] = useState<string>(String(tempoBpm));
   useEffect(() => { setTempoDraft(String(tempoBpm)); }, [tempoBpm]);
 
-  const commitTempo = () => {
-    const parsed = Number.parseInt(tempoDraft, 10);
-    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) {
-      // Reject invalid input by snapping back to the score's current value.
-      setTempoDraft(String(tempoBpm));
-      return;
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingCommit = () => {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
     }
-    if (parsed === tempoBpm) return;
+  };
+  useEffect(() => () => cancelPendingCommit(), []);
+
+  /** Parse + commit `tempoDraft` to the score immediately. Returns true if a
+   *  commit was dispatched, false if the draft was invalid (reverts to current). */
+  const commitTempoNow = (raw: string): boolean => {
+    cancelPendingCommit();
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) {
+      setTempoDraft(String(tempoBpm));
+      return false;
+    }
+    if (parsed === tempoBpm) return false;
     onSetTempoBpm?.(parsed);
+    return true;
+  };
+
+  const handleTempoChange = (raw: string) => {
+    setTempoDraft(raw);
+    cancelPendingCommit();
+    const parsed = Number.parseInt(raw, 10);
+    // Defer commit until the user pauses; an empty / out-of-range intermediate
+    // value should not snap the input back while they're still typing.
+    if (!Number.isFinite(parsed) || parsed < TEMPO_MIN || parsed > TEMPO_MAX) return;
+    if (parsed === tempoBpm) return;
+    commitTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = null;
+      onSetTempoBpm?.(parsed);
+    }, TEMPO_COMMIT_DEBOUNCE_MS);
   };
 
   return (
@@ -87,12 +114,14 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
             max={TEMPO_MAX}
             step={1}
             value={tempoDraft}
-            onChange={(e) => setTempoDraft(e.target.value)}
-            onBlur={commitTempo}
+            onChange={(e) => handleTempoChange(e.target.value)}
+            onBlur={() => commitTempoNow(tempoDraft)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
+                commitTempoNow(tempoDraft);
                 e.currentTarget.blur();
               } else if (e.key === "Escape") {
+                cancelPendingCommit();
                 setTempoDraft(String(tempoBpm));
                 e.currentTarget.blur();
               }

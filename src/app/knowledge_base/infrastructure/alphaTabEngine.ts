@@ -698,12 +698,26 @@ class AlphaTabSession implements TabSession {
     // No explicit emit here — that would produce a duplicate loaded event.
     const metadata = scoreToMetadata(this.latestScore);
     this.latestMetadata = metadata;
+
+    // Capture playback state before renderScore: it triggers alphaTab's
+    // _setupOrDestroyPlayer which rebuilds the player and clears the
+    // selection range + loop flag. Without this restore, the user loses
+    // their drag-selected loop region every time they make any edit
+    // (e.g. tempo).
+    const savedRange = this.api.playbackRange;
+    const savedLooping = this.api.isLooping;
+
     this.api.renderScore(this.latestScore);
     // renderScore refreshes the visual side. The synth midi is generated
     // separately and won't pick up score mutations (notes, tempo, durations)
     // unless we ask alphaTab to regen it. Without this, set-tempo edits
     // visually update but playback stays at the old tempo until reload.
     this.api.loadMidiForScore();
+
+    // Restore the user's selection + loop state.
+    this.api.playbackRange = savedRange;
+    this.api.isLooping = savedLooping;
+
     return metadata;
   }
 
