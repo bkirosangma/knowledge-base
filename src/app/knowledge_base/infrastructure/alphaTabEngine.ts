@@ -28,7 +28,7 @@ import { encodeWav } from "../domain/wavEncoder";
 import { getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
-  player: { enablePlayer: boolean; soundFont: string; outputMode: number; bufferTimeInMilliseconds: number };
+  player: { enablePlayer: boolean; soundFont: string; outputMode: number };
   core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean; scriptFile: string };
 }
 
@@ -55,6 +55,7 @@ interface AlphaTabApiLike {
   playerReady: { on(handler: () => void): void };
   playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
+  playbackRangeChanged: { on(handler: (args: { playbackRange: { startTick: number; endTick: number } | null }) => void): void };
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
   exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
@@ -354,6 +355,14 @@ const LOG_LEVEL_INFO = 2;
 // under Next.js/Turbopack chunked bundling (same root cause as `useWorkers=false`).
 const PLAYER_OUTPUT_SCRIPT_PROCESSOR = 1;
 
+// Additional ticks subtracted from the loop endTick (on top of alphaTab's
+// own 50-tick offset) to absorb the synth's 500ms output buffer. A value
+// of 250 covers ~260ms at 120 BPM / 480 PPQ — together with alphaTab's 50
+// the total ~300ms is large enough that the buffered audio doesn't bleed
+// past the wrap, but still well inside the duration of any normal note
+// so the previously-played note still rings out.
+const LOOP_BOUNDARY_OFFSET_TICKS = 250;
+
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
@@ -399,15 +408,6 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
     settings.player.outputMode = PLAYER_OUTPUT_SCRIPT_PROCESSOR;
-    // Default is 500ms which causes audible loop-boundary leak (the next
-    // note past the selection plays through before the synth wraps).
-    // alphaTab's `applyPlaybackRangeFromHighlight` already subtracts 50
-    // ticks (~52ms at 120 BPM) to mitigate this, but with a 500ms buffer
-    // there's still ~450ms of post-boundary audio queued. Trim to 100ms
-    // so the safety margin actually covers the buffered audio. Plenty
-    // for desktop use; if mobile / slow systems show underrun stutters
-    // we can scale this back up.
-    settings.player.bufferTimeInMilliseconds = 100;
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
     // Pin the worker script URL. AlphaTab uses this to spawn both its
@@ -440,6 +440,7 @@ class AlphaTabSession implements TabSession {
   private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
   private isPlayingNow = false;
   private disposed = false;
+  private loopBoundaryGuard = false;
   /** Tempo baked into the synth's currently-loaded midi. Diverges from the
    *  score's tempo when the user adjusts BPM mid-playback (we use
    *  playbackSpeed for live preview, defer the midi regen until stop).
@@ -500,6 +501,30 @@ class AlphaTabSession implements TabSession {
     });
     api.playerPositionChanged.on((args) => {
       this.emit({ event: "tick", beat: args.currentTick });
+    });
+    // Tighten the loop boundary so the synth wraps before the next note
+    // past the selection bleeds through. alphaTab's
+    // `applyPlaybackRangeFromHighlight` already subtracts 50 ticks
+    // (~52ms at 120 BPM with 480 PPQ); with the synth's 500ms audio
+    // buffer that leaves ~450ms of post-boundary audio queued. Subtract
+    // an additional ~450ms-equivalent of ticks so the buffered audio
+    // fits inside the wrap window.
+    //
+    // The `_loopBoundaryGuard` flag prevents the override from recursing
+    // when our own assignment triggers another playbackRangeChanged.
+    api.playbackRangeChanged.on((args) => {
+      if (this.loopBoundaryGuard) return;
+      const range = args.playbackRange;
+      if (!range || range.endTick - range.startTick < LOOP_BOUNDARY_OFFSET_TICKS * 2) return;
+      this.loopBoundaryGuard = true;
+      try {
+        this.api.playbackRange = {
+          startTick: range.startTick,
+          endTick: range.endTick - LOOP_BOUNDARY_OFFSET_TICKS,
+        };
+      } finally {
+        this.loopBoundaryGuard = false;
+      }
     });
   }
 

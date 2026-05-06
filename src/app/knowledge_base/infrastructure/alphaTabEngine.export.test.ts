@@ -28,6 +28,7 @@ class FakeApi {
   playerReady = new FakeEvent<void>();
   playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
   playerPositionChanged = new FakeEvent<{ currentTick: number; endTick: number; currentTime: number; endTime: number }>();
+  playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
   settings = { player: { enablePlayer: false, soundFont: "" }, core: { engine: "default", logLevel: 0 } };
   score: unknown = { tracks: [{ index: 0 }, { index: 1 }] };
   tickPosition = 0;

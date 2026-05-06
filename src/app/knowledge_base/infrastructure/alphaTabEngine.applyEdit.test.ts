@@ -41,6 +41,7 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
       currentTime: number;
       endTime: number;
     }>();
+    playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
     tickPosition = 0;
     playbackSpeed = 1;
     playbackRange: { startTick: number; endTick: number } | null = null;

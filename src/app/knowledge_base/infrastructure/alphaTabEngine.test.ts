@@ -26,6 +26,7 @@ class FakeApi {
   playerReady = new FakeEvent<void>();
   playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
   playerPositionChanged = new FakeEvent<{ currentTick: number; endTick: number; currentTime: number; endTime: number }>();
+  playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
   settings: {
     player: { enablePlayer: boolean; soundFont: string };
     core: { engine: string; logLevel: number };
