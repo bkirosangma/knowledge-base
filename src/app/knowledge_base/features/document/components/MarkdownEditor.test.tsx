@@ -326,6 +326,27 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
   })
 })
 
+// ── Heading data-heading-id stamping (MVP-3 Task 5) ────────────────────────
+
+describe('MarkdownEditor — heading data-heading-id stamping', () => {
+  it('renders headings with data-heading-id attribute', async () => {
+    const { container } = renderEditor({ content: '## Section A' })
+    await waitFor(() => {
+      const h2 = container.querySelector('h2[data-heading-id="section-a"]')
+      expect(h2).not.toBeNull()
+    })
+  })
+
+  it('mirrors the slug onto the heading id attribute', async () => {
+    const { container } = renderEditor({ content: '## Section A' })
+    await waitFor(() => {
+      const h2 = container.querySelector('h2#section-a') as HTMLElement | null
+      expect(h2).not.toBeNull()
+      expect(h2!.getAttribute('data-heading-id')).toBe('section-a')
+    })
+  })
+})
+
 // ── historyToken force-apply (undo/redo bypass) ─────────────────────────────
 
 describe('MarkdownEditor — historyToken forces content update', () => {

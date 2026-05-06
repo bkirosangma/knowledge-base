@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Heading } from "@tiptap/extension-heading";
 import { TableNoNest } from "../extensions/tableNoNest";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -25,6 +26,7 @@ import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
 import WikiLinkHoverCard from "./WikiLinkHoverCard";
 import { createImagePasteExtension } from "../extensions/imagePasteHandler";
+import { headerSlug } from "../utils/headerSlug";
 import type { AttachmentRepository } from "../../../domain/repositories";
 
 /** Aggregate editorial metadata derived from the rendered Tiptap DOM —
@@ -107,19 +109,13 @@ const RawAwareTaskItem = TaskItem.extend({
   content: "(paragraph | rawBlock) block*",
 });
 
-/** Slugify a heading's text for use as an `id` anchor. Matches the
- *  conventional GitHub-style slug closely enough for in-document links —
- *  lowercase, spaces → hyphens, drop punctuation. Two collisions in one
- *  doc get a `-2`, `-3`, ... suffix; the caller (`extractReadingMeta`)
- *  supplies the seen-slug counter. */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+const SluggedHeading = Heading.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    const text = node.textContent;
+    const id = headerSlug(text);
+    return [`h${node.attrs.level}`, { ...HTMLAttributes, "data-heading-id": id, id }, 0];
+  },
+});
 
 /** Reading-time + TOC source-of-truth. Reads directly from the rendered DOM
  *  rather than re-parsing markdown so the headings always match what the
@@ -137,7 +133,7 @@ function extractReadingMeta(root: HTMLElement): ReadingMeta {
     if (!heading) return;
     const tag = el.tagName.toLowerCase();
     const level = (tag === "h1" ? 1 : tag === "h2" ? 2 : 3) as 1 | 2 | 3;
-    let id = slugify(heading);
+    let id = headerSlug(heading);
     if (!id) id = `heading-${headings.length + 1}`;
     const collisions = seen.get(id) ?? 0;
     if (collisions > 0) id = `${id}-${collisions + 1}`;
@@ -358,7 +354,7 @@ export default function MarkdownEditor({
     extensions: [
       StarterKit.configure({
         undoRedo: false,
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
+        heading: false,
         codeBlock: false,
         // Disable StarterKit's bundled Link so our Link.configure({...}) below
         // wins. Without this, both register and Tiptap warns about duplicates,
@@ -368,6 +364,7 @@ export default function MarkdownEditor({
         // item's paragraph for a rawBlock without violating the schema.
         listItem: false,
       }),
+      SluggedHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
       RawAwareListItem,
       CodeBlockWithCopy,
       TableNoNest.configure({ resizable: true }),
