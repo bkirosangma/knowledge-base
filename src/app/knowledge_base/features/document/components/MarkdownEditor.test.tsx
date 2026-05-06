@@ -410,6 +410,47 @@ describe('MarkdownEditor — heading copy-link icon (MVP-3 Task 6)', () => {
       container.querySelector('[data-testid="heading-copy-link-overview"]'),
     ).toBeNull()
   })
+
+  it('refreshes the copy-link target when currentDocFilename changes (file switch)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    const { container, rerender } = render(
+      <MarkdownEditor
+        content="## Overview"
+        readOnly
+        currentDocFilename="auth.md"
+      />,
+    )
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-testid="heading-copy-link-overview"]'),
+      ).not.toBeNull(),
+    )
+
+    rerender(
+      <MarkdownEditor
+        content="## Overview"
+        readOnly
+        currentDocFilename="other.md"
+      />,
+    )
+    // Wait for the dispatch microtask + NodeView re-render to settle.
+    await waitFor(() =>
+      expect(
+        container.querySelector('h2[data-heading-id="overview"]'),
+      ).not.toBeNull(),
+    )
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-testid="heading-copy-link-overview"]',
+      ) as HTMLElement,
+    )
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('[[other.md#overview]]'),
+    )
+  })
 })
 
 // ── historyToken force-apply (undo/redo bypass) ─────────────────────────────

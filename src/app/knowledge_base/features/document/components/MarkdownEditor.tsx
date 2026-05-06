@@ -123,7 +123,13 @@ const RawAwareTaskItem = TaskItem.extend({
 
 interface SluggedHeadingOptions {
   levels: Array<1 | 2 | 3 | 4 | 5 | 6>;
-  filenameRef: { current: string | undefined };
+  /** Returns the vault-relative filename of the document currently mounted
+   *  in this editor instance. A getter (not a value) so a file-switch
+   *  after mount produces the new copy-link target without needing the
+   *  NodeView to re-render. Tiptap's `configure` uses `mergeDeep`, which
+   *  deep-clones plain-object options — a function is replaced by
+   *  reference, which is the behaviour we want. */
+  getFilename: () => string | undefined;
 }
 
 function HeadingNodeView({ node, extension }: NodeViewProps) {
@@ -132,12 +138,16 @@ function HeadingNodeView({ node, extension }: NodeViewProps) {
   const level = node.attrs.level as 1 | 2 | 3 | 4 | 5 | 6;
   const Tag = `h${level}` as const;
   const opts = extension.options as SluggedHeadingOptions;
-  const filename = opts.filenameRef?.current;
+  const getFilename = opts.getFilename;
+  // Show the icon as long as a filename is resolvable *now*. The button
+  // re-reads `getFilename()` at click-time so file-switches after mount
+  // produce the new target without re-rendering the NodeView.
+  const hasFilename = !!getFilename?.();
   return (
     <NodeViewWrapper as={Tag} data-heading-id={id} id={id} className="group">
       <NodeViewContent<'span'> as="span" />
-      {filename ? (
-        <HeadingCopyLink currentDocFilename={filename} headerId={id} />
+      {hasFilename ? (
+        <HeadingCopyLink currentDocFilename={getFilename} headerId={id} />
       ) : null}
     </NodeViewWrapper>
   );
@@ -148,7 +158,7 @@ const SluggedHeading = Heading.extend<SluggedHeadingOptions>({
     return {
       ...this.parent?.(),
       levels: [1, 2, 3, 4, 5, 6],
-      filenameRef: { current: undefined },
+      getFilename: () => undefined,
     };
   },
   renderHTML({ node, HTMLAttributes }) {
@@ -419,7 +429,7 @@ export default function MarkdownEditor({
       }),
       SluggedHeading.configure({
         levels: [1, 2, 3, 4, 5, 6],
-        filenameRef: currentDocFilenameRef,
+        getFilename: () => currentDocFilenameRef.current,
       }),
       RawAwareListItem,
       CodeBlockWithCopy,
@@ -644,25 +654,6 @@ export default function MarkdownEditor({
       editor.view.dispatch(editor.state.tr);
     });
   }, [editor, existingDocPaths, allDocPaths, tree, currentDocDir]);
-
-  // Refresh the SluggedHeading copy-link target when the open document's
-  // filename changes after initial mount (file switch). The NodeView reads
-  // from `currentDocFilenameRef`, but ProseMirror only re-runs node views
-  // on a transaction — dispatch a no-op so the icon's onClick captures the
-  // new filename in its closure. We skip the very first run because the
-  // initial render already mounts the NodeView with the current ref value;
-  // dispatching there can wake up the markdownReveal raw-swap plugin
-  // before the user has interacted.
-  const lastFilenameRef = useRef(currentDocFilename);
-  useEffect(() => {
-    if (!editor) return;
-    if (lastFilenameRef.current === currentDocFilename) return;
-    lastFilenameRef.current = currentDocFilename;
-    queueMicrotask(() => {
-      if (editor.isDestroyed) return;
-      editor.view.dispatch(editor.state.tr);
-    });
-  }, [editor, currentDocFilename]);
 
   const handleToggleRawMode = useCallback(() => {
     if (!editor) return;
