@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (after MVP 1 merged via PR #127; starting MVP 2 on `feat/diagram-mvp2-cross-entity-attachment`).
+**Last updated:** 2026-05-06 (MVP 2 stopped after Tasks 1–2; plan needs re-grounding before Tasks 3–10 — see § "MVP 2 status" below).
 
 ---
 
@@ -63,13 +63,13 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | MVP | Plan file | Status |
 |---|---|---|
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
-| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. |
+| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` | 🟡 Partial — Tasks 1–2 only (data-model + persistence). Tasks 3–12 blocked on re-plan. See "MVP 2 status" below. Draft PR pending. |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
 | **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). Now starting **MVP 2 (Cross-Entity Attachment)** on branch `feat/diagram-mvp2-cross-entity-attachment`.
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP 2 partial:** Tasks 1–2 shipped on `feat/diagram-mvp2-cross-entity-attachment` (draft PR pending); Tasks 3–10 blocked pending plan re-grounding (see "MVP 2 status" below).
 
 ---
 
@@ -94,31 +94,37 @@ The current `feat/diagram-flow-enhancements` branch holds the spec + plans only;
 
 ---
 
-## Open follow-up items
+## MVP 2 status — partial, plan needs re-grounding (2026-05-06)
 
-### MVP 2 plan-vs-reality gaps (discovered 2026-05-06 mid-execution)
+**Shipped on `feat/diagram-mvp2-cross-entity-attachment` (draft PR pending):**
+- Task 1 (commit `1bfef4d`): `EntityAttachment` + `EntityAttachmentTarget` shared types in `features/document/types.ts`. Reviewed ✅ spec + ✅ quality.
+- Task 2 (commits `516bd46` + `40a63e3` fixup): `attachedTo?: EntityAttachment[]` on `DiagramData` (in `shared/utils/types.ts`, not where the plan said), threaded through `loadDiagramFromData`, accepted by `isDiagramData` shape guard, round-trip test added. Reviewed ✅ spec + ✅ quality.
 
-The plan at `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` references file paths and type names that don't exist:
+**Why we stopped after Task 2:** the plan at `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` references files and symbols that don't exist or behave differently:
 
-- `DiagramData` — plan says `features/diagram/types.ts`; actual location is `shared/utils/types.ts` (file-path correction only — type still owns the field).
-- `SvgMeta` (`features/svgEditor/types.ts`) — neither the type nor the file exists. SVG persists raw XML via `useSVGPersistence.writeSvg` with **no metadata sidecar**. Adding `attachedTo` to SVG requires designing a new sidecar file format (e.g. `<file>.svg.refs.json`) — load-bearing design work that wasn't in the plan.
-- `TabMeta` (`features/tab/types.ts`) — neither exists. Tab persists the binary `.gp` file + a `.refs.json` sidecar (`TabRefsPayload` in `domain/tabRefs.ts`) which holds `sectionRefs` + `trackRefs`. Not the right home for `attachedTo`; bumping that sidecar to v3 with a new field is non-trivial migration.
-- `useDiagramAttachments` (plan Task 4) does not currently aggregate — it wraps callbacks with `scheduleRecord` and owns a deferred-delete queue. The aggregation helpers live in `features/diagram/utils/documentAttachments.ts` (`hasDocuments`, `getDocumentsForEntity`) — which is where Task 4 work actually belongs.
+- `SvgMeta` (`features/svgEditor/types.ts`) — neither type nor file exists. SVG persists raw XML via `useSVGPersistence.writeSvg` with **no metadata sidecar**. Adding `attachedTo` to SVG requires designing a new sidecar file format — load-bearing design work nobody specified.
+- `TabMeta` (`features/tab/types.ts`) — neither exists. Tab uses `TabMetadata` (engine output, in `domain/tabEngine.ts`) and `TabRefsPayload` v2 (refs sidecar, in `domain/tabRefs.ts`). Neither is the right home for `attachedTo`; bumping the sidecar to v3 needs design + migration.
+- `documentAttachments.ts` helpers (`hasDocuments`, `getDocumentsForEntity`) are imported only by their own test. The runtime aggregation that Task 4 wants to widen actually lives on `useDocuments` (in `features/document/hooks/useDocuments.ts:154-208`), not in the standalone helpers or in `useDiagramAttachments` (which owns callbacks + a deferred-delete queue, not aggregation).
+- The plan's "rename `attachedDocsFor` → `attachmentsFor`" instruction has no target — `attachedDocsFor` doesn't exist.
+- The plan's file-path for `DiagramData` (`features/diagram/types.ts`) is wrong — it's in `shared/utils/types.ts`. Already adapted for Task 2.
 
-**Adaptation chosen for this PR (no user re-plan):**
+**Two open product questions, decision-blocking:**
 
-1. **Task 2:** add `attachedTo?: EntityAttachment[]` to `DiagramData` only. SVG and Tab `attachedTo` deferred — see §"Deferred to follow-up MVP" below.
-2. **Tasks 3–10:** keep the 4-way type system (`'document' | 'diagram' | 'svg' | 'tab'`) in code so future enabling of SVG/Tab is purely additive. SVG/Tab branches stay empty (no source data exists for them yet) — picker tabs disabled, glyphs hidden when count is zero (already the spec).
-3. **Aggregation home (Task 3 + 4):** widen `documentAttachments.ts` (where the actual aggregators live) into `entityAttachments.ts`. Keep `useDiagramAttachments`'s real responsibility (callbacks + delete queue) — do not bolt aggregation onto it as the plan implied.
+1. **4-way vs. 2-way attachment type system.** The spec assumes doc/diagram/svg/tab. SVG and Tab persistence is now indefinitely deferred. Do we build the UI (indicator, modal, picker, properties section) around the 4-way type system anyway (forward-compatible, more code that's exercised by 2 source types only) or simplify to 2-way (less code, harder to extend later)?
+2. **Single PR or split PR.** Tasks 1–2 shipped represent a clean data-model + persistence slice. Should that ship as MVP-2a and the UI work become MVP-2b on a fresh re-grounded plan, or hold MVP 2 open until the UI tasks land?
 
-### Deferred to follow-up MVP — "SVG/Tab attachments persistence"
+**Recommended next step:** re-plan MVP 2 Tasks 3–10 against actual code (using `superpowers:writing-plans` with the live codebase open). The new plan should answer the two product questions and either drop the SVG/Tab branches or make them no-ops with clear extension points.
 
-To complete the four-way attachment story we need:
+### Deferred to a future MVP — "SVG/Tab attachment persistence"
+
+To complete the four-way attachment story (whenever it's prioritised):
 - Design + ship an SVG sidecar shape (likely `<file>.svg.refs.json` modelled on `TabRefsPayload`).
 - Either bump `TabRefsPayload` to v3 with an optional `attachedTo` field or add a separate `<file>.alphatex.attachments.json` sidecar.
-- Migrate any existing data (none today, but the spec deviation notes "no migration").
+- Pre-conditions: a brainstorm + spec slice before any of MVPs 3/4 lock in their own writes against these shapes.
 
-Pre-conditions: a brainstorm + spec slice for the persistence design before any of MVPs 3/4 lock in their own writes against these shapes.
+## Open follow-up items
+
+(See "MVP 2 status" above for the active deviation log.)
 
 ---
 
@@ -201,14 +207,18 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Implement MVP 2: Cross-Entity Attachment** — execution in progress on `feat/diagram-mvp2-cross-entity-attachment` (branched off `main` at `2ff16da`).
+**Re-plan MVP 2 Tasks 3–10 against actual code, then resume execution.**
 
-1. ~~Merge MVP 1 PR first.~~ Done — PR #127 merged.
-2. Read `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` end-to-end (12 tasks).
-3. Re-read **Spec key decisions** §6 above: attachment is reciprocal/unified across `document/diagram/svg/tab` → `node/connection/flow`. Single `<AttachmentIndicator>`, single `<AttachmentPreviewModal>`.
-4. ~~Branch off `main`.~~ Done — `feat/diagram-mvp2-cross-entity-attachment`.
-5. Use `superpowers:subagent-driven-development` to execute task-by-task. Each plan task has its own commit.
-6. After the final task, open the PR per the instructions in that plan's last task.
-7. **After the PR merges, update this doc** per the Doc-update protocol — flip MVP 2 to ✅ and rewrite Next Action to "Implement MVP 3, 4 in parallel (or sequentially)".
+Tasks 1–2 are shipped (data-model + persistence — see "MVP 2 status" above). The UI/refactor tasks (3–10) cannot be executed as written because the plan refers to types, files, and function names that don't exist or behave differently in this codebase.
 
-If you hit a blocker mid-MVP, commit the work in progress on the branch and update the **Open follow-up items** section here with what's blocking and what you tried.
+Concrete next steps:
+
+1. Decide the two product questions in "MVP 2 status": (a) 4-way vs. 2-way type system, (b) ship Tasks 1–2 as a separate MVP-2a or hold MVP 2 open.
+2. Open the existing plan at `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` *with the live codebase next to it* and rewrite Tasks 3–12 against ground truth:
+   - `documentAttachments.ts` helpers are nearly dead — runtime aggregation lives on `useDocuments` (`features/document/hooks/useDocuments.ts:154–208`). Task 3/4 should target there.
+   - `useDiagramAttachments` owns callbacks + a deferred-delete queue, not aggregation. Don't bolt aggregation onto it.
+   - Property-panel, modal, badge, and picker renames in Tasks 5–8 cascade through prop chains the plan didn't survey (`Element.tsx`, `DataLine.tsx`, `DiagramCanvas.tsx`, `DiagramLinesOverlay.tsx`, `knowledgeBase.tsx`, the `useDocuments` hook). Re-survey before writing the task texts.
+   - Decide upfront whether the 4-way type system survives the re-plan (see product question 1).
+3. After the re-plan: continue MVP 2 either on this branch (extending the draft PR) or by branching off it for MVP-2b — depends on the answer to product question 2.
+
+If you hit a blocker mid-MVP, commit the work in progress on the branch and add a new entry under "MVP 2 status" with what's blocking and what you tried.
