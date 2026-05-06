@@ -130,8 +130,18 @@ function rebuildBacklinks(index: LinkIndex): void {
   }
 }
 
+/** Surface state for the broken-anchor banner: populated when a save deletes
+ *  one or more headings that other docs were linking to. Sticky — only
+ *  cleared via `clearBrokenAnchorState()`. */
+export interface BrokenAnchorState {
+  docPath: string;
+  deletedIds: string[];
+  affectedRefs: Array<{ sourcePath: string; anchor: string }>;
+}
+
 export function useLinkIndex() {
   const [linkIndex, setLinkIndex] = useState<LinkIndex>(emptyIndex);
+  const [brokenAnchorState, setBrokenAnchorState] = useState<BrokenAnchorState | null>(null);
   // Always-current ref so write callbacks never read stale closure state.
   // Without this, a fullRebuild that calls setLinkIndex() followed by an
   // incremental updateDiagramLinks() before React re-renders would cause
@@ -192,12 +202,55 @@ export function useLinkIndex() {
   ) => {
     const index = currentIndex ?? { ...linkIndexRef.current };
     const docDir = getDocDir(docPath);
+
+    // Task 8: detect heading rename/delete BEFORE the entry is overwritten.
+    const prevHeaders = index.documents[docPath]?.headers ?? [];
+    const nextHeaders = extractHeaders(markdownContent);
+    const { renames, deletions } = findHeaderRename(prevHeaders, nextHeaders);
+
+    // Apply renames in-place to every doc's sectionLinks. outboundLinks carry
+    // no section info (see buildDocumentEntry) — they don't need rewriting.
+    if (renames.length > 0) {
+      const renameMap = new Map(renames.map((r) => [r.from, r.to]));
+      for (const entry of Object.values(index.documents)) {
+        entry.sectionLinks = entry.sectionLinks.map((sl) => {
+          if (sl.targetPath !== docPath) return sl;
+          const to = renameMap.get(sl.section);
+          return to ? { ...sl, section: to } : sl;
+        });
+      }
+    }
+
+    // Compute affectedRefs for deletions: source docs whose sectionLinks point
+    // at a heading we just deleted from this doc.
+    const affectedRefs: Array<{ sourcePath: string; anchor: string }> = [];
+    if (deletions.length > 0) {
+      const deletedSet = new Set(deletions);
+      for (const [sourcePath, entry] of Object.entries(index.documents)) {
+        if (sourcePath === docPath) continue;
+        for (const sl of entry.sectionLinks) {
+          if (sl.targetPath === docPath && deletedSet.has(sl.section)) {
+            affectedRefs.push({ sourcePath, anchor: sl.section });
+          }
+        }
+      }
+    }
+
     index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     emitCrossReferences(rootHandle, collectCrossReferences(index));
+
+    if (deletions.length > 0) {
+      setBrokenAnchorState({ docPath, deletedIds: deletions, affectedRefs });
+    }
+
     return index;
   }, [saveIndex]);
+
+  const clearBrokenAnchorState = useCallback(() => {
+    setBrokenAnchorState(null);
+  }, []);
 
   const removeDocumentFromIndex = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
@@ -301,6 +354,10 @@ export function useLinkIndex() {
     renameDocumentInIndex,
     getBacklinksFor,
     fullRebuild,
+    /** Sticky banner state: set on a save that deletes a heading other docs link to.
+     *  Cleared only via `clearBrokenAnchorState`. */
+    brokenAnchorState,
+    clearBrokenAnchorState,
   };
 }
 

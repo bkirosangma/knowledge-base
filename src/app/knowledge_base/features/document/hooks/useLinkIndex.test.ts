@@ -425,3 +425,116 @@ describe('useLinkIndex.headers', () => {
     ])
   })
 })
+
+describe('header auto-refactor (Task 8)', () => {
+  it('auto-updates wiki-link references when a single heading is renamed', async () => {
+    const { result } = renderHook(() => useLinkIndex())
+    const seeded: LinkIndex = {
+      updatedAt: '',
+      documents: {
+        'doc-a.md': {
+          outboundLinks: [],
+          sectionLinks: [{ targetPath: 'doc-b.md', section: 'old-section' }],
+          headers: [],
+        },
+        'doc-b.md': {
+          outboundLinks: [],
+          sectionLinks: [],
+          headers: [{ id: 'old-section', text: 'Old Section', level: 2 }],
+        },
+      },
+      backlinks: {},
+    }
+    let index: LinkIndex | null = null
+    await act(async () => {
+      index = await result.current.updateDocumentLinks(
+        asRoot(root), 'doc-b.md', '## New Section\n', seeded,
+      )
+    })
+    expect(index!.documents['doc-a.md'].sectionLinks).toEqual([
+      { targetPath: 'doc-b.md', section: 'new-section' },
+    ])
+    // Heading entry on the saved doc reflects the new id.
+    expect(index!.documents['doc-b.md'].headers).toEqual([
+      { id: 'new-section', text: 'New Section', level: 2 },
+    ])
+    // No banner — this is a rename, not a deletion.
+    expect(result.current.brokenAnchorState).toBeNull()
+  })
+
+  it('surfaces broken-anchor banner state when a heading is deleted', async () => {
+    const { result } = renderHook(() => useLinkIndex())
+    const seeded: LinkIndex = {
+      updatedAt: '',
+      documents: {
+        'doc-a.md': {
+          outboundLinks: [],
+          sectionLinks: [{ targetPath: 'doc-b.md', section: 'deleted-section' }],
+          headers: [],
+        },
+        'doc-b.md': {
+          outboundLinks: [],
+          sectionLinks: [],
+          headers: [
+            { id: 'deleted-section', text: 'Deleted Section', level: 2 },
+            { id: 'kept-1', text: 'Kept 1', level: 2 },
+            { id: 'kept-2', text: 'Kept 2', level: 2 },
+          ],
+        },
+      },
+      backlinks: {},
+    }
+    // Edit doc-b.md: drop 'Deleted Section', keep the others. Multi-removed +
+    // zero-added falls through to the deletions branch in findHeaderRename.
+    await act(async () => {
+      await result.current.updateDocumentLinks(
+        asRoot(root), 'doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
+      )
+    })
+    await waitFor(() => {
+      expect(result.current.brokenAnchorState).toEqual({
+        docPath: 'doc-b.md',
+        deletedIds: ['deleted-section'],
+        affectedRefs: [{ sourcePath: 'doc-a.md', anchor: 'deleted-section' }],
+      })
+    })
+  })
+
+  it('brokenAnchorState is cleared when clearBrokenAnchorState is called', async () => {
+    const { result } = renderHook(() => useLinkIndex())
+    const seeded: LinkIndex = {
+      updatedAt: '',
+      documents: {
+        'doc-a.md': {
+          outboundLinks: [],
+          sectionLinks: [{ targetPath: 'doc-b.md', section: 'gone' }],
+          headers: [],
+        },
+        'doc-b.md': {
+          outboundLinks: [],
+          sectionLinks: [],
+          headers: [
+            { id: 'gone', text: 'Gone', level: 2 },
+            { id: 'kept-1', text: 'Kept 1', level: 2 },
+            { id: 'kept-2', text: 'Kept 2', level: 2 },
+          ],
+        },
+      },
+      backlinks: {},
+    }
+    await act(async () => {
+      await result.current.updateDocumentLinks(
+        asRoot(root), 'doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
+      )
+    })
+    await waitFor(() => {
+      expect(result.current.brokenAnchorState).not.toBeNull()
+    })
+    act(() => {
+      result.current.clearBrokenAnchorState()
+    })
+    await waitFor(() => {
+      expect(result.current.brokenAnchorState).toBeNull()
+    })
+  })
+})
