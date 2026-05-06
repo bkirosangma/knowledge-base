@@ -6,7 +6,7 @@ export interface HeaderInfo {
   level: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
-const ATX_RE = /^(#{1,6})\s+(.+?)\s*$/;
+const ATX_RE = /^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/;
 const FENCE_RE = /^```/;
 
 export function extractHeaders(markdown: string): HeaderInfo[] {

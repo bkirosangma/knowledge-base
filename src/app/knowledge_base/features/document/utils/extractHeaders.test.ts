@@ -22,4 +22,10 @@ describe("extractHeaders", () => {
   it("trims trailing spaces in heading text", () => {
     expect(extractHeaders("## Foo   ")).toEqual([{ id: "foo", text: "Foo", level: 2 }]);
   });
+  it("strips ATX closing-hash run", () => {
+    expect(extractHeaders("## Foo ##")).toEqual([{ id: "foo", text: "Foo", level: 2 }]);
+    expect(extractHeaders("### Hello ###")).toEqual([{ id: "hello", text: "Hello", level: 3 }]);
+    // No leading whitespace before the closing hashes → not a closing run; the # stays in text.
+    expect(extractHeaders("## Bar##")).toEqual([{ id: "bar", text: "Bar##", level: 2 }]);
+  });
 });
