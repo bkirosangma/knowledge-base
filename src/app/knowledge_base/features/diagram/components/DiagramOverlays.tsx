@@ -78,7 +78,7 @@ export interface DiagramOverlaysProps {
   backlinks: { sourcePath: string; section?: string }[] | undefined;
   documents: DocumentMeta[];
   fileExplorer: ReturnType<typeof useFileExplorer>;
-  onOpenDocument: (path: string) => void;
+  onOpenDocument: (path: string, anchor?: string | null) => void;
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
@@ -519,12 +519,9 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
           open
           items={previewedItems}
           onClose={() => setPreviewedItems(null)}
-          onOpenInPane={(filename, _anchor) => {
-            // Wiki-link anchor forwarding lands in a follow-up plan; for
-            // now we drop the anchor and route through onOpenDocument as
-            // the legacy modal did.
+          onOpenInPane={(filename, anchor) => {
             setPreviewedItems(null);
-            onOpenDocument(filename);
+            onOpenDocument(filename, anchor);
           }}
           readDocument={readDocument}
           resolveWikiLinkPath={resolveWikiLinkPath}
