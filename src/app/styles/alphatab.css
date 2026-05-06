@@ -1,0 +1,38 @@
+/**
+ * AlphaTab playback cursor + element-highlight styles.
+ *
+ * AlphaTab marks the currently-playing bar/beat/note(s) by toggling these
+ * classes on its rendered DOM/SVG. The library ships with no default
+ * stylesheet, so without this the cursor + highlight are invisible.
+ *
+ * Class semantics (from `@coderline/alphatab`):
+ *  - `.at-cursor-bar`   → wrapper of the currently-playing bar (rect-ish overlay)
+ *  - `.at-cursor-beat`  → vertical line at the currently-playing beat
+ *  - `.at-highlight`    → the played element(s) themselves (notes, rests, beams) within an SVG
+ *  - `.at-selection`    → loop-range selection overlay
+ *
+ * Colours pull from our token palette via the matching CSS custom
+ * properties; tweak there for theme support.
+ */
+
+.at-cursor-bar {
+  background: rgba(255, 217, 0, 0.18);
+}
+
+.at-cursor-beat {
+  background: var(--color-accent, #3b82f6);
+  width: 2px;
+}
+
+/* `.at-highlight` is applied to the SVG group of the currently-playing
+ * notes. Recolouring strokes + fills is the conventional way to make the
+ * note pop without redrawing it. `*` selects every descendant element so
+ * stems, beams, and noteheads all flip together. */
+.at-highlight * {
+  fill: var(--color-accent, #3b82f6) !important;
+  stroke: var(--color-accent, #3b82f6) !important;
+}
+
+.at-selection div {
+  background: rgba(59, 130, 246, 0.12);
+}
