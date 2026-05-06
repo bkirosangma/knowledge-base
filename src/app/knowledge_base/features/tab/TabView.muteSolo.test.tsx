@@ -52,6 +52,7 @@ vi.mock("./hooks/useTabPlayback", () => ({
 let mockSession: {
   setPlaybackState: ReturnType<typeof vi.fn>;
   render: ReturnType<typeof vi.fn>;
+  setTempoFactor: ReturnType<typeof vi.fn>;
 } | null = null;
 
 let mockMetadata: TabMetadata | null = null;
@@ -116,6 +117,7 @@ describe("TabView mute/solo state + setPlaybackState wiring (TAB-009 T25)", () =
     mockSession = {
       setPlaybackState: vi.fn(),
       render: vi.fn(),
+      setTempoFactor: vi.fn(),
     };
     mockMetadata = makeTwoTrackMetadata();
   });

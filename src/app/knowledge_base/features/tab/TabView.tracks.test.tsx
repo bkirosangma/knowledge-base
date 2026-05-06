@@ -60,6 +60,7 @@ vi.mock("./hooks/useTabPlayback", () => ({
 let mockSession: {
   setPlaybackState: ReturnType<typeof vi.fn>;
   render: ReturnType<typeof vi.fn>;
+  setTempoFactor: ReturnType<typeof vi.fn>;
 } | null = null;
 
 let mockMetadata: TabMetadata | null = null;
@@ -127,6 +128,7 @@ describe("TabView multi-track prop wiring (TAB-009 T26)", () => {
     mockSession = {
       setPlaybackState: vi.fn(),
       render: vi.fn(),
+      setTempoFactor: vi.fn(),
     };
     mockMetadata = makeTwoTrackMetadata();
   });
@@ -312,6 +314,7 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
     mockSession = {
       setPlaybackState: vi.fn(),
       render: vi.fn(),
+      setTempoFactor: vi.fn(),
     };
     mockMetadata = makeTwoTrackMetadata();
   });

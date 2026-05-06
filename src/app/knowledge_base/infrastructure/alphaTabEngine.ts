@@ -786,25 +786,14 @@ class AlphaTabSession implements TabSession {
     // sync when the user stops playback after a live tempo edit, so the
     // next play uses the correctly-baked midi.
     if (op.type === "set-tempo") {
-      if (this.isPlayingNow) {
-        // Live preview path — bare minimum: mutate score (already done above
-        // via applySetTempo), update the synth's effective tempo via the
-        // playbackSpeed multiplier. No api.render(), no api.renderScore(),
-        // no api.loadMidiForScore() — those all trigger layout recomputes
-        // or synth.stop() and produce a visible flicker / audible reset.
-        // The on-canvas tempo marker briefly drifts from the toolbar value;
-        // it resyncs on the next natural re-render (pause → deferred
-        // loadMidiForScore + render, or any other edit).
-        const targetBpm = op.bpm;
-        const baked = this.midiBakedTempo > 0 ? this.midiBakedTempo : targetBpm;
-        this.api.playbackSpeed = targetBpm / baked;
-      } else {
-        // Paused / stopped — full sync now. Synth restart is inaudible.
-        this.api.playbackSpeed = 1;
-        this.api.render();
-        this.api.loadMidiForScore();
-        this.midiBakedTempo = metadata.tempo;
-      }
+      // Properties-panel tempo edit: full mutate + render + midi regen.
+      // The toolbar's session-tempo (driven by api.playbackSpeed via the
+      // React layer) handles the live-preview-without-flicker case
+      // separately and stays untouched here. This path is the
+      // authoritative score tempo change that persists to disk.
+      this.api.render();
+      this.api.loadMidiForScore();
+      this.midiBakedTempo = metadata.tempo;
       this.emit({ event: "loaded", metadata });
       return metadata;
     }

@@ -241,6 +241,11 @@ export function TabView({
   // the visible state matches the session's `isLooping`. Resets on filePath
   // change because each new mount creates a fresh session with looping off.
   const [looping, setLooping] = useState(false);
+  // Toolbar tempo: session-only "what tempo do I want to hear" preference.
+  // Drives api.playbackSpeed via setTempoFactor — does NOT mutate the score
+  // and does NOT persist on save. The properties panel owns the
+  // authoritative score tempo (which DOES persist).
+  const [sessionTempoBpm, setSessionTempoBpm] = useState<number>(120);
 
   // T25: reset mute/solo state on filePath change (pane reload semantics).
   // Loop state resets too — same lifecycle as the session.
@@ -249,6 +254,22 @@ export function TabView({
     setSoloedTrackIds([]);
     setLooping(false);
   }, [filePath]);
+
+  // When the score's authoritative tempo changes (file load OR properties
+  // edit), realign the session toolbar to match it. The user can then
+  // diverge it again with the toolbar input for practice (slower / faster
+  // playback) without affecting persistence.
+  useEffect(() => {
+    if (metadata?.tempo) setSessionTempoBpm(metadata.tempo);
+  }, [metadata?.tempo]);
+
+  // Apply the session-tempo preference to the synth via playbackSpeed.
+  // playbackSpeed is a multiplier on the existing midi — no score mutation,
+  // no midi regen, no flicker, no persistence.
+  useEffect(() => {
+    if (!session || !metadata?.tempo) return;
+    session.setTempoFactor(sessionTempoBpm / metadata.tempo);
+  }, [sessionTempoBpm, session, metadata?.tempo]);
 
   // T25: forward mute/solo state to the engine on every change.
   useEffect(() => {
@@ -396,8 +417,8 @@ export function TabView({
           onStop={playback.stop}
           looping={looping}
           onSetLooping={(enabled) => { setLooping(enabled); playback.setLooping(enabled); }}
-          tempoBpm={metadata?.tempo ?? 120}
-          onSetTempoBpm={effectiveReadOnly ? undefined : (bpm) => propertiesApply({ type: "set-tempo", beat: 0, bpm })}
+          tempoBpm={sessionTempoBpm}
+          onSetTempoBpm={setSessionTempoBpm}
         />
         {/* Inner relative wrapper — the editor's `absolute inset-0` overlay
             is scoped to this region (canvas only), so it can never cover
