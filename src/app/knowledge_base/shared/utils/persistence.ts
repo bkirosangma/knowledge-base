@@ -1,5 +1,6 @@
 import type { NodeData, LayerDef, Connection, DiagramData, SerializedNodeData, LineCurveAlgorithm, FlowDef } from "./types";
 import type { EntityAttachment } from "../../features/document/types";
+import type { SourceLink } from "../types/sources";
 import { classifyError } from "../../domain/errors";
 import { getIcon, getIconName } from "../../features/diagram/utils/iconRegistry";
 import { getConditionDimensions } from "../../features/diagram/utils/conditionGeometry";
@@ -46,6 +47,7 @@ export function serializeNodes(nodes: NodeData[]): SerializedNodeData[] {
     ...(n.borderColor ? { borderColor: n.borderColor } : {}),
     ...(n.bgColor ? { bgColor: n.bgColor } : {}),
     ...(n.textColor ? { textColor: n.textColor } : {}),
+    ...(n.sources && n.sources.length > 0 ? { sources: n.sources } : {}),
   }));
 }
 
@@ -103,6 +105,7 @@ export function loadDiagramFromData(data: DiagramData): {
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
   attachedTo?: EntityAttachment[];
+  sources?: SourceLink[];
 } {
   return {
     title: data.title ?? "Untitled",
@@ -113,6 +116,7 @@ export function loadDiagramFromData(data: DiagramData): {
     lineCurve: data.lineCurve ?? "orthogonal",
     flows: data.flows ?? [],
     attachedTo: data.attachedTo,
+    sources: data.sources,
   };
 }
 
