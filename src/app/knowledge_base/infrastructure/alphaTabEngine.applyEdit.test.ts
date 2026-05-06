@@ -42,6 +42,9 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
       endTime: number;
     }>();
     playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
+    beatMouseDown = new FakeEvent<unknown>();
+    highlightPlaybackRange(_a: unknown, _b: unknown) { /* no-op */ }
+    applyPlaybackRangeFromHighlight() { /* no-op */ }
     tickPosition = 0;
     playbackSpeed = 1;
     playbackRange: { startTick: number; endTick: number } | null = null;

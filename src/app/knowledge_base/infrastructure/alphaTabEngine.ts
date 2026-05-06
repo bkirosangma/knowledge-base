@@ -55,6 +55,9 @@ interface AlphaTabApiLike {
   playerReady: { on(handler: () => void): void };
   playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
+  beatMouseDown: { on(handler: (beat: BeatShape) => void): void };
+  highlightPlaybackRange(startBeat: BeatShape, endBeat: BeatShape): void;
+  applyPlaybackRangeFromHighlight(): void;
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
   exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
@@ -125,6 +128,9 @@ interface BeatShape {
   notes: NoteShape[];
   tap?: boolean;
   tremoloSpeed?: number | null;
+  /** Up-pointer used by the double-click-to-select-bar handler to find
+   *  the containing bar (`beat.voice.bar.voices[0].beats`). */
+  voice?: { bar?: BarShape };
   addNote(note: NoteShape): void;
   removeNote(note: NoteShape): void;
 }
@@ -354,6 +360,9 @@ const LOG_LEVEL_INFO = 2;
 // under Next.js/Turbopack chunked bundling (same root cause as `useWorkers=false`).
 const PLAYER_OUTPUT_SCRIPT_PROCESSOR = 1;
 
+// Time window for two beat-mouse-down events to count as a double-click.
+const DOUBLE_CLICK_WINDOW_MS = 300;
+
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
@@ -436,6 +445,10 @@ class AlphaTabSession implements TabSession {
    *  playbackSpeed for live preview, defer the midi regen until stop).
    *  Initialised on scoreLoaded; updated whenever loadMidiForScore runs. */
   private midiBakedTempo = 120;
+  /** Last beat-mouse-down timestamp (epoch ms) + the bar that was clicked,
+   *  used to detect double-clicks and select the entire bar. */
+  private lastBeatClickAt = 0;
+  private lastBeatClickedBar: BarShape | null = null;
 
   constructor(
     private api: AlphaTabApiLike,
@@ -492,6 +505,36 @@ class AlphaTabSession implements TabSession {
     api.playerPositionChanged.on((args) => {
       this.emit({ event: "tick", beat: args.currentTick });
     });
+    api.beatMouseDown.on((beat) => this.handleBeatMouseDown(beat));
+  }
+
+  private handleBeatMouseDown(beat: BeatShape): void {
+    const bar = beat.voice?.bar;
+    if (!bar) return;
+    const now = Date.now();
+    const isDoubleClick =
+      this.lastBeatClickedBar === bar &&
+      now - this.lastBeatClickAt <= DOUBLE_CLICK_WINDOW_MS;
+    if (isDoubleClick) {
+      // Select the entire bar that was clicked. alphaTab places the
+      // selection markers and applies them as the playbackRange — the
+      // Loop checkbox can then loop over the bar without further drag.
+      const beats = bar.voices?.[0]?.beats ?? [];
+      if (beats.length > 0) {
+        const first = beats[0];
+        const last = beats[beats.length - 1];
+        try {
+          this.api.highlightPlaybackRange(first, last);
+          this.api.applyPlaybackRangeFromHighlight();
+        } catch { /* alphaTab versioning quirks — silently ignore */ }
+      }
+      // Reset so a triple-click doesn't keep re-triggering.
+      this.lastBeatClickAt = 0;
+      this.lastBeatClickedBar = null;
+    } else {
+      this.lastBeatClickAt = now;
+      this.lastBeatClickedBar = bar;
+    }
   }
 
   async load(source: TabSource): Promise<TabMetadata> {

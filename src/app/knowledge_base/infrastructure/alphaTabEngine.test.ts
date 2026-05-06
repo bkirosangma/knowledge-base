@@ -27,6 +27,9 @@ class FakeApi {
   playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
   playerPositionChanged = new FakeEvent<{ currentTick: number; endTick: number; currentTime: number; endTime: number }>();
   playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
+  beatMouseDown = new FakeEvent<unknown>();
+  highlightPlaybackRange(_a: unknown, _b: unknown) { /* no-op */ }
+  applyPlaybackRangeFromHighlight() { /* no-op */ }
   settings: {
     player: { enablePlayer: boolean; soundFont: string };
     core: { engine: string; logLevel: number };
