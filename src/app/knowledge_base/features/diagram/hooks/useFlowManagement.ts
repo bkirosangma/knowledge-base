@@ -1,5 +1,6 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { Connection, FlowDef, Selection } from "../types";
+import type { SourceLink } from "../../../shared/types/sources";
 import { isContiguous, orderConnections } from "../utils/flowUtils";
 
 export function useFlowManagement(
@@ -38,6 +39,7 @@ export function useFlowManagement(
     nodeOrders: Record<string, number>;
     startNodeIds: string[];
     endNodeIds: string[];
+    sources: SourceLink[];
   }>) => {
     const newId = updates.id;
     setFlows((prev) => prev.map((f) => f.id === oldId ? { ...f, ...updates } : f));
