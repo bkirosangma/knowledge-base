@@ -15,4 +15,15 @@ export const SOUNDFONT_URL = `${BASE_PATH}/soundfonts/sonivox.sf2`;
 // under Next.js/Turbopack chunked bundling, so we vendor the file to
 // `public/alphatab/` via the `copy-alphatab` postinstall script and point
 // alphaTab at it explicitly.
-export const ALPHATAB_SCRIPT_FILE = `${BASE_PATH}/alphatab/alphaTab.min.js`;
+//
+// Must be an ABSOLUTE URL — alphaTab spawns the worker from a blob:// URL,
+// and `importScripts(...)` inside that worker resolves relative paths
+// against the blob's origin (not the page's), so a path-only string
+// throws "URL is invalid". `getAlphaTabScriptFile()` defers reading
+// `window.location.origin` until call time, since this module is imported
+// by code that may be evaluated during SSR.
+export function getAlphaTabScriptFile(): string {
+  const path = `${BASE_PATH}/alphatab/alphaTab.min.js`;
+  if (typeof window === "undefined") return path;
+  return new URL(path, window.location.origin).href;
+}

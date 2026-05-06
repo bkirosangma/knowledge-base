@@ -25,7 +25,7 @@ import type {
   Unsubscribe,
 } from "../domain/tabEngine";
 import { encodeWav } from "../domain/wavEncoder";
-import { ALPHATAB_SCRIPT_FILE, SOUNDFONT_URL } from "./alphaTabAssets";
+import { getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string; outputMode: number };
@@ -402,7 +402,9 @@ export class AlphaTabEngine implements TabEngine {
     // (always, regardless of useWorkers). Auto-detection breaks under
     // Next.js/Turbopack chunked bundling — the file is copied to
     // public/alphatab/ at install time (see package.json copy-alphatab).
-    settings.core.scriptFile = ALPHATAB_SCRIPT_FILE;
+    // Absolute URL required: workers spawn from blob:// origins so a
+    // relative path fails inside `importScripts(...)`.
+    settings.core.scriptFile = getAlphaTabScriptFile();
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
