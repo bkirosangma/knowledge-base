@@ -10,6 +10,7 @@
 - **DIAG-3.1-02** 🟡 **LineCurveAlgorithm union** — only `"orthogonal" | "bezier" | "straight"` are valid. TypeScript-level constraint; the runtime default fallback is covered by DIAG-3.19 ("defaults lineCurve to orthogonal when missing").
 - **DIAG-3.1-03** ✅ **Selection union shapes** — each of the 7 selection kinds is exercised by `selectionUtils.test.ts` (`isItemSelected`, `toggleItemInSelection`, `resolveRectangleSelection` construct every variant).
 - **DIAG-3.1-04** ✅ **FlowDef optional category** — `persistence.test.ts` round-trips flows with and without `category` (DIAG-3.19-05/06/07).
+- **DIAG-3.1-05** ✅ **Sources on every diagram entity (MVP-4a)** — `DiagramData`, `NodeData`, `Connection`, `LayerDef`, and `FlowDef` each accept an optional `sources?: SourceLink[]`; round-trip behaviour for each entity is asserted under DIAG-3.19-17..22 in `persistence.test.ts`.
 
 ## 3.2 Canvas & Viewport
 
@@ -287,6 +288,17 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-48** ✅ **Attach button calls onAttach** — `+ Attach` button fires `onAttach` (panel opens `CreateAttachEntityModal`). _(unit: `AttachmentsSection.test.tsx`)_
 - **DIAG-3.13-49** ✅ **readOnly hides Attach + Detach** — read-only mode strips both buttons; preview links stay visible. _(unit: `AttachmentsSection.test.tsx`)_
 - **DIAG-3.13-50** 🟡 **Mounted in NodeProperties / LineProperties / FlowProperties / DiagramProperties** — `AttachmentsSection` is rendered at the bottom of all 4 entity-scoped panels with the right `EntityAttachmentTarget` (`node | connection | flow | root`); LayerProperties is excluded because `'layer'` is not in the union. Verified via TS-level wiring; full integration coverage deferred to e2e once the cross-entity attach flow lands end-to-end.
+- **DIAG-3.13-51** ✅ **SourcesSection — empty state copy** (MVP-4a) — read-only renders "No sources recorded."; edit mode renders the empty-state edit copy. _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-52** ✅ **SourcesSection — Add row commits via onChange** (MVP-4a) — clicking Add → typing a URL → blur fires `onChange` with the new array. _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-53** ✅ **SourcesSection — invalid URL on blur is rejected** (MVP-4a) — typing a non-`http(s)` URL and blurring does NOT call `onChange`. _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-54** ✅ **SourcesSection — Remove fires onChange** (MVP-4a) — clicking Remove fires `onChange` with the row removed. _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-55** ✅ **SourcesSection — Open link is `target="_blank" rel="noopener noreferrer"`** (MVP-4a) — _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-56** ✅ **SourcesSection — readOnly hides Add + Remove** (MVP-4a) — read-only strips both editing affordances; rows + Open links remain. _(unit: `SourcesSection.test.tsx`)_
+- **DIAG-3.13-57** ✅ **NodeProperties propagates SourcesSection edits via `onUpdate?.(id, { sources })`** (MVP-4a) — Add → blur commits the new sources array through `onUpdate`. _(unit: `NodeProperties.test.tsx`)_
+- **DIAG-3.13-58** ✅ **LineProperties propagates SourcesSection edits via `onUpdate?.(id, { sources })`** (MVP-4a) — Add → blur commits through `onUpdate`. _(unit: `LineProperties.test.tsx`)_
+- **DIAG-3.13-59** ✅ **LayerProperties propagates SourcesSection edits via `onUpdate?.(id, { sources })`** (MVP-4a) — Add → blur commits through `onUpdate`. _(unit: `LayerProperties.test.tsx`)_
+- **DIAG-3.13-60** ✅ **FlowProperties propagates SourcesSection edits via `onUpdateFlow?.(id, { sources })`** (MVP-4a) — Add → blur commits through `onUpdateFlow`. _(unit: `FlowProperties.test.tsx`)_
+- **DIAG-3.13-61** ✅ **DiagramProperties (top-level) propagates SourcesSection edits via `onUpdateDiagram({ sources })`** (MVP-4a) — Add → blur commits through `onUpdateDiagram`. _(unit: `DiagramProperties.test.tsx`)_
 
 ## 3.14 Keyboard Shortcuts
 
@@ -389,6 +401,13 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.19-14** ✅ **`clearDraft` removes only the named file's draft** — other files are untouched.
 - **DIAG-3.19-15** ✅ **`isDiagramData` shape guard strengthened (Phase 5b, 2026-04-19)** — requires `title: string`, `Array.isArray` on each of `layers`/`nodes`/`connections`, and — if present — rejects unknown `lineCurve` values, non-array `flows`/`documents`, and non-object `layerManualSizes`. Closes the gap where a corrupt vault used to deserialise and surface runtime errors in router/flow code.
 - **DIAG-3.19-16** ✅ **Workspace attachments do not feed the diagram dirty fingerprint** — opening a diagram in a workspace whose `.kb/attachment-links.json` already contains rows must leave the diagram clean. Document attachments live at the workspace level (persisted by `useDocuments` → `attachmentLinksRepo`); they are not part of the diagram document and `useDiagramPersistence`'s snapshot must exclude them. — `useDiagramPersistence.test.tsx`
+- **DIAG-3.19-17** ✅ **DiagramData top-level `sources` round-trip (MVP-4a)** — top-level `sources: SourceLink[]` survives `loadDiagramFromData` ⇄ JSON export. _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-18** ✅ **NodeData `sources` round-trip via serialize/loadDiagramFromData (MVP-4a)** — per-node `sources` survives `serializeNodes` → `loadDiagramFromData`. _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-19** ✅ **NodeData empty `sources` is dropped from serialized output (MVP-4a)** — a node with `sources: []` serializes without a `sources` key (avoids polluting JSON for the common no-sources case). _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-20** ✅ **Connection `sources` round-trip (MVP-4a)** — per-connection `sources` survives serialization. _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-21** ✅ **LayerDef `sources` round-trip (MVP-4a)** — per-layer `sources` survives serialization. _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-22** ✅ **FlowDef `sources` round-trip (MVP-4a)** — per-flow `sources` survives serialization. _(unit: `persistence.test.ts`)_
+- **DIAG-3.19-23** ❌ **Top-level diagram `sources` participate in autosave dirty fingerprint + history undo/redo (MVP-4a)** — wiring exists in `useDiagramDocument`/`useDiagramHistoryStore`/`useDiagramPersistence` (top-level `sources` is part of the doc snapshot and the autosave fingerprint), but no test asserts that editing top-level sources flips the dirty bit, writes a draft, or that an undo restores the prior list. End-to-end coverage is a follow-up.
 
 Additional behaviours verified in [persistence.test.ts](../src/app/knowledge_base/shared/utils/persistence.test.ts): `createEmptyDiagram`, `loadDefaults`, `savePaneLayout`/`loadPaneLayout` (incl. `lastClosedPane` + corrupt-JSON tolerance), `migrateViewport`, `clearViewport`, `cleanupOrphanedData`, and graceful `QuotaExceededError` handling in both `saveDiagram` and `saveDraft`.
 
