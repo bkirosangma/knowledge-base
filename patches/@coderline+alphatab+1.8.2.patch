@@ -1,5 +1,5 @@
 diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
-index 033314e..735f4d2 100644
+index 033314e..df1b01b 100644
 --- a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
 +++ b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
 @@ -35121,7 +35121,13 @@ class AlphaSynthScriptProcessorOutput extends AlphaSynthWebAudioOutputBase {
@@ -17,24 +17,28 @@ index 033314e..735f4d2 100644
      }
      pause() {
          super.pause();
-@@ -45804,7 +45810,15 @@ class AlphaSynthBase {
+@@ -45804,7 +45810,19 @@ class AlphaSynthBase {
      updatePlaybackSpeed(value) {
          const oldSpeed = this.sequencer.playbackSpeed;
          this.sequencer.playbackSpeed = value;
 -        this.timePosition = this.timePosition * (oldSpeed / value);
-+        // PATCHED (knowledge-base): skip the timePosition reseat. The
-+        // timePosition setter cascades to output.resetSamples() which
-+        // wipes the audio buffer — produces an audible click on every
-+        // playbackSpeed change. With the toolbar's slider firing many
-+        // onChange events per second the click is unbearable. Skipping
-+        // the reseat means audio continues seamlessly at the new speed;
-+        // real-time alignment may drift by tens of ms but is
-+        // imperceptible.
-+        void oldSpeed;
++        // PATCHED (knowledge-base): the original
++        // `this.timePosition = this.timePosition * (oldSpeed / value)`
++        // cascades through the timePosition setter to
++        // output.resetSamples() — wipes the audio buffer and
++        // produces an audible click on every speed change. Inline
++        // the position recompute (mainSeek + updateTimePosition) so
++        // position tracking stays in sync, but skip the buffer reset
++        // so audio continues seamlessly at the new speed.
++        {
++            const _newPos = this.timePosition * (oldSpeed / value);
++            this.sequencer.mainSeek(_newPos);
++            this.updateTimePosition(_newPos, true);
++        }
      }
      get loadedMidiInfo() {
          return this._loadedMidiInfo;
-@@ -46140,6 +46154,22 @@ class AlphaSynthBase {
+@@ -46140,6 +46158,22 @@ class AlphaSynthBase {
                  else if (this.isLooping) {
                      Logger.debug('AlphaSynth', 'Finished playback (main looping)');
                      this.finished.trigger();
@@ -58,7 +62,7 @@ index 033314e..735f4d2 100644
                      this._synthStopping = false;
                  }
 diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.js b/node_modules/@coderline/alphatab/dist/alphaTab.js
-index b1ad674..0397efe 100644
+index b1ad674..857ef25 100644
 --- a/node_modules/@coderline/alphatab/dist/alphaTab.js
 +++ b/node_modules/@coderline/alphatab/dist/alphaTab.js
 @@ -35127,7 +35127,13 @@
@@ -76,24 +80,28 @@ index b1ad674..0397efe 100644
          }
          pause() {
              super.pause();
-@@ -45810,7 +45816,15 @@
+@@ -45810,7 +45816,19 @@
          updatePlaybackSpeed(value) {
              const oldSpeed = this.sequencer.playbackSpeed;
              this.sequencer.playbackSpeed = value;
 -            this.timePosition = this.timePosition * (oldSpeed / value);
-+            // PATCHED (knowledge-base): skip the timePosition reseat. The
-+            // timePosition setter cascades to output.resetSamples() which
-+            // wipes the audio buffer — produces an audible click on every
-+            // playbackSpeed change. With the toolbar's slider firing many
-+            // onChange events per second the click is unbearable. Skipping
-+            // the reseat means audio continues seamlessly at the new speed;
-+            // real-time alignment may drift by tens of ms but is
-+            // imperceptible.
-+            void oldSpeed;
++            // PATCHED (knowledge-base): the original
++            // `this.timePosition = this.timePosition * (oldSpeed / value)`
++            // cascades through the timePosition setter to
++            // output.resetSamples() — wipes the audio buffer and
++            // produces an audible click on every speed change. Inline
++            // the position recompute (mainSeek + updateTimePosition) so
++            // position tracking stays in sync, but skip the buffer reset
++            // so audio continues seamlessly at the new speed.
++            {
++                const _newPos = this.timePosition * (oldSpeed / value);
++                this.sequencer.mainSeek(_newPos);
++                this.updateTimePosition(_newPos, true);
++            }
          }
          get loadedMidiInfo() {
              return this._loadedMidiInfo;
-@@ -46146,6 +46160,22 @@
+@@ -46146,6 +46164,22 @@
                      else if (this.isLooping) {
                          Logger.debug('AlphaSynth', 'Finished playback (main looping)');
                          this.finished.trigger();
