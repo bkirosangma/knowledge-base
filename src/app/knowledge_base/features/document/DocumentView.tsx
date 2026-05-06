@@ -64,6 +64,7 @@ export default function DocumentView({
     content, dirty, updateContent, bridge, save, discard, resetToContent, loadedPath,
     diskChecksumRef, getContentFromDisk, updateDiskChecksum,
     pendingDraft, dismissDraftBanner,
+    sources, updateSources,
   } = useDocumentContent(filePath);
   const history = useDocumentHistory();
   const { conflictContent, handleReloadFromDisk, handleKeepEdits } = useDocumentFileWatcher({
@@ -354,6 +355,8 @@ export default function DocumentView({
                   history.onContentChange(next);
                   bumpToken();
                 }}
+                sources={sources ?? []}
+                onUpdateSources={updateSources}
               />
             )
           }

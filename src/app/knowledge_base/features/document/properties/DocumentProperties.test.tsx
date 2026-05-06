@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import type { HistoryEntry } from '../../../shared/utils/historyPersistence'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import DocumentProperties from './DocumentProperties'
+import type { SourceLink } from '../../../shared/types/sources'
 
 // HistoryPanel uses scrollIntoView internally
 beforeAll(() => { Element.prototype.scrollIntoView = vi.fn() })
@@ -415,5 +418,44 @@ describe('DocumentProperties — history panel (HIST)', () => {
     expect((btn as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(btn)
     expect(onGoToEntry).not.toHaveBeenCalled()
+  })
+})
+
+// ── Sources section ──────────────────────────────────────────────────────────
+
+describe('DocumentProperties — Sources section', () => {
+  it('renders SourcesSection and propagates edits via onUpdateSources', async () => {
+    const user = userEvent.setup()
+    const onUpdateSources = vi.fn()
+    function Host() {
+      const [sources, setSources] = useState<SourceLink[]>([
+        { url: 'https://existing.com' },
+      ])
+      return (
+        <DocumentProperties
+          filePath="notes/test.md"
+          content="x"
+          outbound={[]}
+          backlinks={[]}
+          sources={sources}
+          onUpdateSources={(next) => {
+            onUpdateSources(next)
+            setSources(next)
+          }}
+        />
+      )
+    }
+    render(<Host />)
+    expect(screen.getByTestId('sources-row-0')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('sources-add'))
+    const urlInput = await screen.findByTestId('sources-url-input-1')
+    await user.type(urlInput, 'https://new.com')
+    await user.tab()
+
+    expect(onUpdateSources.mock.calls.at(-1)?.[0]).toEqual([
+      { url: 'https://existing.com' },
+      { url: 'https://new.com', title: '' },
+    ])
   })
 })
