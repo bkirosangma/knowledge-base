@@ -18,6 +18,18 @@
  * form `sources: [{url: "..."}]`. If the parser can't make sense of the
  * frontmatter it falls back to "no frontmatter" and returns the input
  * verbatim as `body`.
+ *
+ * @Normalization
+ * Input is normalized at parse time:
+ * - CRLF line endings (carriage-return + line-feed) are converted to LF.
+ *   This means re-saving a CRLF-encoded file produces an LF-only file —
+ *   the desired state for a Markdown vault.
+ * - A leading UTF-8 BOM (U+FEFF) is silently stripped.
+ * - The empty-title case (`title: ''`) is not a fixed point — an empty
+ *   title is omitted when serialized.
+ * - An empty frontmatter pair (`---\n---\n`) with no other content is
+ *   silently dropped on round-trip when there are no sources; rawYaml
+ *   becomes empty and the serializer omits empty frontmatter.
  */
 
 import type { SourceLink } from "../../../shared/types/sources";
@@ -40,6 +52,13 @@ export interface SerializeFrontmatterInput {
 const FENCE = "---";
 
 export function parseFrontmatter(text: string): ParsedFrontmatter {
+  // Normalize input: strip BOM and convert CRLF → LF so downstream
+  // line-based parsing is uniform. This is a one-time write-side
+  // change: the next save will persist as LF-only / no-BOM, which
+  // is the desired state for a Markdown vault.
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  text = text.replace(/\r\n/g, "\n");
+
   const noFrontmatter: ParsedFrontmatter = { data: {}, rawYaml: null, body: text };
 
   if (!text.startsWith(FENCE + "\n") && text !== FENCE && !text.startsWith(FENCE + "\r\n")) {

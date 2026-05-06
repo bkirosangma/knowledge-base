@@ -547,4 +547,37 @@ describe('useDocumentContent — sources frontmatter', () => {
       '# Body',
     )
   })
+
+  it('body-edit preserves sources in frontmatter on save', async () => {
+    const text =
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://example.com'\n" +
+      "    title: 'Example'\n" +
+      '---\n' +
+      '# Original Body'
+    await seedFile(root, 'a.md', text)
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('# Original Body'))
+    expect(result.current.sources).toEqual([
+      { url: 'https://example.com', title: 'Example' },
+    ])
+
+    // Edit only the body, leaving sources unchanged.
+    act(() => { result.current.updateContent('# Modified Body') })
+    expect(result.current.dirty).toBe(true)
+
+    // Save should serialize with both sources and the new body.
+    await act(async () => { await result.current.save() })
+    const written = root.files.get('a.md')!.file.data
+    expect(written).toBe(
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://example.com'\n" +
+      "    title: 'Example'\n" +
+      '---\n' +
+      '# Modified Body',
+    )
+    expect(result.current.dirty).toBe(false)
+  })
 })

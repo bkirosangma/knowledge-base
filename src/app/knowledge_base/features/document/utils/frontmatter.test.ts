@@ -266,3 +266,63 @@ describe("YAML quoting / escaping", () => {
     expect(out).toContain(`'${url}'`);
   });
 });
+
+describe("normalization — CRLF and BOM", () => {
+  it("normalizes CRLF input and parses sources correctly", () => {
+    const text =
+      "---\r\n" +
+      "sources:\r\n" +
+      "  - url: 'https://x.com'\r\n" +
+      "---\r\n" +
+      "# Body\r\n";
+    const r = parseFrontmatter(text);
+    expect(r.data.sources).toEqual([{ url: "https://x.com" }]);
+    expect(r.body).toBe("# Body\n");
+    expect(r.rawYaml).toBe("");
+  });
+
+  it("serialized CRLF input produces LF-only output (fixed point)", () => {
+    const crlfInput =
+      "---\r\n" +
+      "sources:\r\n" +
+      "  - url: 'https://x.com'\r\n" +
+      "---\r\n" +
+      "# Body\r\n";
+    const parsed = parseFrontmatter(crlfInput);
+    const serialized = serializeFrontmatter({
+      data: parsed.data,
+      rawYaml: parsed.rawYaml,
+      body: parsed.body,
+    });
+    // Output should be LF-only (the normalized form).
+    const expectedLf =
+      "---\n" +
+      "sources:\n" +
+      "  - url: 'https://x.com'\n" +
+      "---\n" +
+      "# Body\n";
+    expect(serialized).toBe(expectedLf);
+    // Re-parsing the serialized form is a fixed point.
+    const reparsed = parseFrontmatter(serialized);
+    const reserialized = serializeFrontmatter({
+      data: reparsed.data,
+      rawYaml: reparsed.rawYaml,
+      body: reparsed.body,
+    });
+    expect(reserialized).toBe(expectedLf);
+  });
+
+  it("strips leading UTF-8 BOM and parses sources", () => {
+    const text =
+      "﻿---\n" +
+      "sources:\n" +
+      "  - url: 'https://x.com'\n" +
+      "---\n" +
+      "# Body\n";
+    const r = parseFrontmatter(text);
+    expect(r.data.sources).toEqual([{ url: "https://x.com" }]);
+    expect(r.body).toBe("# Body\n");
+    // BOM is gone from the body.
+    expect(r.body).not.toContain("﻿");
+  });
+});
