@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (MVP-2a merged as PR #128 squash `006cf5f`; MVP-2b re-plan in progress on `feat/diagram-mvp2b-cross-entity-attachment-ui`, 4-way attachment type system locked — see § "MVP 2 status" below).
+**Last updated:** 2026-05-06 (MVP-2a merged as PR #128 squash `006cf5f`; MVP-2b open for review as PR #129 on `feat/diagram-mvp2b-cross-entity-attachment-ui` — 4-way attachment type system shipped at UI contract, document-only at data layer).
 
 ---
 
@@ -63,13 +63,13 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | MVP | Plan file | Status |
 |---|---|---|
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
-| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` | 🟡 Split: **MVP-2a** ✅ Merged (PR #128 squash `006cf5f`, Tasks 1–2: data-model + persistence). **MVP-2b** Tasks 3–10 re-plan in progress on `feat/diagram-mvp2b-cross-entity-attachment-ui` against actual code, honouring the 4-way attachment type system decision (see "MVP 2 status" below). |
+| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | 🟡 Split: **MVP-2a** ✅ Merged (PR #128 squash `006cf5f`, Tasks 1–2: data-model + persistence). **MVP-2b** 🟡 Open for review (PR #129, 17 commits on `feat/diagram-mvp2b-cross-entity-attachment-ui`, 4-way UI contract + document-only data layer). |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
 | **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b** (Tasks 3–10 — UI + refactor) re-plan in progress on `feat/diagram-mvp2b-cross-entity-attachment-ui`, branched off `main` post-merge; the 4-way attachment type system is locked as the forward-compatible target.
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) open for review** as PR #129 on 2026-05-06 — 17 commits on `feat/diagram-mvp2b-cross-entity-attachment-ui` against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`. 2240/2240 unit tests + 180/180 e2e tests + clean typecheck + clean production build at PR open.
 
 ---
 
@@ -210,18 +210,21 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Re-plan MVP-2b on `feat/diagram-mvp2b-cross-entity-attachment-ui`, then execute via subagents.**
+**Watch PR #129 (MVP-2b) for review feedback; once merged, plan MVP 3 + MVP 4.**
 
 Concrete next steps:
 
-1. ✅ **MVP-2a merged.** PR #128 merged 2026-05-06 (squash `006cf5f`); `main` synced; local `feat/diagram-mvp2-cross-entity-attachment` deleted; this doc updated to flip MVP-2a to ✅ Merged. Branch `feat/diagram-mvp2b-cross-entity-attachment-ui` is checked out off `main` and ready for the re-plan commit.
-2. **Re-plan MVP-2b** using `superpowers:writing-plans` *with the live codebase open*, save as `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`. Constraints:
-   - **4-way type system** — `'document' | 'diagram' | 'svg' | 'tab'` is the contract throughout (locked by user, see "MVP 2 status").
-   - **SVG/Tab branches are runtime no-ops** — empty lists, no rendered rows/glyphs/tabs, but the wiring is in place so adding their persistence in a future MVP needs no UI changes.
-   - **Re-target Tasks 3–4** at `useDocuments` (`features/document/hooks/useDocuments.ts:154–208`) where runtime aggregation actually lives. The standalone `documentAttachments.ts` helpers are imported only by their own test — likely best to delete or absorb into the new `entityAttachments.ts` module.
-   - **`useDiagramAttachments` keeps its callback + deferred-delete responsibility** — do not bolt aggregation onto it.
-   - **Survey the prop chain** before writing Task 5–8 texts: `Element.tsx`, `DataLine.tsx`, `DiagramCanvas.tsx`, `DiagramLinesOverlay.tsx`, `knowledgeBase.tsx`, properties panels, the `DocPreviewModal` / `DocInfoBadge` / `CreateAttachDocModal` / `DocumentsSection` call sites — list every consumer that the rename touches.
-3. **Execute MVP-2b** on `feat/diagram-mvp2b-cross-entity-attachment-ui` via `superpowers:subagent-driven-development`. Branch-per-MVP discipline (one commit per task, PR opens after the last task lands).
-4. **After MVP-2b merges, update this doc** per the Doc-update protocol — flip the MVP 2 row to ✅ Merged and rewrite Next Action to "Implement MVP 3, 4 in parallel (or sequentially)".
+1. ✅ **MVP-2a merged.** PR #128 merged 2026-05-06 (squash `006cf5f`).
+2. ✅ **MVP-2b re-planned + executed.** Plan at `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`; 11 tasks (1, 2, 3, 4, 5, 6, 7a, 7b, 7c, 8, 9) all shipped via `superpowers:subagent-driven-development` over 17 commits. PR #129 opened ready-for-review. 2240/2240 unit tests + 180/180 e2e tests + clean typecheck + clean production build at PR open.
+3. **Watch PR #129.** Address any review feedback by adding new commits on the same branch (do NOT amend). Once merged, sync `main`, delete `feat/diagram-mvp2b-cross-entity-attachment-ui`, and update this doc to flip MVP 2 to ✅ Merged.
+4. **After MVP-2b merges, plan MVP 3 (Wiki-Link Anchors) and MVP 4 (Source Links).** They're independent of each other; either order works. Use `superpowers:writing-plans` with the live codebase open before executing.
+5. **MVP 5 (KB Skill Update) last.** It's forward-compatible; runs after MVPs 1-4 are merged and the running app honours the new fields.
 
-If you hit a blocker mid-MVP, commit work in progress on the branch and add a new entry under "MVP 2 status" with what's blocking and what you tried.
+### Open follow-up items surfaced by MVP-2b execution
+
+- **`FlowProperties` has two doc-listing UIs in MVP-2b** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`. MVP-2b's plan said "no regression" so both stayed. A future cleanup should consolidate (likely retire the bespoke section once a confirmation flow is added to `AttachmentsSection.onDetach`).
+- **DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is already in `AttachmentsSection.test.tsx`).
+- **`'layer'` is not in `EntityAttachmentTarget`** — `LayerProperties` does not mount `AttachmentsSection`. Adding `'layer'` to the union is a small follow-up if/when layer-scoped attachments are required.
+- **Anchor-forwarding gap in `AttachmentPreviewModal`** — the modal's "Open in pane" header button passes `(filename, null)` because the wiki-link-anchors MVP (MVP 3) hasn't shipped yet. Pre-existing behaviour preserved.
+
+If you hit a blocker on MVP 3/4/5, commit work in progress on the branch and add a new entry under "MVP 2 status" or open a new section here.
