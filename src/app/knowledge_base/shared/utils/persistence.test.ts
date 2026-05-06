@@ -454,7 +454,9 @@ describe("FlowDef round-trip — nodeOrders / startNodeIds / endNodeIds", () => 
     expect(flow.startNodeIds).toBeUndefined();
     expect(flow.endNodeIds).toBeUndefined();
   });
+});
 
+describe("DiagramData round-trip — attachedTo", () => {
   it("persists DiagramData.attachedTo round-trip", () => {
     const data: DiagramData = {
       title: "T",
