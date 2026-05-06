@@ -187,6 +187,9 @@
 | DIAG-3.10-57 | ❌ | When I press Cmd/Ctrl+L while a flow is selected, then the flow becomes locked; pressing again unlocks. |
 | DIAG-3.10-58 | ❌ | When I switch to a different file while a flow is locked, then the lock state clears. |
 | DIAG-3.10-59 | ❌ | Given lockedFlow + edit mode, when I click the role-toggle pill above a member node, then the role cycles none → start → end → none. |
+| DIAG-3.10-60 | ✅ | CreateAttachEntityModal — Document tab is active by default and Confirm enabled with a non-empty filename — `CreateAttachEntityModal.test.tsx` |
+| DIAG-3.10-61 | ✅ | CreateAttachEntityModal — Diagram / SVG / Tab tabs disable Confirm with a "persistence ships in a future MVP" notice — `CreateAttachEntityModal.test.tsx` |
+| DIAG-3.10-62 | ✅ | CreateAttachEntityModal — onConfirm forwards the active source type alongside (filename, editNow) — `CreateAttachEntityModal.test.tsx` |
 
 ## 3.11 Selection
 

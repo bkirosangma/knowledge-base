@@ -305,7 +305,7 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ✅ **First-keystroke toast** — the first time the user presses any printable key while in read mode (excluding modifiers and `E`), a toast "Press E to edit" appears once per session.
 - ✅ **Disables drag / delete / edit / property panel inputs.**
 
-### 3.18 Document Integration
+### 3.18 Cross-Entity Attachment
 - ✅ **AttachmentIndicator** (`components/AttachmentIndicator.tsx`) — type-aware on-canvas glyph row. Renders one lucide glyph per non-empty bucket of `{ docs, diagrams, svgs, tabs }`; click fires a single `onClick` that opens the unified preview modal via `useDiagramController.openAttachmentPreviewFor`. MVP-2b ships the 4-way UI contract; in production today only `docs > 0` ever fires — Element / ConditionElement / DataLine consume `attachmentCounts` + `onAttachmentIndicatorClick` directly from the controller's `attachmentCountsForNode` / `attachmentCountsForConnection` selectors.
 - ✅ **Attach / detach docs per entity** — persisted in the workspace-scoped attachment-links store (§7.1). Legacy per-diagram `documents` field is deprecated; stays as `[]` after lazy migration for backward-binary-compatibility.
 - ✅ **Backlinks surfaced in properties.**
