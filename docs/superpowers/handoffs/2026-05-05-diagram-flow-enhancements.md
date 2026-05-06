@@ -257,7 +257,7 @@ These four items group naturally as **MVP-5b: validate/fix hardening** — small
 
 ### Open follow-up items surfaced by MVP-4a execution (still active)
 
-- **DIAG-3.19-23 Sources Undo/Redo + Dirty Fingerprint** stays 🟡 — has no automated test. Wired through history (per S8525 / S8521) but not pinned by a test case. Add a test the next time the diagram history layer is touched.
+- ~~**DIAG-3.19-23 Sources Undo/Redo + Dirty Fingerprint** stays 🟡 — has no automated test. Wired through history (per S8525 / S8521) but not pinned by a test case.~~ _Partially closed: history undo for top-level sources is now pinned by `useDiagramHistoryStore.test.ts` (`DIAG-3.19-23`). The autosave-dirty-fingerprint + on-disk-draft assertions remain — the case marker stays 🟡 in `test-cases/03-diagram.md`._
 - **`SourcesSection` accessibility pass** — initial review surfaced minor a11y gaps that were patched (`aria-label` on Title/URL inputs in cleanup commit `b892088`). Re-audit when the section gets reused outside diagram/document panels (e.g. when MVP-4b SVG/Tab branches land).
 - ~~**Frontmatter parser scope** — only accepts block-list `sources:` syntax (per S8527). Inline `sources: [{…}]` is silently treated as an unknown key. Document this in the KB skill's `validate.md` rules (relevant to MVP 5 Task 6).~~ _Closed: rule #8 in `~/.claude/skills/knowledge-base/commands/validate.md` (line 40) documents this with the inline-vs-block-list expectation. Enforcement is the remaining MVP-5b gap above (#3)._
 
