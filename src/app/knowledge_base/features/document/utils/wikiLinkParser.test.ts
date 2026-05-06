@@ -3,6 +3,7 @@ import {
   parseWikiLinks,
   resolveWikiLinkPath,
   updateWikiLinkPaths,
+  updateWikiLinkAnchors,
   stripWikiLinksForPath,
 } from './wikiLinkParser'
 
@@ -187,6 +188,60 @@ describe('updateWikiLinkPaths', () => {
     expect(updateWikiLinkPaths('[[arch#flow]]', 'arch.json', 'infra.json')).toBe('[[infra#flow]]')
     expect(updateWikiLinkPaths('[[arch|Diagram]]', 'arch.json', 'infra.json')).toBe('[[infra | Diagram]]')
     expect(updateWikiLinkPaths('[[other.json]]', 'arch.json', 'infra.json')).toBe('[[other.json]]')
+  })
+})
+
+describe('updateWikiLinkAnchors', () => {
+  it('rewrites a single anchor on the target doc', () => {
+    expect(updateWikiLinkAnchors(
+      'see [[doc-b.md#old]] for details',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('see [[doc-b.md#new]] for details')
+  })
+
+  it('preserves alias text', () => {
+    expect(updateWikiLinkAnchors(
+      'ref [[doc-b.md#old | The Old]]',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('ref [[doc-b.md#new | The Old]]')
+  })
+
+  it('ignores wiki-links to other docs', () => {
+    expect(updateWikiLinkAnchors(
+      '[[doc-c.md#old]] [[doc-b.md#old]]',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('[[doc-c.md#old]] [[doc-b.md#new]]')
+  })
+
+  it('ignores anchorless wiki-links', () => {
+    expect(updateWikiLinkAnchors(
+      '[[doc-b.md]]',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('[[doc-b.md]]')
+  })
+
+  it('ignores anchors not in the rename map', () => {
+    expect(updateWikiLinkAnchors(
+      '[[doc-b.md#untouched]]',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('[[doc-b.md#untouched]]')
+  })
+
+  it('matches /-prefixed and .md-trailing variants', () => {
+    expect(updateWikiLinkAnchors(
+      '[[/doc-b#old]] [[doc-b.md#old]] [[doc-b#old]]',
+      'doc-b.md',
+      { old: 'new' },
+    )).toBe('[[/doc-b#new]] [[doc-b.md#new]] [[doc-b#new]]')
+  })
+
+  it('returns input unchanged when rename map is empty', () => {
+    expect(updateWikiLinkAnchors('[[doc-b.md#old]]', 'doc-b.md', {})).toBe('[[doc-b.md#old]]')
   })
 })
 

@@ -3,11 +3,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { LinkIndex, LinkIndexEntry, OutboundLink } from "../types";
-import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
+import { parseWikiLinks, resolveWikiLinkPath, updateWikiLinkAnchors } from "../utils/wikiLinkParser";
 import { extractHeaders, type HeaderInfo } from "../utils/extractHeaders";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
 import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
 import { readOrNull } from "../../../domain/repositoryHelpers";
+import { readTextFile, writeTextFile } from "../../../shared/hooks/fileExplorerHelpers";
 
 function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
@@ -212,12 +213,54 @@ export function useLinkIndex() {
     // no section info (see buildDocumentEntry) — they don't need rewriting.
     if (renames.length > 0) {
       const renameMap = new Map(renames.map((r) => [r.from, r.to]));
+      // Capture consuming-doc paths BEFORE the in-memory rewrite mutates
+      // section ids. Used below to walk source markdown on disk.
+      const consumingPaths: string[] = [];
+      for (const [sourcePath, entry] of Object.entries(index.documents)) {
+        if (sourcePath === docPath) continue;
+        const matches = entry.sectionLinks.some(
+          (sl) => sl.targetPath === docPath && renameMap.has(sl.section),
+        );
+        if (matches) consumingPaths.push(sourcePath);
+      }
       for (const entry of Object.values(index.documents)) {
         entry.sectionLinks = entry.sectionLinks.map((sl) => {
           if (sl.targetPath !== docPath) return sl;
           const to = renameMap.get(sl.section);
           return to ? { ...sl, section: to } : sl;
         });
+      }
+
+      // Rewrite consuming docs' source markdown on disk. buildDocumentEntry
+      // re-derives sectionLinks from raw markdown on every save, so the
+      // in-memory rewrite above is ephemeral unless the source file is
+      // also updated.
+      const renameRecord: Record<string, string> = {};
+      for (const r of renames) renameRecord[r.from] = r.to;
+      for (const sourcePath of consumingPaths) {
+        try {
+          const parts = sourcePath.split("/");
+          let dh: FileSystemDirectoryHandle = rootHandle;
+          for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+          const fh = await dh.getFileHandle(parts[parts.length - 1]);
+          const oldContent = await readTextFile(fh);
+          const newContent = updateWikiLinkAnchors(oldContent, docPath, renameRecord);
+          if (newContent !== oldContent) {
+            await writeTextFile(rootHandle, sourcePath, newContent);
+            const sourceDocDir = getDocDir(sourcePath);
+            const fresh = buildDocumentEntry(newContent, sourceDocDir);
+            index.documents[sourcePath] = {
+              ...index.documents[sourcePath],
+              outboundLinks: fresh.outboundLinks,
+              sectionLinks: fresh.sectionLinks,
+              headers: fresh.headers,
+            };
+          }
+        } catch {
+          // Skip unreadable/unwritable consuming files; the index-only
+          // rewrite already happened, and the next save of the consuming
+          // file will resolve consistency one way or the other.
+        }
       }
     }
 

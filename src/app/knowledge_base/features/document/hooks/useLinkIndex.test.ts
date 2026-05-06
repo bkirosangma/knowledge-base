@@ -427,7 +427,7 @@ describe('useLinkIndex.headers', () => {
 })
 
 describe('header auto-refactor (Task 8)', () => {
-  it('auto-updates wiki-link references when a single heading is renamed', async () => {
+  it('auto-updates the in-memory index entry on header rename', async () => {
     const { result } = renderHook(() => useLinkIndex())
     const seeded: LinkIndex = {
       updatedAt: '',
@@ -460,6 +460,71 @@ describe('header auto-refactor (Task 8)', () => {
     ])
     // No banner — this is a rename, not a deletion.
     expect(result.current.brokenAnchorState).toBeNull()
+  })
+
+  it("auto-rewrites consuming docs' source markdown on header rename", async () => {
+    // Seed both files on disk so updateDocumentLinks can read & rewrite.
+    await seedFile(root, 'doc-a.md', 'see [[doc-b.md#old-section]]')
+    await seedFile(root, 'doc-b.md', '## Old Section\n\nbody')
+    const { result } = renderHook(() => useLinkIndex())
+    const seeded: LinkIndex = {
+      updatedAt: '',
+      documents: {
+        'doc-a.md': {
+          outboundLinks: [],
+          sectionLinks: [{ targetPath: 'doc-b.md', section: 'old-section' }],
+          headers: [],
+        },
+        'doc-b.md': {
+          outboundLinks: [],
+          sectionLinks: [],
+          headers: [{ id: 'old-section', text: 'Old Section', level: 2 }],
+        },
+      },
+      backlinks: {},
+    }
+    let index: LinkIndex | null = null
+    await act(async () => {
+      index = await result.current.updateDocumentLinks(
+        asRoot(root), 'doc-b.md', '## New Section\n\nbody', seeded,
+      )
+    })
+    // In-memory index reflects the rename.
+    expect(index!.documents['doc-a.md'].sectionLinks).toEqual([
+      { targetPath: 'doc-b.md', section: 'new-section' },
+    ])
+    // Source markdown on disk has been rewritten.
+    const onDisk = root.files.get('doc-a.md')!.file.data
+    expect(onDisk).toBe('see [[doc-b.md#new-section]]')
+  })
+
+  it('preserves alias text when rewriting wiki-link anchors on rename', async () => {
+    await seedFile(root, 'doc-a.md', 'see [[doc-b.md#old-section | the original]]')
+    await seedFile(root, 'doc-b.md', '## Old Section\n\nbody')
+    const { result } = renderHook(() => useLinkIndex())
+    const seeded: LinkIndex = {
+      updatedAt: '',
+      documents: {
+        'doc-a.md': {
+          outboundLinks: [],
+          sectionLinks: [{ targetPath: 'doc-b.md', section: 'old-section' }],
+          headers: [],
+        },
+        'doc-b.md': {
+          outboundLinks: [],
+          sectionLinks: [],
+          headers: [{ id: 'old-section', text: 'Old Section', level: 2 }],
+        },
+      },
+      backlinks: {},
+    }
+    await act(async () => {
+      await result.current.updateDocumentLinks(
+        asRoot(root), 'doc-b.md', '## New Section\n\nbody', seeded,
+      )
+    })
+    const onDisk = root.files.get('doc-a.md')!.file.data
+    expect(onDisk).toBe('see [[doc-b.md#new-section | the original]]')
   })
 
   it('surfaces broken-anchor banner state when a heading is deleted', async () => {
