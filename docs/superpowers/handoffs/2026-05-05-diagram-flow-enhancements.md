@@ -94,9 +94,31 @@ The current `feat/diagram-flow-enhancements` branch holds the spec + plans only;
 
 ---
 
-## Open follow-up items (none yet)
+## Open follow-up items
 
-Will be populated as implementation reveals deferred work.
+### MVP 2 plan-vs-reality gaps (discovered 2026-05-06 mid-execution)
+
+The plan at `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` references file paths and type names that don't exist:
+
+- `DiagramData` — plan says `features/diagram/types.ts`; actual location is `shared/utils/types.ts` (file-path correction only — type still owns the field).
+- `SvgMeta` (`features/svgEditor/types.ts`) — neither the type nor the file exists. SVG persists raw XML via `useSVGPersistence.writeSvg` with **no metadata sidecar**. Adding `attachedTo` to SVG requires designing a new sidecar file format (e.g. `<file>.svg.refs.json`) — load-bearing design work that wasn't in the plan.
+- `TabMeta` (`features/tab/types.ts`) — neither exists. Tab persists the binary `.gp` file + a `.refs.json` sidecar (`TabRefsPayload` in `domain/tabRefs.ts`) which holds `sectionRefs` + `trackRefs`. Not the right home for `attachedTo`; bumping that sidecar to v3 with a new field is non-trivial migration.
+- `useDiagramAttachments` (plan Task 4) does not currently aggregate — it wraps callbacks with `scheduleRecord` and owns a deferred-delete queue. The aggregation helpers live in `features/diagram/utils/documentAttachments.ts` (`hasDocuments`, `getDocumentsForEntity`) — which is where Task 4 work actually belongs.
+
+**Adaptation chosen for this PR (no user re-plan):**
+
+1. **Task 2:** add `attachedTo?: EntityAttachment[]` to `DiagramData` only. SVG and Tab `attachedTo` deferred — see §"Deferred to follow-up MVP" below.
+2. **Tasks 3–10:** keep the 4-way type system (`'document' | 'diagram' | 'svg' | 'tab'`) in code so future enabling of SVG/Tab is purely additive. SVG/Tab branches stay empty (no source data exists for them yet) — picker tabs disabled, glyphs hidden when count is zero (already the spec).
+3. **Aggregation home (Task 3 + 4):** widen `documentAttachments.ts` (where the actual aggregators live) into `entityAttachments.ts`. Keep `useDiagramAttachments`'s real responsibility (callbacks + delete queue) — do not bolt aggregation onto it as the plan implied.
+
+### Deferred to follow-up MVP — "SVG/Tab attachments persistence"
+
+To complete the four-way attachment story we need:
+- Design + ship an SVG sidecar shape (likely `<file>.svg.refs.json` modelled on `TabRefsPayload`).
+- Either bump `TabRefsPayload` to v3 with an optional `attachedTo` field or add a separate `<file>.alphatex.attachments.json` sidecar.
+- Migrate any existing data (none today, but the spec deviation notes "no migration").
+
+Pre-conditions: a brainstorm + spec slice for the persistence design before any of MVPs 3/4 lock in their own writes against these shapes.
 
 ---
 
