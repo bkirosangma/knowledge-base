@@ -1190,6 +1190,7 @@ function KnowledgeBaseInner() {
           setRows={docManager.setRows}
           detachAttachmentsFor={docManager.detachAttachmentsFor}
           withBatch={docManager.withBatch}
+          attachmentsByType={docManager.attachmentsByType}
           onMigrateLegacyDocuments={onMigrateLegacyDocuments}
           backlinks={entry.filePath ? linkManager.getBacklinksFor(entry.filePath) : []}
           onDiagramBridge={handleDiagramBridge}

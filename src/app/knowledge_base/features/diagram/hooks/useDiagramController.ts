@@ -89,6 +89,19 @@ interface DiagramControllerInputs {
   /** Called before `fileExplorer.deleteFolder` so attachment rows for every
    *  attachable file inside the folder subtree are cleaned up first. */
   onBeforeDeleteFolder?: (folderPath: string) => Promise<void>;
+  /**
+   * MVP-2b Task 7c: optional shell-passed selector mirroring
+   * `useDocuments.attachmentsByType`. When provided (production path from
+   * `knowledgeBase.tsx`), the controller uses it as the canonical source so
+   * the diagram view stays in lockstep with shell state. When omitted (test
+   * fixtures that mount the controller directly with `documents`), the
+   * controller falls back to the local computation defined below.
+   */
+  attachmentsByType?: (target: {
+    type: EntityAttachmentTarget;
+    id: string;
+    diagramPath?: string;
+  }) => AttachmentBuckets;
 }
 
 /**
@@ -112,6 +125,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     backlinks, onDiagramBridge, readDocument, getDocumentReferences,
     deleteDocumentWithCleanup, onCreateAndAttach, onAfterDiagramSaved, searchTarget,
     rows, setRows, detachAttachmentsFor, withBatch, onBeforeDeleteFolder,
+    attachmentsByType: propAttachmentsByType,
   } = input;
 
   // ─── Layout / mode ───────────────────────────────────────────────
@@ -486,13 +500,17 @@ export function useDiagramController(input: DiagramControllerInputs) {
   const getDocumentsForEntity = useCallback((entityType: string, entityId: string) => getDocsForEntity(documents, entityType, entityId), [documents]);
 
   // ─── MVP-2b: 4-way attachment selectors + indicator/preview wiring ───
-  // Mirrors `useDocuments.attachmentsByType`, kept local to the controller
-  // because `useDiagramController` consumes `documents: DocumentMeta[]`
-  // directly (not a `useDocuments` instance). MVP-2b only ever populates
+  // Production path (Task 7c): `knowledgeBase.tsx` threads
+  // `useDocuments.attachmentsByType` down through `DiagramView`. When that
+  // prop is present we use it directly — it is the canonical hook output and
+  // stays in lockstep with shell state.
+  //
+  // Fallback path: tests and any future call sites that mount the controller
+  // with `documents: DocumentMeta[]` but no selector get the equivalent
+  // computation derived locally from `documents`. MVP-2b only ever populates
   // `docs`; the other three buckets are reserved for future SVG / Tab /
-  // Diagram-source MVPs. Task 7c will replace this local definition with
-  // an `attachmentsByType` prop passed down from `knowledgeBase.tsx`.
-  const attachmentsByType = useCallback(
+  // Diagram-source MVPs.
+  const localAttachmentsByType = useCallback(
     (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }): AttachmentBuckets => {
       const matches = (a: { type: string; id: string; diagramPath?: string }): boolean => {
         if (a.type !== target.type) return false;
@@ -510,6 +528,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     },
     [documents],
   );
+  const attachmentsByType = propAttachmentsByType ?? localAttachmentsByType;
 
   const attachmentCountsForNode = useCallback(
     (nodeId: string): AttachmentCounts => {
