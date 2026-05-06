@@ -696,35 +696,42 @@ class AlphaTabSession implements TabSession {
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
 
-    // Re-derive metadata before renderScore so we can return it synchronously.
-    // renderScore will fire scoreLoaded → handleScoreLoaded → emit("loaded").
-    // No explicit emit here — that would produce a duplicate loaded event.
+    // Re-derive metadata so we can return it synchronously.
     const metadata = scoreToMetadata(this.latestScore);
     this.latestMetadata = metadata;
 
-    // Capture playback state before renderScore: it triggers alphaTab's
-    // _setupOrDestroyPlayer which rebuilds the player and clears the
-    // selection range + loop flag + tick position. Without this restore,
-    // any edit (tempo most visibly) wipes the user's drag-selected loop
-    // region AND resets playback to bar 0 even mid-play.
+    // Tempo-only edits don't change notation; they just shift playback timing.
+    // Use the lightweight `api.render()` (no scoreLoaded fire, no player
+    // teardown) plus `loadMidiForScore` to feed the existing player a new
+    // midi. The visual tempo marker repaints, the synth picks up the new
+    // tempo, and playback continues seamlessly — no flicker, no playback
+    // reset, no need to capture/restore selection or playhead because the
+    // player was never destroyed.
+    //
+    // We also emit "loaded" ourselves with the fresh metadata since render()
+    // doesn't trigger scoreLoaded.
+    if (op.type === "set-tempo") {
+      this.api.render();
+      this.api.loadMidiForScore();
+      this.emit({ event: "loaded", metadata });
+      return metadata;
+    }
+
+    // Other ops change notation/structure → full renderScore. That fires
+    // scoreLoaded → _setupOrDestroyPlayer rebuilds the player, which clears
+    // playbackRange, isLooping, tickPosition, and stops playback. Capture
+    // those before the rebuild and restore after so the user's loop region
+    // and playhead survive any edit.
     const savedRange = this.api.playbackRange;
     const savedLooping = this.api.isLooping;
     const savedTick = this.api.tickPosition;
     const wasPlaying = this.isPlayingNow;
 
     this.api.renderScore(this.latestScore);
-    // renderScore refreshes the visual side. The synth midi is generated
-    // separately and won't pick up score mutations (notes, tempo, durations)
-    // unless we ask alphaTab to regen it. Without this, set-tempo edits
-    // visually update but playback stays at the old tempo until reload.
     this.api.loadMidiForScore();
 
-    // Restore the user's selection + loop state.
     this.api.playbackRange = savedRange;
     this.api.isLooping = savedLooping;
-    // Restore the playhead. Tick position is score-relative (not real-time)
-    // so the same tick value still points at the same musical position even
-    // after a tempo change.
     this.api.tickPosition = savedTick;
     if (wasPlaying) this.api.play();
 
