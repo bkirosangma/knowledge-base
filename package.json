@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "postinstall": "patch-package && npm run copy-alphatab",
-    "copy-alphatab": "mkdir -p public/alphatab && cp node_modules/@coderline/alphatab/dist/alphaTab.min.js public/alphatab/alphaTab.min.js",
+    "copy-alphatab": "mkdir -p public/alphatab && cp node_modules/@coderline/alphatab/dist/alphaTab.js public/alphatab/alphaTab.js",
     "predev": "npm run copy-alphatab",
     "prebuild": "npm run copy-alphatab"
   },

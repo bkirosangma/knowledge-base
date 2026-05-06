@@ -9,6 +9,10 @@ export interface TabToolbarProps {
   audioBlocked: boolean;
   onToggle: () => void;
   onStop: () => void;
+  /** Whether looping is currently enabled. Controlled — the checkbox's
+   *  visual state mirrors this, and switching tab files (which resets the
+   *  session's isLooping to false) clears the checkbox along with it. */
+  looping: boolean;
   onSetLooping: (enabled: boolean) => void;
   /** Score tempo in BPM (from alphaTab metadata; first masterBar's tempo automation). */
   tempoBpm: number;
@@ -31,7 +35,7 @@ const TEMPO_COMMIT_DEBOUNCE_MS = 250;
 export function TabToolbar(props: TabToolbarProps): ReactElement {
   const {
     playerStatus, isAudioReady, audioBlocked,
-    onToggle, onStop, onSetLooping,
+    onToggle, onStop, looping, onSetLooping,
     tempoBpm, onSetTempoBpm,
   } = props;
   const isPlaying = playerStatus === "playing";
@@ -138,6 +142,7 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
         <input
           type="checkbox"
           aria-label="Loop"
+          checked={looping}
           onChange={(e) => onSetLooping(e.target.checked)}
         />
         <span className="text-mute">Loop</span>

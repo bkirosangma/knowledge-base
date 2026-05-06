@@ -237,11 +237,17 @@ export function TabView({
   // T25: mute/solo state for multi-track playback.
   const [mutedTrackIds, setMutedTrackIds] = useState<string[]>([]);
   const [soloedTrackIds, setSoloedTrackIds] = useState<string[]>([]);
+  // Loop-checkbox mirror state. Drives the controlled toolbar checkbox so
+  // the visible state matches the session's `isLooping`. Resets on filePath
+  // change because each new mount creates a fresh session with looping off.
+  const [looping, setLooping] = useState(false);
 
   // T25: reset mute/solo state on filePath change (pane reload semantics).
+  // Loop state resets too — same lifecycle as the session.
   useEffect(() => {
     setMutedTrackIds([]);
     setSoloedTrackIds([]);
+    setLooping(false);
   }, [filePath]);
 
   // T25: forward mute/solo state to the engine on every change.
@@ -388,7 +394,8 @@ export function TabView({
           audioBlocked={playback.audioBlocked}
           onToggle={playback.toggle}
           onStop={playback.stop}
-          onSetLooping={playback.setLooping}
+          looping={looping}
+          onSetLooping={(enabled) => { setLooping(enabled); playback.setLooping(enabled); }}
           tempoBpm={metadata?.tempo ?? 120}
           onSetTempoBpm={effectiveReadOnly ? undefined : (bpm) => propertiesApply({ type: "set-tempo", beat: 0, bpm })}
         />

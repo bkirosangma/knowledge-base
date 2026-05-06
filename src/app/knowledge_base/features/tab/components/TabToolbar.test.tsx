@@ -10,6 +10,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof TabToolbar>> =
     audioBlocked: false,
     onToggle: vi.fn(),
     onStop: vi.fn(),
+    looping: false,
     onSetLooping: vi.fn(),
     tempoBpm: 120,
     ...overrides,
@@ -82,10 +83,14 @@ describe("TabToolbar", () => {
 
   it("loop checkbox toggles onSetLooping with the boolean state", async () => {
     const onSetLooping = vi.fn();
-    render(<TabToolbar {...makeProps({ onSetLooping })} />);
+    // The checkbox is controlled — `looping` drives `checked`, so the
+    // parent must rerender with the new value between clicks for the next
+    // click to fire the opposite state.
+    const { rerender } = render(<TabToolbar {...makeProps({ looping: false, onSetLooping })} />);
     const checkbox = screen.getByRole("checkbox", { name: /loop/i });
     await userEvent.click(checkbox);
     expect(onSetLooping).toHaveBeenLastCalledWith(true);
+    rerender(<TabToolbar {...makeProps({ looping: true, onSetLooping })} />);
     await userEvent.click(checkbox);
     expect(onSetLooping).toHaveBeenLastCalledWith(false);
   });

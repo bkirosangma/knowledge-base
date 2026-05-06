@@ -1,26 +1,84 @@
 diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
-index 033314e..a6f411d 100644
+index 033314e..f0cb071 100644
 --- a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
 +++ b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
-@@ -55440,7 +55440,7 @@ class AlphaTabApiBase {
-                     realMasterBarEnd +
-                         this._selectionEnd.beat.playbackStart +
-                         this._selectionEnd.beat.playbackDuration -
--                        50;
-+                        200;
-                 this.playbackRange = range;
-             }
-             else {
+@@ -35121,7 +35121,13 @@ class AlphaSynthScriptProcessorOutput extends AlphaSynthWebAudioOutputBase {
+         this.source.loop = true;
+         this.source.connect(this._audioNode, 0, 0);
+         this.source.start(0);
+-        this._audioNode.connect(ctx.destination, 0, 0);
++        // PATCHED (knowledge-base): GainNode inline so checkForFinish's
++        // looping branch can dip gain across the wrap to mask the click
++        // from output.resetSamples() wiping the buffered audio.
++        this._audioGainNode = ctx.createGain();
++        this._audioGainNode.gain.value = 1;
++        this._audioNode.connect(this._audioGainNode);
++        this._audioGainNode.connect(ctx.destination, 0, 0);
+     }
+     pause() {
+         super.pause();
+@@ -46140,6 +46146,22 @@ class AlphaSynthBase {
+                 else if (this.isLooping) {
+                     Logger.debug('AlphaSynth', 'Finished playback (main looping)');
+                     this.finished.trigger();
++                    // PATCHED (knowledge-base): mask the click that resetSamples()
++                    // produces when the audio buffer is wiped at wrap. Quick gain
++                    // dip-and-restore covers the discontinuity: ~3ms fade-out (the
++                    // resetSamples happens during this), ~25ms fade-back-in for the
++                    // new loop's first samples.
++                    {
++                        const _g = this.output && this.output._audioGainNode;
++                        const _ctx = this.output && this.output.context;
++                        if (_g && _ctx) {
++                            const _t = _ctx.currentTime;
++                            _g.gain.cancelScheduledValues(_t);
++                            _g.gain.setValueAtTime(_g.gain.value, _t);
++                            _g.gain.linearRampToValueAtTime(0, _t + 0.003);
++                            _g.gain.linearRampToValueAtTime(1, _t + 0.028);
++                        }
++                    }
+                     this.tickPosition = startTick;
+                     this._synthStopping = false;
+                 }
 diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.js b/node_modules/@coderline/alphatab/dist/alphaTab.js
-index b1ad674..5bb4a25 100644
+index b1ad674..790d57d 100644
 --- a/node_modules/@coderline/alphatab/dist/alphaTab.js
 +++ b/node_modules/@coderline/alphatab/dist/alphaTab.js
-@@ -55446,7 +55446,7 @@
-                         realMasterBarEnd +
-                             this._selectionEnd.beat.playbackStart +
-                             this._selectionEnd.beat.playbackDuration -
--                            50;
-+                            200;
-                     this.playbackRange = range;
-                 }
-                 else {
+@@ -35127,7 +35127,13 @@
+             this.source.loop = true;
+             this.source.connect(this._audioNode, 0, 0);
+             this.source.start(0);
+-            this._audioNode.connect(ctx.destination, 0, 0);
++            // PATCHED (knowledge-base): GainNode inline so checkForFinish's
++            // looping branch can dip gain across the wrap to mask the click
++            // from output.resetSamples() wiping the buffered audio.
++            this._audioGainNode = ctx.createGain();
++            this._audioGainNode.gain.value = 1;
++            this._audioNode.connect(this._audioGainNode);
++            this._audioGainNode.connect(ctx.destination, 0, 0);
+         }
+         pause() {
+             super.pause();
+@@ -46146,6 +46152,22 @@
+                     else if (this.isLooping) {
+                         Logger.debug('AlphaSynth', 'Finished playback (main looping)');
+                         this.finished.trigger();
++                        // PATCHED (knowledge-base): mask the click that resetSamples()
++                        // produces when the audio buffer is wiped at wrap. Quick gain
++                        // dip-and-restore covers the discontinuity: ~3ms fade-out (the
++                        // resetSamples happens during this), ~25ms fade-back-in for the
++                        // new loop's first samples.
++                        {
++                            const _g = this.output && this.output._audioGainNode;
++                            const _ctx = this.output && this.output.context;
++                            if (_g && _ctx) {
++                                const _t = _ctx.currentTime;
++                                _g.gain.cancelScheduledValues(_t);
++                                _g.gain.setValueAtTime(_g.gain.value, _t);
++                                _g.gain.linearRampToValueAtTime(0, _t + 0.003);
++                                _g.gain.linearRampToValueAtTime(1, _t + 0.028);
++                            }
++                        }
+                         this.tickPosition = startTick;
+                         this._synthStopping = false;
+                     }
