@@ -62,7 +62,7 @@ export function AttachmentsSection({
                         type="button"
                         data-testid={`attachment-detach-${row.filename}`}
                         onClick={() => onDetach(row.filename, type)}
-                        className="text-[10px] text-mute hover:text-error"
+                        className="text-[10px] text-mute hover:text-danger"
                       >
                         Detach
                       </button>

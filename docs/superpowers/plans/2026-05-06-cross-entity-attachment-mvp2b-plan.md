@@ -1106,7 +1106,7 @@ function DocumentBody({ filename, readDocument, resolveWikiLinkPath, onOpenInPan
     [filename, resolveWikiLinkPath, onOpenInPane],
   );
 
-  if (error) return <div className="text-xs text-error">{error}</div>;
+  if (error) return <div className="text-xs text-danger">{error}</div>;
   if (html == null) return <div className="text-xs text-mute italic">Loading…</div>;
   return (
     <div
@@ -1682,7 +1682,7 @@ export function AttachmentsSection({
                         type="button"
                         data-testid={`attachment-detach-${row.filename}`}
                         onClick={() => onDetach(row.filename, type)}
-                        className="text-[10px] text-mute hover:text-error"
+                        className="text-[10px] text-mute hover:text-danger"
                       >
                         Detach
                       </button>
