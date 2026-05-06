@@ -592,6 +592,25 @@ class AlphaTabSession implements TabSession {
       this.listeners.set(event, set);
     }
     set.add(handler);
+    // Replay sticky "loaded" state to late subscribers. AlphaTab fires
+    // `scoreLoaded` synchronously inside `api.tex(...)`, so any listener
+    // attached after `load()` resolves would otherwise miss the event.
+    // The "loaded" event represents a state ("a score is loaded"), not a
+    // one-shot signal, so re-firing for late subscribers is safe.
+    //
+    // Deferred to a microtask so the replay fires after this `on()` call
+    // returns (the caller often binds the unsubscribe via `const off = on(...)`
+    // and references `off` from inside the handler — synchronous replay
+    // would hit a TDZ). The `set.has(handler)` guard skips the replay if a
+    // live emit has since removed the listener (e.g. the load() promise
+    // resolver unsubscribes synchronously in its own handler).
+    if (event === "loaded" && this.latestMetadata !== null) {
+      const cached = this.latestMetadata;
+      const trackedSet = set;
+      queueMicrotask(() => {
+        if (trackedSet.has(handler)) handler({ event: "loaded", metadata: cached });
+      });
+    }
     return () => set!.delete(handler);
   }
 
