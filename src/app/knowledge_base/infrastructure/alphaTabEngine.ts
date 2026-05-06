@@ -25,7 +25,7 @@ import type {
   Unsubscribe,
 } from "../domain/tabEngine";
 import { encodeWav } from "../domain/wavEncoder";
-import { SOUNDFONT_URL } from "./alphaTabAssets";
+import { FONT_DIRECTORY, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string };
@@ -387,7 +387,7 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
     settings.core.logLevel = LOG_LEVEL_INFO;
-    settings.core.fontDirectory = "/font/";
+    settings.core.fontDirectory = FONT_DIRECTORY;
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
