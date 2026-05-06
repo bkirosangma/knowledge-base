@@ -2,7 +2,11 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { DocumentMeta } from "../types";
+import type {
+  DocumentMeta,
+  EntityAttachmentTarget,
+  AttachmentBuckets,
+} from "../types";
 import {
   addRow,
   removeRow,
@@ -12,6 +16,12 @@ import {
 } from "../../../domain/attachmentLinks";
 import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
+
+interface AttachmentTargetQuery {
+  type: EntityAttachmentTarget;
+  id: string;
+  diagramPath?: string;
+}
 
 interface UseDocumentsOpts {
   /** Called after the in-memory rows change. Inside `withBatch`, multiple
@@ -165,6 +175,29 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     [rows],
   );
 
+  const attachmentsByType = useCallback(
+    (target: AttachmentTargetQuery): AttachmentBuckets => {
+      const matches = (a: {
+        type: string;
+        id: string;
+        diagramPath?: string;
+      }): boolean => {
+        if (a.type !== target.type) return false;
+        if (a.id !== target.id) return false;
+        if (target.diagramPath === undefined) return true;
+        if (a.diagramPath === undefined) return true; // legacy doc-centric rows lack diagramPath
+        return a.diagramPath === target.diagramPath;
+      };
+      return {
+        docs: documents.filter((d) => d.attachedTo?.some(matches)),
+        diagrams: [],
+        svgs: [],
+        tabs: [],
+      };
+    },
+    [documents],
+  );
+
   // ─── Disk creation (unchanged) ───────────────────────────────────
   const createDocument = useCallback(
     async (
@@ -207,6 +240,7 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     detachAttachmentsFor,
     getDocumentsForEntity,
     hasDocuments,
+    attachmentsByType,
     collectDocPaths,
     existingDocPaths,
     withBatch,

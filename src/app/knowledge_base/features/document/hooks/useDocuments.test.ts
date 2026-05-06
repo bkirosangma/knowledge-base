@@ -480,3 +480,25 @@ describe("detachAttachmentsFor", () => {
     expect(result.current.rows).toEqual([]);
   });
 });
+
+describe("useDocuments — attachmentsByType", () => {
+  it("returns 4-way buckets; only docs is populated in MVP-2b", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.attachDocument("a.md", "node", "n1");
+      result.current.attachDocument("b.md", "node", "n1");
+      result.current.attachDocument("c.md", "connection", "c1");
+    });
+    const buckets = result.current.attachmentsByType({ type: "node", id: "n1" });
+    expect(buckets.docs.map((d) => d.filename)).toEqual(["a.md", "b.md"]);
+    expect(buckets.diagrams).toEqual([]);
+    expect(buckets.svgs).toEqual([]);
+    expect(buckets.tabs).toEqual([]);
+  });
+
+  it("returns all-empty buckets when target has no attachments", () => {
+    const { result } = renderHook(() => useDocuments());
+    const buckets = result.current.attachmentsByType({ type: "node", id: "n1" });
+    expect(buckets).toEqual({ docs: [], diagrams: [], svgs: [], tabs: [] });
+  });
+});
