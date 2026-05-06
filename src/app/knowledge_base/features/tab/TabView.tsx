@@ -6,6 +6,7 @@ import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { TabCanvas } from "./components/TabCanvas";
 import { TabToolbar } from "./components/TabToolbar";
+import PaneHeader from "../../shared/components/PaneHeader";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useTabPlayback } from "./hooks/useTabPlayback";
@@ -369,6 +370,15 @@ export function TabView({
   return (
     <div className="flex h-full w-full">
       <div className="relative flex flex-1 flex-col">
+        {filePath && (readOnly ?? false) === false && (
+          <PaneHeader
+            filePath={filePath}
+            readOnly={perFileReadOnly}
+            onToggleReadOnly={toggleReadOnly}
+            title={metadata?.title}
+            hasActiveFile
+          />
+        )}
         <TabToolbar
           playerStatus={playback.playerStatus}
           isAudioReady={isAudioReady}
@@ -377,9 +387,6 @@ export function TabView({
           onStop={playback.stop}
           onSetTempoFactor={playback.setTempoFactor}
           onSetLoop={playback.setLoop}
-          paneReadOnly={readOnly ?? false}
-          perFileReadOnly={perFileReadOnly}
-          onToggleReadOnly={toggleReadOnly}
         />
         {status === "mounting" && (
           <div
