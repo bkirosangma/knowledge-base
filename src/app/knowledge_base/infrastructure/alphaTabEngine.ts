@@ -34,7 +34,8 @@ interface AlphaTabSettingsLike {
 
 interface AlphaTabApiLike {
   tex(text: string): void;
-  renderTracks(): void;
+  render(): void;
+  renderTracks(tracks: unknown[]): void;
   renderScore(score: unknown, trackIndexes?: number[]): void;
   destroy(): void;
   play(): boolean;
@@ -468,7 +469,7 @@ class AlphaTabSession implements TabSession {
 
   get score(): unknown | null { return this.latestScore; }
 
-  render(): void { this.api.renderTracks(); }
+  render(): void { this.api.render(); }
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

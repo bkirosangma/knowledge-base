@@ -224,19 +224,8 @@ export function TabView({
   // ready, ask alphatab to re-render so the new chrome (background +
   // staff lines) flips. The score colours themselves are styled via
   // CSS variables on the canvas host; a re-render is enough.
-  //
-  // Skip the very first ready transition: alphatab is doing its own
-  // initial render at that point, and calling renderTracks() before the
-  // initial render finishes throws an internal undefined.length error.
-  // Reset the gate when the session changes (new tab opened).
-  const themePushReadyRef = useRef(false);
-  useEffect(() => { themePushReadyRef.current = false; }, [session]);
   useEffect(() => {
     if (status !== "ready" || !session) return;
-    if (!themePushReadyRef.current) {
-      themePushReadyRef.current = true;
-      return;
-    }
     session.render();
   }, [theme, status, session]);
 
