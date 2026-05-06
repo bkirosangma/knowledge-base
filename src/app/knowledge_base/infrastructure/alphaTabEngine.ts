@@ -25,7 +25,7 @@ import type {
   Unsubscribe,
 } from "../domain/tabEngine";
 import { encodeWav } from "../domain/wavEncoder";
-import { getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
+import { FONT_DIRECTORY, getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string; outputMode: number };
@@ -413,7 +413,7 @@ export class AlphaTabEngine implements TabEngine {
     // patched `alphaTab.mjs` which derives the worklet URL from
     // `core.scriptFile` (see patches/@coderline+alphatab+1.8.2.patch).
     settings.core.logLevel = LOG_LEVEL_INFO;
-    settings.core.fontDirectory = "/font/";
+    settings.core.fontDirectory = FONT_DIRECTORY;
     // Pin the worker script URL. AlphaTab uses this to spawn both its
     // renderer worker (when useWorkers=true) and its synthesizer worker
     // (always, regardless of useWorkers). Auto-detection breaks under
