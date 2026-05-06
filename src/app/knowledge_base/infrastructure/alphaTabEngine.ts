@@ -472,12 +472,17 @@ class AlphaTabSession implements TabSession {
         this.isPlayingNow = false;
         // If a live tempo edit during playback diverged playbackSpeed from
         // the baked midi, sync the synth to the score now (paused → no
-        // audible disruption). Preserve the playhead so resume picks up
-        // where it left off.
+        // audible disruption). Preserve the playhead AND the user's loop
+        // selection: loadMidiForScore calls synth.stop() which can reset
+        // playbackRange + isLooping along with tickPosition.
         if (this.api.playbackSpeed !== 1) {
           const savedTick = this.api.tickPosition;
+          const savedRange = this.api.playbackRange;
+          const savedLooping = this.api.isLooping;
           this.api.loadMidiForScore();
           this.api.tickPosition = savedTick;
+          this.api.playbackRange = savedRange;
+          this.api.isLooping = savedLooping;
           this.api.playbackSpeed = 1;
           this.midiBakedTempo = this.latestMetadata?.tempo ?? this.midiBakedTempo;
         }
