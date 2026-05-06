@@ -2,12 +2,16 @@
 
 import { useCallback, useRef } from "react";
 import type { DocumentMeta } from "../../document/types";
+import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 
 interface UseDiagramAttachmentsInput {
   documents: DocumentMeta[];
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  // MVP-2b: `type` widens this signature so the type-aware modal can
+  // forward its active tab. The body still ignores it for non-doc
+  // (those tabs disable Confirm) — future MVP will branch on type.
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
   scheduleRecord: (description: string) => void;
 }
@@ -47,8 +51,9 @@ export function useDiagramAttachments(input: UseDiagramAttachmentsInput) {
   );
 
   const handleCreateAndAttach = useCallback(
-    async (flowId: string, filename: string, editNow: boolean) => {
-      await onCreateAndAttach(flowId, filename, editNow);
+    async (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => {
+      // MVP-2b: ignored for non-doc; future MVP will branch on type.
+      await onCreateAndAttach(flowId, filename, editNow, type);
       scheduleRecord("Create and attach document to flow");
     },
     [onCreateAndAttach, scheduleRecord],

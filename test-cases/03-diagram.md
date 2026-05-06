@@ -155,8 +155,8 @@
 |----|--------|----------|
 | DIAG-3.10-26 | ✅ | Attach existing doc to flow — appears in Documents section of FlowProperties — `FlowProperties.test.tsx` (onAttach called + doc filename rendered) |
 | DIAG-3.10-27 | ✅ | Attach same doc twice — second attach is a no-op (no duplicate in list) — `useDocuments.test.ts` (attachDocument idempotent) |
-| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachDocModal.test.tsx` covers modal; file-write + pane navigation is e2e |
-| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachDocModal.test.tsx` (onConfirm with editNow=false) |
+| DIAG-3.10-28 | 🟡 | Create & attach new — file created, attached, "Edit now" checked opens pane — `CreateAttachEntityModal.test.tsx` covers modal; file-write + pane navigation is e2e |
+| DIAG-3.10-29 | ✅ | Create & attach new — "Edit now" unchecked, pane not opened — `CreateAttachEntityModal.test.tsx` (onConfirm with editNow=false) |
 | DIAG-3.10-30 | 🟡 | Detach doc — disappears from Documents section — modal interaction covered by `FlowProperties.test.tsx` + `DetachDocModal.test.tsx`; DOM removal is e2e |
 | DIAG-3.10-31 | ✅ | Detach doc with no other refs — "Also referenced by" section absent — `DetachDocModal.test.tsx` |
 | DIAG-3.10-32 | ✅ | Detach doc with other attachments — lists them deduplicated — `DetachDocModal.test.tsx` |

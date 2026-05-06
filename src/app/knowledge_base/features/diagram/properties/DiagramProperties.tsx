@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { NodeData, Connection, LineCurveAlgorithm, FlowDef } from "../types";
 import type { DocumentMeta } from "../../document/types";
+import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import { getDistinctTypes, getNodesByType } from "../utils/typeUtils";
 import { Section, Row, EditableRow, ExpandableListRow, DropdownRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
@@ -106,7 +107,7 @@ export function DiagramProperties({
     wikiBacklinks: string[];
   };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
-  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   onLockFlow?: (flowId: string) => void;
 }) {
   const layerItems = regions.map((r) => ({ id: r.id, name: r.title }));
@@ -260,7 +261,7 @@ export function DiagramProperties({
               onPreview={(docPath) => onPreviewDocument?.(docPath, expandedFlow.name)}
               getDocumentReferences={getDocumentReferences}
               deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-              onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(expandedFlow.id, filename, editNow) ?? Promise.resolve()}
+              onCreateAndAttach={(filename, editNow, type) => onCreateAndAttach?.(expandedFlow.id, filename, editNow, type) ?? Promise.resolve()}
               onLock={onLockFlow}
               readOnly={readOnly}
             />

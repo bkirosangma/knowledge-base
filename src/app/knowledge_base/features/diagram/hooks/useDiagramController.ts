@@ -15,7 +15,7 @@ import { useDiagramGeometry } from "./useDiagramGeometry";
 import { useDiagramFlowFocus } from "./useDiagramFlowFocus";
 import { useDiagramAnchorMenu } from "./useDiagramAnchorMenu";
 import { useDiagramAttachments } from "./useDiagramAttachments";
-import type { PreviewItem } from "../components/AttachmentPreviewModal";
+import type { PreviewItem, PreviewItemType } from "../components/AttachmentPreviewModal";
 import { useDiagramQuickInspectorActions } from "./useDiagramQuickInspectorActions";
 import { useDiagramViewportSync } from "./useDiagramViewportSync";
 import { useDiagramFileLoading } from "./useDiagramFileLoading";
@@ -74,7 +74,7 @@ interface DiagramControllerInputs {
     exclude?: { entityType: string; entityId: string },
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup: (path: string) => Promise<void>;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   onAfterDiagramSaved?: (diagramPath: string) => void;
   searchTarget?: { nodeId: string };
   rows: AttachmentLink[];

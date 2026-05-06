@@ -17,6 +17,7 @@ import { findBrokenFlowsByReconnect } from "../utils/flowUtils";
 import {
   AttachmentPreviewModal,
   type PreviewItem,
+  type PreviewItemType,
 } from "./AttachmentPreviewModal";
 import { resolveWikiLinkPath } from "../../document/utils/wikiLinkParser";
 
@@ -81,7 +82,7 @@ export interface DiagramOverlaysProps {
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
-  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
 
   // useDiagramHistory result
   history: ReturnType<typeof useDiagramHistory>;

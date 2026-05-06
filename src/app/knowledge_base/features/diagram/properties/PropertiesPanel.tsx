@@ -6,6 +6,7 @@ import type { LevelMap } from "../utils/levelModel";
 import type { HistoryEntry, DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { RegionBounds } from "./shared";
 import type { DocumentMeta } from "../../document/types";
+import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
@@ -55,7 +56,7 @@ interface PropertiesPanelProps {
     wikiBacklinks: string[];
   };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
-  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean) => Promise<void>;
+  onCreateAndAttach?: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
   hidden?: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -237,7 +238,7 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
                 onPreview={(docPath) => onPreviewDocument?.(docPath, lockedFlow.name)}
                 getDocumentReferences={getDocumentReferences}
                 deleteDocumentWithCleanup={deleteDocumentWithCleanup}
-                onCreateAndAttach={(filename, editNow) => onCreateAndAttach?.(lockedFlow.id, filename, editNow) ?? Promise.resolve()}
+                onCreateAndAttach={(filename, editNow, type) => onCreateAndAttach?.(lockedFlow.id, filename, editNow, type) ?? Promise.resolve()}
                 readOnly={readOnly}
               />
             </div>
