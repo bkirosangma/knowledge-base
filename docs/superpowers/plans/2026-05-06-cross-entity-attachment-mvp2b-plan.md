@@ -957,7 +957,7 @@ export function AttachmentPreviewModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-surface-1 border border-line rounded-lg shadow-xl flex flex-col" style={{ width: 680, minWidth: 480, maxHeight: "80vh" }}>
+      <div className="bg-surface border border-line rounded-lg shadow-xl flex flex-col" style={{ width: 680, minWidth: 480, maxHeight: "80vh" }}>
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-line">
           <span className="text-xs font-semibold flex-1 truncate">{active.title ?? active.filename}</span>
@@ -1356,7 +1356,7 @@ export function CreateAttachEntityModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-surface-1 border border-line rounded-lg shadow-xl w-[480px]">
+      <div className="bg-surface border border-line rounded-lg shadow-xl w-[480px]">
         <div className="flex gap-2 px-4 pt-3 text-xs border-b border-line">
           {TYPES.map((t) => (
             <button
