@@ -41,6 +41,7 @@ vi.mock("./hooks/useTabPlayback", () => ({
     seek: vi.fn(),
     setTempoFactor: vi.fn(),
     setLoop: vi.fn(),
+    setLooping: vi.fn(),
     audioBlocked: false,
     currentTick: 0,
     playerStatus: "paused" as const,

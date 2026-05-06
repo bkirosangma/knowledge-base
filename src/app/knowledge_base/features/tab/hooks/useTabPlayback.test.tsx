@@ -11,6 +11,7 @@ function makeSession() {
     seek: vi.fn(),
     setTempoFactor: vi.fn(),
     setLoop: vi.fn(),
+    setLooping: vi.fn(),
   };
 }
 

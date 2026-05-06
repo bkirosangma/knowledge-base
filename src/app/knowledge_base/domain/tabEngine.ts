@@ -44,6 +44,10 @@ export interface TabSession {
   seek(beat: number): void;
   setTempoFactor(factor: number): void;          // 0.25..2.0
   setLoop(range: BeatRange | null): void;
+  /** Toggle looping without touching the playback range. Use this when the
+   *  user has selected a region on the canvas (alphaTab tracks the selection
+   *  internally and uses it as the loop range automatically). */
+  setLooping(enabled: boolean): void;
   setMute(trackId: string, muted: boolean): void;
   setSolo(trackId: string, solo: boolean): void;
 

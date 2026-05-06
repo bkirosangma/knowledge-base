@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactElement } from "react";
-import type { BeatRange } from "../../../domain/tabEngine";
 import type { TabPlayerStatus } from "../hooks/useTabEngine";
 
 export interface TabToolbarProps {
@@ -11,7 +10,7 @@ export interface TabToolbarProps {
   onToggle: () => void;
   onStop: () => void;
   onSetTempoFactor: (factor: number) => void;
-  onSetLoop: (range: BeatRange | null) => void;
+  onSetLooping: (enabled: boolean) => void;
 }
 
 const TEMPO_OPTIONS: { label: string; value: number }[] = [
@@ -32,7 +31,7 @@ const TEMPO_OPTIONS: { label: string; value: number }[] = [
 export function TabToolbar(props: TabToolbarProps): ReactElement {
   const {
     playerStatus, isAudioReady, audioBlocked,
-    onToggle, onStop, onSetTempoFactor, onSetLoop,
+    onToggle, onStop, onSetTempoFactor, onSetLooping,
   } = props;
   const isPlaying = playerStatus === "playing";
 
@@ -79,7 +78,7 @@ export function TabToolbar(props: TabToolbarProps): ReactElement {
         <input
           type="checkbox"
           aria-label="Loop"
-          onChange={(e) => onSetLoop(e.target.checked ? { start: 0, end: Number.MAX_SAFE_INTEGER } : null)}
+          onChange={(e) => onSetLooping(e.target.checked)}
         />
         <span className="text-mute">Loop</span>
       </label>

@@ -11,7 +11,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof TabToolbar>> =
     onToggle: vi.fn(),
     onStop: vi.fn(),
     onSetTempoFactor: vi.fn(),
-    onSetLoop: vi.fn(),
+    onSetLooping: vi.fn(),
     ...overrides,
   };
 }
@@ -59,14 +59,14 @@ describe("TabToolbar", () => {
     expect(onSetTempoFactor).toHaveBeenLastCalledWith(0.75);
   });
 
-  it("loop checkbox toggles onSetLoop with a range vs null", async () => {
-    const onSetLoop = vi.fn();
-    render(<TabToolbar {...makeProps({ onSetLoop })} />);
+  it("loop checkbox toggles onSetLooping with the boolean state", async () => {
+    const onSetLooping = vi.fn();
+    render(<TabToolbar {...makeProps({ onSetLooping })} />);
     const checkbox = screen.getByRole("checkbox", { name: /loop/i });
     await userEvent.click(checkbox);
-    expect(onSetLoop).toHaveBeenLastCalledWith({ start: 0, end: Number.MAX_SAFE_INTEGER });
+    expect(onSetLooping).toHaveBeenLastCalledWith(true);
     await userEvent.click(checkbox);
-    expect(onSetLoop).toHaveBeenLastCalledWith(null);
+    expect(onSetLooping).toHaveBeenLastCalledWith(false);
   });
 
   it("renders the audio-blocked hint when audioBlocked is true", () => {

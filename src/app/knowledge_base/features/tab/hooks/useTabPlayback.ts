@@ -19,6 +19,7 @@ export interface UseTabPlayback {
   seek: (beat: number) => void;
   setTempoFactor: (factor: number) => void;
   setLoop: (range: BeatRange | null) => void;
+  setLooping: (enabled: boolean) => void;
   /** True if play() was attempted while isAudioReady was false. Toolbar
    *  surfaces this as an inline "Tap play to enable audio" hint. */
   audioBlocked: boolean;
@@ -58,6 +59,9 @@ export function useTabPlayback(input: UseTabPlaybackInput): UseTabPlayback {
   const setLoop = useCallback((range: BeatRange | null) => {
     session?.setLoop(range);
   }, [session]);
+  const setLooping = useCallback((enabled: boolean) => {
+    session?.setLooping(enabled);
+  }, [session]);
 
-  return { play, pause, stop, toggle, seek, setTempoFactor, setLoop, audioBlocked, currentTick, playerStatus };
+  return { play, pause, stop, toggle, seek, setTempoFactor, setLoop, setLooping, audioBlocked, currentTick, playerStatus };
 }

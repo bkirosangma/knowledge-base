@@ -513,6 +513,10 @@ class AlphaTabSession implements TabSession {
     this.api.isLooping = true;
   }
 
+  setLooping(enabled: boolean): void {
+    this.api.isLooping = enabled;
+  }
+
   setMute(): void { /* TAB-009 multi-track */ }
   setSolo(): void { /* TAB-009 multi-track */ }
 

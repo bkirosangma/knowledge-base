@@ -386,7 +386,7 @@ export function TabView({
           onToggle={playback.toggle}
           onStop={playback.stop}
           onSetTempoFactor={playback.setTempoFactor}
-          onSetLoop={playback.setLoop}
+          onSetLooping={playback.setLooping}
         />
         {/* Inner relative wrapper — the editor's `absolute inset-0` overlay
             is scoped to this region (canvas only), so it can never cover
