@@ -53,6 +53,9 @@ src/app/architecture_designer/data
 src/app/knowledge_base/data
 src/app/knowledge_base/infrastructure/__scratch__/
 graphify-out
+
+# alphaTab worker bundle copied from node_modules at install time (see package.json copy-alphatab script).
+public/alphatab/
 CLAUDE.md
 .claude
 .superpowers

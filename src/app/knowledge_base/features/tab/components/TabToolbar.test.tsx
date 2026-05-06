@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TabToolbar } from "./TabToolbar";
 
@@ -10,8 +10,9 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof TabToolbar>> =
     audioBlocked: false,
     onToggle: vi.fn(),
     onStop: vi.fn(),
-    onSetTempoFactor: vi.fn(),
-    onSetLoop: vi.fn(),
+    looping: false,
+    onSetLooping: vi.fn(),
+    tempoBpm: 120,
     ...overrides,
   };
 }
@@ -51,22 +52,63 @@ describe("TabToolbar", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
-  it("tempo dropdown calls onSetTempoFactor with the chosen factor", async () => {
-    const onSetTempoFactor = vi.fn();
-    render(<TabToolbar {...makeProps({ onSetTempoFactor })} />);
-    const select = screen.getByLabelText(/tempo/i) as HTMLSelectElement;
-    await userEvent.selectOptions(select, "0.75");
-    expect(onSetTempoFactor).toHaveBeenLastCalledWith(0.75);
+  it("tempo input commits BPM via onSetTempoBpm on blur when editable", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "140");
+    // Force a full blur (not user-event tab → would land on the slider that
+    // pops out on focus and the popover-internal blur is treated as "still
+    // editing"). fireEvent.blur with no relatedTarget mirrors the user
+    // clicking outside the toolbar entirely.
+    fireEvent.blur(input);
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(140);
   });
 
-  it("loop checkbox toggles onSetLoop with a range vs null", async () => {
-    const onSetLoop = vi.fn();
-    render(<TabToolbar {...makeProps({ onSetLoop })} />);
-    const checkbox = screen.getByRole("checkbox", { name: /loop/i });
-    await userEvent.click(checkbox);
-    expect(onSetLoop).toHaveBeenLastCalledWith({ start: 0, end: Number.MAX_SAFE_INTEGER });
-    await userEvent.click(checkbox);
-    expect(onSetLoop).toHaveBeenLastCalledWith(null);
+  it("tempo renders as static text (not an input) when onSetTempoBpm is omitted", () => {
+    render(<TabToolbar {...makeProps({ tempoBpm: 100 })} />);
+    // No editable input present.
+    expect(screen.queryByRole("spinbutton", { name: /tempo/i })).toBeNull();
+    // Static span with the BPM value is.
+    expect(screen.getByLabelText(/tempo/i)).toHaveTextContent("100");
+  });
+
+  it("tempo input clamps out-of-range BPM to TEMPO_MAX (400)", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "9999");
+    fireEvent.blur(input);
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(400);
+    expect(input.value).toBe("400");
+  });
+
+  it("tempo input clamps below-minimum BPM to TEMPO_MIN (20)", async () => {
+    const onSetTempoBpm = vi.fn();
+    render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "5");
+    fireEvent.blur(input);
+    expect(onSetTempoBpm).toHaveBeenLastCalledWith(20);
+    expect(input.value).toBe("20");
+  });
+
+  it("loop toggle button flips onSetLooping with the boolean state", async () => {
+    const onSetLooping = vi.fn();
+    // Toggle button (role=switch) — controlled via `looping` prop. Parent
+    // must rerender with the new value between clicks.
+    const { rerender } = render(<TabToolbar {...makeProps({ looping: false, onSetLooping })} />);
+    const toggle = screen.getByRole("switch", { name: /loop/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(toggle);
+    expect(onSetLooping).toHaveBeenLastCalledWith(true);
+    rerender(<TabToolbar {...makeProps({ looping: true, onSetLooping })} />);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(toggle);
+    expect(onSetLooping).toHaveBeenLastCalledWith(false);
   });
 
   it("renders the audio-blocked hint when audioBlocked is true", () => {

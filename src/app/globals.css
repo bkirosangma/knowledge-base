@@ -15,6 +15,7 @@
  *    5. table editing + floating toolbar   → tables.css
  *    6. keyboard-reachable tooltip         → tooltip.css (KB-036)
  *    7. mobile @media                      → mobile.css
+ *    8. alphaTab playback cursor / highlight → alphatab.css
  */
 
 @import "./styles/tokens.css";
@@ -23,6 +24,7 @@
 @import "./styles/tables.css";
 @import "./styles/tooltip.css";
 @import "./styles/mobile.css";
+@import "./styles/alphatab.css";
 
 /* ── Truly-global resets ──────────────────────────────────────────── */
 

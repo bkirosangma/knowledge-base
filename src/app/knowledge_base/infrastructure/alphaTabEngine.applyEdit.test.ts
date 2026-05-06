@@ -41,6 +41,10 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
       currentTime: number;
       endTime: number;
     }>();
+    playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
+    beatMouseDown = new FakeEvent<unknown>();
+    highlightPlaybackRange(_a: unknown, _b: unknown) { /* no-op */ }
+    applyPlaybackRangeFromHighlight() { /* no-op */ }
     tickPosition = 0;
     playbackSpeed = 1;
     playbackRange: { startTick: number; endTick: number } | null = null;
@@ -57,6 +61,9 @@ vi.mock("@coderline/alphatab", async (importOriginal) => {
       }
     }
     renderTracks() {}
+    render() {}
+    loadSoundFontFromUrl(_url: string, _append: boolean) {}
+    loadMidiForScore() {}
     destroy() {}
     play() { return true; }
     pause() {}

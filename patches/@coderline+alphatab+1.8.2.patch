@@ -1,0 +1,152 @@
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
+index 033314e..df1b01b 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.core.mjs
+@@ -35121,7 +35121,13 @@ class AlphaSynthScriptProcessorOutput extends AlphaSynthWebAudioOutputBase {
+         this.source.loop = true;
+         this.source.connect(this._audioNode, 0, 0);
+         this.source.start(0);
+-        this._audioNode.connect(ctx.destination, 0, 0);
++        // PATCHED (knowledge-base): GainNode inline so checkForFinish's
++        // looping branch can dip gain across the wrap to mask the click
++        // from output.resetSamples() wiping the buffered audio.
++        this._audioGainNode = ctx.createGain();
++        this._audioGainNode.gain.value = 1;
++        this._audioNode.connect(this._audioGainNode);
++        this._audioGainNode.connect(ctx.destination, 0, 0);
+     }
+     pause() {
+         super.pause();
+@@ -45804,7 +45810,19 @@ class AlphaSynthBase {
+     updatePlaybackSpeed(value) {
+         const oldSpeed = this.sequencer.playbackSpeed;
+         this.sequencer.playbackSpeed = value;
+-        this.timePosition = this.timePosition * (oldSpeed / value);
++        // PATCHED (knowledge-base): the original
++        // `this.timePosition = this.timePosition * (oldSpeed / value)`
++        // cascades through the timePosition setter to
++        // output.resetSamples() — wipes the audio buffer and
++        // produces an audible click on every speed change. Inline
++        // the position recompute (mainSeek + updateTimePosition) so
++        // position tracking stays in sync, but skip the buffer reset
++        // so audio continues seamlessly at the new speed.
++        {
++            const _newPos = this.timePosition * (oldSpeed / value);
++            this.sequencer.mainSeek(_newPos);
++            this.updateTimePosition(_newPos, true);
++        }
+     }
+     get loadedMidiInfo() {
+         return this._loadedMidiInfo;
+@@ -46140,6 +46158,22 @@ class AlphaSynthBase {
+                 else if (this.isLooping) {
+                     Logger.debug('AlphaSynth', 'Finished playback (main looping)');
+                     this.finished.trigger();
++                    // PATCHED (knowledge-base): mask the click that resetSamples()
++                    // produces when the audio buffer is wiped at wrap. Quick gain
++                    // dip-and-restore covers the discontinuity: ~3ms fade-out (the
++                    // resetSamples happens during this), ~25ms fade-back-in for the
++                    // new loop's first samples.
++                    {
++                        const _g = this.output && this.output._audioGainNode;
++                        const _ctx = this.output && this.output.context;
++                        if (_g && _ctx) {
++                            const _t = _ctx.currentTime;
++                            _g.gain.cancelScheduledValues(_t);
++                            _g.gain.setValueAtTime(_g.gain.value, _t);
++                            _g.gain.linearRampToValueAtTime(0, _t + 0.003);
++                            _g.gain.linearRampToValueAtTime(1, _t + 0.028);
++                        }
++                    }
+                     this.tickPosition = startTick;
+                     this._synthStopping = false;
+                 }
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.js b/node_modules/@coderline/alphatab/dist/alphaTab.js
+index b1ad674..857ef25 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.js
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.js
+@@ -35127,7 +35127,13 @@
+             this.source.loop = true;
+             this.source.connect(this._audioNode, 0, 0);
+             this.source.start(0);
+-            this._audioNode.connect(ctx.destination, 0, 0);
++            // PATCHED (knowledge-base): GainNode inline so checkForFinish's
++            // looping branch can dip gain across the wrap to mask the click
++            // from output.resetSamples() wiping the buffered audio.
++            this._audioGainNode = ctx.createGain();
++            this._audioGainNode.gain.value = 1;
++            this._audioNode.connect(this._audioGainNode);
++            this._audioGainNode.connect(ctx.destination, 0, 0);
+         }
+         pause() {
+             super.pause();
+@@ -45810,7 +45816,19 @@
+         updatePlaybackSpeed(value) {
+             const oldSpeed = this.sequencer.playbackSpeed;
+             this.sequencer.playbackSpeed = value;
+-            this.timePosition = this.timePosition * (oldSpeed / value);
++            // PATCHED (knowledge-base): the original
++            // `this.timePosition = this.timePosition * (oldSpeed / value)`
++            // cascades through the timePosition setter to
++            // output.resetSamples() — wipes the audio buffer and
++            // produces an audible click on every speed change. Inline
++            // the position recompute (mainSeek + updateTimePosition) so
++            // position tracking stays in sync, but skip the buffer reset
++            // so audio continues seamlessly at the new speed.
++            {
++                const _newPos = this.timePosition * (oldSpeed / value);
++                this.sequencer.mainSeek(_newPos);
++                this.updateTimePosition(_newPos, true);
++            }
+         }
+         get loadedMidiInfo() {
+             return this._loadedMidiInfo;
+@@ -46146,6 +46164,22 @@
+                     else if (this.isLooping) {
+                         Logger.debug('AlphaSynth', 'Finished playback (main looping)');
+                         this.finished.trigger();
++                        // PATCHED (knowledge-base): mask the click that resetSamples()
++                        // produces when the audio buffer is wiped at wrap. Quick gain
++                        // dip-and-restore covers the discontinuity: ~3ms fade-out (the
++                        // resetSamples happens during this), ~25ms fade-back-in for the
++                        // new loop's first samples.
++                        {
++                            const _g = this.output && this.output._audioGainNode;
++                            const _ctx = this.output && this.output.context;
++                            if (_g && _ctx) {
++                                const _t = _ctx.currentTime;
++                                _g.gain.cancelScheduledValues(_t);
++                                _g.gain.setValueAtTime(_g.gain.value, _t);
++                                _g.gain.linearRampToValueAtTime(0, _t + 0.003);
++                                _g.gain.linearRampToValueAtTime(1, _t + 0.028);
++                            }
++                        }
+                         this.tickPosition = startTick;
+                         this._synthStopping = false;
+                     }
+diff --git a/node_modules/@coderline/alphatab/dist/alphaTab.mjs b/node_modules/@coderline/alphatab/dist/alphaTab.mjs
+index 85240f9..5444636 100644
+--- a/node_modules/@coderline/alphatab/dist/alphaTab.mjs
++++ b/node_modules/@coderline/alphatab/dist/alphaTab.mjs
+@@ -131,6 +131,21 @@ else {
+         if (alphaTab.Environment.webPlatform === alphaTab.WebPlatform.NodeJs) {
+             throw new alphaTab.AlphaTabError(alphaTab.AlphaTabErrorType.General, 'Audio Worklets not yet supported in Node.js');
+         }
++        // PATCHED (knowledge-base): the upstream loader resolves the
++        // worklet URL from `import.meta.url` (BrowserModule / WebPack /
++        // Vite) or falls back to `settings.core.scriptFile`. Under our
++        // Next.js / Turbopack setup neither path lands on a servable URL —
++        // import.meta.url points at node_modules (not served), and
++        // scriptFile is the FULL bundle (alphaTab.js with DOM access,
++        // unusable in a worklet). Derive the worklet URL from scriptFile
++        // by swapping the filename: `/alphatab/alphaTab.js` →
++        // `/alphatab/alphaTab.worklet.mjs`. Both files are vendored to
++        // `public/alphatab/` by the copy-alphatab npm script.
++        if (settings.core.scriptFile) {
++            const workletUrl = settings.core.scriptFile.replace(/alphaTab(\.min)?\.js$/, 'alphaTab.worklet.mjs');
++            alphaTab.Logger.debug('AlphaTab', 'Creating worklet from derived URL', workletUrl);
++            return context.audioWorklet.addModule(workletUrl);
++        }
+         if (alphaTab.Environment.webPlatform === alphaTab.WebPlatform.BrowserModule ||
+             alphaTab.Environment.isWebPackBundled ||
+             alphaTab.Environment.isViteBundled) {

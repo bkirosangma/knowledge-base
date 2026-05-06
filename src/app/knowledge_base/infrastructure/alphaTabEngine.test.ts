@@ -26,6 +26,10 @@ class FakeApi {
   playerReady = new FakeEvent<void>();
   playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
   playerPositionChanged = new FakeEvent<{ currentTick: number; endTick: number; currentTime: number; endTime: number }>();
+  playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
+  beatMouseDown = new FakeEvent<unknown>();
+  highlightPlaybackRange(_a: unknown, _b: unknown) { /* no-op */ }
+  applyPlaybackRangeFromHighlight() { /* no-op */ }
   settings: {
     player: { enablePlayer: boolean; soundFont: string };
     core: { engine: string; logLevel: number };
@@ -48,6 +52,9 @@ class FakeApi {
     this.scoreLoaded.fire({ title: "Untitled", tempo: 120, tracks: [] });
   }
   renderTracks() { renderTracksMock(); }
+  render() { renderTracksMock(); }
+  loadSoundFontFromUrl(_url: string, _append: boolean) { /* no-op for tests */ }
+  loadMidiForScore() { /* no-op for tests */ }
   destroy() { destroyMock(); }
   play() { playMock(); return true; }
   pause() { pauseMock(); }
@@ -149,12 +156,49 @@ describe("AlphaTabEngine", () => {
     });
     const loaded = vi.fn();
     session.on("loaded", loaded);
+    // Replay-on-subscribe is microtask-deferred; flush before asserting.
+    await Promise.resolve();
+    expect(loaded).toHaveBeenCalledTimes(1);
+    loaded.mockReset();
     await session.load({ kind: "alphatex", text: "\\title \"Riff\"\n." });
     expect(loaded).toHaveBeenCalledTimes(1);
     expect(loaded.mock.calls[0][0]).toMatchObject({
       event: "loaded",
       metadata: expect.objectContaining({ title: "Untitled", tempo: 120 }),
     });
+  });
+
+  it("session.on('loaded') replays the latest metadata to late subscribers", async () => {
+    // Pins the fix for the bug where AlphaTab's `scoreLoaded` fires
+    // synchronously inside `api.tex(...)`, so a listener attached AFTER
+    // `mount()` resolves would otherwise miss the event and the UI stays
+    // in "Loading score…" forever.
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, {
+      initialSource: { kind: "alphatex", text: "\\title \"Hi\"\n." },
+      readOnly: true,
+    });
+    const loaded = vi.fn();
+    session.on("loaded", loaded);
+    // Replay is microtask-deferred so the caller can bind the off() handle
+    // before the handler runs (avoids TDZ inside `load()`'s one-shot listener).
+    await Promise.resolve();
+    expect(loaded).toHaveBeenCalledTimes(1);
+    expect(loaded.mock.calls[0][0]).toMatchObject({
+      event: "loaded",
+      metadata: expect.objectContaining({ title: "Untitled" }),
+    });
+  });
+
+  it("session.on('error') does NOT replay — error is a one-shot signal, not state", async () => {
+    const engine = new AlphaTabEngine();
+    const session = await engine.mount(container, {
+      initialSource: { kind: "alphatex", text: "x" },
+      readOnly: true,
+    });
+    const errorListener = vi.fn();
+    session.on("error", errorListener);
+    expect(errorListener).not.toHaveBeenCalled();
   });
 
   it("session.dispose() calls destroy on the underlying api", async () => {

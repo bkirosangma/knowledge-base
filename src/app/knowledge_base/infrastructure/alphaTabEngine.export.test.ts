@@ -28,6 +28,10 @@ class FakeApi {
   playerReady = new FakeEvent<void>();
   playerStateChanged = new FakeEvent<{ state: number; stopped: boolean }>();
   playerPositionChanged = new FakeEvent<{ currentTick: number; endTick: number; currentTime: number; endTime: number }>();
+  playbackRangeChanged = new FakeEvent<{ playbackRange: { startTick: number; endTick: number } | null }>();
+  beatMouseDown = new FakeEvent<unknown>();
+  highlightPlaybackRange = vi.fn();
+  applyPlaybackRangeFromHighlight = vi.fn();
   settings = { player: { enablePlayer: false, soundFont: "" }, core: { engine: "default", logLevel: 0 } };
   score: unknown = { tracks: [{ index: 0 }, { index: 1 }] };
   tickPosition = 0;
@@ -36,8 +40,11 @@ class FakeApi {
   isLooping = false;
   destroy = vi.fn();
   tex = vi.fn();
+  render = vi.fn();
   renderTracks = vi.fn();
   renderScore = vi.fn();
+  loadSoundFontFromUrl = vi.fn();
+  loadMidiForScore = vi.fn();
   print = printMock;
   exportAudio = exportAudioMock;
   changeTrackMute = vi.fn();

@@ -131,7 +131,15 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
           ) : (
             <>
               <Header metadata={metadata} />
-              <General metadata={metadata} activeTrackIndex={activeTrackIndex} />
+              <General
+                metadata={metadata}
+                activeTrackIndex={activeTrackIndex}
+                onSetScoreTempoBpm={
+                  readOnly || onApplyEdit === undefined
+                    ? undefined
+                    : (bpm) => onApplyEdit({ type: "set-tempo", beat: 0, bpm })
+                }
+              />
               <Tuning metadata={metadata} activeTrackIndex={activeTrackIndex} />
               <Tracks
                 metadata={metadata}
@@ -209,14 +217,28 @@ function Header({ metadata }: { metadata: TabMetadata }): ReactElement {
   );
 }
 
-function General({ metadata, activeTrackIndex }: { metadata: TabMetadata; activeTrackIndex: number }): ReactElement {
+function General({
+  metadata,
+  activeTrackIndex,
+  onSetScoreTempoBpm,
+}: {
+  metadata: TabMetadata;
+  activeTrackIndex: number;
+  onSetScoreTempoBpm?: (bpm: number) => void;
+}): ReactElement {
   const ts = `${metadata.timeSignature.numerator}/${metadata.timeSignature.denominator}`;
   const capo = metadata.tracks[activeTrackIndex]?.capo ?? 0;
   return (
     <section>
       <h3 className="mb-1 text-xs font-medium uppercase text-mute">General</h3>
       <dl className="space-y-1">
-        <Row label="Tempo">{`${metadata.tempo} BPM`}</Row>
+        <Row label="Tempo">
+          {onSetScoreTempoBpm ? (
+            <ScoreTempoInput value={metadata.tempo} onCommit={onSetScoreTempoBpm} />
+          ) : (
+            `${metadata.tempo} BPM`
+          )}
+        </Row>
         {metadata.key && <Row label="Key">{metadata.key}</Row>}
         <Row label="Time">{ts}</Row>
         <Row label="Capo">{`Capo ${capo}`}</Row>
@@ -787,5 +809,62 @@ function Row({ label, children }: { label: string; children: React.ReactNode }):
       <dt className="text-xs text-mute">{label}</dt>
       <dd className="text-xs">{children}</dd>
     </div>
+  );
+}
+
+const SCORE_TEMPO_MIN = 20;
+const SCORE_TEMPO_MAX = 400;
+
+/**
+ * Editable BPM input for the score's authoritative tempo. Commits via
+ * `onCommit(bpm)` on Enter / blur — the parent dispatches a `set-tempo`
+ * TabEditOp which mutates the score, marks the file dirty, and persists
+ * on save. (The toolbar input is a separate, session-only playback-speed
+ * preference; it doesn't go through this path.)
+ */
+function ScoreTempoInput({
+  value,
+  onCommit,
+}: {
+  value: number;
+  onCommit: (bpm: number) => void;
+}): ReactElement {
+  const [draft, setDraft] = useState<string>(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
+  const commit = () => {
+    const parsed = Number.parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed < SCORE_TEMPO_MIN || parsed > SCORE_TEMPO_MAX) {
+      setDraft(String(value));
+      return;
+    }
+    if (parsed === value) return;
+    onCommit(parsed);
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="number"
+        aria-label="Score Tempo (BPM)"
+        min={SCORE_TEMPO_MIN}
+        max={SCORE_TEMPO_MAX}
+        step={1}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commit();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setDraft(String(value));
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-14 rounded border border-line bg-surface px-1 py-0.5 text-right"
+      />
+      <span className="text-mute">BPM</span>
+    </span>
   );
 }

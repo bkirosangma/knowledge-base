@@ -25,17 +25,23 @@ import type {
   Unsubscribe,
 } from "../domain/tabEngine";
 import { encodeWav } from "../domain/wavEncoder";
-import { SOUNDFONT_URL } from "./alphaTabAssets";
+import { FONT_DIRECTORY, getAlphaTabScriptFile, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
-  player: { enablePlayer: boolean; soundFont: string };
-  core: { engine: string; logLevel: number; fontDirectory: string };
+  player: { enablePlayer: boolean; soundFont: string; outputMode: number };
+  core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean; scriptFile: string };
 }
 
 interface AlphaTabApiLike {
   tex(text: string): void;
-  renderTracks(): void;
+  render(): void;
+  renderTracks(tracks: unknown[]): void;
   renderScore(score: unknown, trackIndexes?: number[]): void;
+  loadSoundFontFromUrl(url: string, append: boolean): void;
+  /** Re-generate the playback midi from the current score. Needed after
+   *  mutations that affect playback (tempo, notes) — renderScore alone
+   *  updates only the visual side. */
+  loadMidiForScore(): void;
   destroy(): void;
   play(): boolean;
   pause(): void;
@@ -49,6 +55,9 @@ interface AlphaTabApiLike {
   playerReady: { on(handler: () => void): void };
   playerStateChanged: { on(handler: (args: { state: number; stopped: boolean }) => void): void };
   playerPositionChanged: { on(handler: (args: { currentTick: number; endTick: number; currentTime: number; endTime: number }) => void): void };
+  beatMouseDown: { on(handler: (beat: BeatShape) => void): void };
+  highlightPlaybackRange(startBeat: BeatShape, endBeat: BeatShape): void;
+  applyPlaybackRangeFromHighlight(): void;
   changeTrackMute(tracks: unknown[], mute: boolean): void;
   changeTrackSolo(tracks: unknown[], solo: boolean): void;
   exportAudio(opts: AudioExportOptionsLike): Promise<IAudioExporterLike>;
@@ -119,6 +128,9 @@ interface BeatShape {
   notes: NoteShape[];
   tap?: boolean;
   tremoloSpeed?: number | null;
+  /** Up-pointer used by the double-click-to-select-bar handler to find
+   *  the containing bar (`beat.voice.bar.voices[0].beats`). */
+  voice?: { bar?: BarShape };
   addNote(note: NoteShape): void;
   removeNote(note: NoteShape): void;
 }
@@ -342,6 +354,15 @@ const PLAYER_STATE_PLAYING = 1;
 // TAB-004 and was too noisy in the browser console once playback shipped.
 const LOG_LEVEL_INFO = 2;
 
+// alphaTab PlayerOutputMode.WebAudioScriptProcessor — legacy ScriptProcessorNode
+// audio output, runs on the main audio thread. Used instead of the default
+// WebAudioAudioWorklets because alphaTab's worklet URL auto-detection fails
+// under Next.js/Turbopack chunked bundling (same root cause as `useWorkers=false`).
+const PLAYER_OUTPUT_SCRIPT_PROCESSOR = 1;
+
+// Time window for two beat-mouse-down events to count as a double-click.
+const DOUBLE_CLICK_WINDOW_MS = 300;
+
 export class AlphaTabEngine implements TabEngine {
   async mount(container: HTMLElement, opts: MountOpts): Promise<TabSession> {
     const mod = await import("@coderline/alphatab");
@@ -386,8 +407,21 @@ export class AlphaTabEngine implements TabEngine {
     const settings = new Settings();
     settings.player.enablePlayer = true;
     settings.player.soundFont = SOUNDFONT_URL;
+    // outputMode default = WebAudioAudioWorklets (0). The previous
+    // `ScriptProcessor` override was a workaround for alphaTab failing to
+    // resolve its worklet URL under Turbopack — that's now fixed by the
+    // patched `alphaTab.mjs` which derives the worklet URL from
+    // `core.scriptFile` (see patches/@coderline+alphatab+1.8.2.patch).
     settings.core.logLevel = LOG_LEVEL_INFO;
-    settings.core.fontDirectory = "/font/";
+    settings.core.fontDirectory = FONT_DIRECTORY;
+    // Pin the worker script URL. AlphaTab uses this to spawn both its
+    // renderer worker (when useWorkers=true) and its synthesizer worker
+    // (always, regardless of useWorkers). Auto-detection breaks under
+    // Next.js/Turbopack chunked bundling — the file is copied to
+    // public/alphatab/ at install time (see package.json copy-alphatab).
+    // Absolute URL required: workers spawn from blob:// origins so a
+    // relative path fails inside `importScripts(...)`.
+    settings.core.scriptFile = getAlphaTabScriptFile();
 
     const api = new ApiCtor(container, settings);
     const session = new AlphaTabSession(
@@ -408,7 +442,17 @@ class AlphaTabSession implements TabSession {
   private latestMetadata: TabMetadata | null = null;
   private latestScore: ScoreShape | null = null;
   private playbackState = { mutedTrackIds: [] as string[], soloedTrackIds: [] as string[] };
+  private isPlayingNow = false;
   private disposed = false;
+  /** Tempo baked into the synth's currently-loaded midi. Diverges from the
+   *  score's tempo when the user adjusts BPM mid-playback (we use
+   *  playbackSpeed for live preview, defer the midi regen until stop).
+   *  Initialised on scoreLoaded; updated whenever loadMidiForScore runs. */
+  private midiBakedTempo = 120;
+  /** Last beat-mouse-down timestamp (epoch ms) + the bar that was clicked,
+   *  used to detect double-clicks and select the entire bar. */
+  private lastBeatClickAt = 0;
+  private lastBeatClickedBar: BarShape | null = null;
 
   constructor(
     private api: AlphaTabApiLike,
@@ -439,14 +483,55 @@ class AlphaTabSession implements TabSession {
     api.playerReady.on(() => this.emit({ event: "ready" }));
     api.playerStateChanged.on((args) => {
       if (args.state === PLAYER_STATE_PLAYING) {
+        this.isPlayingNow = true;
         this.emit({ event: "played" });
       } else if (args.state === PLAYER_STATE_PAUSED) {
+        this.isPlayingNow = false;
+        // No deferred sync here. Earlier this branch regenerated the midi
+        // and reset playbackSpeed to 1, which assumed playbackSpeed was
+        // only set by applyEdit's old live-preview path. Now the toolbar
+        // (session tempo) drives playbackSpeed independently, so resetting
+        // it on pause would clobber the user's session preference and the
+        // properties-panel tempo would appear to override the toolbar on
+        // resume. The midi stays in sync with the score's authoritative
+        // tempo because applyEdit's set-tempo branch always regenerates
+        // it inline.
         this.emit({ event: "paused" });
       }
     });
     api.playerPositionChanged.on((args) => {
       this.emit({ event: "tick", beat: args.currentTick });
     });
+    api.beatMouseDown.on((beat) => this.handleBeatMouseDown(beat));
+  }
+
+  private handleBeatMouseDown(beat: BeatShape): void {
+    const bar = beat.voice?.bar;
+    if (!bar) return;
+    const now = Date.now();
+    const isDoubleClick =
+      this.lastBeatClickedBar === bar &&
+      now - this.lastBeatClickAt <= DOUBLE_CLICK_WINDOW_MS;
+    if (isDoubleClick) {
+      // Select the entire bar that was clicked. alphaTab places the
+      // selection markers and applies them as the playbackRange — the
+      // Loop checkbox can then loop over the bar without further drag.
+      const beats = bar.voices?.[0]?.beats ?? [];
+      if (beats.length > 0) {
+        const first = beats[0];
+        const last = beats[beats.length - 1];
+        try {
+          this.api.highlightPlaybackRange(first, last);
+          this.api.applyPlaybackRangeFromHighlight();
+        } catch { /* alphaTab versioning quirks — silently ignore */ }
+      }
+      // Reset so a triple-click doesn't keep re-triggering.
+      this.lastBeatClickAt = 0;
+      this.lastBeatClickedBar = null;
+    } else {
+      this.lastBeatClickAt = now;
+      this.lastBeatClickedBar = bar;
+    }
   }
 
   async load(source: TabSource): Promise<TabMetadata> {
@@ -468,7 +553,7 @@ class AlphaTabSession implements TabSession {
 
   get score(): unknown | null { return this.latestScore; }
 
-  render(): void { this.api.renderTracks(); }
+  render(): void { this.api.render(); }
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -494,6 +579,10 @@ class AlphaTabSession implements TabSession {
     }
     this.api.playbackRange = { startTick: range.start, endTick: range.end };
     this.api.isLooping = true;
+  }
+
+  setLooping(enabled: boolean): void {
+    this.api.isLooping = enabled;
   }
 
   setMute(): void { /* TAB-009 multi-track */ }
@@ -592,6 +681,25 @@ class AlphaTabSession implements TabSession {
       this.listeners.set(event, set);
     }
     set.add(handler);
+    // Replay sticky "loaded" state to late subscribers. AlphaTab fires
+    // `scoreLoaded` synchronously inside `api.tex(...)`, so any listener
+    // attached after `load()` resolves would otherwise miss the event.
+    // The "loaded" event represents a state ("a score is loaded"), not a
+    // one-shot signal, so re-firing for late subscribers is safe.
+    //
+    // Deferred to a microtask so the replay fires after this `on()` call
+    // returns (the caller often binds the unsubscribe via `const off = on(...)`
+    // and references `off` from inside the handler — synchronous replay
+    // would hit a TDZ). The `set.has(handler)` guard skips the replay if a
+    // live emit has since removed the listener (e.g. the load() promise
+    // resolver unsubscribes synchronously in its own handler).
+    if (event === "loaded" && this.latestMetadata !== null) {
+      const cached = this.latestMetadata;
+      const trackedSet = set;
+      queueMicrotask(() => {
+        if (trackedSet.has(handler)) handler({ event: "loaded", metadata: cached });
+      });
+    }
     return () => set!.delete(handler);
   }
 
@@ -604,6 +712,10 @@ class AlphaTabSession implements TabSession {
   private handleScoreLoaded(score: unknown): void {
     this.latestScore = score as ScoreShape;
     this.latestMetadata = scoreToMetadata(score);
+    // Whenever a fresh score is loaded (initial mount, applyEdit's
+    // renderScore for non-tempo ops), the synth re-generates midi from
+    // it — so the baked tempo is the score's current tempo.
+    this.midiBakedTempo = this.latestMetadata.tempo;
     this.emit({ event: "loaded", metadata: this.latestMetadata });
   }
 
@@ -649,12 +761,58 @@ class AlphaTabSession implements TabSession {
         throw new Error(`Unsupported op: ${(op as { type: string }).type}`);
     }
 
-    // Re-derive metadata before renderScore so we can return it synchronously.
-    // renderScore will fire scoreLoaded → handleScoreLoaded → emit("loaded").
-    // No explicit emit here — that would produce a duplicate loaded event.
+    // Re-derive metadata so we can return it synchronously.
     const metadata = scoreToMetadata(this.latestScore);
     this.latestMetadata = metadata;
+
+    // Tempo-only edits don't change notation, just playback timing. The
+    // synth's `loadMidiFile` always calls `stop()` first (alphaTab source
+    // 46074), so any midi regen during playback audibly halts the synth
+    // and restarts it. Use a two-tier strategy:
+    //
+    //   • While playing — the score is already mutated above. Adjust
+    //     `api.playbackSpeed` to compensate for the gap between the
+    //     synth's baked midi tempo and the user's new target. No midi
+    //     regen, no synth pause, no flicker. Visual tempo marker repaints
+    //     via the lightweight `api.render()` (does NOT fire scoreLoaded).
+    //   • While paused / stopped — do the full midi regen now. Nothing's
+    //     playing, so the synth pause is invisible. Reset playbackSpeed
+    //     to 1 since the new midi is now correct on its own.
+    //
+    // The `playerStateChanged → paused` handler also runs the deferred
+    // sync when the user stops playback after a live tempo edit, so the
+    // next play uses the correctly-baked midi.
+    if (op.type === "set-tempo") {
+      // Properties-panel tempo edit: full mutate + render + midi regen.
+      // The toolbar's session-tempo (driven by api.playbackSpeed via the
+      // React layer) handles the live-preview-without-flicker case
+      // separately and stays untouched here. This path is the
+      // authoritative score tempo change that persists to disk.
+      this.api.render();
+      this.api.loadMidiForScore();
+      this.midiBakedTempo = metadata.tempo;
+      this.emit({ event: "loaded", metadata });
+      return metadata;
+    }
+
+    // Other ops change notation/structure → full renderScore. That fires
+    // scoreLoaded → _setupOrDestroyPlayer rebuilds the player, which clears
+    // playbackRange, isLooping, tickPosition, and stops playback. Capture
+    // those before the rebuild and restore after so the user's loop region
+    // and playhead survive any edit.
+    const savedRange = this.api.playbackRange;
+    const savedLooping = this.api.isLooping;
+    const savedTick = this.api.tickPosition;
+    const wasPlaying = this.isPlayingNow;
+
     this.api.renderScore(this.latestScore);
+    this.api.loadMidiForScore();
+
+    this.api.playbackRange = savedRange;
+    this.api.isLooping = savedLooping;
+    this.api.tickPosition = savedTick;
+    if (wasPlaying) this.api.play();
+
     return metadata;
   }
 

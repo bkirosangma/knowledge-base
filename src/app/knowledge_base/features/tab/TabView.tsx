@@ -6,8 +6,10 @@ import { useObservedTheme } from "../../shared/hooks/useObservedTheme";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { TabCanvas } from "./components/TabCanvas";
 import { TabToolbar } from "./components/TabToolbar";
+import PaneHeader from "../../shared/components/PaneHeader";
 import { useTabContent } from "./hooks/useTabContent";
 import { useTabEngine } from "./hooks/useTabEngine";
+import { useSessionTempoBpm } from "./hooks/useSessionTempoBpm";
 import { useTabPlayback } from "./hooks/useTabPlayback";
 import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
@@ -105,7 +107,7 @@ export function TabView({
   withBatch,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
-  const { content, loadError, score: tabScore, setScore: setTabScore } = useTabContent(filePath);
+  const { content, loadError, score: tabScore, setScore: setTabScore, dirty, flush, refresh } = useTabContent(filePath);
   const {
     status,
     error: engineError,
@@ -236,12 +238,37 @@ export function TabView({
   // T25: mute/solo state for multi-track playback.
   const [mutedTrackIds, setMutedTrackIds] = useState<string[]>([]);
   const [soloedTrackIds, setSoloedTrackIds] = useState<string[]>([]);
+  // Loop-checkbox mirror state. Drives the controlled toolbar checkbox so
+  // the visible state matches the session's `isLooping`. Resets on filePath
+  // change because each new mount creates a fresh session with looping off.
+  const [looping, setLooping] = useState(false);
+  // Toolbar tempo: session-level practice preference, persisted per-file
+  // in localStorage (NOT the alphatex file). Until the user explicitly
+  // sets a session tempo for this file, the toolbar tracks the score's
+  // authoritative tempo (returned via `sessionBpm = stored ?? scoreBpm`).
+  // Once set, it sticks across reloads and across properties-panel edits.
+  const { sessionBpm: sessionTempoBpm, setSessionBpm: setSessionTempoBpm } = useSessionTempoBpm(
+    filePath ?? null,
+    metadata?.tempo ?? 120,
+  );
 
   // T25: reset mute/solo state on filePath change (pane reload semantics).
+  // Loop state resets too — same lifecycle as the session.
+  // Session tempo is NOT reset here: it's persisted per-file via
+  // useSessionTempoBpm, which restores from localStorage on filePath change.
   useEffect(() => {
     setMutedTrackIds([]);
     setSoloedTrackIds([]);
+    setLooping(false);
   }, [filePath]);
+
+  // Apply the session-tempo preference to the synth via playbackSpeed.
+  // playbackSpeed is a multiplier on the existing midi — no score mutation,
+  // no midi regen, no flicker, no persistence.
+  useEffect(() => {
+    if (!session || !metadata?.tempo) return;
+    session.setTempoFactor(sessionTempoBpm / metadata.tempo);
+  }, [sessionTempoBpm, session, metadata?.tempo]);
 
   // T25: forward mute/solo state to the engine on every change.
   useEffect(() => {
@@ -368,47 +395,63 @@ export function TabView({
 
   return (
     <div className="flex h-full w-full">
-      <div className="relative flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col">
+        {filePath && (readOnly ?? false) === false && (
+          <PaneHeader
+            filePath={filePath}
+            readOnly={perFileReadOnly}
+            onToggleReadOnly={toggleReadOnly}
+            title={metadata?.title}
+            hasActiveFile
+            isDirty={dirty}
+            onSave={() => { void flush(); }}
+            onDiscard={() => { void refresh(); }}
+          />
+        )}
         <TabToolbar
           playerStatus={playback.playerStatus}
           isAudioReady={isAudioReady}
           audioBlocked={playback.audioBlocked}
           onToggle={playback.toggle}
           onStop={playback.stop}
-          onSetTempoFactor={playback.setTempoFactor}
-          onSetLoop={playback.setLoop}
-          paneReadOnly={readOnly ?? false}
-          perFileReadOnly={perFileReadOnly}
-          onToggleReadOnly={toggleReadOnly}
+          looping={looping}
+          onSetLooping={(enabled) => { setLooping(enabled); playback.setLooping(enabled); }}
+          tempoBpm={sessionTempoBpm}
+          onSetTempoBpm={setSessionTempoBpm}
         />
-        {status === "mounting" && (
-          <div
-            data-testid="tab-view-loading"
-            className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
-          >
-            Loading score…
-          </div>
-        )}
-        <TabCanvas ref={canvasRef} />
-        {!effectiveReadOnly && filePath && (
-          <TypedLazyTabEditor
-            filePath={filePath}
-            session={session}
-            score={liveScore}
-            metadata={metadata}
-            onScoreChange={setTabScore}
-            cursor={cursor}
-            setCursor={setCursor}
-            clearCursor={clearCursor}
-            moveBeat={moveBeat}
-            moveString={moveString}
-            moveBar={moveBar}
-            nextTrack={nextTrack}
-            prevTrack={prevTrack}
-            registerApply={(fn) => { editorApplyRef.current = fn; }}
-            onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
-          />
-        )}
+        {/* Inner relative wrapper — the editor's `absolute inset-0` overlay
+            is scoped to this region (canvas only), so it can never cover
+            the PaneHeader or TabToolbar above. */}
+        <div className="relative flex flex-1 flex-col">
+          {status === "mounting" && (
+            <div
+              data-testid="tab-view-loading"
+              className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
+            >
+              Loading score…
+            </div>
+          )}
+          <TabCanvas ref={canvasRef} />
+          {!effectiveReadOnly && filePath && (
+            <TypedLazyTabEditor
+              filePath={filePath}
+              session={session}
+              score={liveScore}
+              metadata={metadata}
+              onScoreChange={setTabScore}
+              cursor={cursor}
+              setCursor={setCursor}
+              clearCursor={clearCursor}
+              moveBeat={moveBeat}
+              moveString={moveString}
+              moveBar={moveBar}
+              nextTrack={nextTrack}
+              prevTrack={prevTrack}
+              registerApply={(fn) => { editorApplyRef.current = fn; }}
+              onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
+            />
+          )}
+        </div>
       </div>
       <TabProperties
         metadata={metadata}

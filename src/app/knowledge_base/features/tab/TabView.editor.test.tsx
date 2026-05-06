@@ -73,6 +73,7 @@ vi.mock("./hooks/useTabPlayback", () => ({
     seek: vi.fn(),
     setTempoFactor: vi.fn(),
     setLoop: vi.fn(),
+    setLooping: vi.fn(),
     audioBlocked: false,
     currentTick: 0,
     playerStatus: "paused" as const,
@@ -163,8 +164,9 @@ describe("TabView editor chunk gate", () => {
     // perFileReadOnly defaults to true so editor is initially hidden
     await waitFor(() => {});
     expect(screen.queryByTestId("tab-editor")).toBeNull();
-    // Click the Edit toggle — TabView's single useTabEditMode toggles effectiveReadOnly
-    fireEvent.click(screen.getByRole("button", { name: /edit tab/i }));
+    // Click the Edit toggle — PaneHeader's "Exit Read Mode" button toggles
+    // perFileReadOnly via TabView's useTabEditMode.
+    fireEvent.click(screen.getByRole("button", { name: /exit read mode/i }));
     expect(await screen.findByTestId("tab-editor")).toBeInTheDocument();
   });
 
