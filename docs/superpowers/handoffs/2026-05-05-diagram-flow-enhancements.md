@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (after MVP 1 implementation complete; PR pending — see Task 17).
+**Last updated:** 2026-05-06 (after MVP 1 merged via PR #127; starting MVP 2 on `feat/diagram-mvp2-cross-entity-attachment`).
 
 ---
 
@@ -62,14 +62,14 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 ### Plans (5 MVPs)
 | MVP | Plan file | Status |
 |---|---|---|
-| **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Implemented (PR #TBD — see Task 17). All 17 tasks complete. |
+| **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
 | **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
 | **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) complete.** All 17 tasks shipped on branch `feat/diagram-mvp1-flow-ordering`. PR pending (Task 17). Next: **MVP 2 (Cross-Entity Attachment)**.
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). Now starting **MVP 2 (Cross-Entity Attachment)** on branch `feat/diagram-mvp2-cross-entity-attachment`.
 
 ---
 
@@ -179,12 +179,12 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Implement MVP 2: Cross-Entity Attachment.**
+**Implement MVP 2: Cross-Entity Attachment** — execution in progress on `feat/diagram-mvp2-cross-entity-attachment` (branched off `main` at `2ff16da`).
 
-1. Merge MVP 1 PR first (if not yet merged — check `gh pr list --state open`). If the PR is still open, wait or stack MVP 2 on a separate branch off `main` (they are independent).
+1. ~~Merge MVP 1 PR first.~~ Done — PR #127 merged.
 2. Read `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` end-to-end (12 tasks).
 3. Re-read **Spec key decisions** §6 above: attachment is reciprocal/unified across `document/diagram/svg/tab` → `node/connection/flow`. Single `<AttachmentIndicator>`, single `<AttachmentPreviewModal>`.
-4. Branch off `main`: `git checkout -b feat/diagram-mvp2-cross-entity-attachment`.
+4. ~~Branch off `main`.~~ Done — `feat/diagram-mvp2-cross-entity-attachment`.
 5. Use `superpowers:subagent-driven-development` to execute task-by-task. Each plan task has its own commit.
 6. After the final task, open the PR per the instructions in that plan's last task.
 7. **After the PR merges, update this doc** per the Doc-update protocol — flip MVP 2 to ✅ and rewrite Next Action to "Implement MVP 3, 4 in parallel (or sequentially)".
