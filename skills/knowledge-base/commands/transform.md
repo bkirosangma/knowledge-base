@@ -49,3 +49,14 @@ cd "<vault-root>" && graphify . --update 2>/dev/null || true
 ```
 
 Skip silently on failure.
+
+### Idempotence on optional fields
+
+`/kb transform` does NOT auto-populate any of:
+- `flows[].nodeOrders`, `flows[].startNodeIds`, `flows[].endNodeIds`
+- top-level `sources`, per-entity `sources`
+- `attachedTo`
+
+These are author-discretion fields. Re-running `transform` against an already-transformed file leaves them untouched.
+
+`--add-conventions` in interactive mode (`-i`) MAY prompt the user to add `sources` if the file lacks them; it never adds without user consent.

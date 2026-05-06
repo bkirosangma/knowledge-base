@@ -4,6 +4,8 @@ description: >
   Unified skill for managing knowledge-base vaults. Sub-commands: init (set up a vault),
   diagram (generate a diagram on any topic), document (generate a standalone document),
   create (generate both a document and diagram, linked together),
+  svg (generate a music SVG visualization using kb_svg.py),
+  guitar-tabs (generate a playable guitar tab on any song or riff as alphaTex),
   edit (modify an existing diagram JSON — enforces placement constraints),
   validate (check / auto-fix a diagram JSON against the app schema),
   transform (bring an existing .md or .json file into skill-format conformance without changing content).
@@ -12,10 +14,14 @@ description: >
   "initialize vault", "set up vault", "create about X", "diagram of X",
   "validate diagram", "fix diagram json", "check diagram",
   "edit diagram", "update diagram", "add to diagram", "modify diagram",
-  "transform file", "fix format", "bring into conformance", "normalize vault files".
-argument-hint: <sub-command> [args] — sub-commands: init, diagram, document, create, edit, validate, transform
+  "guitar tab", "guitar tabs", "guitar tab of X", "tab for X", "alphatex",
+  "tablature", "fingerpicking pattern for X", "riff for X",
+  "transform file", "fix format", "bring into conformance", "normalize vault files",
+  "svg", "music svg", "staff notation", "fretboard diagram", "circle of fifths",
+  "raga clock", "maqam jins", "chord box", "gamelan cipher", "tala wheel".
+argument-hint: <sub-command> [args] — sub-commands: init, diagram, document, create, svg, guitar-tabs, edit, validate, transform
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Agent, WebSearch, WebFetch]
-version: 1.0.0
+version: 1.2.0
 ---
 
 # Knowledge Base
@@ -29,13 +35,15 @@ Unified skill for managing knowledge-base vaults — structured collections of d
 /knowledge-base diagram <topic>          — Generate a diagram on <topic>
 /knowledge-base document <topic> [-i]    — Generate a standalone document on <topic>
 /knowledge-base create <topic> [-i]      — Generate both a document and diagram, linked together
+/knowledge-base svg <topic>              — Generate a music SVG visualization (staff, fretboard, etc.)
+/knowledge-base guitar-tabs <topic> [-i] — Generate a playable guitar tab (.alphatex) on <topic>
 /knowledge-base edit <path> [change]     — Edit an existing diagram (enforces all placement rules)
 /knowledge-base validate <path> [--fix]  — Validate (and optionally auto-fix) a diagram JSON file
 /knowledge-base transform <path> [--dry-run] [--add-conventions]  — Conform an existing file to skill format
 ```
 
 Options:
-- `-i`, `--interactive` — Enter interactive mode: ask clarifying questions before generating content (available for `document` and `create`)
+- `-i`, `--interactive` — Enter interactive mode: ask clarifying questions before generating content (available for `document`, `create`, and `guitar-tabs`)
 - `--fix` — After validation, write the corrected JSON back to disk (a timestamped backup of the original is kept). Without this flag `validate` is read-only. (Available for `validate`.)
 - `--dry-run` — Show what would change without writing any file. (Available for `transform`.)
 - `--add-conventions` — Also add missing structural elements like Visual overview links and Related sections. (Available for `transform`.)
@@ -47,6 +55,11 @@ Examples:
 /knowledge-base document "Event sourcing patterns" -i
 /knowledge-base create "Microservices authentication flow"
 /kb create "GraphQL federation architecture" -i
+/kb svg "Raga Yaman clock"
+/kb svg "Jins Hijaz on D"
+/kb svg "Dm7 chord box"
+/kb guitar-tabs "Hotel California intro fingerpicking"
+/knowledge-base guitar-tabs "G major pentatonic warm-up riff" -i
 /knowledge-base validate ./auth-flow.json
 /kb validate ./broken-diagram.json --fix
 /knowledge-base transform ./react-next/nextjs-configuration/nextjs-configuration.md
@@ -73,6 +86,8 @@ Parse the user's argument string to determine the sub-command, then dispatch to 
 | `diagram`           | Read `~/.claude/skills/knowledge-base/commands/diagram.md` and execute it. Pass remaining args as **topic**. |
 | `document`          | Read `~/.claude/skills/knowledge-base/commands/document.md` and execute it. Pass remaining args as **topic**. Pass `interactive` flag. |
 | `create`            | Read `~/.claude/skills/knowledge-base/commands/create.md` and execute it. Pass remaining args as **topic**. Pass `interactive` flag. |
+| `svg`               | Read `~/.claude/skills/knowledge-base/commands/svg.md` and execute it. Pass remaining args as **topic**. |
+| `guitar-tabs`       | Read `~/.claude/skills/knowledge-base/commands/guitar-tabs.md` and execute it. Pass remaining args as **topic** (song / riff / pattern name). Pass `interactive` flag. Output is an `.alphatex` file. Aliases recognised at parse time: `guitar-tab`, `tabs`, `tab`. |
 | `edit`              | Read `~/.claude/skills/knowledge-base/commands/edit.md` and execute it. Pass remaining args as **path** (the diagram file) followed by an optional description of the change. |
 | `validate`          | Read `~/.claude/skills/knowledge-base/commands/validate.md` and execute it. Pass remaining args as **path** (a file or glob). Pass a `fix` flag when `--fix` appears in the args (strip the flag before passing the path). |
 | `transform`         | Read `~/.claude/skills/knowledge-base/commands/transform.md` and execute it. Pass remaining args as **path** (a file or glob). Pass `dryRun = true` when `--dry-run` appears; pass `addConventions = true` when `--add-conventions` appears. Strip both flags before passing the path. |
