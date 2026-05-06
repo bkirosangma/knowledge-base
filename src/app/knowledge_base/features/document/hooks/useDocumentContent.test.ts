@@ -460,3 +460,91 @@ describe('useDocumentContent — loadedPath field', () => {
     await waitFor(() => expect(result.current.loadedPath).toBe('b.md'))
   })
 })
+
+// MVP-4a — sources round-trip through YAML frontmatter. The editor sees only
+// body markdown; `sources` and `rawYaml` are exposed alongside.
+describe('useDocumentContent — sources frontmatter', () => {
+  it('parses sources off load and exposes body without frontmatter', async () => {
+    const text =
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://example.com'\n" +
+      "    title: 'Example'\n" +
+      '---\n' +
+      '# Body'
+    await seedFile(root, 'a.md', text)
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.loadedPath).toBe('a.md'))
+    expect(result.current.content).toBe('# Body')
+    expect(result.current.sources).toEqual([
+      { url: 'https://example.com', title: 'Example' },
+    ])
+    expect(result.current.rawYaml).toBe('')
+  })
+
+  it('updateSources flips dirty and save serializes frontmatter to disk', async () => {
+    await seedFile(root, 'a.md', '# Body')
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.content).toBe('# Body'))
+    expect(result.current.sources).toBeUndefined()
+
+    act(() => {
+      result.current.updateSources([{ url: 'https://x.com', title: 'X' }])
+    })
+    expect(result.current.dirty).toBe(true)
+
+    await act(async () => { await result.current.save() })
+    const written = root.files.get('a.md')!.file.data
+    expect(written).toBe(
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://x.com'\n" +
+      "    title: 'X'\n" +
+      '---\n' +
+      '# Body',
+    )
+    expect(result.current.dirty).toBe(false)
+  })
+
+  it('clearing sources via updateSources([]) writes a body-only file', async () => {
+    const text =
+      '---\n' +
+      'sources:\n' +
+      "  - url: 'https://x.com'\n" +
+      '---\n' +
+      '# Body'
+    await seedFile(root, 'a.md', text)
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.sources).toEqual([{ url: 'https://x.com' }]))
+
+    act(() => { result.current.updateSources([]) })
+    await act(async () => { await result.current.save() })
+    expect(root.files.get('a.md')!.file.data).toBe('# Body')
+  })
+
+  it('preserves unknown frontmatter keys through a sources edit', async () => {
+    const text =
+      '---\n' +
+      'tags: foo\n' +
+      'sources:\n' +
+      "  - url: 'https://a.com'\n" +
+      '---\n' +
+      '# Body'
+    await seedFile(root, 'a.md', text)
+    const { result } = renderDocContent('a.md')
+    await waitFor(() => expect(result.current.rawYaml).toBe('tags: foo'))
+
+    act(() => {
+      result.current.updateSources([{ url: 'https://b.com' }])
+    })
+    await act(async () => { await result.current.save() })
+    expect(root.files.get('a.md')!.file.data).toBe(
+      '---\n' +
+      'tags: foo\n' +
+      'sources:\n' +
+      "  - url: 'https://b.com'\n" +
+      '---\n' +
+      '# Body',
+    )
+  })
+})
