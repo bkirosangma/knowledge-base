@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TabToolbar } from "./TabToolbar";
 
@@ -55,10 +55,14 @@ describe("TabToolbar", () => {
   it("tempo input commits BPM via onSetTempoBpm on blur when editable", async () => {
     const onSetTempoBpm = vi.fn();
     render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
-    const input = screen.getByLabelText(/tempo/i) as HTMLInputElement;
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
     await userEvent.clear(input);
     await userEvent.type(input, "140");
-    await userEvent.tab();
+    // Force a full blur (not user-event tab → would land on the slider that
+    // pops out on focus and the popover-internal blur is treated as "still
+    // editing"). fireEvent.blur with no relatedTarget mirrors the user
+    // clicking outside the toolbar entirely.
+    fireEvent.blur(input);
     expect(onSetTempoBpm).toHaveBeenLastCalledWith(140);
   });
 
@@ -73,25 +77,26 @@ describe("TabToolbar", () => {
   it("tempo input rejects out-of-range BPM by snapping back to current value", async () => {
     const onSetTempoBpm = vi.fn();
     render(<TabToolbar {...makeProps({ tempoBpm: 100, onSetTempoBpm })} />);
-    const input = screen.getByLabelText(/tempo/i) as HTMLInputElement;
+    const input = screen.getByLabelText("Tempo (BPM)") as HTMLInputElement;
     await userEvent.clear(input);
     await userEvent.type(input, "9999");
-    await userEvent.tab();
+    fireEvent.blur(input);
     expect(onSetTempoBpm).not.toHaveBeenCalled();
     expect(input.value).toBe("100");
   });
 
-  it("loop checkbox toggles onSetLooping with the boolean state", async () => {
+  it("loop toggle button flips onSetLooping with the boolean state", async () => {
     const onSetLooping = vi.fn();
-    // The checkbox is controlled — `looping` drives `checked`, so the
-    // parent must rerender with the new value between clicks for the next
-    // click to fire the opposite state.
+    // Toggle button (role=switch) — controlled via `looping` prop. Parent
+    // must rerender with the new value between clicks.
     const { rerender } = render(<TabToolbar {...makeProps({ looping: false, onSetLooping })} />);
-    const checkbox = screen.getByRole("checkbox", { name: /loop/i });
-    await userEvent.click(checkbox);
+    const toggle = screen.getByRole("switch", { name: /loop/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(toggle);
     expect(onSetLooping).toHaveBeenLastCalledWith(true);
     rerender(<TabToolbar {...makeProps({ looping: true, onSetLooping })} />);
-    await userEvent.click(checkbox);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(toggle);
     expect(onSetLooping).toHaveBeenLastCalledWith(false);
   });
 
