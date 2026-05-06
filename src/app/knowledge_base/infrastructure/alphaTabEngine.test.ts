@@ -48,6 +48,8 @@ class FakeApi {
     this.scoreLoaded.fire({ title: "Untitled", tempo: 120, tracks: [] });
   }
   renderTracks() { renderTracksMock(); }
+  render() { renderTracksMock(); }
+  loadSoundFontFromUrl(_url: string, _append: boolean) { /* no-op for tests */ }
   destroy() { destroyMock(); }
   play() { playMock(); return true; }
   pause() { pauseMock(); }

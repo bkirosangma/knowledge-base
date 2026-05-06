@@ -369,7 +369,7 @@ export function TabView({
 
   return (
     <div className="flex h-full w-full">
-      <div className="relative flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col">
         {filePath && (readOnly ?? false) === false && (
           <PaneHeader
             filePath={filePath}
@@ -388,34 +388,39 @@ export function TabView({
           onSetTempoFactor={playback.setTempoFactor}
           onSetLoop={playback.setLoop}
         />
-        {status === "mounting" && (
-          <div
-            data-testid="tab-view-loading"
-            className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
-          >
-            Loading score…
-          </div>
-        )}
-        <TabCanvas ref={canvasRef} />
-        {!effectiveReadOnly && filePath && (
-          <TypedLazyTabEditor
-            filePath={filePath}
-            session={session}
-            score={liveScore}
-            metadata={metadata}
-            onScoreChange={setTabScore}
-            cursor={cursor}
-            setCursor={setCursor}
-            clearCursor={clearCursor}
-            moveBeat={moveBeat}
-            moveString={moveString}
-            moveBar={moveBar}
-            nextTrack={nextTrack}
-            prevTrack={prevTrack}
-            registerApply={(fn) => { editorApplyRef.current = fn; }}
-            onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
-          />
-        )}
+        {/* Inner relative wrapper — the editor's `absolute inset-0` overlay
+            is scoped to this region (canvas only), so it can never cover
+            the PaneHeader or TabToolbar above. */}
+        <div className="relative flex flex-1 flex-col">
+          {status === "mounting" && (
+            <div
+              data-testid="tab-view-loading"
+              className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-mute"
+            >
+              Loading score…
+            </div>
+          )}
+          <TabCanvas ref={canvasRef} />
+          {!effectiveReadOnly && filePath && (
+            <TypedLazyTabEditor
+              filePath={filePath}
+              session={session}
+              score={liveScore}
+              metadata={metadata}
+              onScoreChange={setTabScore}
+              cursor={cursor}
+              setCursor={setCursor}
+              clearCursor={clearCursor}
+              moveBeat={moveBeat}
+              moveString={moveString}
+              moveBar={moveBar}
+              nextTrack={nextTrack}
+              prevTrack={prevTrack}
+              registerApply={(fn) => { editorApplyRef.current = fn; }}
+              onApplyEdit={(op) => { void updateSidecarOnEdit(op); }}
+            />
+          )}
+        </div>
       </div>
       <TabProperties
         metadata={metadata}

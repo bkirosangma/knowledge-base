@@ -36,8 +36,10 @@ class FakeApi {
   isLooping = false;
   destroy = vi.fn();
   tex = vi.fn();
+  render = vi.fn();
   renderTracks = vi.fn();
   renderScore = vi.fn();
+  loadSoundFontFromUrl = vi.fn();
   print = printMock;
   exportAudio = exportAudioMock;
   changeTrackMute = vi.fn();

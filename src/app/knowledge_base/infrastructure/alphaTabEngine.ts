@@ -37,6 +37,7 @@ interface AlphaTabApiLike {
   render(): void;
   renderTracks(tracks: unknown[]): void;
   renderScore(score: unknown, trackIndexes?: number[]): void;
+  loadSoundFontFromUrl(url: string, append: boolean): void;
   destroy(): void;
   play(): boolean;
   pause(): void;
@@ -403,6 +404,11 @@ export class AlphaTabEngine implements TabEngine {
     settings.core.useWorkers = false;
 
     const api = new ApiCtor(container, settings);
+    // Explicitly load the SoundFont. With `core.useWorkers = false`, alphaTab
+    // does not auto-fetch the file referenced by `player.soundFont` — without
+    // this call the player initializes (playerReady fires) but no synth
+    // engine is wired up, so api.play() is a silent no-op.
+    api.loadSoundFontFromUrl(SOUNDFONT_URL, false);
     const session = new AlphaTabSession(
       api,
       NoteCtor,
