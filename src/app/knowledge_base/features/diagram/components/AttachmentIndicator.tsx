@@ -57,7 +57,7 @@ export function AttachmentIndicator({
       }}
       onMouseDown={(e) => e.stopPropagation()}
       style={{ left: position.x, top: position.y, borderColor: color }}
-      className="absolute flex items-center gap-0.5 px-1.5 py-0.5 bg-surface-1 border rounded-full shadow-sm hover:bg-surface-2"
+      className="absolute z-20 flex items-center gap-0.5 px-1.5 py-0.5 bg-surface border rounded-full shadow-sm hover:bg-surface-2"
       aria-label={ariaLabel}
     >
       {populated.map((kind) => {
