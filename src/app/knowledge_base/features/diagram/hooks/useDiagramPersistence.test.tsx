@@ -42,6 +42,7 @@ function callHook(initial: Args) {
         a.layerManualSizes,
         a.lineCurve,
         a.flows,
+        [],
         a.activeFile,
       ),
     { wrapper, initialProps: initial },

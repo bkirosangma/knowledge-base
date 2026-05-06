@@ -7,6 +7,8 @@ import { AttachmentsSection } from "./AttachmentsSection";
 import { CreateAttachEntityModal } from "../components/CreateAttachEntityModal";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import DetachDocModal from "../components/DetachDocModal";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 export function FlowProperties({
   id, flows, connections, nodes,
@@ -30,6 +32,7 @@ export function FlowProperties({
     nodeOrders: Record<string, number>;
     startNodeIds: string[];
     endNodeIds: string[];
+    sources: SourceLink[];
   }>) => void;
   onDelete?: (id: string) => void;
   onSelectLine?: (lineId: string) => void;
@@ -294,6 +297,14 @@ export function FlowProperties({
           readOnly={readOnly}
         />
       )}
+
+      <Section title="Sources">
+        <SourcesSection
+          sources={flow.sources ?? []}
+          readOnly={readOnly}
+          onChange={(next) => onUpdate?.(id, { sources: next })}
+        />
+      </Section>
 
       {!readOnly && (
         <Section title="Danger">

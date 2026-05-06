@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { loadDefaults, type loadDiagramFromData } from "../../../shared/utils/persistence";
+import type { SourceLink } from "../../../shared/types/sources";
 import type {
   Connection,
   FlowDef,
@@ -26,6 +27,7 @@ export interface DiagramDoc {
   connections: Connection[];
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  sources: SourceLink[];
 }
 
 type Updater<T> = T | ((prev: T) => T);
@@ -37,6 +39,7 @@ export interface DiagramDocDispatch {
   setConnections: (next: Updater<Connection[]>) => void;
   setLineCurve: (next: Updater<LineCurveAlgorithm>) => void;
   setFlows: (next: Updater<FlowDef[]>) => void;
+  setSources: (next: Updater<SourceLink[]>) => void;
   /** Replace every doc field at once from a freshly loaded diagram. */
   loadDoc: (loaded: ReturnType<typeof loadDiagramFromData>) => void;
 }
@@ -67,6 +70,7 @@ export function useDiagramDocument() {
   const [connections, setConnections] = useState<Connection[]>(defaults.current.connections);
   const [lineCurve, setLineCurve] = useState<LineCurveAlgorithm>(defaults.current.lineCurve);
   const [flows, setFlows] = useState<FlowDef[]>(defaults.current.flows);
+  const [sources, setSources] = useState<SourceLink[]>(defaults.current.sources);
 
   // Measured DOM sizes are document-adjacent (cleared on load) but not
   // part of the canonical doc.
@@ -79,16 +83,17 @@ export function useDiagramDocument() {
     setConnections(loaded.connections);
     setLineCurve(loaded.lineCurve);
     setFlows(loaded.flows);
+    setSources(loaded.sources ?? []);
   }, []);
 
   const dispatch = useMemo<DiagramDocDispatch>(
-    () => ({ setTitle, setLayers, setNodes, setConnections, setLineCurve, setFlows, loadDoc }),
+    () => ({ setTitle, setLayers, setNodes, setConnections, setLineCurve, setFlows, setSources, loadDoc }),
     [loadDoc],
   );
 
   const doc = useMemo<DiagramDoc>(
-    () => ({ title, layers, nodes, connections, lineCurve, flows }),
-    [title, layers, nodes, connections, lineCurve, flows],
+    () => ({ title, layers, nodes, connections, lineCurve, flows, sources }),
+    [title, layers, nodes, connections, lineCurve, flows, sources],
   );
 
   return { doc, dispatch, defaults: defaults.current, measuredSizes, setMeasuredSizes };

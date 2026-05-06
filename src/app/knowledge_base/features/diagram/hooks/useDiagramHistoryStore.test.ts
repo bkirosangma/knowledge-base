@@ -35,6 +35,7 @@ function makeDoc(overrides: Partial<DiagramDoc> = {}): DiagramDoc {
     connections: [],
     lineCurve: "bezier",
     flows: [],
+    sources: [],
     ...overrides,
   };
 }
@@ -48,6 +49,7 @@ function makeDispatch(): DiagramDocDispatch {
     setConnections: vi.fn(),
     setLineCurve: vi.fn(),
     setFlows: vi.fn(),
+    setSources: vi.fn(),
   };
 }
 

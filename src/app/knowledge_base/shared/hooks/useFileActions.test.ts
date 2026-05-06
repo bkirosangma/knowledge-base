@@ -116,7 +116,7 @@ function setup(opts: SetupOpts = {}) {
       opts.confirmAction ?? null,
       setConfirmAction,
       canvasRef,
-      'title', [], [], [], {}, 'orthogonal', [],
+      'title', [], [], [], {}, 'orthogonal', [], [],
     )
   })
 
@@ -458,7 +458,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         null,
         vi.fn(),
         canvasRef,
-        'title', [], [], [], {}, 'orthogonal', [],
+        'title', [], [], [], {}, 'orthogonal', [], [],
         onMigrateLegacyDocuments,
       )
     })
@@ -523,7 +523,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         null,
         vi.fn(),
         canvasRef,
-        'title', [], [], [], {}, 'orthogonal', [],
+        'title', [], [], [], {}, 'orthogonal', [], [],
         onMigrateLegacyDocuments,
       )
     })
@@ -575,7 +575,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
         null,
         vi.fn(),
         canvasRef,
-        'title', [], [], [], {}, 'orthogonal', [],
+        'title', [], [], [], {}, 'orthogonal', [], [],
         onMigrateLegacyDocuments,
       )
     })

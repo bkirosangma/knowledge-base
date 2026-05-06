@@ -73,6 +73,7 @@ export function loadDiagram(): {
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  sources: SourceLink[];
 } {
   if (typeof window !== "undefined") {
     try {
@@ -87,6 +88,7 @@ export function loadDiagram(): {
           layerManualSizes: data.layerManualSizes ?? {},
           lineCurve: data.lineCurve ?? "orthogonal",
           flows: data.flows ?? [],
+          sources: data.sources ?? [],
         };
       }
     } catch {
@@ -140,6 +142,7 @@ export function loadDefaults(): {
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>;
   lineCurve: LineCurveAlgorithm;
   flows: FlowDef[];
+  sources: SourceLink[];
 } {
   return {
     title: "Untitled",
@@ -149,6 +152,7 @@ export function loadDefaults(): {
     layerManualSizes: {},
     lineCurve: "orthogonal",
     flows: [],
+    sources: [],
   };
 }
 
@@ -160,6 +164,7 @@ export function saveDiagram(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[] = [],
+  sources: SourceLink[] | undefined = undefined,
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -170,6 +175,7 @@ export function saveDiagram(
     layerManualSizes,
     lineCurve,
     flows,
+    ...(sources && sources.length > 0 ? { sources } : {}),
   };
   try {
     localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(data));
@@ -200,6 +206,7 @@ export function saveDraft(
   layerManualSizes: Record<string, { left?: number; width?: number; top?: number; height?: number }>,
   lineCurve: LineCurveAlgorithm,
   flows: FlowDef[] = [],
+  sources: SourceLink[] | undefined = undefined,
 ): void {
   if (typeof window === "undefined") return;
   const data: DiagramData = {
@@ -210,6 +217,7 @@ export function saveDraft(
     layerManualSizes,
     lineCurve,
     flows,
+    ...(sources && sources.length > 0 ? { sources } : {}),
   };
   try {
     localStorage.setItem(scopedKey(DRAFT_PREFIX) + fileName, JSON.stringify(data));

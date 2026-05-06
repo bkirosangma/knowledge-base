@@ -9,6 +9,7 @@ import type { AttachmentLink } from "../../../domain/attachmentLinks";
 import type { CanvasPatch } from "../components/Canvas";
 import type { DiagramDoc, DiagramDocDispatch, LayerManualSize } from "./useDiagramDocument";
 import type { Selection } from "../types";
+import type { SourceLink } from "../../../shared/types/sources";
 
 const DEFAULT_PATCHES: CanvasPatch[] = [{ id: "main", col: 0, row: 0, widthUnits: 1, heightUnits: 1 }];
 
@@ -42,6 +43,7 @@ interface UseDiagramHistoryStoreInput {
     layerManualSizes: Record<string, LayerManualSize>,
     lineCurve: DiagramDoc["lineCurve"],
     flows: DiagramDoc["flows"],
+    sources?: SourceLink[],
   ) => void;
 }
 
@@ -109,6 +111,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
         layerManualSizes,
         lineCurve: doc.lineCurve,
         flows: doc.flows,
+        sources: doc.sources,
         attachmentSubset,
       });
     }
@@ -131,6 +134,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
           src.layerManualSizes,
           src.lineCurve,
           src.flows,
+          src.sources,
         );
       }
     },
@@ -149,6 +153,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
         layerManualSizes: snapshot.layerManualSizes,
         lineCurve: snapshot.lineCurve,
         flows: snapshot.flows,
+        sources: snapshot.sources,
       });
       applyDiagramToState(diagram);
       if (snapshot.attachmentSubset !== undefined) {
@@ -176,6 +181,7 @@ export function useDiagramHistoryStore(input: UseDiagramHistoryStoreInput) {
         layerManualSizes: snapshot.layerManualSizes,
         lineCurve: snapshot.lineCurve,
         flows: snapshot.flows,
+        sources: snapshot.sources,
       });
       applyDiagramToState(diagram, { setSnapshot: true });
       if (snapshot.attachmentSubset !== undefined) {

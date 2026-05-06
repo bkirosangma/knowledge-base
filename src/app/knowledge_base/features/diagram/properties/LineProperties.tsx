@@ -5,6 +5,8 @@ import type { AttachmentBuckets, EntityAttachmentTarget } from "../../document/t
 import { Section, Row, EditableRow, EditableIdRow, ColorRow, ColorSchemeRow, ExpandableListRow } from "./shared";
 import DocumentsSection from "./DocumentsSection";
 import { AttachmentsSection } from "./AttachmentsSection";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 function DurationRow({ value, defaultValue, onChange, readOnly }: { value: number; defaultValue: number; onChange: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
@@ -59,7 +61,7 @@ export function LineProperties({
   attachmentsByType, openAttachmentPreviewFor, onOpenDocPicker, onDetachDocument,
 }: {
   id: string; connections: Connection[]; nodes: NodeData[];
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous'; sources: SourceLink[] }>) => void;
   allConnectionIds: string[];
   flows?: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
@@ -195,6 +197,14 @@ export function LineProperties({
           readOnly={readOnly}
         />
       )}
+
+      <Section title="Sources">
+        <SourcesSection
+          sources={conn.sources ?? []}
+          readOnly={readOnly}
+          onChange={(next) => onUpdate?.(id, { sources: next })}
+        />
+      </Section>
     </>
   );
 }

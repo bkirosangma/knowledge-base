@@ -7,6 +7,7 @@ import type { HistoryEntry, DiagramSnapshot } from "../../../shared/hooks/useDia
 import type { RegionBounds } from "./shared";
 import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
+import type { SourceLink } from "../../../shared/types/sources";
 import { NodeProperties } from "./NodeProperties";
 import { LayerProperties } from "./LayerProperties";
 import { LineProperties } from "./LineProperties";
@@ -27,15 +28,15 @@ interface PropertiesPanelProps {
   onSelectNode?: (nodeId: string) => void;
   onUpdateTitle?: (title: string) => void;
   layerDefs: LayerDef[];
-  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string }>) => void;
-  onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
-  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous' }>) => void;
+  onUpdateNode?: (id: string, updates: Partial<{ id: string; label: string; sub: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string; sources: SourceLink[] }>) => void;
+  onUpdateLayer?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string; sources: SourceLink[] }>) => void;
+  onUpdateConnection?: (id: string, updates: Partial<{ id: string; label: string; color: string; from: string; to: string; fromAnchor: AnchorId; toAnchor: AnchorId; biDirectional: boolean; flowDuration: number; connectionType: 'synchronous' | 'asynchronous'; sources: SourceLink[] }>) => void;
   lineCurve?: LineCurveAlgorithm;
   onUpdateLineCurve?: (algorithm: LineCurveAlgorithm) => void;
   flows: FlowDef[];
   onSelectFlow?: (flowId: string | null) => void;
   onHoverFlow?: (flowId: string | null) => void;
-  onUpdateFlow?: (id: string, updates: Partial<{ id: string; name: string; category: string }>) => void;
+  onUpdateFlow?: (id: string, updates: Partial<{ id: string; name: string; category: string; sources: SourceLink[] }>) => void;
   onDeleteFlow?: (id: string) => void;
   onCreateFlow?: (connectionIds: string[]) => void;
   onSelectLine?: (lineId: string) => void;
@@ -60,6 +61,8 @@ interface PropertiesPanelProps {
   activeFile?: string | null;
   attachmentsByType?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => AttachmentBuckets;
   openAttachmentPreviewFor?: (target: { type: EntityAttachmentTarget; id: string; diagramPath?: string }) => void;
+  sources?: SourceLink[];
+  onUpdateDiagram?: (updates: Partial<{ sources: SourceLink[] }>) => void;
   hidden?: boolean;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -78,7 +81,7 @@ interface PropertiesPanelProps {
   };
 }
 
-export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, documents, onPreviewDocument, onOpenDocPicker, onDetachDocument, getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach, activeFile, attachmentsByType, openAttachmentPreviewFor, hidden, collapsed, onToggleCollapse, readOnly, history }: PropertiesPanelProps) {
+export default function PropertiesPanel({ selection, title, nodes, connections, regions, levelMap, layerDefs, onSelectLayer, onSelectNode, onUpdateTitle, onUpdateNode, onUpdateLayer, onUpdateConnection, lineCurve, onUpdateLineCurve, flows, onSelectFlow, onHoverFlow, onUpdateFlow, onDeleteFlow, onCreateFlow, onSelectLine, onCreateLayer, onDeleteAnchor, onSelectType, onHoverType, expandedType, onExpandType, backlinks, onOpenDocument, documents, onPreviewDocument, onOpenDocPicker, onDetachDocument, getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach, activeFile, attachmentsByType, openAttachmentPreviewFor, sources, onUpdateDiagram, hidden, collapsed, onToggleCollapse, readOnly, history }: PropertiesPanelProps) {
   const allNodeIds = nodes.map((n) => n.id);
   const allLayerIds = regions.map((r) => r.id);
   const allConnectionIds = connections.map((c) => c.id);
@@ -130,6 +133,8 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
             diagramFilename={activeFile}
             attachmentsByType={attachmentsByType}
             openAttachmentPreviewFor={openAttachmentPreviewFor}
+            sources={sources}
+            onUpdateDiagram={onUpdateDiagram}
           />
         )}
         {selection?.type === "node" && (

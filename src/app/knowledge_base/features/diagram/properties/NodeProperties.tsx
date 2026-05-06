@@ -8,6 +8,8 @@ import { getDistinctTypes } from "../utils/typeUtils";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, IconPickerRow, ColorRow, ColorSchemeRow, KEY_COL, type RegionBounds } from "./shared";
 import { AutocompleteInput } from "./AutocompleteInput";
 import { Tooltip } from "../../../shared/components/Tooltip";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 export function NodeProperties({
   id, nodes, connections, layerDefs, onSelectNode, onUpdate, allNodeIds, flows, onSelectFlow, onHoverFlow, onCreateLayer, onDeleteAnchor, levelInfo, backlinks, onPreviewDocument, readOnly,
@@ -18,7 +20,7 @@ export function NodeProperties({
   levelInfo?: LevelInfo;
   onSelectLayer?: (layerId: string) => void;
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; type: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string; conditionOutCount: number; conditionSize: 1 | 2 | 3 | 4 | 5; rotation: number }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; label: string; sub: string; type: string; icon: ComponentType<{ size?: number; className?: string; strokeWidth?: number }>; borderColor: string; bgColor: string; textColor: string; layer: string; conditionOutCount: number; conditionSize: 1 | 2 | 3 | 4 | 5; rotation: number; sources: SourceLink[] }>) => void;
   allNodeIds: string[];
   flows?: FlowDef[];
   onSelectFlow?: (flowId: string) => void;
@@ -327,6 +329,14 @@ export function NodeProperties({
           readOnly={readOnly}
         />
       )}
+
+      <Section title="Sources">
+        <SourcesSection
+          sources={node.sources ?? []}
+          readOnly={readOnly}
+          onChange={(next) => onUpdate?.(id, { sources: next })}
+        />
+      </Section>
     </>
   );
 }

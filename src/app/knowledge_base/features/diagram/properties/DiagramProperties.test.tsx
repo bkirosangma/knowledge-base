@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { DiagramProperties } from './DiagramProperties'
 import type { FlowDef, Connection, NodeData } from '../types'
 import type { RegionBounds } from './shared'
+import type { SourceLink } from '../../../shared/types/sources'
 
 // Covers DIAG-3.10-12..16, DIAG-3.11-10.
 
@@ -201,5 +204,45 @@ describe('DiagramProperties — flow toggle (DIAG-3.11-10)', () => {
 
     rerender(<DiagramProperties {...base({ flows, activeFlowId: undefined })} />)
     expect(screen.queryByRole('button', { name: 'Delete Flow' })).toBeNull()
+  })
+})
+
+// ── Sources section ──────────────────────────────────────────────────────────
+
+describe('DiagramProperties — Sources section', () => {
+  it('renders an existing source row and commits a new URL via onUpdateDiagram', async () => {
+    const user = userEvent.setup()
+    const onUpdateDiagram = vi.fn()
+    function Host() {
+      const [sources, setSources] = useState<SourceLink[]>([
+        { url: 'https://example.com', title: 'Example' },
+      ])
+      return (
+        <DiagramProperties
+          {...base({
+            sources,
+            onUpdateDiagram: (updates) => {
+              onUpdateDiagram(updates)
+              if (updates.sources !== undefined) setSources(updates.sources)
+            },
+          })}
+        />
+      )
+    }
+    render(<Host />)
+    expect(screen.getByTestId('sources-row-0')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('sources-add'))
+    const urlInput = await screen.findByTestId('sources-url-input-1')
+    await user.type(urlInput, 'https://docs.example.org')
+    await user.tab()
+
+    const lastCall = onUpdateDiagram.mock.calls.at(-1)
+    expect(lastCall?.[0]).toEqual({
+      sources: [
+        { url: 'https://example.com', title: 'Example' },
+        { url: 'https://docs.example.org', title: '' },
+      ],
+    })
   })
 })

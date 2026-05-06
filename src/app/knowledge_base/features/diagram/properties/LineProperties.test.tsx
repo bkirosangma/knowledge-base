@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { LineProperties } from './LineProperties'
 import type { Connection, NodeData } from '../types'
+import type { SourceLink } from '../../../shared/types/sources'
 import { Database } from 'lucide-react'
 
 // Covers DIAG-3.13-24..30 (LineProperties label, colour, bidir toggle,
@@ -158,5 +161,47 @@ describe('DIAG-3.13-30: LineProperties — source and destination display', () =
     render(<LineProperties {...base({ nodes: [] })} />)
     expect(screen.getByText('n1')).toBeTruthy()
     expect(screen.getByText('n2')).toBeTruthy()
+  })
+})
+
+// ── Sources section ──────────────────────────────────────────────────────────
+
+describe('LineProperties — Sources section', () => {
+  it('renders an existing source row and commits a new URL via onUpdate', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    function Host() {
+      const [sources, setSources] = useState<SourceLink[]>([
+        { url: 'https://example.com', title: 'Example' },
+      ])
+      const connWithSource: Connection = { ...conn, sources }
+      return (
+        <LineProperties
+          {...base({
+            connections: [connWithSource],
+            onUpdate: (id, updates) => {
+              onUpdate(id, updates)
+              if (updates.sources !== undefined) setSources(updates.sources)
+            },
+          })}
+        />
+      )
+    }
+    render(<Host />)
+    expect(screen.getByTestId('sources-row-0')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('sources-add'))
+    const urlInput = await screen.findByTestId('sources-url-input-1')
+    await user.type(urlInput, 'https://docs.example.org')
+    await user.tab()
+
+    const lastCall = onUpdate.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('c1')
+    expect(lastCall?.[1]).toEqual({
+      sources: [
+        { url: 'https://example.com', title: 'Example' },
+        { url: 'https://docs.example.org', title: '' },
+      ],
+    })
   })
 })

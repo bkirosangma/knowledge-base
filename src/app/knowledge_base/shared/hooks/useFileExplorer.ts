@@ -219,8 +219,13 @@ export function useFileExplorer() {
     serializeNodesFn: (nodes: NodeData[]) => DiagramData["nodes"],
     flows: FlowDef[] = [],
     documents?: DiagramData["documents"],
+    sources?: DiagramData["sources"],
   ): Promise<boolean> => {
-    const data: DiagramData = { title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows, ...(documents && documents.length > 0 ? { documents } : {}) };
+    const data: DiagramData = {
+      title, layers, nodes: serializeNodesFn(nodes), connections, layerManualSizes, lineCurve, flows,
+      ...(documents && documents.length > 0 ? { documents } : {}),
+      ...(sources && sources.length > 0 ? { sources } : {}),
+    };
 
     const rootHandle = dirHandleRef.current;
     if (rootHandle) {

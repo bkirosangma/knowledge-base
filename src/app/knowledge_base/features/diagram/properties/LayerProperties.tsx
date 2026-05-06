@@ -1,13 +1,15 @@
 import type { NodeData, LayerDef } from "../types";
 import { Section, Row, EditableRow, EditableIdRow, ExpandableListRow, ColorRow, ColorSchemeRow, type RegionBounds } from "./shared";
 import DocumentsSection from "./DocumentsSection";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import type { SourceLink } from "../../../shared/types/sources";
 
 export function LayerProperties({
   id, regions, nodes, layerDefs, onSelectNode, onUpdate, allLayerIds, backlinks, onPreviewDocument, readOnly,
 }: {
   id: string; regions: RegionBounds[]; nodes: NodeData[]; layerDefs: LayerDef[];
   onSelectNode?: (nodeId: string) => void;
-  onUpdate?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string }>) => void;
+  onUpdate?: (id: string, updates: Partial<{ id: string; title: string; bg: string; border: string; textColor: string; sources: SourceLink[] }>) => void;
   allLayerIds: string[];
   backlinks?: { sourcePath: string; section?: string }[];
   onPreviewDocument?: (path: string) => void;
@@ -77,6 +79,14 @@ export function LayerProperties({
           onPreviewDocument={onPreviewDocument}
         />
       )}
+
+      <Section title="Sources">
+        <SourcesSection
+          sources={layerDef?.sources ?? []}
+          readOnly={readOnly}
+          onChange={(next) => onUpdate?.(id, { sources: next })}
+        />
+      </Section>
     </>
   );
 }
