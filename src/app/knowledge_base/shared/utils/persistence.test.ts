@@ -455,3 +455,20 @@ describe("FlowDef round-trip — nodeOrders / startNodeIds / endNodeIds", () => 
     expect(flow.endNodeIds).toBeUndefined();
   });
 });
+
+describe("DiagramData round-trip — attachedTo", () => {
+  it("persists DiagramData.attachedTo round-trip", () => {
+    const data: DiagramData = {
+      title: "T",
+      layers: [],
+      nodes: [],
+      connections: [],
+      flows: [],
+      attachedTo: [{ type: "node", id: "el-x", diagramPath: "other.json" }],
+    };
+    const loaded = loadDiagramFromData(data);
+    expect(loaded.attachedTo).toEqual([
+      { type: "node", id: "el-x", diagramPath: "other.json" },
+    ]);
+  });
+});

@@ -24,7 +24,7 @@ export { getNodeHeight } from "../../features/diagram/utils/geometry";
 // --- Shared types (owned by this file) ---
 
 import type { LayerDef, SerializedNodeData, Connection, LineCurveAlgorithm, FlowDef } from "../../features/diagram/types";
-import type { DocumentMeta } from "../../features/document/types";
+import type { DocumentMeta, EntityAttachment } from "../../features/document/types";
 
 export interface DiagramData {
   title: string;
@@ -35,6 +35,7 @@ export interface DiagramData {
   lineCurve?: LineCurveAlgorithm;
   flows?: FlowDef[];
   documents?: DocumentMeta[];
+  attachedTo?: EntityAttachment[];
 }
 
 export type ViewMode = 'diagram' | 'split' | 'document';

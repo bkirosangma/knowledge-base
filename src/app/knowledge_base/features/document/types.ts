@@ -1,11 +1,26 @@
+export type EntityAttachmentTarget =
+  | 'root'
+  | 'node'
+  | 'connection'
+  | 'flow'
+  | 'type'
+  | 'tab'
+  | 'tab-section'
+  | 'tab-track';
+
+export interface EntityAttachment {
+  type: EntityAttachmentTarget;
+  /** ID of the target. For 'root', the value is the diagram filename. */
+  id: string;
+  /** Optional — diagram filename when target is a diagram-scoped entity (node/connection/flow). */
+  diagramPath?: string;
+}
+
 export interface DocumentMeta {
   id: string;
   filename: string;       // relative path from vault root
   title: string;
-  attachedTo?: {
-    type: 'root' | 'node' | 'connection' | 'flow' | 'type' | 'tab' | 'tab-section' | 'tab-track';
-    id: string;
-  }[];
+  attachedTo?: EntityAttachment[];
 }
 
 export interface OutboundLink {
