@@ -25,11 +25,11 @@ import type {
   Unsubscribe,
 } from "../domain/tabEngine";
 import { encodeWav } from "../domain/wavEncoder";
-import { SOUNDFONT_URL } from "./alphaTabAssets";
+import { ALPHATAB_SCRIPT_FILE, SOUNDFONT_URL } from "./alphaTabAssets";
 
 interface AlphaTabSettingsLike {
   player: { enablePlayer: boolean; soundFont: string; outputMode: number };
-  core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean };
+  core: { engine: string; logLevel: number; fontDirectory: string; useWorkers: boolean; scriptFile: string };
 }
 
 interface AlphaTabApiLike {
@@ -397,18 +397,14 @@ export class AlphaTabEngine implements TabEngine {
     settings.player.outputMode = PLAYER_OUTPUT_SCRIPT_PROCESSOR;
     settings.core.logLevel = LOG_LEVEL_INFO;
     settings.core.fontDirectory = "/font/";
-    // Run rendering on the main thread. AlphaTab's web-worker auto-detect
-    // resolves to the wrong URL under Next.js/Turbopack chunked bundling
-    // (the worker fails to load and rendering hangs silently with no
-    // console error). Main-thread render works fine for our score sizes.
-    settings.core.useWorkers = false;
+    // Pin the worker script URL. AlphaTab uses this to spawn both its
+    // renderer worker (when useWorkers=true) and its synthesizer worker
+    // (always, regardless of useWorkers). Auto-detection breaks under
+    // Next.js/Turbopack chunked bundling — the file is copied to
+    // public/alphatab/ at install time (see package.json copy-alphatab).
+    settings.core.scriptFile = ALPHATAB_SCRIPT_FILE;
 
     const api = new ApiCtor(container, settings);
-    // Explicitly load the SoundFont. With `core.useWorkers = false`, alphaTab
-    // does not auto-fetch the file referenced by `player.soundFont` — without
-    // this call the player initializes (playerReady fires) but no synth
-    // engine is wired up, so api.play() is a silent no-op.
-    api.loadSoundFontFromUrl(SOUNDFONT_URL, false);
     const session = new AlphaTabSession(
       api,
       NoteCtor,
