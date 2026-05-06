@@ -6,19 +6,20 @@ import Header from "./shared/components/Header";
 import UnsupportedBrowserCard from "./shared/components/UnsupportedBrowserCard";
 import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
+import { BrokenAnchorBanner } from "./shared/components/BrokenAnchorBanner";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
 import { useDocuments } from "./features/document/hooks/useDocuments";
 import { createAttachmentLinksRepository } from "./infrastructure/attachmentLinksRepo";
 import type { AttachmentLink } from "./domain/attachmentLinks";
 import { useLinkIndex } from "./features/document/hooks/useLinkIndex";
 import { createVaultConfigRepository } from "./infrastructure/vaultConfigRepo";
-import { resolveWikiLinkPath, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
+import { resolveWikiLinkPath, stripWikiLinkAnchors, stripWikiLinksForPath } from "./features/document/utils/wikiLinkParser";
 import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
 import { createDiagramRepository } from "./infrastructure/diagramRepo";
 import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
 import { tabFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
-import { propagateRename, propagateMoveLinks } from "./shared/hooks/fileExplorerHelpers";
+import { propagateRename, propagateMoveLinks, readTextFile, writeTextFile } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
 import DiagramView from "./features/diagram/DiagramView";
@@ -522,9 +523,35 @@ function KnowledgeBaseInner() {
     docManager.removeDocument(docPath);
   }, [fileExplorer, linkManager, docManager]);
 
+  const handleRemoveBrokenAnchors = useCallback(async () => {
+    const state = linkManager.brokenAnchorState;
+    if (!state) return;
+    const rootHandle = fileExplorer.dirHandleRef.current;
+    if (!rootHandle) return;
+    const { docPath, deletedIds, affectedRefs } = state;
+    const sourcePaths = Array.from(new Set(affectedRefs.map((r) => r.sourcePath)));
+    for (const sourcePath of sourcePaths) {
+      try {
+        const parts = sourcePath.split("/");
+        let dh: FileSystemDirectoryHandle = rootHandle;
+        for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+        const fh = await dh.getFileHandle(parts[parts.length - 1]);
+        const oldContent = await readTextFile(fh);
+        const newContent = stripWikiLinkAnchors(oldContent, docPath, deletedIds);
+        if (newContent !== oldContent) {
+          await writeTextFile(rootHandle, sourcePath, newContent);
+          await linkManager.updateDocumentLinks(rootHandle, sourcePath, newContent);
+        }
+      } catch (err) {
+        reportError(err as Error, `Removing broken anchors in ${sourcePath}`);
+      }
+    }
+    linkManager.clearBrokenAnchorState();
+  }, [linkManager, fileExplorer.dirHandleRef, reportError]);
+
   // ─── Document operations ───
-  const handleOpenDocument = useCallback((path: string) => {
-    panes.openFile(path, "document");
+  const handleOpenDocument = useCallback((path: string, anchor?: string | null) => {
+    panes.openFile(path, "document", { anchor: anchor ?? null });
   }, [panes]);
 
   const handleCreateAndAttach = useCallback(async (
@@ -569,9 +596,9 @@ function KnowledgeBaseInner() {
   // ─── File selection: route to correct pane type ───
   // DiagramView auto-loads on `activeFile` change, so opening the pane is
   // all the shell needs to do.
-  const handleSelectFile = useCallback((path: string) => {
+  const handleSelectFile = useCallback((path: string, section?: string | null) => {
     if (path.endsWith(".md")) {
-      handleOpenDocument(path);
+      handleOpenDocument(path, section ?? null);
     } else if (path.endsWith(".svg")) {
       panes.openFile(path, "svgEditor");
     } else if (path.endsWith(".alphatex")) {
@@ -585,7 +612,7 @@ function KnowledgeBaseInner() {
   // folder first, then bare path, then root-level fallbacks. Same helper
   // `useLinkIndex` uses to build the index, so the resolution matches.
   const handleNavigateWikiLink = useCallback(
-    (path: string) => {
+    (path: string, section?: string | null) => {
       const set = new Set(allPaths);
       const activeFilePath = panes.activeEntry?.filePath ?? null;
       const docDir = activeFilePath
@@ -602,7 +629,7 @@ function KnowledgeBaseInner() {
         candidates.push(`${path}.md`, `${path}.json`);
       }
       const resolved = candidates.find((c) => set.has(c)) ?? candidates[0];
-      handleSelectFile(resolved);
+      handleSelectFile(resolved, section ?? null);
     },
     [allPaths, panes.activeEntry, handleSelectFile],
   );
@@ -1272,6 +1299,7 @@ function KnowledgeBaseInner() {
       <DocumentView
         focused={focused}
         filePath={entry.filePath}
+        anchor={entry.anchor ?? null}
         dirHandleRef={fileExplorer.dirHandleRef}
         // Force focus-mode on mobile so markdown toolbar + Properties panel
         // collapse for a reader-first chrome.
@@ -1448,6 +1476,16 @@ function KnowledgeBaseInner() {
           }
         }}
       />
+
+      {linkManager.brokenAnchorState !== null && linkManager.brokenAnchorState.affectedRefs.length > 0 && (
+        <BrokenAnchorBanner
+          docPath={linkManager.brokenAnchorState.docPath}
+          deletedIds={linkManager.brokenAnchorState.deletedIds}
+          affectedRefs={linkManager.brokenAnchorState.affectedRefs}
+          onRemoveAnchors={handleRemoveBrokenAnchors}
+          onLeaveBroken={linkManager.clearBrokenAnchorState}
+        />
+      )}
 
       {/* Explorer + Viewport + Properties */}
       <div className="flex-1 flex min-h-0">

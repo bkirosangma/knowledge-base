@@ -49,6 +49,10 @@ interface MarkdownPaneProps {
   attachmentRepo?: import("../../../domain/repositories").AttachmentRepository | null;
   /** Called when an image write fails. Parent should surface via ShellErrorContext. */
   onImageError?: (err: unknown) => void;
+  /** When set, scrolls the heading element with this `data-heading-id`
+   *  into view once the editor finishes mounting. Used by wiki-link
+   *  navigation to land on the requested `#section` anchor. */
+  anchor?: string | null;
 }
 
 export default function MarkdownPane({
@@ -75,6 +79,7 @@ export default function MarkdownPane({
   hideToolbar = false,
   attachmentRepo = null,
   onImageError,
+  anchor,
 }: MarkdownPaneProps) {
   const [showBacklinks, setShowBacklinks] = React.useState(false);
   // Reading meta (word count + headings) is owned here so PaneHeader can
@@ -96,6 +101,25 @@ export default function MarkdownPane({
   // Shared ref to the editor's scroll container — read by ReadingProgress
   // (scrollTop / scrollHeight) and ReadingTOC (querySelector + scrollTo).
   const editorContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Flips true when the underlying Tiptap editor finishes its initial
+  // mount (`onCreate`). The anchor scroll effect below waits on this
+  // signal instead of `setTimeout(0)` so it fires when the heading
+  // DOM is actually in place.
+  const [editorReady, setEditorReady] = React.useState(false);
+
+  // Scroll the heading matching `anchor` into view once the editor is
+  // ready. The producer side of `data-heading-id` lands in MVP-3 Task 5;
+  // until then this effect is a no-op against the production renderer.
+  React.useEffect(() => {
+    if (!anchor || !editorReady) return;
+    const root = editorContainerRef.current;
+    if (!root) return;
+    const target = root.querySelector(
+      `[data-heading-id="${anchor}"]`,
+    ) as HTMLElement | null;
+    if (target) target.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [anchor, editorReady]);
 
   // Reading-time estimate: 200 wpm.  `Math.max(1, …)` keeps a non-empty doc
   // from showing "0 min read".
@@ -214,6 +238,7 @@ export default function MarkdownPane({
           allDocPaths={allDocPaths}
           tree={tree}
           currentDocDir={filePath.split("/").slice(0, -1).join("/")}
+          currentDocFilename={filePath}
           readOnly={readOnly}
           hideToolbar={hideToolbar}
           editorContainerRef={editorContainerRef}
@@ -221,6 +246,7 @@ export default function MarkdownPane({
           getBacklinkCount={getBacklinkCount}
           attachmentRepo={attachmentRepo}
           onImageError={onImageError}
+          onEditorReady={() => setEditorReady(true)}
           belowContent={
             <BacklinksRail
               filePath={filePath}

@@ -2,11 +2,13 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import type { LinkIndex, OutboundLink } from "../types";
-import { parseWikiLinks, resolveWikiLinkPath } from "../utils/wikiLinkParser";
+import type { LinkIndex, LinkIndexEntry, OutboundLink } from "../types";
+import { parseWikiLinks, resolveWikiLinkPath, updateWikiLinkAnchors } from "../utils/wikiLinkParser";
+import { extractHeaders, type HeaderInfo } from "../utils/extractHeaders";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
 import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
 import { readOrNull } from "../../../domain/repositoryHelpers";
+import { readTextFile, writeTextFile } from "../../../shared/hooks/fileExplorerHelpers";
 
 function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
@@ -27,7 +29,7 @@ function getLinkType(resolvedPath: string): "document" | "diagram" | "tab" {
 function buildDocumentEntry(
   content: string,
   docDir: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
+): LinkIndexEntry {
   const parsed = parseWikiLinks(content);
   const outboundLinks: OutboundLink[] = [];
   const sectionLinks: { targetPath: string; section: string }[] = [];
@@ -39,22 +41,23 @@ function buildDocumentEntry(
       outboundLinks.push({ targetPath: resolved, type: getLinkType(resolved) });
     }
   }
-  return { outboundLinks, sectionLinks };
+  const headers = extractHeaders(content);
+  return { outboundLinks, sectionLinks, headers };
 }
 
 /** Build a link-index entry for a diagram JSON file.
  *  Edges = the list of .md files attached to nodes/connections/flows in the diagram. */
 function buildDiagramEntry(
   jsonContent: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: [] } {
+): LinkIndexEntry {
   try {
     const data = JSON.parse(jsonContent) as { documents?: { filename?: string }[] };
     const outboundLinks: OutboundLink[] = (data.documents ?? [])
       .filter((d) => typeof d.filename === "string" && d.filename.length > 0)
       .map((d) => ({ targetPath: d.filename as string, type: "document" as const }));
-    return { outboundLinks, sectionLinks: [] };
+    return { outboundLinks, sectionLinks: [], headers: [] };
   } catch {
-    return { outboundLinks: [], sectionLinks: [] };
+    return { outboundLinks: [], sectionLinks: [], headers: [] };
   }
 }
 
@@ -64,7 +67,7 @@ function buildDiagramEntry(
 function buildTabEntry(
   content: string,
   docDir: string,
-): { outboundLinks: OutboundLink[]; sectionLinks: { targetPath: string; section: string }[] } {
+): LinkIndexEntry {
   const REFERENCES_LINE = /^\s*\/\/\s*references\s*:\s*(.*)$/gim;
   const outboundLinks: OutboundLink[] = [];
   const sectionLinks: { targetPath: string; section: string }[] = [];
@@ -80,7 +83,7 @@ function buildTabEntry(
       }
     }
   }
-  return { outboundLinks, sectionLinks };
+  return { outboundLinks, sectionLinks, headers: [] };
 }
 
 function collectCrossReferences(index: LinkIndex): CrossReference[] {
@@ -128,8 +131,18 @@ function rebuildBacklinks(index: LinkIndex): void {
   }
 }
 
+/** Surface state for the broken-anchor banner: populated when a save deletes
+ *  one or more headings that other docs were linking to. Sticky — only
+ *  cleared via `clearBrokenAnchorState()`. */
+export interface BrokenAnchorState {
+  docPath: string;
+  deletedIds: string[];
+  affectedRefs: Array<{ sourcePath: string; anchor: string }>;
+}
+
 export function useLinkIndex() {
   const [linkIndex, setLinkIndex] = useState<LinkIndex>(emptyIndex);
+  const [brokenAnchorState, setBrokenAnchorState] = useState<BrokenAnchorState | null>(null);
   // Always-current ref so write callbacks never read stale closure state.
   // Without this, a fullRebuild that calls setLinkIndex() followed by an
   // incremental updateDiagramLinks() before React re-renders would cause
@@ -151,6 +164,12 @@ export function useLinkIndex() {
       loaded = null;
     }
     if (loaded) {
+      // Backfill `headers` on entries persisted before MVP 3 added the field.
+      for (const entry of Object.values(loaded.documents)) {
+        if (!Array.isArray((entry as Partial<LinkIndexEntry>).headers)) {
+          (entry as LinkIndexEntry).headers = [];
+        }
+      }
       linkIndexRef.current = loaded;
       setLinkIndex(loaded);
       return loaded;
@@ -184,12 +203,97 @@ export function useLinkIndex() {
   ) => {
     const index = currentIndex ?? { ...linkIndexRef.current };
     const docDir = getDocDir(docPath);
+
+    // Task 8: detect heading rename/delete BEFORE the entry is overwritten.
+    const prevHeaders = index.documents[docPath]?.headers ?? [];
+    const nextHeaders = extractHeaders(markdownContent);
+    const { renames, deletions } = findHeaderRename(prevHeaders, nextHeaders);
+
+    // Apply renames in-place to every doc's sectionLinks. outboundLinks carry
+    // no section info (see buildDocumentEntry) — they don't need rewriting.
+    if (renames.length > 0) {
+      const renameMap = new Map(renames.map((r) => [r.from, r.to]));
+      // Capture consuming-doc paths BEFORE the in-memory rewrite mutates
+      // section ids. Used below to walk source markdown on disk.
+      const consumingPaths: string[] = [];
+      for (const [sourcePath, entry] of Object.entries(index.documents)) {
+        if (sourcePath === docPath) continue;
+        const matches = entry.sectionLinks.some(
+          (sl) => sl.targetPath === docPath && renameMap.has(sl.section),
+        );
+        if (matches) consumingPaths.push(sourcePath);
+      }
+      for (const entry of Object.values(index.documents)) {
+        entry.sectionLinks = entry.sectionLinks.map((sl) => {
+          if (sl.targetPath !== docPath) return sl;
+          const to = renameMap.get(sl.section);
+          return to ? { ...sl, section: to } : sl;
+        });
+      }
+
+      // Rewrite consuming docs' source markdown on disk. buildDocumentEntry
+      // re-derives sectionLinks from raw markdown on every save, so the
+      // in-memory rewrite above is ephemeral unless the source file is
+      // also updated.
+      const renameRecord: Record<string, string> = {};
+      for (const r of renames) renameRecord[r.from] = r.to;
+      for (const sourcePath of consumingPaths) {
+        try {
+          const parts = sourcePath.split("/");
+          let dh: FileSystemDirectoryHandle = rootHandle;
+          for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
+          const fh = await dh.getFileHandle(parts[parts.length - 1]);
+          const oldContent = await readTextFile(fh);
+          const newContent = updateWikiLinkAnchors(oldContent, docPath, renameRecord);
+          if (newContent !== oldContent) {
+            await writeTextFile(rootHandle, sourcePath, newContent);
+            const sourceDocDir = getDocDir(sourcePath);
+            const fresh = buildDocumentEntry(newContent, sourceDocDir);
+            index.documents[sourcePath] = {
+              ...index.documents[sourcePath],
+              outboundLinks: fresh.outboundLinks,
+              sectionLinks: fresh.sectionLinks,
+              headers: fresh.headers,
+            };
+          }
+        } catch {
+          // Skip unreadable/unwritable consuming files; the index-only
+          // rewrite already happened, and the next save of the consuming
+          // file will resolve consistency one way or the other.
+        }
+      }
+    }
+
+    // Compute affectedRefs for deletions: source docs whose sectionLinks point
+    // at a heading we just deleted from this doc.
+    const affectedRefs: Array<{ sourcePath: string; anchor: string }> = [];
+    if (deletions.length > 0) {
+      const deletedSet = new Set(deletions);
+      for (const [sourcePath, entry] of Object.entries(index.documents)) {
+        if (sourcePath === docPath) continue;
+        for (const sl of entry.sectionLinks) {
+          if (sl.targetPath === docPath && deletedSet.has(sl.section)) {
+            affectedRefs.push({ sourcePath, anchor: sl.section });
+          }
+        }
+      }
+    }
+
     index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
     emitCrossReferences(rootHandle, collectCrossReferences(index));
+
+    if (deletions.length > 0) {
+      setBrokenAnchorState({ docPath, deletedIds: deletions, affectedRefs });
+    }
+
     return index;
   }, [saveIndex]);
+
+  const clearBrokenAnchorState = useCallback(() => {
+    setBrokenAnchorState(null);
+  }, []);
 
   const removeDocumentFromIndex = useCallback(async (
     rootHandle: FileSystemDirectoryHandle,
@@ -276,6 +380,7 @@ export function useLinkIndex() {
     index.documents[diagramPath] = {
       outboundLinks: docFilenames.map((f) => ({ targetPath: f, type: "document" as const })),
       sectionLinks: [],
+      headers: [],
     };
     rebuildBacklinks(index);
     await saveIndex(rootHandle, index);
@@ -292,5 +397,36 @@ export function useLinkIndex() {
     renameDocumentInIndex,
     getBacklinksFor,
     fullRebuild,
+    /** Sticky banner state: set on a save that deletes a heading other docs link to.
+     *  Cleared only via `clearBrokenAnchorState`. */
+    brokenAnchorState,
+    clearBrokenAnchorState,
   };
 }
+
+/** Diff two header sets (prev vs next) for the same document and classify the
+ *  change as rename(s) or deletion(s). Used by Task 8's auto-refactor: when a
+ *  user renames a single heading, link references to its old slug are
+ *  rewritten to the new one. Multi-edit churn falls through to deletions only
+ *  to avoid mis-pairing unrelated changes. */
+export function findHeaderRename(
+  prev: { id: string; text: string; level: number }[],
+  next: { id: string; text: string; level: number }[],
+): { renames: Array<{ from: string; to: string }>; deletions: string[] } {
+  const removed = prev.filter((p) => !next.some((n) => n.id === p.id));
+  const added = next.filter((n) => !prev.some((p) => p.id === n.id));
+  const renames: Array<{ from: string; to: string }> = [];
+  const deletions: string[] = [];
+  if (removed.length === 1 && added.length === 1) {
+    if (removed[0].level === added[0].level || removed[0].text === added[0].text) {
+      renames.push({ from: removed[0].id, to: added[0].id });
+    } else {
+      deletions.push(removed[0].id);
+    }
+  } else {
+    deletions.push(...removed.map((r) => r.id));
+  }
+  return { renames, deletions };
+}
+
+export type { HeaderInfo };

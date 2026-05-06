@@ -95,6 +95,18 @@
 - **DOC-4.3-45** ✅ **Clicking a file commits it as the wiki-link target and closes the picker.** (`FolderPicker.test.tsx`)
 - **DOC-4.3-46** ✅ **Empty folder shows "Empty folder" message.** (`FolderPicker.test.tsx`)
 
+### 4.3.f SluggedHeading (`MarkdownEditor.tsx` extension)
+- **DOC-4.3-47** ✅ **Headings render with `data-heading-id` attribute** — `## Section A` in read mode renders `<h2 data-heading-id="section-a">…</h2>`. _(MarkdownEditor.test.tsx)_
+- **DOC-4.3-48** ✅ **Slug also stamped onto the `id` attribute** — same heading carries `id="section-a"` so native fragment links and the `data-heading-id` lookup agree. _(MarkdownEditor.test.tsx)_
+
+### 4.3.g HeadingCopyLink (`HeadingCopyLink.tsx`)
+- **DOC-4.3-49** ✅ **Hover-revealed copy-link button mounts next to every rendered heading** — when `currentDocFilename` is supplied, every heading's NodeView renders a sibling `[data-testid="heading-copy-link-<slug>"]` button using the `opacity-0 group-hover:opacity-100` affordance. _(MarkdownEditor.test.tsx + HeadingCopyLink.test.tsx)_
+- **DOC-4.3-50** ✅ **Click copies `[[<currentDocFilename>#<slug>]]` to clipboard** — `navigator.clipboard.writeText` is called with the wiki-link text on click. _(MarkdownEditor.test.tsx + HeadingCopyLink.test.tsx)_
+- **DOC-4.3-51** ✅ **Click flips label to "Copied!" then reverts after ~1500 ms** — confirmation state is announced briefly before returning to the default state. _(HeadingCopyLink.test.tsx)_
+- **DOC-4.3-52** ✅ **Vault-relative paths preserved in the copied payload** — `currentDocFilename="docs/auth.md"` and slug `intro` produce `[[docs/auth.md#intro]]` verbatim. _(HeadingCopyLink.test.tsx)_
+- **DOC-4.3-53** ✅ **Button omitted when `currentDocFilename` is missing** — no `data-testid="heading-copy-link-…"` element is rendered. _(MarkdownEditor.test.tsx)_
+- **DOC-4.3-54** ✅ **Copy target refreshes on file switch** — re-rendering with a new `currentDocFilename` and clicking the still-mounted button writes the new filename's wiki-link to the clipboard. _(MarkdownEditor.test.tsx)_
+
 ## 4.4 Markdown I/O
 
 ### 4.4.a `htmlToMarkdown`
@@ -211,6 +223,20 @@
 - **DOC-4.8-17** ✅ **`stripWikiLinksForPath` handles doc path without extension** — `('[[notes/auth]]', 'notes/auth')` → `''`.
 - **DOC-4.8-18** ✅ **`stripWikiLinksForPath` removes section-anchored link** — `('See [[notes/auth#intro]].', 'notes/auth.md')` → `'See .'`.
 - **DOC-4.8-19** ✅ **`stripWikiLinksForPath` returns unchanged when doc not referenced** — `('No links here.', 'notes/auth.md')` → `'No links here.'`.
+- **DOC-4.8-20** ✅ **`stripWikiLinkAnchors` strips a single anchor on the target doc** — `('see [[doc-b.md#deleted]] for details', 'doc-b.md', ['deleted'])` → `'see [[doc-b.md]] for details'`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-21** ✅ **`stripWikiLinkAnchors` preserves alias text** — anchor is stripped, ` | Alias` survives intact. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-22** ✅ **`stripWikiLinkAnchors` ignores wiki-links to other docs** — links whose normalised path doesn't match `targetPath` are unchanged even when their anchor is in `deletedIds`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-23** ✅ **`stripWikiLinkAnchors` ignores anchorless and out-of-set anchors** — `[[doc-b.md]]` and `[[doc-b.md#kept]]` are unchanged when `deletedIds` is `['deleted']`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-24** ✅ **`stripWikiLinkAnchors` matches `/`-prefixed and `.md`-trailing variants** — `[[/doc-b#deleted]]`, `[[doc-b.md#deleted]]`, `[[doc-b#deleted]]` all collapse to their anchorless form. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-25** ✅ **`stripWikiLinkAnchors` returns input unchanged when `deletedIds` is empty** — short-circuit. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-26** ✅ **`stripWikiLinkAnchors` strips multiple distinct deleted anchors in one pass** — only the anchors listed in `deletedIds` are stripped; others are left intact. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-27** ✅ **`updateWikiLinkAnchors` rewrites a single anchor on the target doc** — `(markdown, 'doc-b.md', { 'old': 'new' })` replaces `[[doc-b.md#old]]` with `[[doc-b.md#new]]`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-28** ✅ **`updateWikiLinkAnchors` preserves alias text** — `[[doc-b.md#old | Alias]]` becomes `[[doc-b.md#new | Alias]]`; the ` | Alias` separator and text survive. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-29** ✅ **`updateWikiLinkAnchors` ignores wiki-links to other docs** — links whose normalised path doesn't match `targetPath` are unchanged even when their anchor matches a key in `renames`. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-30** ✅ **`updateWikiLinkAnchors` ignores anchorless wiki-links** — `[[doc-b.md]]` is left untouched. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-31** ✅ **`updateWikiLinkAnchors` ignores anchors not in the rename map** — only the anchors named as keys in `renames` are rewritten; others pass through. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-32** ✅ **`updateWikiLinkAnchors` matches `/`-prefixed and `.md`-trailing variants** — `[[/doc-b#old]]`, `[[doc-b.md#old]]`, `[[doc-b#old]]` all rewrite to their renamed equivalent. _(wikiLinkParser.test.ts)_
+- **DOC-4.8-33** ✅ **`updateWikiLinkAnchors` returns input unchanged when rename map is empty** — short-circuit. _(wikiLinkParser.test.ts)_
 
 ## 4.9 Document Properties Sidebar
 
@@ -239,6 +265,16 @@
 - **DOC-4.10-10** ✅ **`getBacklinksFor`** — returns `linkIndex.backlinks[docPath]?.linkedFrom ?? []`; empty array for unknown paths.
 - **DOC-4.10-11** ✅ **`fullRebuild`** — reads every path from the provided `allDocPaths`, builds a fresh index from parsed content, and writes `_links.json`. Unreadable files are skipped silently.
 - **DOC-4.10-12** ✅ **Idempotent `fullRebuild`** — running it twice over the same inputs produces identical `documents` and `backlinks` content (only `updatedAt` changes).
+- **DOC-4.10-13** ✅ **`updateDocumentLinks` populates `LinkIndexEntry.headers` from doc content** — given a doc body with ATX H1–H6 headings, `documents[path].headers` contains one `{ id, text, level }` entry per heading using canonical `headerSlug` for `id`. _(useLinkIndex.test.ts)_
+- **DOC-4.10-14** ✅ **`findHeaderRename` treats one-removed + one-added at same level as rename** — returns `{ from, to }` for the matching pair; `null` otherwise. _(useLinkIndex.test.ts)_
+- **DOC-4.10-15** ✅ **`findHeaderRename` treats one-removed + one-added with same text at different level as rename** — same-text level change is still a rename (covers heading-level upgrades like H2 → H3). _(useLinkIndex.test.ts)_
+- **DOC-4.10-16** ✅ **`findHeaderRename` returns `null` for multi-removed multi-added** — multiple changes at once fall through to deletions only; auto-refactor refuses to guess. _(useLinkIndex.test.ts)_
+- **DOC-4.10-17** ✅ **`findHeaderRename` returns `null` for additions only** — adding new headings without removing any is never a rename. _(useLinkIndex.test.ts)_
+- **DOC-4.10-18** ✅ **Header rename auto-updates the in-memory index** — when a heading rename is detected, `updateDocumentLinks` rewrites every `sectionLinks[*].section` matching the old slug to the new slug across all consuming documents in the index. _(useLinkIndex.test.ts)_
+- **DOC-4.10-19** ✅ **Header rename auto-rewrites consuming docs' source markdown on disk** — every consuming `.md` file is read, run through `updateWikiLinkAnchors`, and re-written so `[[targetDoc#oldSlug]]` becomes `[[targetDoc#newSlug]]` in source. _(useLinkIndex.test.ts)_
+- **DOC-4.10-20** ✅ **Header rename source-rewrite preserves alias text** — `[[targetDoc#oldSlug | Alias]]` becomes `[[targetDoc#newSlug | Alias]]` on disk; the ` | Alias` survives. _(useLinkIndex.test.ts)_
+- **DOC-4.10-21** ✅ **Heading delete surfaces `brokenAnchorState`** — `updateDocumentLinks` after a save that removes one or more headings populates `brokenAnchorState = { docPath, deletedIds, affectedRefs }` listing each `{ sourcePath, anchor }` referencing a deleted slug. _(useLinkIndex.test.ts)_
+- **DOC-4.10-22** ✅ **`clearBrokenAnchorState()` dismisses the state** — calling the hook's `clearBrokenAnchorState` resets `brokenAnchorState` to `null`. _(useLinkIndex.test.ts)_
 
 ## 4.11 Document Persistence
 
@@ -388,3 +424,30 @@
 - **DOC-4.20-04** ✅ **FS write error surfaces via ShellErrorContext, not silent fail** — when the mock FS rejects the next write, pasting triggers the ShellErrorContext error banner rather than silently failing or inserting a broken image. _(e2e: `documentImagePaste.spec.ts`)_
 - **DOC-4.20-05** ✅ **Drag-drop image onto editor → same behavior as paste** — dropping an image file triggers the same hash+write+insert flow as paste. _(e2e: `documentImagePaste.spec.ts`)_
 - **DOC-4.20-06** 🚫 **`.attachments/` hidden in explorer** — dot-folder convention in `fileTree.ts` already excludes any folder whose name starts with `.`; no extra logic needed. Verified by code review (no dedicated test).
+
+## 4.21 Wiki-Link Anchors (MVP 3)
+
+> Umbrella user-facing feature: `[[doc.md#header]]` parses, scrolls the target heading into view on open, every heading exposes a hover copy-link icon, header rename auto-refactors every referencing wiki-link, header delete surfaces `BrokenAnchorBanner`. Cross-cuts §1.4 (`PaneEntry.anchor` — see SHELL-1.4-16/17/18), §1.9.1 (`BrokenAnchorBanner` — see SHELL-1.9.1-01..04), §4.3.f/4.3.g (`SluggedHeading` + `HeadingCopyLink` — see DOC-4.3-47..54), §4.7 (`updateWikiLinkAnchors` + `stripWikiLinkAnchors` — see DOC-4.8-20..33), §4.10 (`headers` + `findHeaderRename` + auto-refactor + `brokenAnchorState` — see DOC-4.10-13..22). Driven by `features/document/utils/headerSlug.ts`, `features/document/utils/extractHeaders.ts`, `features/document/components/MarkdownPane.tsx`, `features/document/components/HeadingCopyLink.tsx`, `features/document/hooks/useLinkIndex.ts`, `shared/components/BrokenAnchorBanner.tsx`. Mirrors §4.21 of [Features.md](../Features.md).
+
+### 4.21.a Slug + header parse utilities
+- **DOC-4.21-01** ✅ **`headerSlug` lowercases and hyphenates** — `"Section A"` → `"section-a"`. _(headerSlug.test.ts)_
+- **DOC-4.21-02** ✅ **`headerSlug` strips punctuation** — colons, quotes, periods etc. dropped. _(headerSlug.test.ts)_
+- **DOC-4.21-03** ✅ **`headerSlug` collapses whitespace runs** — multi-space stretches collapse to a single hyphen. _(headerSlug.test.ts)_
+- **DOC-4.21-04** ✅ **`headerSlug` strips leading/trailing hyphens** — surrounding hyphens trimmed; never returns a slug with edge dashes. _(headerSlug.test.ts)_
+- **DOC-4.21-05** ✅ **`headerSlug` de-accents** — diacritics normalised (NFD strip) before slug emission. _(headerSlug.test.ts)_
+- **DOC-4.21-06** ✅ **`headerSlug` is idempotent on repeated application** — `headerSlug(headerSlug(x)) === headerSlug(x)`. _(headerSlug.test.ts)_
+- **DOC-4.21-07** ✅ **`extractHeaders` returns empty for content with no headings** — empty body or pure paragraph returns `[]`. _(extractHeaders.test.ts)_
+- **DOC-4.21-08** ✅ **`extractHeaders` parses ATX H1–H6 with `{id, text, level}`** — every leading-`#` line yields a typed entry; level matches the hash count. _(extractHeaders.test.ts)_
+- **DOC-4.21-09** ✅ **`extractHeaders` ignores hashes inside fenced code blocks** — `# inside ```fence``` ` is skipped; never emitted as a heading. _(extractHeaders.test.ts)_
+- **DOC-4.21-10** ✅ **`extractHeaders` ignores hashes in indented code (4-space)** — indented code blocks aren't parsed as headings. _(extractHeaders.test.ts)_
+- **DOC-4.21-11** ✅ **`extractHeaders` trims trailing spaces in heading text** — `"# Title   "` → `text: "Title"`. _(extractHeaders.test.ts)_
+- **DOC-4.21-12** ✅ **`extractHeaders` strips ATX closing-hash run** — `"# Title ##"` → `text: "Title"`; matches CommonMark optional closing sequence. _(extractHeaders.test.ts)_
+
+### 4.21.b Anchor scroll on open
+- **DOC-4.21-13** ✅ **`MarkdownPane.anchor` scrolls the matching heading into view once editor reports ready** — given content with `<h2 data-heading-id="b-section">` and `anchor="b-section"`, after the editor mounts `scrollIntoView({ block: 'start', behavior: 'instant' })` is called on the matching element only (not on other headings). _(MarkdownPane.test.tsx)_
+- **DOC-4.21-14** ✅ **`MarkdownPane.anchor` does NOT scroll when unset** — when `anchor` is omitted/null the editor mounts and renders headings but `scrollIntoView` is never called. _(MarkdownPane.test.tsx)_
+- **DOC-4.21-15** ✅ **`PaneManager.openFile({ anchor })` routes anchor to the focused pane in split view** — focus right pane → call `openFile(path, type, { anchor })` → `rightPane.anchor === anchor`, `leftPane.anchor` untouched. _(PaneManager.test.tsx)_
+- **DOC-4.21-16** 🟡 **AttachmentPreviewModal forwards anchor on Open in pane** — body wiki-link click inside the modal already forwards `(filename, anchor)` through `onOpenInPane` (covered by DIAG-3.20-11). The modal's header "Open in pane" button still passes `null`; full forwarding from header buttons remains a follow-up.
+
+### 4.21.c End-to-end refactor flow (integration)
+- **DOC-4.21-17** 🟡 **End-to-end: heading delete → banner → "Remove anchors" rewrites consuming docs and clears state** — partial coverage today: each leg is unit-tested (`brokenAnchorState` populates via `useLinkIndex`, BrokenAnchorBanner click invokes `onRemoveAnchors`, `stripWikiLinkAnchors` strips the `#section` while preserving alias). Full end-to-end click-flow integration test deferred to Playwright.

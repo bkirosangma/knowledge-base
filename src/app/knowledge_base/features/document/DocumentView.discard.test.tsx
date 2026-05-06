@@ -89,6 +89,8 @@ function renderDocView(
     getBacklinksFor: vi.fn(() => []),
     fullRebuild: vi.fn().mockResolvedValue(undefined),
     updateDiagramLinks: vi.fn().mockResolvedValue(undefined),
+    brokenAnchorState: null,
+    clearBrokenAnchorState: vi.fn(),
   }
 
   return render(

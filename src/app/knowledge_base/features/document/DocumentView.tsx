@@ -27,11 +27,15 @@ export type { DocumentPaneBridge };
 export interface DocumentViewProps {
   focused: boolean;
   filePath: string | null;
+  /** `#section` slug forwarded to `MarkdownPane.anchor` so the editor
+   *  scrolls the matching heading into view on mount. Sourced from the
+   *  pane's `PaneEntry.anchor`. */
+  anchor?: string | null;
   dirHandleRef: React.RefObject<FileSystemDirectoryHandle | null>;
   onDocBridge?: (bridge: DocumentPaneBridge | null) => void;
   linkManager: ReturnType<typeof useLinkIndex>;
   tree: TreeNode[];
-  onNavigateLink: (path: string) => void;
+  onNavigateLink: (path: string, section?: string | null) => void;
   onCreateDocument: (path: string) => void;
   /** Shell-level Focus Mode flag (⌘.). When on, MarkdownPane hides its
    *  toolbar/title row and DocumentView hides the properties sidebar. */
@@ -46,6 +50,7 @@ export interface DocumentViewProps {
 
 export default function DocumentView({
   filePath,
+  anchor,
   dirHandleRef,
   onDocBridge,
   linkManager,
@@ -314,6 +319,7 @@ export default function DocumentView({
           onChange={handleContentChange}
           onBlockChange={history.onBlockChange}
           historyToken={historyToken}
+          anchor={anchor ?? null}
           onNavigateLink={onNavigateLink}
           onCreateDocument={onCreateDocument}
           existingDocPaths={existingDocPaths}

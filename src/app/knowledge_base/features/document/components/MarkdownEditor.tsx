@@ -2,8 +2,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import {
+  useEditor,
+  EditorContent,
+  NodeViewContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  type NodeViewProps,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Heading } from "@tiptap/extension-heading";
 import { TableNoNest } from "../extensions/tableNoNest";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -25,6 +33,8 @@ import { TableFloatingToolbar } from "./TableFloatingToolbar";
 import MarkdownToolbar from "./MarkdownToolbar";
 import WikiLinkHoverCard from "./WikiLinkHoverCard";
 import { createImagePasteExtension } from "../extensions/imagePasteHandler";
+import { headerSlug } from "../utils/headerSlug";
+import { HeadingCopyLink } from "./HeadingCopyLink";
 import type { AttachmentRepository } from "../../../domain/repositories";
 
 /** Aggregate editorial metadata derived from the rendered Tiptap DOM —
@@ -51,6 +61,10 @@ interface MarkdownEditorProps {
   /** Directory of the current document (from vault root), e.g. "docs/architecture".
    *  Used to resolve wiki-link paths relative to the current file, Obsidian-style. */
   currentDocDir?: string;
+  /** Vault-relative filename of the currently open document (e.g. "auth.md"
+   *  or "docs/auth.md"). Used by the per-heading copy-link icon to compose
+   *  `[[<filename>#<slug>]]` strings on click. */
+  currentDocFilename?: string;
   readOnly?: boolean;
   /** Optional sidebar rendered beside editor content (below the toolbar). */
   rightSidebar?: React.ReactNode;
@@ -86,6 +100,11 @@ interface MarkdownEditorProps {
   /** Called when a pasted/dropped image write fails. Parent should surface
    *  the error via `ShellErrorContext`. */
   onImageError?: (err: unknown) => void;
+  /** Fired once when the underlying Tiptap editor finishes its initial
+   *  mount (`onCreate`). Lets parents that need to act on the rendered
+   *  DOM — e.g. scroll-to-anchor on open — wait for a real readiness
+   *  signal instead of `setTimeout(0)`. */
+  onEditorReady?: () => void;
 }
 
 
@@ -102,19 +121,55 @@ const RawAwareTaskItem = TaskItem.extend({
   content: "(paragraph | rawBlock) block*",
 });
 
-/** Slugify a heading's text for use as an `id` anchor. Matches the
- *  conventional GitHub-style slug closely enough for in-document links —
- *  lowercase, spaces → hyphens, drop punctuation. Two collisions in one
- *  doc get a `-2`, `-3`, ... suffix; the caller (`extractReadingMeta`)
- *  supplies the seen-slug counter. */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/^-+|-+$/g, "");
+interface SluggedHeadingOptions {
+  levels: Array<1 | 2 | 3 | 4 | 5 | 6>;
+  /** Returns the vault-relative filename of the document currently mounted
+   *  in this editor instance. A getter (not a value) so a file-switch
+   *  after mount produces the new copy-link target without needing the
+   *  NodeView to re-render. Tiptap's `configure` uses `mergeDeep`, which
+   *  deep-clones plain-object options — a function is replaced by
+   *  reference, which is the behaviour we want. */
+  getFilename: () => string | undefined;
 }
+
+function HeadingNodeView({ node, extension }: NodeViewProps) {
+  const text = node.textContent;
+  const id = headerSlug(text);
+  const level = node.attrs.level as 1 | 2 | 3 | 4 | 5 | 6;
+  const Tag = `h${level}` as const;
+  const opts = extension.options as SluggedHeadingOptions;
+  const getFilename = opts.getFilename;
+  // Show the icon as long as a filename is resolvable *now*. The button
+  // re-reads `getFilename()` at click-time so file-switches after mount
+  // produce the new target without re-rendering the NodeView.
+  const hasFilename = !!getFilename?.();
+  return (
+    <NodeViewWrapper as={Tag} data-heading-id={id} id={id} className="group">
+      <NodeViewContent<'span'> as="span" />
+      {hasFilename ? (
+        <HeadingCopyLink currentDocFilename={getFilename} headerId={id} />
+      ) : null}
+    </NodeViewWrapper>
+  );
+}
+
+const SluggedHeading = Heading.extend<SluggedHeadingOptions>({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      levels: [1, 2, 3, 4, 5, 6],
+      getFilename: () => undefined,
+    };
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    const text = node.textContent;
+    const id = headerSlug(text);
+    return [`h${node.attrs.level}`, { ...HTMLAttributes, "data-heading-id": id, id }, 0];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(HeadingNodeView);
+  },
+});
 
 /** Reading-time + TOC source-of-truth. Reads directly from the rendered DOM
  *  rather than re-parsing markdown so the headings always match what the
@@ -132,7 +187,7 @@ function extractReadingMeta(root: HTMLElement): ReadingMeta {
     if (!heading) return;
     const tag = el.tagName.toLowerCase();
     const level = (tag === "h1" ? 1 : tag === "h2" ? 2 : 3) as 1 | 2 | 3;
-    let id = slugify(heading);
+    let id = headerSlug(heading);
     if (!id) id = `heading-${headings.length + 1}`;
     const collisions = seen.get(id) ?? 0;
     if (collisions > 0) id = `${id}-${collisions + 1}`;
@@ -156,6 +211,7 @@ export default function MarkdownEditor({
   allDocPaths,
   tree,
   currentDocDir = "",
+  currentDocFilename,
   readOnly = false,
   rightSidebar,
   onBlockChange,
@@ -167,6 +223,7 @@ export default function MarkdownEditor({
   getBacklinkCount,
   attachmentRepo = null,
   onImageError,
+  onEditorReady,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -177,6 +234,14 @@ export default function MarkdownEditor({
   const onImageErrorRef = useRef(onImageError);
   useEffect(() => { attachmentRepoRef.current = attachmentRepo; }, [attachmentRepo]);
   useEffect(() => { onImageErrorRef.current = onImageError; }, [onImageError]);
+  // Stable ref for the current document's vault-relative filename. The
+  // SluggedHeading NodeView reads from this ref each render so the
+  // copy-link button reflects the latest filename across file switches
+  // without re-initializing the editor (see DOC-MVP3 Task 6).
+  const currentDocFilenameRef = useRef(currentDocFilename);
+  useEffect(() => {
+    currentDocFilenameRef.current = currentDocFilename;
+  }, [currentDocFilename]);
   // Created once — reads repo/callbacks via stable refs so the editor never
   // needs to be re-initialized when the vault opens or closes.
   const imagePasteExtensionRef = useRef(
@@ -216,6 +281,13 @@ export default function MarkdownEditor({
   useEffect(() => {
     onBlockChangeRef.current = onBlockChange;
   }, [onBlockChange]);
+  // Stable ref for onEditorReady — read by Tiptap's `onCreate` once at
+  // editor mount, so the callback identity never participates in the
+  // useEditor dependency closure.
+  const onEditorReadyRef = useRef(onEditorReady);
+  useEffect(() => {
+    onEditorReadyRef.current = onEditorReady;
+  }, [onEditorReady]);
   const prevBlockStartRef = useRef(-1);
 
   // ── Wiki-link hover preview (DOC-4.17) ────────────────────────────────
@@ -345,7 +417,7 @@ export default function MarkdownEditor({
     extensions: [
       StarterKit.configure({
         undoRedo: false,
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
+        heading: false,
         codeBlock: false,
         // Disable StarterKit's bundled Link so our Link.configure({...}) below
         // wins. Without this, both register and Tiptap warns about duplicates,
@@ -354,6 +426,10 @@ export default function MarkdownEditor({
         // Replaced by RawAwareListItem so markdownReveal can swap a list
         // item's paragraph for a rawBlock without violating the schema.
         listItem: false,
+      }),
+      SluggedHeading.configure({
+        levels: [1, 2, 3, 4, 5, 6],
+        getFilename: () => currentDocFilenameRef.current,
       }),
       RawAwareListItem,
       CodeBlockWithCopy,
@@ -391,6 +467,13 @@ export default function MarkdownEditor({
     ],
     content: markdownToHtml(content),
     editable: !readOnly,
+    onCreate: () => {
+      // Fires once after Tiptap finishes its initial mount — the editor
+      // DOM is in place and parents can safely interact with it
+      // (e.g. scroll-to-anchor on open). Read via ref so callback
+      // identity changes never recreate the editor.
+      onEditorReadyRef.current?.();
+    },
     onUpdate: ({ editor: ed }) => {
       if (rawSwapRef.current) {
         rawSwapRef.current = false;

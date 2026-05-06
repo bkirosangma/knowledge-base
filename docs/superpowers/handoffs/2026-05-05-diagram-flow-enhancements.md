@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (MVP-2a merged as PR #128 squash `006cf5f`; MVP-2b open for review as PR #129 on `feat/diagram-mvp2b-cross-entity-attachment-ui` — 4-way attachment type system shipped at UI contract, document-only at data layer).
+**Last updated:** 2026-05-06 (MVP-2b merged as PR #129 squash `30ae048`; MVP 3 — Wiki-Link Anchors — execution begun on `feat/diagram-mvp3-wiki-link-anchors`).
 
 ---
 
@@ -63,13 +63,13 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | MVP | Plan file | Status |
 |---|---|---|
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
-| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | 🟡 Split: **MVP-2a** ✅ Merged (PR #128 squash `006cf5f`, Tasks 1–2: data-model + persistence). **MVP-2b** 🟡 Open for review (PR #129, 17 commits on `feat/diagram-mvp2b-cross-entity-attachment-ui`, 4-way UI contract + document-only data layer). |
+| **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | ✅ Merged via two PRs: **MVP-2a** PR #128 squash `006cf5f` (Tasks 1–2: data-model + persistence). **MVP-2b** PR #129 squash `30ae048` (4-way UI contract + document-only data layer). |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Committed. 10 tasks. ❌ Not implemented. |
 | **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` | ✅ Committed. 8 tasks. ❌ Not implemented. |
 | **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | ✅ Committed. 12 tasks. ❌ Not implemented. Depends on MVPs 1–4 deployed first. |
 
 ### Implementation
-**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) open for review** as PR #129 on 2026-05-06 — 17 commits on `feat/diagram-mvp2b-cross-entity-attachment-ui` against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`. 2240/2240 unit tests + 180/180 e2e tests + clean typecheck + clean production build at PR open.
+**MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) execution begun** on `feat/diagram-mvp3-wiki-link-anchors` against `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` (10 tasks).
 
 ---
 
@@ -210,15 +210,21 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Watch PR #129 (MVP-2b) for review feedback; once merged, plan MVP 3 + MVP 4.**
+**Execute MVP 3 (Wiki-Link Anchors) on `feat/diagram-mvp3-wiki-link-anchors` via `superpowers:subagent-driven-development`.**
 
 Concrete next steps:
 
 1. ✅ **MVP-2a merged.** PR #128 merged 2026-05-06 (squash `006cf5f`).
-2. ✅ **MVP-2b re-planned + executed.** Plan at `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`; 11 tasks (1, 2, 3, 4, 5, 6, 7a, 7b, 7c, 8, 9) all shipped via `superpowers:subagent-driven-development` over 17 commits. PR #129 opened ready-for-review. 2240/2240 unit tests + 180/180 e2e tests + clean typecheck + clean production build at PR open.
-3. **Watch PR #129.** Address any review feedback by adding new commits on the same branch (do NOT amend). Once merged, sync `main`, delete `feat/diagram-mvp2b-cross-entity-attachment-ui`, and update this doc to flip MVP 2 to ✅ Merged.
-4. **After MVP-2b merges, plan MVP 3 (Wiki-Link Anchors) and MVP 4 (Source Links).** They're independent of each other; either order works. Use `superpowers:writing-plans` with the live codebase open before executing.
-5. **MVP 5 (KB Skill Update) last.** It's forward-compatible; runs after MVPs 1-4 are merged and the running app honours the new fields.
+2. ✅ **MVP-2b merged.** PR #129 merged 2026-05-06 (squash `30ae048`).
+3. **MVP 3 plan:** `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` (10 tasks). Branch: `feat/diagram-mvp3-wiki-link-anchors` (created off the post-merge `main`).
+4. **Adaptations to bake into every Task subagent prompt** (the plan was written before some MVP-2b renames + against assumed file layouts that don't exist in the live tree — apply these inline rather than re-planning):
+   - **No `useLinkUpdates.ts`.** The header-rename refactor goes alongside `renameDocumentInIndex` in `src/app/knowledge_base/features/document/hooks/useLinkIndex.ts:206`. The save-pipeline hook is `knowledgeBase.tsx:~635` where `linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)` is already called.
+   - **`onOpenInPane` (in plan) ≡ `handleNavigateWikiLink` / `onNavigateLink` prop.** `knowledgeBase.tsx:587` (`(path: string)` — needs widening to accept `section`). `MarkdownPane.tsx:22` already accepts `(path, section?)`. Wiki-link extension already calls `onNavigate(path, section ?? undefined)` (`wikiLink.tsx:323`).
+   - **`MarkdownPane.test.tsx` does NOT exist** — Task 4's test file is **New**, not Modify.
+   - **Tiptap v3 named exports** — `import { Heading } from "@tiptap/extension-heading"`. The plan's default-import syntax will fail.
+   - **`AttachmentPreviewModal.onOpenInPane` already accepts `(filename, anchor)`.** Task 7's MVP-2 side is mostly done — focus on the **receiving** side (state + scroll) in `knowledgeBase.tsx` + `MarkdownPane`.
+   - **Don't accept a `setTimeout(0)` `readyToScroll` solution as final** — Tiptap fires editor lifecycle events the implementer should hook (`onCreate` / `onUpdate`).
+5. **After MVP 3 merges,** plan + execute MVP 4 (Source Links) using the same subagent pattern. **MVP 5 last** (skill update is forward-compatible).
 
 ### Open follow-up items surfaced by MVP-2b execution
 

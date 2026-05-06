@@ -31,6 +31,8 @@ export interface OutboundLink {
 export interface LinkIndexEntry {
   outboundLinks: OutboundLink[];
   sectionLinks: { targetPath: string; section: string }[];
+  /** Headings declared in this document, in document order. */
+  headers: { id: string; text: string; level: 1 | 2 | 3 | 4 | 5 | 6 }[];
 }
 
 export interface BacklinkEntry {

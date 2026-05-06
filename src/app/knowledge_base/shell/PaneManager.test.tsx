@@ -32,7 +32,7 @@ describe('usePaneManager — openFile', () => {
   it('opens file into left pane when not split', () => {
     const { result } = renderHook(() => usePaneManager())
     act(() => { result.current.openFile('notes/a.md', 'document') })
-    expect(result.current.leftPane).toEqual({ filePath: 'notes/a.md', fileType: 'document' })
+    expect(result.current.leftPane).toEqual({ filePath: 'notes/a.md', fileType: 'document', anchor: null })
     expect(result.current.rightPane).toBeNull()
     expect(result.current.isSplit).toBe(false)
   })
@@ -59,6 +59,56 @@ describe('usePaneManager — openFile', () => {
   })
 })
 
+// MVP 3 Task 7: wiki-link `#section` anchor is plumbed through PaneEntry so
+// MarkdownPane can scroll the matching heading into view. Each pane carries
+// its own anchor — left/right navigation never crosses streams.
+describe('usePaneManager — openFile anchor (SHELL-1.4-16, 17, 18)', () => {
+  it('SHELL-1.4-16: openFile writes anchor onto the active PaneEntry', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document', { anchor: 'intro' }) })
+    expect(result.current.activeEntry?.anchor).toBe('intro')
+    expect(result.current.leftPane?.anchor).toBe('intro')
+  })
+
+  it('SHELL-1.4-17: openFile defaults anchor to null when no opts', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document') })
+    expect(result.current.activeEntry?.anchor).toBeNull()
+  })
+
+  it('SHELL-1.4-17: openFile defaults anchor to null when opts omits it', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document', {}) })
+    expect(result.current.activeEntry?.anchor).toBeNull()
+  })
+
+  it('SHELL-1.4-18: subsequent openFile without anchor resets the anchor', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document', { anchor: 'intro' }) })
+    expect(result.current.activeEntry?.anchor).toBe('intro')
+    act(() => { result.current.openFile('notes/a.md', 'document') })
+    expect(result.current.activeEntry?.anchor).toBeNull()
+  })
+
+  it('routes anchor to the focused pane in split view', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document') })
+    act(() => { result.current.enterSplit('notes/b.md', 'document') })
+    // Focus is now "right"; openFile with anchor should land on the right pane.
+    act(() => { result.current.openFile('notes/c.md', 'document', { anchor: 'sec' }) })
+    expect(result.current.rightPane?.anchor).toBe('sec')
+    // Left pane retains its own anchor (null), independent of the right.
+    expect(result.current.leftPane?.anchor).toBeNull()
+  })
+
+  it('enterSplit accepts an anchor', () => {
+    const { result } = renderHook(() => usePaneManager())
+    act(() => { result.current.openFile('notes/a.md', 'document') })
+    act(() => { result.current.enterSplit('notes/b.md', 'document', { anchor: 'overview' }) })
+    expect(result.current.rightPane?.anchor).toBe('overview')
+  })
+})
+
 describe('usePaneManager — enterSplit (SHELL-1.4-02)', () => {
   it('SHELL-1.4-02: enterSplit populates right pane and moves focus to right', () => {
     const { result } = renderHook(() => usePaneManager())
@@ -66,7 +116,7 @@ describe('usePaneManager — enterSplit (SHELL-1.4-02)', () => {
     act(() => { result.current.enterSplit('notes/b.md', 'diagram') })
 
     expect(result.current.isSplit).toBe(true)
-    expect(result.current.rightPane).toEqual({ filePath: 'notes/b.md', fileType: 'diagram' })
+    expect(result.current.rightPane).toEqual({ filePath: 'notes/b.md', fileType: 'diagram', anchor: null })
     expect(result.current.leftPane?.filePath).toBe('notes/a.md')
     expect(result.current.focusedSide).toBe('right')
     expect(result.current.focusedPane).toBe('right')
@@ -93,7 +143,7 @@ describe('usePaneManager — exitSplit (SHELL-1.4-03, 1.4-04)', () => {
     // focus is already "right" after enterSplit
     act(() => { result.current.exitSplit() })
 
-    expect(result.current.leftPane).toEqual({ filePath: 'notes/right.md', fileType: 'diagram' })
+    expect(result.current.leftPane).toEqual({ filePath: 'notes/right.md', fileType: 'diagram', anchor: null })
     expect(result.current.rightPane).toBeNull()
     expect(result.current.focusedSide).toBe('left')
   })
@@ -110,6 +160,7 @@ describe('usePaneManager — lastClosedPane (SHELL-1.4-05)', () => {
     expect(result.current.lastClosedPane).toEqual({
       filePath: 'notes/left.md',
       fileType: 'document',
+      anchor: null,
     })
   })
 
@@ -123,6 +174,7 @@ describe('usePaneManager — lastClosedPane (SHELL-1.4-05)', () => {
     expect(result.current.lastClosedPane).toEqual({
       filePath: 'notes/right.md',
       fileType: 'document',
+      anchor: null,
     })
   })
 })

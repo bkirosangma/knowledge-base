@@ -76,6 +76,9 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-13** ✅ **Split ratio persisted** — mouseUp writes ratio to localStorage under `storageKey`.
 - **SHELL-1.4-14** ❌ **Layout restored on directory load** — re-open known folder → previous pane layout is restored. Owned by `KnowledgeBaseInner` + File System Access directory picker; e2e Playwright test not yet written.
 - **SHELL-1.4-15** ✅ **Active pane carries an sr-only "Focused" label (KB-032 non-color signal)** — the focus border `<div>` for the active side wraps `<span class="sr-only">Focused</span>`; only one such label exists in the DOM at any time. Survives "disable browser CSS color" because screen readers read the text directly. WCAG 1.4.1. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-16** ✅ **`openFile` writes anchor onto the active `PaneEntry`** — calling `openFile(path, "document", { anchor: "intro" })` results in `activeEntry.anchor === "intro"`. Wiki-link MVP 3 plumbing for `[[doc.md#section]]`. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-17** ✅ **`openFile` defaults anchor to `null`** — calling `openFile(path, "document")` (no opts) or `openFile(path, "document", {})` leaves `activeEntry.anchor === null`, so a stale anchor never bleeds into a fresh navigation. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-18** ✅ **Subsequent navigation without anchor resets the entry's anchor** — after `openFile(path, "document", { anchor: "intro" })` then `openFile(path, "document")`, `activeEntry.anchor === null`. Each navigation produces a fresh entry, so an old `#section` cannot persist. _(unit: `PaneManager.test.tsx`)_
 
 ## 1.5 Contexts (Toolbar / Footer)
 
@@ -139,6 +142,15 @@ Banner shown when a file changes on disk while the user has unsaved edits. See [
 - **SHELL-1.9-02** ✅ **Reload from disk button calls handler** — clicking "Reload from disk" invokes the `onReload` callback exactly once. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-03** ✅ **Keep my edits button calls handler** — clicking "Keep my edits" invokes the `onKeep` callback exactly once. _(ConflictBanner.test.tsx)_
 - **SHELL-1.9-04** ✅ **Live region announces only the content message (KB-035)** — the visible content of the banner's status region is the message string (chrome buttons are inside the region but never change after first mount, so screen readers announce the message on appearance only). Verified by snapshotting the banner's accessible-name string. _(ConflictBanner.test.tsx)_
+
+### 1.9.1 Broken Anchor Banner
+
+Shell-level amber banner shown after a save deletes one or more headings that other docs link to. See [`src/app/knowledge_base/shared/components/BrokenAnchorBanner.tsx`](../src/app/knowledge_base/shared/components/BrokenAnchorBanner.tsx).
+
+- **SHELL-1.9.1-01** ✅ **Renders with testid and singular text for one heading + one ref** — `BrokenAnchorBanner` exposes `data-testid="broken-anchor-banner"` and reports `1 heading removed from <docPath>; 1 wiki-link now broken.` for `deletedIds=['intro']` + a single affected ref. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-02** ✅ **Plural copy for multiple headings and refs** — `2 headings removed from <docPath>; 3 wiki-links now broken.` for two deleted ids + three affected refs. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-03** ✅ **Remove anchors button calls `onRemoveAnchors`** — clicking the "Remove anchors" button invokes the handler exactly once. _(BrokenAnchorBanner.test.tsx)_
+- **SHELL-1.9.1-04** ✅ **Leave broken button calls `onLeaveBroken`** — clicking the "Leave broken" button invokes the handler exactly once. _(BrokenAnchorBanner.test.tsx)_
 
 ## 1.10 File Watcher
 

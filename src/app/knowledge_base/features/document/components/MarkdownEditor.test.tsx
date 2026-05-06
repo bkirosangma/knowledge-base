@@ -326,6 +326,133 @@ describe('MarkdownEditor — content sync (DOC-4.5-24..26)', () => {
   })
 })
 
+// ── Heading data-heading-id stamping (MVP-3 Task 5) ────────────────────────
+//
+// In edit mode the markdownReveal plugin converts the cursor's heading into
+// a rawBlock for live syntax — `## Section A` shows literally — so the
+// `data-heading-id` only appears on the rich-rendered heading. We assert
+// against read mode (the canonical "rendered heading" surface) which is
+// also the mode that consumes the anchor (TOC, scroll-to-anchor, copy
+// link).
+
+describe('MarkdownEditor — heading data-heading-id stamping', () => {
+  it('renders headings with data-heading-id attribute', async () => {
+    const { container } = renderEditor({ content: '## Section A', readOnly: true })
+    await waitFor(() => {
+      const h2 = container.querySelector('h2[data-heading-id="section-a"]')
+      expect(h2).not.toBeNull()
+    })
+  })
+
+  it('mirrors the slug onto the heading id attribute', async () => {
+    const { container } = renderEditor({ content: '## Section A', readOnly: true })
+    await waitFor(() => {
+      const h2 = container.querySelector('h2#section-a') as HTMLElement | null
+      expect(h2).not.toBeNull()
+      expect(h2!.getAttribute('data-heading-id')).toBe('section-a')
+    })
+  })
+})
+
+// ── Heading copy-link affordance (MVP-3 Task 6) ────────────────────────────
+
+describe('MarkdownEditor — heading copy-link icon (MVP-3 Task 6)', () => {
+  it('mounts a HeadingCopyLink button next to every rendered heading', async () => {
+    const { container } = renderEditor({
+      content: '## Overview',
+      readOnly: true,
+      currentDocFilename: 'auth.md',
+    })
+    await waitFor(() => {
+      const h2 = container.querySelector('h2[data-heading-id="overview"]')
+      expect(h2).not.toBeNull()
+      const btn = h2!.querySelector(
+        '[data-testid="heading-copy-link-overview"]',
+      )
+      expect(btn).not.toBeNull()
+    })
+  })
+
+  it('clicking the copy-link writes [[<filename>#<slug>]] to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    const { container } = renderEditor({
+      content: '## Overview',
+      readOnly: true,
+      currentDocFilename: 'auth.md',
+    })
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-testid="heading-copy-link-overview"]'),
+      ).not.toBeNull()
+    })
+    const btn = container.querySelector(
+      '[data-testid="heading-copy-link-overview"]',
+    ) as HTMLElement
+    fireEvent.click(btn)
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('[[auth.md#overview]]'),
+    )
+  })
+
+  it('omits the icon when no currentDocFilename is supplied', async () => {
+    const { container } = renderEditor({
+      content: '## Overview',
+      readOnly: true,
+    })
+    await waitFor(() => {
+      expect(
+        container.querySelector('h2[data-heading-id="overview"]'),
+      ).not.toBeNull()
+    })
+    expect(
+      container.querySelector('[data-testid="heading-copy-link-overview"]'),
+    ).toBeNull()
+  })
+
+  it('refreshes the copy-link target when currentDocFilename changes (file switch)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    const { container, rerender } = render(
+      <MarkdownEditor
+        content="## Overview"
+        readOnly
+        currentDocFilename="auth.md"
+      />,
+    )
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-testid="heading-copy-link-overview"]'),
+      ).not.toBeNull(),
+    )
+
+    rerender(
+      <MarkdownEditor
+        content="## Overview"
+        readOnly
+        currentDocFilename="other.md"
+      />,
+    )
+    // Wait for the dispatch microtask + NodeView re-render to settle.
+    await waitFor(() =>
+      expect(
+        container.querySelector('h2[data-heading-id="overview"]'),
+      ).not.toBeNull(),
+    )
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-testid="heading-copy-link-overview"]',
+      ) as HTMLElement,
+    )
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('[[other.md#overview]]'),
+    )
+  })
+})
+
 // ── historyToken force-apply (undo/redo bypass) ─────────────────────────────
 
 describe('MarkdownEditor — historyToken forces content update', () => {
