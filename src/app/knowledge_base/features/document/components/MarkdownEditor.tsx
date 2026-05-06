@@ -2,7 +2,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import {
+  useEditor,
+  EditorContent,
+  NodeViewContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  type NodeViewProps,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Heading } from "@tiptap/extension-heading";
 import { TableNoNest } from "../extensions/tableNoNest";
@@ -27,6 +34,7 @@ import MarkdownToolbar from "./MarkdownToolbar";
 import WikiLinkHoverCard from "./WikiLinkHoverCard";
 import { createImagePasteExtension } from "../extensions/imagePasteHandler";
 import { headerSlug } from "../utils/headerSlug";
+import { HeadingCopyLink } from "./HeadingCopyLink";
 import type { AttachmentRepository } from "../../../domain/repositories";
 
 /** Aggregate editorial metadata derived from the rendered Tiptap DOM —
@@ -53,6 +61,10 @@ interface MarkdownEditorProps {
   /** Directory of the current document (from vault root), e.g. "docs/architecture".
    *  Used to resolve wiki-link paths relative to the current file, Obsidian-style. */
   currentDocDir?: string;
+  /** Vault-relative filename of the currently open document (e.g. "auth.md"
+   *  or "docs/auth.md"). Used by the per-heading copy-link icon to compose
+   *  `[[<filename>#<slug>]]` strings on click. */
+  currentDocFilename?: string;
   readOnly?: boolean;
   /** Optional sidebar rendered beside editor content (below the toolbar). */
   rightSidebar?: React.ReactNode;
@@ -109,11 +121,43 @@ const RawAwareTaskItem = TaskItem.extend({
   content: "(paragraph | rawBlock) block*",
 });
 
-const SluggedHeading = Heading.extend({
+interface SluggedHeadingOptions {
+  levels: Array<1 | 2 | 3 | 4 | 5 | 6>;
+  filenameRef: { current: string | undefined };
+}
+
+function HeadingNodeView({ node, extension }: NodeViewProps) {
+  const text = node.textContent;
+  const id = headerSlug(text);
+  const level = node.attrs.level as 1 | 2 | 3 | 4 | 5 | 6;
+  const Tag = `h${level}` as const;
+  const opts = extension.options as SluggedHeadingOptions;
+  const filename = opts.filenameRef?.current;
+  return (
+    <NodeViewWrapper as={Tag} data-heading-id={id} id={id} className="group">
+      <NodeViewContent<'span'> as="span" />
+      {filename ? (
+        <HeadingCopyLink currentDocFilename={filename} headerId={id} />
+      ) : null}
+    </NodeViewWrapper>
+  );
+}
+
+const SluggedHeading = Heading.extend<SluggedHeadingOptions>({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      levels: [1, 2, 3, 4, 5, 6],
+      filenameRef: { current: undefined },
+    };
+  },
   renderHTML({ node, HTMLAttributes }) {
     const text = node.textContent;
     const id = headerSlug(text);
     return [`h${node.attrs.level}`, { ...HTMLAttributes, "data-heading-id": id, id }, 0];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(HeadingNodeView);
   },
 });
 
@@ -157,6 +201,7 @@ export default function MarkdownEditor({
   allDocPaths,
   tree,
   currentDocDir = "",
+  currentDocFilename,
   readOnly = false,
   rightSidebar,
   onBlockChange,
@@ -179,6 +224,14 @@ export default function MarkdownEditor({
   const onImageErrorRef = useRef(onImageError);
   useEffect(() => { attachmentRepoRef.current = attachmentRepo; }, [attachmentRepo]);
   useEffect(() => { onImageErrorRef.current = onImageError; }, [onImageError]);
+  // Stable ref for the current document's vault-relative filename. The
+  // SluggedHeading NodeView reads from this ref each render so the
+  // copy-link button reflects the latest filename across file switches
+  // without re-initializing the editor (see DOC-MVP3 Task 6).
+  const currentDocFilenameRef = useRef(currentDocFilename);
+  useEffect(() => {
+    currentDocFilenameRef.current = currentDocFilename;
+  }, [currentDocFilename]);
   // Created once — reads repo/callbacks via stable refs so the editor never
   // needs to be re-initialized when the vault opens or closes.
   const imagePasteExtensionRef = useRef(
@@ -364,7 +417,10 @@ export default function MarkdownEditor({
         // item's paragraph for a rawBlock without violating the schema.
         listItem: false,
       }),
-      SluggedHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
+      SluggedHeading.configure({
+        levels: [1, 2, 3, 4, 5, 6],
+        filenameRef: currentDocFilenameRef,
+      }),
       RawAwareListItem,
       CodeBlockWithCopy,
       TableNoNest.configure({ resizable: true }),
@@ -588,6 +644,25 @@ export default function MarkdownEditor({
       editor.view.dispatch(editor.state.tr);
     });
   }, [editor, existingDocPaths, allDocPaths, tree, currentDocDir]);
+
+  // Refresh the SluggedHeading copy-link target when the open document's
+  // filename changes after initial mount (file switch). The NodeView reads
+  // from `currentDocFilenameRef`, but ProseMirror only re-runs node views
+  // on a transaction — dispatch a no-op so the icon's onClick captures the
+  // new filename in its closure. We skip the very first run because the
+  // initial render already mounts the NodeView with the current ref value;
+  // dispatching there can wake up the markdownReveal raw-swap plugin
+  // before the user has interacted.
+  const lastFilenameRef = useRef(currentDocFilename);
+  useEffect(() => {
+    if (!editor) return;
+    if (lastFilenameRef.current === currentDocFilename) return;
+    lastFilenameRef.current = currentDocFilename;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      editor.view.dispatch(editor.state.tr);
+    });
+  }, [editor, currentDocFilename]);
 
   const handleToggleRawMode = useCallback(() => {
     if (!editor) return;

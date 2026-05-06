@@ -238,6 +238,7 @@ export default function MarkdownPane({
           allDocPaths={allDocPaths}
           tree={tree}
           currentDocDir={filePath.split("/").slice(0, -1).join("/")}
+          currentDocFilename={filePath}
           readOnly={readOnly}
           hideToolbar={hideToolbar}
           editorContainerRef={editorContainerRef}
