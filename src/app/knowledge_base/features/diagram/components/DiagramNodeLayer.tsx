@@ -51,6 +51,7 @@ export interface DiagramNodeLayerProps {
   // Lock mode
   isLocked?: boolean;
   onChangeNodeOrder?: (nodeId: string, next: number | undefined) => void;
+  onChangeNodeRole?: (nodeId: string, next: 'start' | 'end' | null) => void;
 
   // Handlers
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,6 +157,7 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
     flowOrderData,
     isLocked,
     onChangeNodeOrder,
+    onChangeNodeRole,
     handleAnchorDragStart,
     handleAnchorHover,
     handleAnchorHoverEnd,
@@ -243,6 +245,8 @@ export default function DiagramNodeLayer(props: DiagramNodeLayerProps) {
           order: flowEntry?.order,
           orderEditable: isLocked && !readOnly && flowEntry !== undefined,
           onOrderChange: (next: number | undefined) => onChangeNodeOrder?.(node.id, next),
+          lockEditRoleToggle: !!(isLocked && !readOnly && isMember),
+          onRoleToggle: (next: 'start' | 'end' | null) => onChangeNodeRole?.(node.id, next),
         };
 
         const showEdgeHandles =

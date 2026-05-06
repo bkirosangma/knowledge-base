@@ -183,6 +183,7 @@ export interface DiagramCanvasProps {
   nodes: NodeData[];
   // CSS state hints
   previewDocPath: string | null;
+  onChangeNodeRole?: (nodeId: string, next: 'start' | 'end' | null) => void;
 }
 
 /**
@@ -276,6 +277,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
     getNodeDimensions,
     nodes,
     previewDocPath,
+    onChangeNodeRole,
   } = props;
 
   const { lockedFlowId, setLockedFlowId } = useLockedFlow();
@@ -507,6 +509,7 @@ export default function DiagramCanvas(props: DiagramCanvasProps) {
                   typeDimSets={typeDimSets}
                   flowOrderData={flowOrderData}
                   isLocked={isLocked}
+                  onChangeNodeRole={onChangeNodeRole}
                   handleAnchorDragStart={handleAnchorDragStart}
                   handleAnchorHover={handleAnchorHover}
                   handleAnchorHoverEnd={handleAnchorHoverEnd}

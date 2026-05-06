@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
 import ConditionElement from './ConditionElement'
 
 // Covers DIAG-3.10-23 — flow role glow on diamond (condition) nodes.
@@ -68,5 +68,57 @@ describe('ConditionElement — flow role text pill (KB-032 non-color signal)', (
   it('DIAG-3.10-44 (KB-032): no flowRole means no pill', () => {
     const { queryByTestId } = render(<ConditionElement {...base} />)
     expect(queryByTestId('flow-role-pill-ce1')).toBeNull()
+  })
+})
+
+// DIAG-3.10-46 — click-toggle role pill in lock+edit mode (diamond shape)
+describe('ConditionElement — click-toggle role pill (DIAG-3.10-46)', () => {
+  it('DIAG-3.10-46: null → start on first click in lock+edit', () => {
+    const onRoleToggle = vi.fn()
+    const { getByTestId } = render(
+      <ConditionElement {...base} flowRole={undefined} lockEditRoleToggle onRoleToggle={onRoleToggle} />,
+    )
+    fireEvent.click(getByTestId('flow-role-toggle-ce1'))
+    expect(onRoleToggle).toHaveBeenCalledTimes(1)
+    expect(onRoleToggle).toHaveBeenLastCalledWith('start')
+  })
+
+  it('DIAG-3.10-46: start → end on click in lock+edit', () => {
+    const onRoleToggle = vi.fn()
+    const { getByTestId } = render(
+      <ConditionElement {...base} flowRole="start" lockEditRoleToggle onRoleToggle={onRoleToggle} />,
+    )
+    fireEvent.click(getByTestId('flow-role-toggle-ce1'))
+    expect(onRoleToggle).toHaveBeenLastCalledWith('end')
+  })
+
+  it('DIAG-3.10-46: end → null on click in lock+edit', () => {
+    const onRoleToggle = vi.fn()
+    const { getByTestId } = render(
+      <ConditionElement {...base} flowRole="end" lockEditRoleToggle onRoleToggle={onRoleToggle} />,
+    )
+    fireEvent.click(getByTestId('flow-role-toggle-ce1'))
+    expect(onRoleToggle).toHaveBeenLastCalledWith(null)
+  })
+
+  it('DIAG-3.10-46: toggle button renders dot sentinel when no role in lock+edit', () => {
+    const { getByTestId } = render(
+      <ConditionElement {...base} flowRole={undefined} lockEditRoleToggle onRoleToggle={vi.fn()} />,
+    )
+    expect(getByTestId('flow-role-toggle-ce1').textContent).toBe('·')
+  })
+
+  it('DIAG-3.10-46: no lockEditRoleToggle → role pill uses existing flow-role-pill testid', () => {
+    const { getByTestId } = render(
+      <ConditionElement {...base} flowRole="start" />,
+    )
+    expect(getByTestId('flow-role-pill-ce1').textContent).toBe('Start')
+  })
+
+  it('DIAG-3.10-46: no lockEditRoleToggle and no role → no toggle area rendered', () => {
+    const { queryByTestId } = render(
+      <ConditionElement {...base} />,
+    )
+    expect(queryByTestId('flow-role-toggle-ce1')).toBeNull()
   })
 })

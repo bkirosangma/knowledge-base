@@ -353,6 +353,20 @@ export function useDiagramController(input: DiagramControllerInputs) {
     pendingSelection, handleSelectionRectStart, handleDragStart, scheduleRecord, readOnly,
   });
   const { lockedFlowId, setLockedFlowId } = useLockedFlow();
+
+  const handleChangeNodeRole = useCallback((nodeId: string, next: 'start' | 'end' | null) => {
+    if (!lockedFlowId) return;
+    const flow = flowsRef.current.find((f) => f.id === lockedFlowId);
+    if (!flow) return;
+    const startSet = new Set(flow.startNodeIds ?? []);
+    const endSet = new Set(flow.endNodeIds ?? []);
+    startSet.delete(nodeId);
+    endSet.delete(nodeId);
+    if (next === 'start') startSet.add(nodeId);
+    if (next === 'end') endSet.add(nodeId);
+    handleUpdateFlow(lockedFlowId, { startNodeIds: [...startSet], endNodeIds: [...endSet] });
+  }, [lockedFlowId, flowsRef, handleUpdateFlow]);
+
   useKeyboardShortcuts({
     cancelSelectionRect, setSelection, setContextMenu, deleteSelection, setPendingDeletion,
     handleCreateFlow, handleUndo, handleRedo,
@@ -493,6 +507,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     commitLabel,
     hasDocuments, getDocumentsForEntity, onOpenDocument,
     getNodeDimensions: geometry.getNodeDimensions, nodes, previewDocPath,
+    onChangeNodeRole: handleChangeNodeRole,
   };
 
   const quickInspector = {
