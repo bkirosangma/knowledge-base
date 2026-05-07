@@ -37,23 +37,26 @@ test.describe("tab editor", () => {
     });
   });
 
-  // BLOCKED: original Bravura font 404 issue is RESOLVED — the FONT_DIRECTORY
-  // wiring in `alphaTabAssets.ts` + the Bravura files now living in
-  // `public/font/` let the engine fire its "loaded" event and the loading
-  // overlay clears as expected.
+  // PARTIALLY UNBLOCKED, NEW STALENESS:
+  //   • Original Bravura font 404 IS resolved (FONT_DIRECTORY constant +
+  //     `public/font/Bravura.*` files in place + `alphaTabEngine.ts` sets
+  //     `settings.core.fontDirectory`). The loading overlay clears.
+  //   • Edit toggle is now the PaneHeader "Exit Read Mode" button (already
+  //     fixed below).
   //
-  // Remaining staleness (deferred): the body assertions below pre-date the
-  // PaneHeader Edit/Read refactor, the editor-toolbar redesign, and possibly
-  // the editor metadata/cursor-target gating that's coupled to alphaTab's
-  // post-load state. To re-enable, walk through the assertions:
-  //   • Edit toggle is now the PaneHeader "Exit Read Mode" button (this part
-  //     is already updated below).
-  //   • Cursor-target overlay needs `metadata` populated, which only happens
-  //     after alphaTab finishes parsing. May need an additional wait
-  //     between the Edit toggle and the cursor-target query.
-  //   • Verify the keyboard digit dispatch path under the new edit-mode
-  //     wiring (no major refactor expected, but assert the flush path still
-  //     writes through `useTabContent.setScore`).
+  // REMAINING BLOCKER: cursor-target overlay never renders cells. The
+  // editor toolbar (Q/W/E/R/T/Y, V1/V2, technique groups) DOES render
+  // (confirmed via Playwright a11y snapshot), and TabProperties shows the
+  // metadata-derived title "Smoke" + tempo "120". So metadata reaches
+  // TabProperties but TabEditorCanvasOverlay still gates `metadata` to
+  // null at render time — likely a timing edge between alphaTab's
+  // "loaded" event and metadata.totalBeats being non-zero, OR a memoised
+  // capture that doesn't see the metadata update. Needs an investigation
+  // into the alphaTab "loaded" → metadata propagation path. Re-enable by:
+  //   1. Adding a probe on `[data-testid="tab-editor-cursor-target-0-1"]`
+  //      with logging in `useTabEngine.ts` to confirm metadata.totalBeats.
+  //   2. If totalBeats is 0 at "loaded", wait for "ready" or a follow-up
+  //      event before exposing metadata.
   // The unit tests in `TabView.editor.test.tsx`,
   // `TabEditorCanvasOverlay.test.tsx`, etc. continue to verify the wiring.
   // eslint-disable-next-line playwright/no-skipped-test
@@ -83,8 +86,14 @@ test.describe("tab editor", () => {
     // 30 s — on CI with cold WASM JIT this can be slow.
     await expect(page.getByTestId("tab-view-loading")).not.toBeVisible({ timeout: 30000 });
 
+    // The TabProperties panel mounts with metadata-derived content once the
+    // engine fires its "loaded" event. Wait for it before toggling edit mode
+    // so the editor's overlay receives a non-null `metadata` prop.
+    await expect(page.getByTestId("tab-properties")).toBeVisible();
+
     // Toggle edit mode (per-file default is readOnly=true; the PaneHeader's
-    // "Exit Read Mode" button unlocks it).
+    // "Exit Read Mode" button unlocks it — renamed after the PaneHeader
+    // refactor).
     await page.getByRole("button", { name: /exit read mode/i }).click();
 
     // Editor chunk is attached and cursor targets are rendered by the overlay.
