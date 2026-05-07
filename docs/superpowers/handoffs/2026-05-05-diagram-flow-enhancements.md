@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-06 (MVP 5 — KB Skill Update — implemented on skill repo branch `feat/mvp5-flow-enhancements` at `~/.claude/skills/knowledge-base/`: 11 commits, 11 files, +579/-28 lines covering Tasks 1, 2, 3, 4, 7, 8, 9, 10, 11. Tasks 5 and 6 deferred to MVP-4b alongside the SVG/Tab metadata-persistence design slice. Two `--fix` gaps surfaced by Task 11 fixtures and deferred to MVP-5b — see Open follow-up items. Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries the handoff updates + plan re-grounding only.).
+**Last updated:** 2026-05-07 (MVP-4b — SVG/Tab metadata persistence and source links — implemented on `feat/diagram-mvp4b-svg-tab-metadata`: 20 commits, ~16 files, brainstormed → spec'd → planned → shipped via subagent-driven-development. SVG `.svg.refs.json` sidecar + Tab `.alphatex.refs.json` v3 migration both wired; `<SourcesSection>` mounted in new `SvgProperties` aside and existing `TabProperties`. Forward-compat `attachedTo?` field accepted by both schemas (no UI binds it — reserved for the deferred MVP-2 SVG/Tab attachments). 2418/2418 tests pass; typecheck + build clean.).
 
 ---
 
@@ -65,8 +65,8 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | **MVP 1** | Flow Ordering | `docs/superpowers/plans/2026-05-05-flow-ordering-mvp-plan.md` | ✅ Merged (PR #127, commit `2ff16da`). All 17 tasks shipped. |
 | **MVP 2** | Cross-Entity Attachment | `docs/superpowers/plans/2026-05-05-cross-entity-attachment-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md` (re-grounded) | ✅ Merged via two PRs: **MVP-2a** PR #128 squash `006cf5f` (Tasks 1–2: data-model + persistence). **MVP-2b** PR #129 squash `30ae048` (4-way UI contract + document-only data layer). |
 | **MVP 3** | Wiki-Link Anchors | `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md` | ✅ Merged (PR #132, squash `ca85890`). All 10 tasks shipped. |
-| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (re-grounded MVP-4a) | ✅ **MVP-4a** merged via PR #133 squash `cb41629` (8 tasks: diagram entities + document) plus hardening follow-up PR #135 squash `55319f8` (empty-URL frontmatter graceful-degrade). **MVP-4b** (SVG + Tab) deferred — unified with the SVG/Tab attachment-persistence deferral. |
-| **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | 🟢 Implemented. 10 of 12 tasks shipped (5 + 6 deferred to MVP-4b). Skill-repo branch `feat/mvp5-flow-enhancements` has 11 commits at `~/.claude/skills/knowledge-base/` (origin remote present but URL-less; skill lives on disk only). Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries handoff/plan docs only. Two `--fix` gaps deferred to MVP-5b. |
+| **MVP 4** | Source Links | `docs/superpowers/plans/2026-05-05-source-links-mvp-plan.md` (original) + `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md` (re-grounded MVP-4a) + `docs/superpowers/plans/2026-05-07-svg-tab-metadata-persistence-mvp4b-plan.md` (MVP-4b) | ✅ **MVP-4a** merged via PR #133 squash `cb41629` (8 tasks: diagram entities + document) plus hardening follow-up PR #135 squash `55319f8` (empty-URL frontmatter graceful-degrade). ✅ **MVP-4b** (SVG + Tab source links) shipped on `feat/diagram-mvp4b-svg-tab-metadata` — 13 tasks via subagent-driven-development. New `<file>.svg.refs.json` sidecar + `TabRefsPayload` bumped v2→v3; `<SourcesSection>` mounted in new `SvgProperties` aside and existing `TabProperties`. |
+| **MVP 5** | KB Skill Update | `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` | 🟢 Implemented. 10 of 12 tasks shipped (Tasks 5 and 6 covered the SVG/Tab archetype skill docs; now unblocked by MVP-4b — follow-up tracked under "Open follow-up items"). Skill-repo branch `feat/mvp5-flow-enhancements` has 11 commits at `~/.claude/skills/knowledge-base/`. Two `--fix` gaps were closed by MVP-5b (PRs #143, #144). |
 
 ### Implementation
 **MVP 1 (Flow Ordering) merged** via PR #127 on 2026-05-06 (squash commit `2ff16da`). **MVP-2a (data-model + persistence) merged** via PR #128 on 2026-05-06 (squash commit `006cf5f`, Tasks 1–2 of the original 12-task plan). **MVP-2b (UI + refactor) merged** via PR #129 on 2026-05-06 (squash commit `30ae048`, 17 commits against the re-grounded plan `docs/superpowers/plans/2026-05-06-cross-entity-attachment-mvp2b-plan.md`). **MVP 3 (Wiki-Link Anchors) merged** via PR #132 on 2026-05-06 (squash commit `ca85890`, all 10 tasks of `docs/superpowers/plans/2026-05-05-wiki-link-anchors-mvp-plan.md`). **MVP-4a (Source Links — diagram entities + document) merged** via PR #133 on 2026-05-06 (squash commit `cb41629`, all 8 tasks of `docs/superpowers/plans/2026-05-06-source-links-mvp4a-plan.md`); a hardening follow-up landed via PR #135 squash `55319f8` (empty-URL frontmatter graceful-degrade — drafts filter at save boundary, parser preserves unknown rows on parse failure). **MVP 5 (KB Skill Update) execution begun** on `feat/diagram-mvp5-kb-skill-update` against `docs/superpowers/plans/2026-05-05-kb-skill-update-mvp-plan.md` (12 tasks).
@@ -185,12 +185,20 @@ These are durable; pull from `MEMORY.md` before any change.
 | `src/app/knowledge_base/features/diagram/properties/{Diagram,Node,Line,Layer,Flow}Properties.tsx` | Modified in MVP-4a Task 5 — wire `<SourcesSection>`. |
 | `src/app/knowledge_base/features/document/properties/DocumentProperties.tsx` | Modified in MVP-4a Task 7 — wire `<SourcesSection>`. |
 
-### Source links (MVP-4b — deferred)
+### Source links (MVP-4b — closed 2026-05-07)
 
-| Path | Concern |
+| Path | Resolution |
 |---|---|
-| `src/app/knowledge_base/features/svgEditor/utils/svgMetaSidecar.ts` | Deferred — needs SVG metadata-persistence design slice. |
-| Tab `\sources` AlphaTex header / sidecar | Deferred — same. |
+| `src/app/knowledge_base/domain/svgRefs.ts` | ✅ New domain types for `<file>.svg.refs.json` sidecar (lazy creation, delete-when-empty). |
+| `src/app/knowledge_base/infrastructure/svgRefsRepo.ts` | ✅ FSA-backed repo mirroring `tabRefsRepo`. `deleteSidecar` differentiates `not-found` vs other classified errors. |
+| `src/app/knowledge_base/domain/tabRefs.ts` | ✅ Bumped to v3 — adds optional `sources` and reserved `attachedTo`. v1/v2 retained for read migration. |
+| `src/app/knowledge_base/infrastructure/tabRefsRepo.ts` | ✅ Reads v1, v2, v3 (each → v3 in memory); always emits v3; drops empty arrays from JSON. |
+| `src/app/knowledge_base/features/svgEditor/hooks/useSvgMeta.ts` | ✅ New hook — debounced 200 ms, file-switch flush, write-failure leaves isDirty true. |
+| `src/app/knowledge_base/features/tab/hooks/useTabSources.ts` | ✅ New hook with read-modify-write merge guard so `useTabEngine`'s sectionRefs/trackRefs writes are not clobbered. |
+| `src/app/knowledge_base/features/svgEditor/properties/SvgProperties.tsx` | ✅ New collapsible aside hosting `<SourcesSection>` driven by `useSvgMeta`. |
+| `src/app/knowledge_base/features/tab/properties/TabProperties.tsx` | ✅ `<SourcesSection>` mounted at file scope, adjacent to FileReferences. |
+| `src/app/knowledge_base/shared/types/attachments.ts` | ✅ Shared `AttachedToScope`/`AttachedToEntry` for forward-compat `attachedTo?` on both sidecars. |
+| AlphaTex `\sources` inline header | ❌ Rejected — invasive to user's tab text; sidecar is cleaner. |
 
 ### Knowledge-base skill (MVP 5)
 
@@ -220,7 +228,7 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**MVP 5 implementation is complete. Open the MVP 5 documentation PR, then choose between the two remaining deferred slices: MVP-4b (SVG/Tab metadata persistence) or MVP-5b (validate/fix hardening).**
+**MVP-4b (SVG/Tab metadata persistence + source links) is implemented and ready for review on `feat/diagram-mvp4b-svg-tab-metadata`. With MVP-5b already merged (PRs #143, #144), the only remaining slice is MVP 5 Tasks 5 + 6 — the `archetypes/svg.md` and `archetypes/guitar-tabs.md` skill docs that document the new sidecar schemas.**
 
 Concrete next steps:
 
@@ -231,8 +239,10 @@ Concrete next steps:
 5. ✅ **MVP-4a merged.** PR #133 (squash `cb41629`) + hardening PR #135 (squash `55319f8`).
 6. 🟢 **MVP 5 implemented** on skill-repo branch `feat/mvp5-flow-enhancements` (11 commits at `~/.claude/skills/knowledge-base/`). Project-repo branch `feat/diagram-mvp5-kb-skill-update` carries handoff/plan docs and is ready to push + open PR.
 7. **Open PR for MVP 5 documentation** on the project-repo branch. The PR's content is small (handoff updates + MVP 5 plan re-grounding); the bulk of the deliverable lives in the skill repo at `~/.claude/skills/knowledge-base/` (no remote — local-only).
-8. **MVP-4b** (SVG + Tab branches of cross-entity attachment AND source links) stays deferred. Pre-conditions: brainstorm + spec slice on the unified SVG/Tab metadata-persistence pattern. Once landed, MVP-4b becomes thin (wire `<SourcesSection>` into `SvgProperties`/`TabProperties` against the new layer) and re-enables MVP 5 Tasks 5 and 6 in the skill (svg.md, guitar-tabs.md).
-9. **MVP-5b** (validate/fix hardening) — small targeted skill-only follow-up, scope listed under "Open follow-up items surfaced by MVP 5 execution" above. Estimated 4-6 hours. No app-side changes. The Task 11 fixtures already pin the expected behaviour.
+8. ✅ **MVP-4b** (SVG + Tab source links) shipped on `feat/diagram-mvp4b-svg-tab-metadata`. 13 tasks, 20 commits. New SVG sidecar + Tab sidecar v3 migration. `<SourcesSection>` mounted in new `SvgProperties` aside and existing `TabProperties`. Forward-compat `attachedTo?` on both schemas (no UI binds it; reserved for the still-deferred MVP-2 SVG/Tab attachment branches). Re-enables MVP 5 Tasks 5 + 6 (skill archetype docs).
+9. ✅ **MVP-5b** (validate/fix hardening) — closed by PRs #143, #144. Inline-vs-block-list `sources:` frontmatter normalisation shipped.
+10. **MVP 5 Tasks 5 + 6 — skill archetype docs** for `svg.md` and `guitar-tabs.md`. Document the new sidecar schemas (`<file>.svg.refs.json` and the v3 `.alphatex.refs.json`) so the skill's archetype guidance reflects the persistence layer that MVP-4b just shipped. Skill-only change; no app code involved.
+11. **MVP-2 SVG + Tab attachment branches** stays deferred. The schema is now in place — both sidecars accept `attachedTo: AttachedToEntry[]`. When this MVP runs it becomes thin: wire detach UI + adapt `useDocuments.migrateAttachments` for the new entity scopes.
 
 The Diagram Flow Enhancements feature itself is **functionally complete** at the app layer (MVPs 1, 2a, 2b, 3, 4a all merged) and **operationally complete** at the skill layer (MVP 5 implemented). What remains (MVP-4b, MVP-5b) is hardening, not core scope.
 
