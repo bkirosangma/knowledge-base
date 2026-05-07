@@ -19,7 +19,7 @@ describe("AttachmentsSection", () => {
   it("renders the section title with no rows when all buckets are empty", () => {
     render(<AttachmentsSection {...makeProps()} />);
     expect(screen.getByText(/attachments/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("attachment-row-a.md")).toBeNull();
+    expect(screen.queryByRole("button", { name: /open notes a/i })).toBeNull();
   });
 
   it("renders rows under the docs group when docs bucket has entries", () => {
@@ -28,7 +28,7 @@ describe("AttachmentsSection", () => {
     });
     render(<AttachmentsSection {...props} />);
     expect(screen.getByTestId("attachment-group-docs")).toBeInTheDocument();
-    expect(screen.getByTestId("attachment-row-a.md")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open notes a/i })).toBeInTheDocument();
   });
 
   it("hides empty groups", () => {
@@ -47,7 +47,7 @@ describe("AttachmentsSection", () => {
       docs: [{ id: "doc-1", filename: "a.md", title: "Notes A", attachedTo: [] }],
     });
     render(<AttachmentsSection {...props} onPreview={onPreview} />);
-    fireEvent.click(screen.getByTestId("attachment-preview-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /open notes a/i }));
     expect(onPreview).toHaveBeenCalledWith("a.md", "document");
   });
 
@@ -57,7 +57,7 @@ describe("AttachmentsSection", () => {
       docs: [{ id: "doc-1", filename: "a.md", title: "Notes A", attachedTo: [] }],
     });
     render(<AttachmentsSection {...props} onDetach={onDetach} />);
-    fireEvent.click(screen.getByTestId("attachment-detach-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /detach notes a/i }));
     expect(onDetach).toHaveBeenCalledWith("a.md", "document");
   });
 
@@ -74,7 +74,7 @@ describe("AttachmentsSection", () => {
     });
     render(<AttachmentsSection {...props} readOnly />);
     expect(screen.queryByTestId("attachment-attach-button")).toBeNull();
-    expect(screen.queryByTestId("attachment-detach-a.md")).toBeNull();
+    expect(screen.queryByRole("button", { name: /detach notes a/i })).toBeNull();
   });
 });
 
@@ -97,7 +97,7 @@ describe("AttachmentsSection — cascade-detach modal", () => {
   it("opens DetachDocModal when Detach is clicked on a document row + cascade props are provided", () => {
     const props = makeCascadeProps();
     render(<AttachmentsSection {...props} />);
-    fireEvent.click(screen.getByTestId("attachment-detach-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /detach notes a/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     // onDetach is NOT called yet — the modal is the gate.
     expect(props.onDetach).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe("AttachmentsSection — cascade-detach modal", () => {
     const props = makeCascadeProps();
     // Drop deleteDocumentWithCleanup — modal should not open; direct onDetach instead.
     render(<AttachmentsSection {...props} deleteDocumentWithCleanup={undefined} />);
-    fireEvent.click(screen.getByTestId("attachment-detach-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /detach notes a/i }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(props.onDetach).toHaveBeenCalledWith("a.md", "document");
   });
@@ -115,14 +115,14 @@ describe("AttachmentsSection — cascade-detach modal", () => {
   it("queries getDocumentReferences with the file path and entityScope on Detach click", () => {
     const props = makeCascadeProps();
     render(<AttachmentsSection {...props} />);
-    fireEvent.click(screen.getByTestId("attachment-detach-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /detach notes a/i }));
     expect(props.getDocumentReferences).toHaveBeenCalledWith("a.md", { entityType: "flow", entityId: "flow-1" });
   });
 
   it("Confirm without 'also delete' fires onDetach but skips deleteDocumentWithCleanup", async () => {
     const props = makeCascadeProps();
     render(<AttachmentsSection {...props} />);
-    fireEvent.click(screen.getByTestId("attachment-detach-a.md"));
+    fireEvent.click(screen.getByRole("button", { name: /detach notes a/i }));
 
     const dialog = screen.getByRole("dialog");
     const confirm = within(dialog).getByRole("button", { name: /^detach$/i });
