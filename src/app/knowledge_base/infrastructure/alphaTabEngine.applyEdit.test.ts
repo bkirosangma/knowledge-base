@@ -131,6 +131,7 @@ function cursorToInternalString(session: any, cursorString: number, trackId?: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tracks: any[] = session?.latestScore?.tracks ?? [];
   const track = trackId !== undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? (tracks.find((t: any) => String(t.index) === trackId) ?? tracks[0])
     : tracks[0];
   const numStrings: number =
