@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { FileText, Paperclip, Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { FlowDef, Connection, NodeData } from "../types";
-import type { DocumentMeta, AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
+import type { AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import { Section, EditableRow, EditableIdRow, ExpandableListRow } from "./shared";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { CreateAttachEntityModal } from "../components/CreateAttachEntityModal";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
-import DetachDocModal from "../components/DetachDocModal";
 import { SourcesSection } from "../../../shared/components/SourcesSection";
 import type { SourceLink } from "../../../shared/types/sources";
 
@@ -14,8 +13,6 @@ export function FlowProperties({
   id, flows, connections, nodes,
   onUpdate, onDelete, onSelectLine, onSelectNode,
   allFlowIds,
-  attachedDocs,
-  onAttach, onDetach, onPreview,
   getDocumentReferences, deleteDocumentWithCleanup, onCreateAndAttach,
   onLock,
   readOnly,
@@ -38,13 +35,9 @@ export function FlowProperties({
   onSelectLine?: (lineId: string) => void;
   onSelectNode?: (nodeId: string) => void;
   allFlowIds: string[];
-  attachedDocs?: DocumentMeta[];
-  onAttach?: () => void;
-  onDetach?: (docPath: string) => void;
-  onPreview?: (docPath: string) => void;
   getDocumentReferences?: (
     docPath: string,
-    exclude?: { entityType: string; entityId: string }
+    owner: { entityType: EntityAttachmentTarget; entityId: string }
   ) => { attachments: Array<{ entityType: string; entityId: string }>; wikiBacklinks: string[] };
   deleteDocumentWithCleanup?: (path: string) => Promise<void>;
   onCreateAndAttach?: (filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
@@ -114,11 +107,6 @@ export function FlowProperties({
   }, [flow, nodeItems]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [detachTarget, setDetachTarget] = useState<string | null>(null);
-
-  const detachRefs = detachTarget
-    ? (getDocumentReferences?.(detachTarget, { entityType: "flow", entityId: id }) ?? { attachments: [], wikiBacklinks: [] })
-    : null;
 
   if (!flow) return <p className="text-xs text-mute">Flow not found.</p>;
 
@@ -240,62 +228,29 @@ export function FlowProperties({
         <ExpandableListRow label="Elements" items={nodeItems} onSelect={onSelectNode} />
       </Section>
 
-      <Section title="Documents">
-        {(attachedDocs?.length ?? 0) > 0 ? (
-          <div className="flex flex-col gap-1">
-            {attachedDocs!.map(doc => (
-              <div key={doc.filename} className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-2 border border-line text-xs">
-                <FileText size={12} className="text-indigo-400 flex-shrink-0" />
-                <button
-                  onClick={() => onPreview?.(doc.filename)}
-                  className="text-accent hover:underline truncate flex-1 text-left"
-                >
-                  {doc.filename.split("/").pop()}
-                </button>
-                {!readOnly && (
-                  <button
-                    aria-label={`detach ${doc.filename}`}
-                    onClick={() => setDetachTarget(doc.filename)}
-                    className="ml-auto text-mute hover:text-red-500 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[11px] text-mute">No documents linked to this flow.</p>
-        )}
-
-        {!readOnly && (
-          <div className="flex gap-1.5 mt-2">
+      {attachmentsByType && (
+        <>
+          <AttachmentsSection
+            buckets={attachmentsByType({ type: "flow", id })}
+            onPreview={() => openAttachmentPreviewFor?.({ type: "flow", id })}
+            onDetach={(filename) => onDetachDocument?.(filename, "flow", id)}
+            onAttach={() => onOpenDocPicker?.("flow", id)}
+            readOnly={readOnly}
+            entityScope={{ entityType: "flow", entityId: id }}
+            getDocumentReferences={getDocumentReferences}
+            deleteDocumentWithCleanup={deleteDocumentWithCleanup}
+          />
+          {!readOnly && onCreateAndAttach && (
             <button
-              onClick={() => onAttach?.()}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-ink-2 bg-surface border border-line hover:bg-surface-2 rounded-md transition-colors"
-            >
-              <Paperclip size={11} />
-              Attach existing…
-            </button>
-            <button
+              type="button"
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-ink-2 bg-surface border border-line hover:bg-surface-2 rounded-md transition-colors"
+              className="self-start flex items-center gap-1 mt-1 px-2.5 py-1 text-[11px] font-medium text-ink-2 bg-surface border border-line hover:bg-surface-2 rounded-md transition-colors"
             >
               <Plus size={11} />
-              Create & attach new…
+              Create &amp; attach new…
             </button>
-          </div>
-        )}
-      </Section>
-
-      {attachmentsByType && (
-        <AttachmentsSection
-          buckets={attachmentsByType({ type: "flow", id })}
-          onPreview={() => openAttachmentPreviewFor?.({ type: "flow", id })}
-          onDetach={(filename) => onDetachDocument?.(filename, "flow", id)}
-          onAttach={() => onOpenDocPicker?.("flow", id)}
-          readOnly={readOnly}
-        />
+          )}
+        </>
       )}
 
       <Section title="Sources">
@@ -331,21 +286,6 @@ export function FlowProperties({
             await onCreateAndAttach?.(filename, editNow, type);
           }}
           onCancel={() => setShowCreateModal(false)}
-        />
-      )}
-
-      {detachTarget && detachRefs && (
-        <DetachDocModal
-          docPath={detachTarget}
-          attachments={detachRefs.attachments}
-          wikiBacklinks={detachRefs.wikiBacklinks}
-          onCancel={() => setDetachTarget(null)}
-          onConfirm={async (alsoDelete) => {
-            const target = detachTarget;
-            setDetachTarget(null);
-            onDetach?.(target);
-            if (alsoDelete) await deleteDocumentWithCleanup?.(target);
-          }}
         />
       )}
     </>

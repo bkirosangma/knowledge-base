@@ -265,10 +265,6 @@ export function DiagramProperties({
               onDelete={(id) => { setExpandedFlowId(null); onDeleteFlow?.(id); }}
               onSelectLine={onSelectLine}
               onSelectNode={onSelectNode}
-              attachedDocs={documents?.filter(d => d.attachedTo?.some(a => a.type === "flow" && a.id === expandedFlow.id)) ?? []}
-              onAttach={() => onOpenDocPicker?.("flow", expandedFlow.id)}
-              onDetach={(docPath) => onDetachDocument?.(docPath, "flow", expandedFlow.id)}
-              onPreview={(docPath) => onPreviewDocument?.(docPath, expandedFlow.name)}
               getDocumentReferences={getDocumentReferences}
               deleteDocumentWithCleanup={deleteDocumentWithCleanup}
               onCreateAndAttach={(filename, editNow, type) => onCreateAndAttach?.(expandedFlow.id, filename, editNow, type) ?? Promise.resolve()}
