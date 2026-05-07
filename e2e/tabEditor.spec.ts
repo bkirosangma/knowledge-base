@@ -37,30 +37,7 @@ test.describe("tab editor", () => {
     });
   });
 
-  // PARTIALLY UNBLOCKED, NEW STALENESS:
-  //   • Original Bravura font 404 IS resolved (FONT_DIRECTORY constant +
-  //     `public/font/Bravura.*` files in place + `alphaTabEngine.ts` sets
-  //     `settings.core.fontDirectory`). The loading overlay clears.
-  //   • Edit toggle is now the PaneHeader "Exit Read Mode" button (already
-  //     fixed below).
-  //
-  // REMAINING BLOCKER: cursor-target overlay never renders cells. The
-  // editor toolbar (Q/W/E/R/T/Y, V1/V2, technique groups) DOES render
-  // (confirmed via Playwright a11y snapshot), and TabProperties shows the
-  // metadata-derived title "Smoke" + tempo "120". So metadata reaches
-  // TabProperties but TabEditorCanvasOverlay still gates `metadata` to
-  // null at render time — likely a timing edge between alphaTab's
-  // "loaded" event and metadata.totalBeats being non-zero, OR a memoised
-  // capture that doesn't see the metadata update. Needs an investigation
-  // into the alphaTab "loaded" → metadata propagation path. Re-enable by:
-  //   1. Adding a probe on `[data-testid="tab-editor-cursor-target-0-1"]`
-  //      with logging in `useTabEngine.ts` to confirm metadata.totalBeats.
-  //   2. If totalBeats is 0 at "loaded", wait for "ready" or a follow-up
-  //      event before exposing metadata.
-  // The unit tests in `TabView.editor.test.tsx`,
-  // `TabEditorCanvasOverlay.test.tsx`, etc. continue to verify the wiring.
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.fixme("TAB-11.8-01: click-edit-save round-trip", async ({ page }) => {
+  test("TAB-11.8-01: click-edit-save round-trip", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
@@ -103,8 +80,30 @@ test.describe("tab editor", () => {
       { timeout: 10000 },
     );
 
-    // Click beat 0, string 6 to set the cursor there.
-    await page.getByTestId("tab-editor-cursor-target-0-6").click();
+    // Click beat 0, string 6 to set the cursor there. The cursor-target
+    // buttons are 32×18 px transparent (opacity-0) overlays sitting under
+    // the alphaTab SVG in stacking order, so a hit-tested click would land
+    // on the SVG instead. Dispatch the click directly on the button via
+    // DOM `.click()` so the React onClick fires regardless of overlap.
+    await page
+      .getByTestId("tab-editor-cursor-target-0-6")
+      .evaluate((el) => (el as HTMLElement).click());
+
+    // Confirm the cursor landed on string 6 (top: 90px = (6-1)*18). The
+    // highlight inline style is the most reliable signal — without this
+    // gate, the keyboard.press below can race the React re-render and
+    // the keydown handler reads a stale cursor (string 1 default).
+    await expect
+      .poll(
+        () => page.getByTestId("tab-editor-cursor-highlight").evaluate((el) => (el as HTMLElement).style.top),
+        { timeout: 5000, message: "cursor highlight should be at string 6 (top: 90px)" },
+      )
+      .toBe("90px");
+
+    // Briefly settle: even though the highlight has rendered for cursor.string=6,
+    // useTabKeyboard's `depsRef.current` updates in a separate render cycle.
+    // A short wait ensures the keydown handler reads the post-click cursor.
+    await page.waitForTimeout(100);
 
     // Type fret 5. The keyboard handler accumulates digits and flushes after
     // 500 ms of silence — pressing "5" alone (no second digit) triggers the

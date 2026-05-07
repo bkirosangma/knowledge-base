@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { TabEditOp, NoteDuration, Technique } from "../../../../domain/tabEngine";
 import type { CursorLocation } from "./useTabCursor";
-import { findNote } from "../scoreNavigation";
+import { findNoteByCursor } from "../scoreNavigation";
 
 const DIGIT_TIMEOUT_MS = 500;
 
@@ -220,7 +220,7 @@ export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
 
         if (technique === "bend") {
           const note = d.score
-            ? findNote(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
+            ? findNoteByCursor(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
             : null;
           const value = readBendValue(note);
           if (value === null) {
@@ -235,7 +235,7 @@ export function useTabKeyboard(deps: UseTabKeyboardDeps): void {
 
         if (technique === "slide") {
           const note = d.score
-            ? findNote(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
+            ? findNoteByCursor(d.score, d.cursor.beat, d.cursor.string, String(d.cursor.trackIndex), d.cursor.voiceIndex) as NoteShape | null
             : null;
           const dir = readSlideDirection(note);
           if (dir === null) {

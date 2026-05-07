@@ -469,4 +469,29 @@ describe("scoreToMetadata (TAB-009 T7)", () => {
     expect(m.tempo).toBe(120);
     expect(m.tracks).toEqual([]);
   });
+
+  it("computes totalBeats from track 0 / staff 0 / voice 0 across all bars", () => {
+    // Three bars: 4 + 8 + 2 = 14 beats on the primary voice.
+    const score = {
+      tracks: [{
+        name: "Lead",
+        staves: [{
+          tuning: [64, 59, 55, 50, 45, 40],
+          capo: 0,
+          bars: [
+            { voices: [{ beats: [{}, {}, {}, {}] }] },
+            { voices: [{ beats: [{}, {}, {}, {}, {}, {}, {}, {}] }] },
+            { voices: [{ beats: [{}, {}] }] },
+          ],
+        }],
+      }],
+    };
+    const m = scoreToMetadata(score);
+    expect(m.totalBeats).toBe(14);
+  });
+
+  it("falls back to totalBeats=0 when bars/voices are absent", () => {
+    const m = scoreToMetadata({ tracks: [{ name: "Lead", staves: [{ tuning: [], capo: 0 }] }] });
+    expect(m.totalBeats).toBe(0);
+  });
 });
