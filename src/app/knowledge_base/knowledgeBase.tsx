@@ -18,7 +18,7 @@ import { createDocumentRepository } from "./infrastructure/documentRepo";
 import { createTabRepository } from "./infrastructure/tabRepo";
 import { createDiagramRepository } from "./infrastructure/diagramRepo";
 import { collectDiagramEntityIds } from "./features/diagram/utils/diagramEntityIds";
-import { tabFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
+import { tabFileMatcher, svgFileMatcher, diagramFileMatcher, mdFileMatcher, collectAttachableFilePaths } from "./features/document/utils/fileTreeMatchers";
 import { propagateRename, propagateMoveLinks, readTextFile, writeTextFile } from "./shared/hooks/fileExplorerHelpers";
 import { savePaneLayout, loadPaneLayout } from "./shared/utils/persistence";
 import type { SortField, SortDirection, SortGrouping } from "./shared/components/explorer/ExplorerPanel";
@@ -367,6 +367,10 @@ function KnowledgeBaseInner() {
     const newPath = dir ? `${dir}/${newName}` : newName;
     panes.renamePanePath(oldPath, newPath);
 
+    // Rewrite attachmentLinks rows for any whole-file or sub-entity scope
+    // pointing at the renamed file. Idempotent + no-op when no rows match.
+    docManager.rewriteAttachments(oldPath, newPath);
+
     if (!oldPath.endsWith(".md") && !oldPath.endsWith(".json")) return;
 
     const rootHandle = fileExplorer.dirHandleRef.current;
@@ -386,7 +390,7 @@ function KnowledgeBaseInner() {
         if (item) searchManager.addDoc(item.path, item.kind, item.fields);
       } catch { /* swallowed — same policy as the bulk-index walk */ }
     })();
-  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, linkManager, reportError, searchManager]);
+  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, docManager, linkManager, reportError, searchManager]);
 
   /**
    * Detach all attachment rows scoped to `path` before the file is unlinked.
@@ -410,6 +414,8 @@ function KnowledgeBaseInner() {
       }
     } else if (path.endsWith(".md")) {
       docManager.detachAttachmentsFor(mdFileMatcher(path));
+    } else if (path.endsWith(".svg")) {
+      docManager.detachAttachmentsFor(svgFileMatcher(path));
     }
   }, [docManager, reportError]);
 
@@ -1246,12 +1252,37 @@ function KnowledgeBaseInner() {
       );
     }
     if (entry.fileType === "svgEditor") {
+      const filePath = entry.filePath;
       return (
         <SVGEditorView
           focused={focused}
           side={side}
-          activeFile={entry.filePath}
+          activeFile={filePath}
           onSVGEditorBridge={handleSVGEditorBridge}
+          attachedDocPaths={filePath
+            ? docManager.documents
+                .filter((d) => d.attachedTo?.some((a) => a.type === "svg" && a.id === filePath))
+                .map((d) => d.filename)
+            : []}
+          backlinks={filePath ? linkManager.getBacklinksFor(filePath) : []}
+          documents={docManager.documents}
+          onAttachDocument={filePath
+            ? (docPath: string) => docManager.attachDocument(docPath, "svg", filePath)
+            : undefined}
+          onDetachDocument={filePath
+            ? (docPath: string) => docManager.detachDocument(docPath, "svg", filePath)
+            : undefined}
+          onPreviewDocument={(docPath: string) => handleOpenDocument(docPath)}
+          allDocPaths={docManager.collectDocPaths(fileExplorer.tree)}
+          getDocumentsForEntity={docManager.getDocumentsForEntity}
+          rootHandle={fileExplorer.dirHandleRef.current}
+          onCreateDocument={async (rootHandle: FileSystemDirectoryHandle, path: string) => {
+            try {
+              await docManager.createDocument(rootHandle, path);
+            } catch (e) {
+              reportError(e, `Creating ${path}`);
+            }
+          }}
         />
       );
     }

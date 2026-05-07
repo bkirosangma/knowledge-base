@@ -502,3 +502,50 @@ describe("useDocuments — attachmentsByType", () => {
     expect(buckets).toEqual({ docs: [], diagrams: [], svgs: [], tabs: [] });
   });
 });
+
+describe("rewriteAttachments", () => {
+  it("rewrites whole-file tab rows on rename", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "tab" as const, entityId: "tabs/song.alphatex" },
+      ]);
+    });
+
+    act(() => {
+      result.current.rewriteAttachments("tabs/song.alphatex", "tabs/renamed.alphatex");
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "tab", id: "tabs/renamed.alphatex" },
+    ]);
+  });
+
+  it("rewrites whole-file svg rows on rename", () => {
+    const { result } = renderHook(() => useDocuments());
+    act(() => {
+      result.current.setRows([
+        { docPath: "notes.md", entityType: "svg" as const, entityId: "diagrams/logo.svg" },
+      ]);
+    });
+
+    act(() => {
+      result.current.rewriteAttachments("diagrams/logo.svg", "diagrams/logo-v2.svg");
+    });
+
+    expect(result.current.documents[0].attachedTo).toEqual([
+      { type: "svg", id: "diagrams/logo-v2.svg" },
+    ]);
+  });
+
+  it("does no-op when oldPath === newPath", () => {
+    const { result } = renderHook(() => useDocuments());
+    const beforeRows = [
+      { docPath: "notes.md", entityType: "svg" as const, entityId: "diagrams/logo.svg" },
+    ];
+    act(() => { result.current.setRows(beforeRows); });
+    const snapshot = result.current.rows;
+    act(() => { result.current.rewriteAttachments("diagrams/logo.svg", "diagrams/logo.svg"); });
+    expect(result.current.rows).toBe(snapshot);
+  });
+});
