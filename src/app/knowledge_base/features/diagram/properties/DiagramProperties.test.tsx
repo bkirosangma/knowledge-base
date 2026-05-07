@@ -248,9 +248,9 @@ describe('DiagramProperties — Sources section', () => {
   })
 })
 
-// ── DIAG-3.13-35: root-scope docs merge with wiki-link backlinks ──────────────
+// ── DIAG-3.13-62: root-scope docs merge with wiki-link backlinks ──────────────
 
-describe('DiagramProperties — root-scope docs merge wiki-link backlinks (DIAG-3.13-35)', () => {
+describe('DiagramProperties — root-scope docs merge wiki-link backlinks (DIAG-3.13-62)', () => {
   const emptyBuckets: AttachmentBuckets = { docs: [], diagrams: [], svgs: [], tabs: [] }
 
   function makeProps() {
@@ -326,7 +326,7 @@ describe('DiagramProperties — root-scope docs merge wiki-link backlinks (DIAG-
     expect(screen.getByText(/c\.md/)).toBeTruthy()
   })
 
-  it('DIAG-3.13-35: renders References section even when no docs attached and no backlinks', () => {
+  it('DIAG-3.13-62: renders References section even when no docs attached and no backlinks', () => {
     // Empty buckets + empty backlinks: the References section must still render
     // so the Attach affordance is always reachable.
     const attachmentsByType = vi.fn(({ type, id }: { type: string; id: string }) => {
