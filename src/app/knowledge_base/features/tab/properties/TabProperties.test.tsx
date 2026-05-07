@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import type { TabMetadata } from "../../../domain/tabEngine";
 import type { DocumentMeta } from "../../document/types";
 import { TabProperties } from "./TabProperties";
 import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
+import { ShellErrorProvider } from "../../../shell/ShellErrorContext";
+import type { TabRefsPayload, TabRefsRepository } from "../../../domain/tabRefs";
 
 /**
  * Wrap renders in a minimal RepositoryProvider so the Sections sub-component
@@ -13,20 +15,23 @@ import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
  */
 function Wrap({ children, tabRefs = null }: { children: ReactNode; tabRefs?: Parameters<typeof StubRepositoryProvider>[0]["value"]["tabRefs"] }) {
   return (
-    <StubRepositoryProvider
-      value={{
-        attachment: null, attachmentLinks: null,
-        document: null,
-        diagram: null,
-        linkIndex: null,
-        svg: null,
-        vaultConfig: null,
-        tab: null,
-        tabRefs,
-      }}
-    >
-      {children}
-    </StubRepositoryProvider>
+    <ShellErrorProvider>
+      <StubRepositoryProvider
+        value={{
+          attachment: null, attachmentLinks: null,
+          document: null,
+          diagram: null,
+          linkIndex: null,
+          svg: null,
+          vaultConfig: null,
+          svgRefs: null,
+          tab: null,
+          tabRefs,
+        }}
+      >
+        {children}
+      </StubRepositoryProvider>
+    </ShellErrorProvider>
   );
 }
 
@@ -1057,7 +1062,7 @@ describe("TabProperties — cross-references", () => {
   it("C2: uses stable sidecar IDs from resolveSectionIds when sidecar is present", async () => {
     const tabRefs = {
       read: vi.fn().mockResolvedValue({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: {
           "stable-intro-99": "Intro",
           "stable-verse-99": "Verse 1",
@@ -1095,7 +1100,7 @@ describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
   function makeTabRefs(trackRefs: { id: string; name: string }[]) {
     return {
       read: vi.fn().mockResolvedValue({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: {},
         trackRefs,
       }),
@@ -1225,5 +1230,84 @@ describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
     fireEvent.click(bassAttach);
     expect(onOpenDocPicker).toHaveBeenCalled();
     expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("TAB-11.12-01: renders SourcesSection at file scope with seeded sources", async () => {
+    const store = new Map<string, TabRefsPayload>([
+      ["song.alphatex", {
+        version: 3, sectionRefs: {}, trackRefs: [],
+        sources: [{ url: "https://example.com" }],
+      }],
+    ]);
+    const tabRefs: TabRefsRepository = {
+      async read(p) { return store.get(p) ?? null; },
+      async write(p, payload) { store.set(p, { ...payload }); },
+    };
+    render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata()}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+        />
+      </Wrap>,
+    );
+    expect(await screen.findByDisplayValue("https://example.com")).toBeInTheDocument();
+  });
+
+  describe("TAB-11.12-04: write-path through SourcesSection", () => {
+    beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("TAB-11.12-04: adding a source via SourcesSection writes through to the tabRefs sidecar", async () => {
+      const store = new Map<string, TabRefsPayload>([
+        ["song.alphatex", {
+          version: 3,
+          sectionRefs: { "sec-1": "Intro" },
+          trackRefs: [{ id: "trk-1", name: "Guitar" }],
+        }],
+      ]);
+      const writeSpy = vi.fn(async (p: string, payload: TabRefsPayload) => {
+        store.set(p, { ...payload });
+      });
+      const tabRefs: TabRefsRepository = {
+        async read(p) { return store.get(p) ?? null; },
+        write: writeSpy,
+      };
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <Wrap tabRefs={tabRefs}>
+          <TabProperties
+            metadata={makeMetadata()}
+            collapsed={false}
+            onToggleCollapse={vi.fn()}
+            filePath="song.alphatex"
+          />
+        </Wrap>,
+      );
+      // Wait for the sidecar read to settle (no sources initially).
+      await waitFor(() => expect(screen.queryByTestId("sources-add")).toBeInTheDocument());
+
+      // Click Add source.
+      await user.click(screen.getByTestId("sources-add"));
+
+      // Type a URL into the input that appeared.
+      const urlInput = await screen.findByTestId("sources-url-input-0");
+      await user.type(urlInput, "https://example.com");
+
+      // Tab away to commit via onUrlBlur.
+      await user.tab();
+
+      // Advance timers past the 200 ms debounce.
+      await act(async () => { vi.advanceTimersByTime(250); });
+
+      await waitFor(() => expect(writeSpy).toHaveBeenCalled());
+      const written = writeSpy.mock.calls[0][1] as TabRefsPayload;
+      expect(written.sources?.[0]?.url).toBe("https://example.com");
+      // Prove merge guard: pre-existing sectionRefs and trackRefs are preserved.
+      expect(written.sectionRefs).toEqual({ "sec-1": "Intro" });
+      expect(written.trackRefs).toEqual([{ id: "trk-1", name: "Guitar" }]);
+    });
   });
 });

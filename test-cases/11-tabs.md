@@ -247,3 +247,14 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 - **TAB-11.11-10** ✅ **`exportingMidi` flag disables all Export buttons during in-flight MIDI export** — exporting either format flips the unified `anyBusy` gate; all three buttons disabled. _(component: `ExportSection.test.tsx`.)_
 - **TAB-11.11-11** ✅ **Split-pane focus: palette dispatches to `panes.focusedSide`** — `getActiveExport` reads the focused side's ref at invocation time; flipping focus routes the next command to the new pane. _(unit: `knowledgeBase.exportTab.test.tsx`.)_
 - **TAB-11.11-12** ✅ **TabExportHandle published on mount, cleared on unmount** — `TabView`'s `useEffect` posts the handle via `onTabExportReady` and posts `null` on cleanup. _(component: `TabView` integration via existing tab bucket; not separately tested at TAB-010 scope.)_
+
+## 11.12 Source links (MVP-4b)
+
+- **TAB-11.12-01** ✅ **File-level source links persist via the existing `.alphatex.refs.json` sidecar (v3)** — `tabRefsRepo` round-trips `sources?: SourceLink[]` alongside `sectionRefs`/`trackRefs`; reopening restores the list. _(unit: `tabRefsRepo.test.ts`, component: `TabProperties.test.tsx`.)_
+- **TAB-11.12-02** ✅ **`useTabSources` is merge-guarded — re-reads the sidecar inside the debounced write** so a concurrent `useTabEngine` write to `sectionRefs`/`trackRefs` is not clobbered. _(unit: `useTabSources.test.tsx`.)_
+- **TAB-11.12-03** ✅ **v2 sidecar on disk reads as v3 in memory** — `tabRefsRepo` migration ladder (v1→v3, v2→v3, v3 passthrough); first save upgrades the on-disk version. _(unit: `tabRefsRepo.test.ts`.)_
+- **TAB-11.12-04** ✅ **Adding a source through `TabProperties` writes through to the tabRefs sidecar** — UI integration: user clicks Add source, types URL, blurs input → repo `write` receives a payload with the new URL plus existing sectionRefs/trackRefs preserved. _(component: `TabProperties.test.tsx`.)_
+- **TAB-11.12-05** ✅ **Switching tab files flushes any pending source-write to the previous path** — debounce flush on file switch via `useTabSources`. _(unit: `useTabSources.test.tsx`.)_
+- **TAB-11.12-06** ✅ **Write failure leaves `isDirty = true`** — `useTabSources` does not clear the dirty marker on `repo.write` rejection. _(unit: `useTabSources.test.tsx`.)_
+- **TAB-11.12-07** ✅ **`reconcileSidecar*` helpers preserve sources/attachedTo on section and track ops** — section rename, name-based reconcile, add-track, remove-track all carry forward `sources` and `attachedTo` via conditional spread. _(unit: `sidecarReconcile.test.ts`.)_
+- **TAB-11.12-08** ✅ **Sidecar `attachedTo` field round-trips for forward-compat** — `tabRefsRepo` v3 emit accepts `attachedTo?` though no UI in MVP-4b binds it. _(unit: `tabRefsRepo.test.ts`.)_

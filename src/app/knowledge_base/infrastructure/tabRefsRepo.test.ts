@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createTabRefsRepository } from "./tabRefsRepo";
 import { emptyTabRefs } from "../domain/tabRefs";
 import { FileSystemError } from "../domain/errors";
-import type { TabRefsPayload } from "../domain/tabRefs";
+import type { TabRefsPayload, TabRefsPayloadV2 } from "../domain/tabRefs";
 
 // Minimal FileSystemDirectoryHandle stub mirroring the shape used in
 // tabRepo.test.ts. The store is keyed on full flat paths; getDirectoryHandle
@@ -51,9 +51,9 @@ const V1_ON_DISK = JSON.stringify({
   },
 });
 
-// What read() returns after migrating the v1 sidecar above to v2.
+// What read() returns after migrating the v1 sidecar above to v3.
 const VALID_PAYLOAD: TabRefsPayload = {
-  version: 2,
+  version: 3,
   sectionRefs: { abc123: "Intro" },
   trackRefs: [],
 };
@@ -75,7 +75,7 @@ describe("createTabRefsRepository", () => {
     await expect(repo.read("missing.alphatex")).resolves.toBeNull();
   });
 
-  it("write then read round-trips a v2 payload", async () => {
+  it("write then read round-trips a v3 payload", async () => {
     const repo = createTabRefsRepository(dirHandle);
     const payload: TabRefsPayload = {
       ...emptyTabRefs(),
@@ -86,7 +86,7 @@ describe("createTabRefsRepository", () => {
     expect(result).toEqual(payload);
   });
 
-  it("read returns a v2-migrated payload from an existing v1 sidecar", async () => {
+  it("read returns a v3-migrated payload from an existing v1 sidecar", async () => {
     const repo = createTabRefsRepository(dirHandle);
     await expect(repo.read("song.alphatex")).resolves.toEqual(VALID_PAYLOAD);
   });
@@ -136,12 +136,92 @@ describe("createTabRefsRepository", () => {
   });
 });
 
-describe("tabRefsRepo v2 — trackRefs", () => {
-  it("round-trips a v2 payload with sectionRefs + trackRefs", async () => {
+describe("tabRefsRepo v2 → v3 migration", () => {
+  it("v2 sidecar on disk reads as v3 with no sources/attachedTo", async () => {
+    const v2: TabRefsPayloadV2 = {
+      version: 2,
+      sectionRefs: { "abc-123": "Verse" },
+      trackRefs: [{ id: "trk-1", name: "Lead" }],
+    };
+    const made = makeHandle({ "song.alphatex.refs.json": JSON.stringify(v2) });
+    const repo = createTabRefsRepository(made.dirHandle);
+    const got = await repo.read("song.alphatex");
+    expect(got).toEqual({
+      version: 3,
+      sectionRefs: { "abc-123": "Verse" },
+      trackRefs: [{ id: "trk-1", name: "Lead" }],
+    });
+  });
+
+  it("reads a v1 payload (no trackRefs) as v3 with empty trackRefs array", async () => {
+    // v1 on-disk uses sections: Record<string, { currentName, createdAt }>
+    const { dirHandle: dh } = makeHandle({
+      "song.alphatex.refs.json": JSON.stringify({
+        version: 1,
+        sections: { intro: { currentName: "Intro", createdAt: 1700000000000 } },
+      }),
+    });
+    const repo = createTabRefsRepository(dh);
+    const read = await repo.read("song.alphatex");
+    expect(read).toEqual({
+      version: 3,
+      sectionRefs: { intro: "Intro" },
+      trackRefs: [],
+    });
+  });
+
+  it("write upgrades v1 to v3 on next write", async () => {
+    const { dirHandle: dh, store: st } = makeHandle({
+      "song.alphatex.refs.json": JSON.stringify({
+        version: 1,
+        sections: { intro: { currentName: "Intro", createdAt: 1700000000000 } },
+      }),
+    });
+    const repo = createTabRefsRepository(dh);
+    const read = await repo.read("song.alphatex");
+    await repo.write("song.alphatex", read!);
+    const after = JSON.parse(st.get("song.alphatex.refs.json")!);
+    expect(after.version).toBe(3);
+    expect(after.trackRefs).toEqual([]);
+  });
+});
+
+describe("tabRefsRepo v3 — sources/attachedTo", () => {
+  it("v3 round-trip preserves sources and attachedTo", async () => {
+    const { dirHandle } = makeHandle();
+    const repo = createTabRefsRepository(dirHandle);
+    const payload: TabRefsPayload = {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    await repo.write("song.alphatex", payload);
+    const got = await repo.read("song.alphatex");
+    expect(got).toEqual(payload);
+  });
+
+  it("v3 write drops empty sources and attachedTo arrays from JSON", async () => {
+    const { dirHandle, store } = makeHandle();
+    const repo = createTabRefsRepository(dirHandle);
+    await repo.write("song.alphatex", {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [],
+      sources: [],
+      attachedTo: [],
+    });
+    const raw = store.get("song.alphatex.refs.json")!;
+    expect(raw).not.toContain("sources");
+    expect(raw).not.toContain("attachedTo");
+  });
+
+  it("round-trips a v3 payload with sectionRefs + trackRefs", async () => {
     const { dirHandle: dh } = makeHandle();
     const repo = createTabRefsRepository(dh);
-    const payload = {
-      version: 2 as const,
+    const payload: TabRefsPayload = {
+      version: 3,
       sectionRefs: { intro: "Intro" },
       trackRefs: [
         { id: "tk-lead-uuid", name: "Lead" },
@@ -153,35 +233,11 @@ describe("tabRefsRepo v2 — trackRefs", () => {
     expect(read).toEqual(payload);
   });
 
-  it("reads a v1 payload (no trackRefs) as v2 with empty trackRefs array", async () => {
-    // v1 on-disk uses sections: Record<string, { currentName, createdAt }>
-    const { dirHandle: dh } = makeHandle({
-      "song.alphatex.refs.json": JSON.stringify({
-        version: 1,
-        sections: { intro: { currentName: "Intro", createdAt: 1700000000000 } },
-      }),
+  it("unknown version reads as null", async () => {
+    const made = makeHandle({
+      "song.alphatex.refs.json": JSON.stringify({ version: 99, sectionRefs: {} }),
     });
-    const repo = createTabRefsRepository(dh);
-    const read = await repo.read("song.alphatex");
-    expect(read).toEqual({
-      version: 2,
-      sectionRefs: { intro: "Intro" },
-      trackRefs: [],
-    });
-  });
-
-  it("write upgrades v1 to v2 on next write", async () => {
-    const { dirHandle: dh, store: st } = makeHandle({
-      "song.alphatex.refs.json": JSON.stringify({
-        version: 1,
-        sections: { intro: { currentName: "Intro", createdAt: 1700000000000 } },
-      }),
-    });
-    const repo = createTabRefsRepository(dh);
-    const read = await repo.read("song.alphatex");
-    await repo.write("song.alphatex", read!);
-    const after = JSON.parse(st.get("song.alphatex.refs.json")!);
-    expect(after.version).toBe(2);
-    expect(after.trackRefs).toEqual([]);
+    const repo = createTabRefsRepository(made.dirHandle);
+    expect(await repo.read("song.alphatex")).toBeNull();
   });
 });

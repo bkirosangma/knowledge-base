@@ -22,7 +22,7 @@ const meta = (sections: { name: string; startBeat: number }[]): TabMetadata => (
 function makeWrapper(tabRefs: Repositories["tabRefs"] = null) {
   const stub: Repositories = {
     attachment: null, attachmentLinks: null, document: null, diagram: null,
-    linkIndex: null, svg: null, vaultConfig: null,
+    linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
     tab: null, tabRefs,
   };
   const Wrapper = ({ children }: { children: ReactNode }) =>
@@ -156,7 +156,7 @@ describe("useTabSectionSync (sidecar branch)", () => {
     // tabRefs.read returns a non-empty payload — sidecar is present.
     const tabRefs = {
       read: vi.fn(async () => ({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: { "verse-1": "Verse 1" },
         trackRefs: [],
       })),

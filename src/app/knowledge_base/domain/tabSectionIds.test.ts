@@ -15,7 +15,7 @@ describe("resolveSectionIds", () => {
 
   it("uses sidecar entry when currentName matches", () => {
     const refs: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: {
         "section-7": "Verse 1",
         "section-8": "Intro",
@@ -28,7 +28,7 @@ describe("resolveSectionIds", () => {
 
   it("falls back to slug when sidecar has no entry for a current section", () => {
     const refs: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "section-7": "Verse 1" },
       trackRefs: [],
     };
@@ -38,7 +38,7 @@ describe("resolveSectionIds", () => {
 
   it("rename: same stableId resolves before and after the name change", () => {
     const refs: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "stable-x": "Verse 1" },
       trackRefs: [],
     };
@@ -47,6 +47,6 @@ describe("resolveSectionIds", () => {
 
   it("returns empty array for empty sections", () => {
     expect(resolveSectionIds([], null)).toEqual([]);
-    expect(resolveSectionIds([], { version: 2, sectionRefs: {}, trackRefs: [] })).toEqual([]);
+    expect(resolveSectionIds([], { version: 3, sectionRefs: {}, trackRefs: [] })).toEqual([]);
   });
 });

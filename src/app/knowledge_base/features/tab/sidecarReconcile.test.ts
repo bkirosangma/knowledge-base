@@ -8,7 +8,7 @@ import type { TabRefsPayload } from "../../domain/tabRefs";
 import type { TabEditOp } from "../../domain/tabEngine";
 
 function makePayload(sectionRefs: TabRefsPayload["sectionRefs"]): TabRefsPayload {
-  return { version: 2, sectionRefs, trackRefs: [] };
+  return { version: 3, sectionRefs, trackRefs: [] };
 }
 
 describe("reconcileSidecarForSetSection (C2 — rename-aware)", () => {
@@ -67,7 +67,7 @@ describe("reconcileSidecarForSetSection (C2 — rename-aware)", () => {
 
   it("preserves existing trackRefs when reconciling sections", () => {
     const current: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "stable-1": "Verse 1" },
       trackRefs: [{ id: "tk-lead-uuid", name: "Lead" }],
     };
@@ -104,7 +104,7 @@ describe("reconcileSidecarByName (C2 — add-bar / remove-bar reconciliation)", 
 
   it("preserves existing trackRefs when reconciling by name", () => {
     const current: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "stable-a": "Intro" },
       trackRefs: [{ id: "tk-bass-uuid", name: "Bass" }],
     };
@@ -116,7 +116,7 @@ describe("reconcileSidecarByName (C2 — add-bar / remove-bar reconciliation)", 
 describe("updateSidecarOnEdit — unified entry point", () => {
   it("add-track appends { id, name } to trackRefs", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: {},
       trackRefs: [{ id: "tk-lead-uuid", name: "Lead" }],
     };
@@ -136,7 +136,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
 
   it("remove-track splices at removedPosition; surviving entries shift down", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: {},
       trackRefs: [
         { id: "tk-a", name: "Lead" },
@@ -156,7 +156,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
   });
 
   it("add-track without newTrackId throws", () => {
-    const prev: TabRefsPayload = { version: 2, sectionRefs: {}, trackRefs: [] };
+    const prev: TabRefsPayload = { version: 3, sectionRefs: {}, trackRefs: [] };
     expect(() =>
       updateSidecarOnEdit(prev, {
         type: "add-track",
@@ -170,7 +170,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
 
   it("remove-track without removedPosition throws", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: {},
       trackRefs: [{ id: "tk-a", name: "Lead" }],
     };
@@ -181,7 +181,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
 
   it("set-section delegates to reconcileSidecarForSetSection", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "stable-x": "Old Name" },
       trackRefs: [],
     };
@@ -194,14 +194,14 @@ describe("updateSidecarOnEdit — unified entry point", () => {
   });
 
   it("add-bar without currentSections throws", () => {
-    const prev: TabRefsPayload = { version: 2, sectionRefs: {}, trackRefs: [] };
+    const prev: TabRefsPayload = { version: 3, sectionRefs: {}, trackRefs: [] };
     expect(() =>
       updateSidecarOnEdit(prev, { type: "add-bar", afterBeat: 0 }),
     ).toThrow("requires ctx.currentSections");
   });
 
   it("remove-bar without currentSections throws", () => {
-    const prev: TabRefsPayload = { version: 2, sectionRefs: {}, trackRefs: [] };
+    const prev: TabRefsPayload = { version: 3, sectionRefs: {}, trackRefs: [] };
     expect(() =>
       updateSidecarOnEdit(prev, { type: "remove-bar", beat: 0 }),
     ).toThrow("requires ctx.currentSections");
@@ -209,7 +209,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
 
   it("ops that don't touch sidecar return prev unchanged", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "stable-x": "Intro" },
       trackRefs: [{ id: "tk-a", name: "Lead" }],
     };
@@ -224,7 +224,7 @@ describe("updateSidecarOnEdit — unified entry point", () => {
 
   it("add-bar delegates to reconcileSidecarByName", () => {
     const prev: TabRefsPayload = {
-      version: 2,
+      version: 3,
       sectionRefs: { "intro": "Intro" },
       trackRefs: [],
     };
@@ -235,5 +235,74 @@ describe("updateSidecarOnEdit — unified entry point", () => {
     );
     expect(next.sectionRefs["intro"]).toBe("Intro");
     expect(next.sectionRefs["verse"]).toBe("Verse");
+  });
+});
+
+describe("sources/attachedTo preservation", () => {
+  it("reconcileSidecarForSetSection preserves sources and attachedTo", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: { "intro-1": "Intro" },
+      trackRefs: [],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const next = reconcileSidecarForSetSection(current, "Intro", "Verse");
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
+  });
+
+  it("reconcileSidecarByName preserves sources and attachedTo", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: { "intro-1": "Intro" },
+      trackRefs: [],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const next = reconcileSidecarByName(current, [{ name: "Intro" }]);
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
+  });
+
+  it("updateSidecarOnEdit preserves sources/attachedTo through add-track", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [{ id: "tk-lead-uuid", name: "Lead" }],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const op: TabEditOp = {
+      type: "add-track",
+      name: "Bass",
+      instrument: "bass",
+      tuning: ["E1", "A1", "D2", "G2"],
+      capo: 0,
+    };
+    const next = updateSidecarOnEdit(current, op, { newTrackId: "tk-bass-uuid" });
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
+  });
+
+  it("updateSidecarOnEdit preserves sources/attachedTo through remove-track", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [
+        { id: "tk-lead-uuid", name: "Lead" },
+        { id: "tk-bass-uuid", name: "Bass" },
+      ],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const next = updateSidecarOnEdit(
+      current,
+      { type: "remove-track", trackId: "tk-bass-uuid" },
+      { removedPosition: 1 },
+    );
+    expect(next.trackRefs).toEqual([{ id: "tk-lead-uuid", name: "Lead" }]);
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
   });
 });

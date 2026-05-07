@@ -106,6 +106,7 @@ function Wrap({ children }: { children: ReactNode }) {
           diagram: null,
           linkIndex: null,
           svg: null,
+          svgRefs: null,
           vaultConfig: null,
           tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
           tabRefs: null,
@@ -323,7 +324,7 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
     const detachAttachmentsFor = vi.fn((_matcher: (r: AttachmentLink) => boolean) => ({ detached: 1 }));
     const withBatch = vi.fn(async <T,>(fn: () => Promise<T> | T): Promise<T> => fn()) as NonNullable<TabViewProps["withBatch"]>;
     const tabRefsRead = vi.fn().mockResolvedValue({
-      version: 2,
+      version: 3,
       sectionRefs: {},
       trackRefs: [
         { id: "uuid-A" },
@@ -342,6 +343,7 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
             diagram: null,
             linkIndex: null,
             svg: null,
+            svgRefs: null,
             vaultConfig: null,
             tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
             tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },
@@ -409,6 +411,7 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
             diagram: null,
             linkIndex: null,
             svg: null,
+            svgRefs: null,
             vaultConfig: null,
             tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
             tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },

@@ -98,6 +98,7 @@ function Wrap({
           diagram: null,
           linkIndex: null,
           svg: null,
+          svgRefs: null,
           vaultConfig: null,
           tab: { read, write: vi.fn() },
           tabRefs: tabRefs as any, // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -229,7 +230,7 @@ describe("TabView sidecar write-side (C2)", () => {
       expect(tabRefs.write).toHaveBeenCalledWith(
         "song.alphatex",
         expect.objectContaining({
-          version: 2,
+          version: 3,
           sectionRefs: expect.any(Object),
           trackRefs: expect.any(Array),
         }),
