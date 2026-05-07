@@ -98,4 +98,16 @@ describe("attachmentLinksRepo", () => {
     const repo = createAttachmentLinksRepository(dirHandle);
     await expect(repo.read()).rejects.toBeInstanceOf(FileSystemError);
   });
+
+  it("preserves an svg whole-file row through write+read", async () => {
+    const { dirHandle } = makeHandle();
+    const repo = createAttachmentLinksRepository(dirHandle);
+    await repo.write([
+      { docPath: "doc.md", entityType: "svg", entityId: "drawing.svg" },
+    ]);
+    const got = await repo.read();
+    expect(got).toEqual([
+      { docPath: "doc.md", entityType: "svg", entityId: "drawing.svg" },
+    ]);
+  });
 });
