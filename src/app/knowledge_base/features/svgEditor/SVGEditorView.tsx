@@ -5,6 +5,7 @@ import PaneHeader from "../../shared/components/PaneHeader";
 import SVGCanvas, { type SVGCanvasHandle, type SVGStyle, type SVGTool } from "./components/SVGCanvas";
 import SVGToolbar from "./components/SVGToolbar";
 import { useSVGPersistence } from "./hooks/useSVGPersistence";
+import { SvgProperties } from "./properties/SvgProperties";
 import ExportMenu from "../export/ExportMenu";
 import { rasterizeSVG } from "../export/exportDiagramPNG";
 import { exportFilename } from "../export/exportFilename";
@@ -38,6 +39,7 @@ export default function SVGEditorView({
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
   const [isReadOnly, setIsReadOnly] = useState(true);
+  const [propsCollapsed, setPropsCollapsed] = useState(false);
   const [svgStyle, setSvgStyle] = useState<SVGStyle>({ fill: "#000000", stroke: "#000000", strokeWidth: 1 });
   const [linkedHandles, setLinkedHandles] = useState(true);
   const [bgColor, setBgColor] = useState<string>("none");
@@ -139,33 +141,43 @@ export default function SVGEditorView({
           }}
         />
       </PaneHeader>
-      <SVGToolbar
-        activeTool={activeTool}
-        onToolChange={handleToolChange}
-        onUndo={() => canvasRef.current?.undo()}
-        onRedo={() => canvasRef.current?.redo()}
-        onZoomIn={() => canvasRef.current?.zoomIn()}
-        onZoomOut={() => canvasRef.current?.zoomOut()}
-        onZoomFit={() => canvasRef.current?.zoomFit()}
-        style={svgStyle}
-        onFillChange={c => { setSvgStyle(s => ({ ...s, fill: c })); canvasRef.current?.setFill(c); }}
-        onStrokeChange={c => { setSvgStyle(s => ({ ...s, stroke: c })); canvasRef.current?.setStroke(c); }}
-        onStrokeWidthChange={w => { setSvgStyle(s => ({ ...s, strokeWidth: w })); canvasRef.current?.setStrokeWidth(w); }}
-        linkedHandles={linkedHandles}
-        onLinkedHandlesChange={linked => { setLinkedHandles(linked); canvasRef.current?.setLinkedHandles(linked); }}
-        readOnly={isReadOnly}
-        bgColor={bgColor}
-        onBgColorChange={handleBgChange}
-        canvasSize={canvasSize}
-        onCanvasSizeChange={handleCanvasSizeChange}
-      />
-      <SVGCanvas
-        ref={canvasRef}
-        onChanged={onChanged}
-        onStyleChange={setSvgStyle}
-        onSvgLoaded={handleSvgLoaded}
-        readOnly={isReadOnly}
-      />
+      <div className="flex flex-1 min-h-0">
+        <div className="flex flex-col flex-1 min-w-0">
+          <SVGToolbar
+            activeTool={activeTool}
+            onToolChange={handleToolChange}
+            onUndo={() => canvasRef.current?.undo()}
+            onRedo={() => canvasRef.current?.redo()}
+            onZoomIn={() => canvasRef.current?.zoomIn()}
+            onZoomOut={() => canvasRef.current?.zoomOut()}
+            onZoomFit={() => canvasRef.current?.zoomFit()}
+            style={svgStyle}
+            onFillChange={c => { setSvgStyle(s => ({ ...s, fill: c })); canvasRef.current?.setFill(c); }}
+            onStrokeChange={c => { setSvgStyle(s => ({ ...s, stroke: c })); canvasRef.current?.setStroke(c); }}
+            onStrokeWidthChange={w => { setSvgStyle(s => ({ ...s, strokeWidth: w })); canvasRef.current?.setStrokeWidth(w); }}
+            linkedHandles={linkedHandles}
+            onLinkedHandlesChange={linked => { setLinkedHandles(linked); canvasRef.current?.setLinkedHandles(linked); }}
+            readOnly={isReadOnly}
+            bgColor={bgColor}
+            onBgColorChange={handleBgChange}
+            canvasSize={canvasSize}
+            onCanvasSizeChange={handleCanvasSizeChange}
+          />
+          <SVGCanvas
+            ref={canvasRef}
+            onChanged={onChanged}
+            onStyleChange={setSvgStyle}
+            onSvgLoaded={handleSvgLoaded}
+            readOnly={isReadOnly}
+          />
+        </div>
+        <SvgProperties
+          filePath={activeFile}
+          collapsed={propsCollapsed}
+          onToggleCollapse={() => setPropsCollapsed((c) => !c)}
+          readOnly={isReadOnly}
+        />
+      </div>
     </div>
   );
 }

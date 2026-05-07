@@ -31,6 +31,14 @@ vi.mock('./hooks/useSVGPersistence', () => ({
   }),
 }));
 
+vi.mock('./hooks/useSvgMeta', () => ({
+  useSvgMeta: vi.fn().mockReturnValue({
+    sources: [],
+    setSources: vi.fn(),
+    isDirty: false,
+  }),
+}));
+
 describe('SVGEditorView', () => {
   const onSVGEditorBridge = vi.fn();
 
@@ -80,5 +88,19 @@ describe('SVGEditorView', () => {
     expect(onSVGEditorBridge).toHaveBeenCalledWith(
       expect.objectContaining({ isDirty: false })
     );
+  });
+
+  it('renders the SvgProperties aside when activeFile is set', async () => {
+    await act(async () => {
+      render(
+        <SVGEditorView
+          focused={true}
+          side="left"
+          activeFile="logo.svg"
+          onSVGEditorBridge={onSVGEditorBridge}
+        />
+      );
+    });
+    expect(screen.getByTestId('svg-properties')).toBeInTheDocument();
   });
 });
