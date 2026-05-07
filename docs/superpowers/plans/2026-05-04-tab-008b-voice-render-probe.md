@@ -24,7 +24,19 @@ TAB-009 T15 shipped `<VoiceToggle>` letting the user switch the editor cursor be
 
 ## Findings
 
-**Status:** TBD (manual observation; populate during PR-time smoke test).
+**Parser layer — pinned automated (2026-05-07):** `src/app/knowledge_base/infrastructure/alphaTabEngine.voice2Parse.test.ts` runs the real `AlphaTexImporter` against a 2-voice fixture using the `\voice` directive (default `StaffWise` voice mode). After parse:
+
+- `bar.voices.length >= 2`
+- `bar.voices[0].beats.length > 0` AND `bar.voices[1].beats.length > 0`
+- First beats carry distinct frets per voice (no voice-0 collapse)
+- `bar.isMultiVoice === true`
+- `bar.filledVoices` contains both `0` and `1`
+
+**Caveat surfaced during the probe:** in `StaffWise` voice mode the parser only populates voice 1 when each voice spans **two or more bars**. Single-bar-per-voice fixtures (`:4 5.6 0.6 0.6 0.6 | \voice :4 7.5 0.5 0.5 0.5 |`) leave `bar.voices[1]` undefined. Real tabs typically have many bars per voice, so this is unlikely to bite users — but if a future smoke session uses a tiny test file and sees no voice 1, it's a fixture issue, not a render issue.
+
+**Render layer — still manual:** the recipe above is unchanged. Run it in dev to answer "does alphaTab paint voice 1 distinguishably from voice 0".
+
+**Status:** parser ✅ ; render TBD (manual observation; populate during PR-time smoke test).
 
 **Outcome A — voice 1 renders correctly:** mark parked-item #18 as ✅ closed in `docs/superpowers/handoffs/2026-05-03-guitar-tabs.md`. Add a one-line note in `Features.md` §11.10 confirming that TAB-009's `VoiceToggle` produces visible secondary-voice content end-to-end.
 
@@ -32,7 +44,7 @@ TAB-009 T15 shipped `<VoiceToggle>` letting the user switch the editor cursor be
 
 ## Note
 
-The probe is intentionally manual because:
+The render half is intentionally manual because:
 - alphaTab's render output goes through a Bravura-font glyph layer that Playwright can't reliably assert against (Bravura is a music notation font; visual diffs would require a snapshot engine that handles font rendering deterministically).
 - The user's preview MCP also cannot drive interactive UI clicks reliably (per memory `feedback_preview_verification_limits.md`).
 

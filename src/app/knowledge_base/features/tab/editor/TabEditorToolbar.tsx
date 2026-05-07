@@ -34,11 +34,13 @@ export function TabEditorToolbar(props: TabEditorToolbarProps): ReactElement {
       <div className="w-px h-5 bg-line" aria-hidden="true" />
       {/*
        * V1/V2 toggle drives cursor.voiceIndex; new beat ops land in the active voice.
-       * Assumption: alphaTab auto-renders both voices when voices[1] has content
-       * (Bar.isMultiVoice / filledVoices APIs suggest this; .d.ts has no explicit
-       * render flag). Verify with a real two-voice fixture in dev once T26 wires
-       * the full TabView; if voices[1] does not appear, an alphaTab settings
-       * toggle (or a custom render hint) may be needed.
+       * Data-layer side of the assumption stack is pinned by:
+       *   - infrastructure/alphaTabEngine.applyEdit.test.ts (edit path: voiceIndex:1 ops mutate voices[1])
+       *   - infrastructure/alphaTabEngine.voice2Parse.test.ts (load path: \voice directive
+       *     populates voices[1] + isMultiVoice + filledVoices)
+       * Render side (does alphaTab paint voice 1 distinguishably from voice 0)
+       * stays a manual smoke — Bravura font + canvas can't be asserted in
+       * headless. See docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md.
        */}
       <VoiceToggle voiceIndex={props.voiceIndex} onChange={props.onVoiceChange} />
       <div className="w-px h-5 bg-line" aria-hidden="true" />
