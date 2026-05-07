@@ -54,7 +54,7 @@ describe("ReferenceRow", () => {
   });
 
   it("uses Icon override when provided", () => {
-    const Custom = (props: React.SVGProps<SVGSVGElement> & { size?: number }) => (
+    const Custom = (props: React.SVGProps<SVGSVGElement> & { size?: number | string }) => (
       <span data-testid="custom-icon" {...(props as object)} />
     );
     // Verify that when Icon is passed, the custom element renders (span, not svg).
@@ -62,7 +62,7 @@ describe("ReferenceRow", () => {
     // the custom-icon testid from inside the component is overwritten by the
     // spread, but the element tag itself confirms the override was used.
     const { container } = render(
-      <ReferenceRow filePath="a.md" label="A" source="attachment" Icon={Custom as any} />,
+      <ReferenceRow filePath="a.md" label="A" source="attachment" Icon={Custom} />,
     );
     // The icon slot should be a <span> (from Custom), not an <svg> (from Paperclip).
     const iconEl = container.querySelector('[data-testid="reference-row-icon-attachment"]');
