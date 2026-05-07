@@ -147,3 +147,63 @@ describe("svg entity type", () => {
     expect(removeRow(rows, row)).toEqual([]);
   });
 });
+
+import { rewriteFileScopedRows } from "./attachmentLinks";
+
+describe("rewriteFileScopedRows", () => {
+  it("returns the same array when oldPath === newPath", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "tab", entityId: "song.alphatex" },
+    ];
+    expect(rewriteFileScopedRows(rows, "song.alphatex", "song.alphatex")).toBe(rows);
+  });
+
+  it("rewrites tab whole-file entityId on rename", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "tab", entityId: "song.alphatex" },
+      { docPath: "d2.md", entityType: "tab", entityId: "other.alphatex" },
+    ];
+    expect(rewriteFileScopedRows(rows, "song.alphatex", "renamed.alphatex")).toEqual([
+      { docPath: "d.md", entityType: "tab", entityId: "renamed.alphatex" },
+      { docPath: "d2.md", entityType: "tab", entityId: "other.alphatex" },
+    ]);
+  });
+
+  it("rewrites svg whole-file entityId on rename", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "svg", entityId: "drawing.svg" },
+    ];
+    expect(rewriteFileScopedRows(rows, "drawing.svg", "logo.svg")).toEqual([
+      { docPath: "d.md", entityType: "svg", entityId: "logo.svg" },
+    ]);
+  });
+
+  it("rewrites tab-section / tab-track entityIds with the file prefix", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "tab-section", entityId: "song.alphatex#verse" },
+      { docPath: "d.md", entityType: "tab-track", entityId: "song.alphatex#track:abc" },
+      { docPath: "d.md", entityType: "tab-section", entityId: "other.alphatex#verse" },
+    ];
+    expect(rewriteFileScopedRows(rows, "song.alphatex", "renamed.alphatex")).toEqual([
+      { docPath: "d.md", entityType: "tab-section", entityId: "renamed.alphatex#verse" },
+      { docPath: "d.md", entityType: "tab-track", entityId: "renamed.alphatex#track:abc" },
+      { docPath: "d.md", entityType: "tab-section", entityId: "other.alphatex#verse" },
+    ]);
+  });
+
+  it("does not match prefix-collision paths (foo.svg vs foo.svg.bak)", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "svg", entityId: "foo.svg.bak" },
+    ];
+    expect(rewriteFileScopedRows(rows, "foo.svg", "renamed.svg")).toEqual([
+      { docPath: "d.md", entityType: "svg", entityId: "foo.svg.bak" },
+    ]);
+  });
+
+  it("returns the same array reference when nothing matches", () => {
+    const rows: AttachmentLink[] = [
+      { docPath: "d.md", entityType: "node", entityId: "n-1" },
+    ];
+    expect(rewriteFileScopedRows(rows, "song.alphatex", "renamed.alphatex")).toBe(rows);
+  });
+});
