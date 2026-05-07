@@ -49,6 +49,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# python (skills/knowledge-base/scripts uses pytest; no value in tracking byte-cache)
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
 src/app/architecture_designer/data
 src/app/knowledge_base/data
 src/app/knowledge_base/infrastructure/__scratch__/
