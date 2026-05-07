@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Guitar Tabs feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to "Next Action".
 
-**Last updated:** 2026-05-04 (DocumentMeta persistence refactor merging via PR [#115](https://github.com/bkirosangma/knowledge-base/pull/115) — workspace-scoped attachment-links store + cross-entity cleanup unblocks parked-item #11).
+**Last updated:** 2026-05-07 (parked-item #18 voice-2 parser probe pinned via `infrastructure/alphaTabEngine.voice2Parse.test.ts`; render half stays manual).
 
 ---
 
@@ -110,7 +110,7 @@ These were flagged during reviews and intentionally deferred. The user explicitl
 15. **~~Bend/slide keyboard cycle deferred~~** — _Closed by TAB-008b_: bend cycles off → ½ → full → off via repeated `B`; slide cycles off → up → down → off via repeated `S`. Stateless; reads current note state from score. Undo restores precise cycle position via `inverseOf` pre-state extension.
 16. **Editor canvas overlay uses fixed 32×18px cell geometry** — `TabEditorCanvasOverlay` doesn't track alphaTab's actual rendered staff position; cursor highlight will misalign on wrapped staves or non-trivial bar widths. Acceptable for short single-track tabs. Replace with alphaTab-driven hit-testing (`beatMouseDown` event already verified in T0) or per-render geometry probing.
 17. **~~`useTabContent` `dirty` state crosses file boundaries~~** — _Closed by TAB-008b_: `useEffect` keyed on `[path]` resets `dirty` / `saveError` / cancels pending debounce.
-18. **alphaTab V2 voice render assumption — runtime verification deferred to PR-time smoke** — TAB-008b T8 documents the reproduction recipe at `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Ship `VoiceToggle` as-is (data layer correct); revisit if smoke shows visual render is broken.
+18. **alphaTab V2 voice render assumption — parser pinned, render still manual** — Parser-side pinned 2026-05-07 by `infrastructure/alphaTabEngine.voice2Parse.test.ts`: real `AlphaTexImporter` populates `bar.voices[1]`, sets `isMultiVoice`, and adds `1` to `filledVoices` when source uses the `\voice` directive (default `StaffWise` mode, ≥2 bars per voice). Caveat: single-bar-per-voice fixtures don't populate voice 1 — quirk of the parser, not a render issue. Render side (does alphaTab paint voice 1 distinguishably) still needs the manual smoke at `docs/superpowers/plans/2026-05-04-tab-008b-voice-render-probe.md`. Ship `VoiceToggle` as-is (data layer fully verified); revisit only if visual smoke shows render is broken.
 19. **Vault-wide draft-orphan reaper** — accepted limitation in document-meta-persistence (D8). A future ticket can add a "Clean up orphan attachments" command that walks every `.kbjson` to build the canonical entity-id set, or an opt-in periodic reaper. Soft accumulation; benign UI impact.
 20. **`type` entity extinction/revival cleanup** — out of scope of document-meta-persistence. Soft orphan when the last node carrying a node-type is deleted. Revisit when real complaints surface.
 21. **Workspace-level attach/detach undo history** — option (c) from document-meta-persistence Q3, deferred. Tab-pane attach/detach is not undoable from any UI surface today.
