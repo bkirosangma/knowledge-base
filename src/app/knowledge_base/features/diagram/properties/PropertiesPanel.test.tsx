@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
 import PropertiesPanel from './PropertiesPanel'
 import type { NodeData, Connection, LayerDef, FlowDef, Selection } from '../types'
@@ -151,5 +151,74 @@ describe('DIAG-12-01: PropertiesPanel locked-flow stack mode', () => {
     await act(async () => {})
     expect(screen.getByTestId('flow-properties-panel')).toBeTruthy()
     expect(screen.getByTestId('element-properties-panel')).toBeTruthy()
+  })
+})
+
+// ─── Panel-level Attach integration coverage (DIAG-3.13-50) ─────────────
+describe('DIAG-3.13-50: AttachmentsSection mounted on every entity panel', () => {
+  const emptyBuckets = { docs: [], diagrams: [], svgs: [], tabs: [] }
+  const flowFixture: FlowDef = {
+    id: 'flow-1',
+    name: 'Sign-up',
+    connectionIds: ['c1'],
+  }
+
+  type OnOpenDocPicker = (entityType: string, entityId: string) => void
+
+  function renderPanel(
+    selection: Selection | null,
+    onOpenDocPicker: OnOpenDocPicker,
+    activeFile: string | null = 'roadmap.kbjson',
+  ) {
+    return render(
+      <DiagramInteractionProvider>
+        <PropertiesPanel
+          selection={selection as Selection}
+          title="My Diagram"
+          nodes={[node]}
+          connections={[connection]}
+          regions={[region]}
+          layerDefs={[layerDef]}
+          flows={[flowFixture]}
+          activeFile={activeFile}
+          attachmentsByType={() => emptyBuckets}
+          onOpenDocPicker={onOpenDocPicker}
+        />
+      </DiagramInteractionProvider>,
+    )
+  }
+
+  it('null selection → root-scoped Attach calls onOpenDocPicker("root", activeFile)', () => {
+    const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
+    renderPanel(null, onOpenDocPicker)
+    fireEvent.click(screen.getByTestId('attachment-attach-button'))
+    expect(onOpenDocPicker).toHaveBeenCalledWith('root', 'roadmap.kbjson')
+  })
+
+  it('node selection → node-scoped Attach calls onOpenDocPicker("node", id)', () => {
+    const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
+    renderPanel({ type: 'node', id: 'n1' }, onOpenDocPicker)
+    fireEvent.click(screen.getByTestId('attachment-attach-button'))
+    expect(onOpenDocPicker).toHaveBeenCalledWith('node', 'n1')
+  })
+
+  it('line selection → connection-scoped Attach calls onOpenDocPicker("connection", id)', () => {
+    const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
+    renderPanel({ type: 'line', id: 'c1' }, onOpenDocPicker)
+    fireEvent.click(screen.getByTestId('attachment-attach-button'))
+    expect(onOpenDocPicker).toHaveBeenCalledWith('connection', 'c1')
+  })
+
+  it('flow selection → flow-scoped Attach calls onOpenDocPicker("flow", id)', () => {
+    const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
+    renderPanel({ type: 'flow', id: 'flow-1' }, onOpenDocPicker)
+    // For a flow selection, DiagramProperties renders the expanded flow's
+    // FlowProperties inline (first attach button) AND a root-scoped
+    // AttachmentsSection at the bottom (second attach button). Click the
+    // first — that's the flow-scoped one.
+    const buttons = screen.getAllByTestId('attachment-attach-button')
+    expect(buttons.length).toBe(2)
+    fireEvent.click(buttons[0])
+    expect(onOpenDocPicker).toHaveBeenCalledWith('flow', 'flow-1')
   })
 })
