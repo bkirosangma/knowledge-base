@@ -78,4 +78,36 @@ describe("useSvgMeta", () => {
     await waitFor(() => expect(result.current.sources).toEqual([]));
     expect(result.current.isDirty).toBe(false);
   });
+
+  it("write failure leaves isDirty true", async () => {
+    const { repo } = stubSvgRefs();
+    // Replace write with a failing implementation.
+    const failingRepo: SvgRefsRepository = {
+      read: repo.read,
+      async write() { throw new Error("disk full"); },
+    };
+    const { result } = renderHook(() => useSvgMeta("a.svg"), { wrapper: makeWrapper(failingRepo) });
+    await waitFor(() => expect(result.current.isDirty).toBe(false));
+    act(() => result.current.setSources([{ url: "https://x.test" }]));
+    expect(result.current.isDirty).toBe(true);
+    await act(async () => { vi.advanceTimersByTime(250); });
+    // Write rejected → reportError called → isDirty stays true.
+    await waitFor(() => expect(result.current.isDirty).toBe(true));
+  });
+
+  it("file switch flushes pending debounce to the previous file", async () => {
+    const { repo, store } = stubSvgRefs();
+    const { result, rerender } = renderHook(
+      ({ filePath }: { filePath: string | null }) => useSvgMeta(filePath),
+      { wrapper: makeWrapper(repo), initialProps: { filePath: "a.svg" } },
+    );
+    await waitFor(() => expect(result.current.isDirty).toBe(false));
+    // Schedule a pending write to A
+    act(() => result.current.setSources([{ url: "https://a.test" }]));
+    expect(result.current.isDirty).toBe(true);
+    // Switch to B BEFORE debounce fires
+    rerender({ filePath: "b.svg" });
+    // Pending write to A flushed synchronously by the cleanup
+    await waitFor(() => expect(store.get("a.svg")?.sources).toEqual([{ url: "https://a.test" }]));
+  });
 });

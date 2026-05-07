@@ -24,12 +24,17 @@ export function useSvgMeta(filePath: string | null): {
   reportErrorRef.current = reportError;
   const filePathRef = useRef(filePath);
   filePathRef.current = filePath;
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
+  const dirtyRef = useRef(isDirty);
+  dirtyRef.current = isDirty;
 
   // Load on file change.
   useEffect(() => {
     if (!filePath) {
       setSourcesState([]);
       setIsDirty(false);
+      dirtyRef.current = false;
       return;
     }
     let cancelled = false;
@@ -39,6 +44,7 @@ export function useSvgMeta(filePath: string | null): {
         if (cancelled) return;
         setSourcesState(payload?.sources ?? []);
         setIsDirty(false);
+        dirtyRef.current = false;
       } catch (e) {
         if (cancelled) return;
         reportErrorRef.current(e, `Loading metadata for ${filePath}`);
@@ -52,15 +58,38 @@ export function useSvgMeta(filePath: string | null): {
     if (!repo) return;
     try {
       await repo.write(path, { version: 1, sources: next });
-      if (filePathRef.current === path) setIsDirty(false);
+      if (filePathRef.current === path) {
+        setIsDirty(false);
+        dirtyRef.current = false;
+      }
     } catch (e) {
       reportErrorRef.current(e, `Saving metadata for ${path}`);
     }
   }, []);
 
+  // Cancel any pending debounce and write immediately if dirty.
+  const flushPath = useCallback((path: string): void => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (!dirtyRef.current) return;
+    void flush(path, sourcesRef.current);
+  }, [flush]);
+
+  // Flush pending write before loading the next file.
+  useEffect(() => {
+    const captured = filePath;
+    return () => {
+      if (captured) flushPath(captured);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filePath]);
+
   const setSources = useCallback((next: SourceLink[]) => {
     setSourcesState(next);
     setIsDirty(true);
+    dirtyRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const path = filePathRef.current;
     if (!path) return;
