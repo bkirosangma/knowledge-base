@@ -37,21 +37,25 @@ test.describe("tab editor", () => {
     });
   });
 
-  // BLOCKED: alphaTab resolves its Bravura music font relative to its JS
-  // chunk path (/_next/static/chunks/font/Bravura.{woff2,woff,otf}).  Those
-  // files are NOT served by the Next.js dev server because alphaTab ships them
-  // inside its own npm package, not under public/.  The result is three 404s
-  // on every run → alphaTab never fires its "loaded" event → status stays
-  // "mounting" → the loading overlay never clears → every assertion below
-  // this point is unreachable.
+  // BLOCKED: original Bravura font 404 issue is RESOLVED — the FONT_DIRECTORY
+  // wiring in `alphaTabAssets.ts` + the Bravura files now living in
+  // `public/font/` let the engine fire its "loaded" event and the loading
+  // overlay clears as expected.
   //
-  // Unblock by copying/symlinking the Bravura font files into public/ (parallel
-  // to the FluidR3 SoundFont added in TAB-005) and updating alphaTabAssets.ts
-  // to set AlphaTabApi.settings.core.fontDirectory accordingly.  Until then
-  // the wiring is verified by the unit tests in:
-  //   • TabView.editor.test.tsx  (editor chunk gate)
-  //   • useTabCursor.test.ts, useTabKeyboard.test.ts, useTabEditHistory.test.ts
-  //   • TabEditorCanvasOverlay.test.tsx, TabEditorToolbar.test.tsx
+  // Remaining staleness (deferred): the body assertions below pre-date the
+  // PaneHeader Edit/Read refactor, the editor-toolbar redesign, and possibly
+  // the editor metadata/cursor-target gating that's coupled to alphaTab's
+  // post-load state. To re-enable, walk through the assertions:
+  //   • Edit toggle is now the PaneHeader "Exit Read Mode" button (this part
+  //     is already updated below).
+  //   • Cursor-target overlay needs `metadata` populated, which only happens
+  //     after alphaTab finishes parsing. May need an additional wait
+  //     between the Edit toggle and the cursor-target query.
+  //   • Verify the keyboard digit dispatch path under the new edit-mode
+  //     wiring (no major refactor expected, but assert the flush path still
+  //     writes through `useTabContent.setScore`).
+  // The unit tests in `TabView.editor.test.tsx`,
+  // `TabEditorCanvasOverlay.test.tsx`, etc. continue to verify the wiring.
   // eslint-disable-next-line playwright/no-skipped-test
   test.fixme("TAB-11.8-01: click-edit-save round-trip", async ({ page }) => {
     const errors: string[] = [];
@@ -79,8 +83,9 @@ test.describe("tab editor", () => {
     // 30 s — on CI with cold WASM JIT this can be slow.
     await expect(page.getByTestId("tab-view-loading")).not.toBeVisible({ timeout: 30000 });
 
-    // Toggle edit mode (per-file default is readOnly=true; Edit tab unlocks it).
-    await page.getByRole("button", { name: /edit tab/i }).click();
+    // Toggle edit mode (per-file default is readOnly=true; the PaneHeader's
+    // "Exit Read Mode" button unlocks it).
+    await page.getByRole("button", { name: /exit read mode/i }).click();
 
     // Editor chunk is attached and cursor targets are rendered by the overlay.
     await expect(page.getByTestId("tab-editor")).toBeAttached();

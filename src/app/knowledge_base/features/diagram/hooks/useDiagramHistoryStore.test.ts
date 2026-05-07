@@ -151,3 +151,80 @@ describe("useDiagramHistoryStore — attachmentSubset snapshot isolation", () =>
     expect(rows.find((r) => r.entityId === "nB")).toBeDefined();
   });
 });
+
+// ─── Top-level sources history wiring ────────────────────────────────────────
+
+describe("useDiagramHistoryStore — top-level sources history", () => {
+  it("DIAG-3.19-23: top-level diagram `sources` are captured in history snapshots and restored on undo", async () => {
+    const s1 = { url: "https://example.com/a", title: "A" };
+    const s2 = { url: "https://example.com/b", title: "B" };
+
+    let doc = makeDoc({ sources: [s1] });
+    const dispatch = makeDispatch();
+    const setRows = vi.fn();
+    const setLayerManualSizes = vi.fn();
+    const setMeasuredSizes = vi.fn();
+    const setPatches = vi.fn();
+    const setSelection = vi.fn<(s: Selection | null) => void>();
+    const setLoadSnapshot = vi.fn();
+
+    const { result, rerender } = renderHook(() =>
+      useDiagramHistoryStore({
+        doc,
+        dispatch,
+        layerManualSizes: {},
+        setLayerManualSizes,
+        setMeasuredSizes,
+        setPatches,
+        setSelection,
+        rows: [],
+        setRows,
+        setLoadSnapshot,
+      }),
+    );
+
+    // Step 1: Initialise history at the single-source state.
+    await act(async () => {
+      await result.current.history.initHistory(
+        JSON.stringify({ title: "Test", nodes: [], connections: [], flows: [], sources: [s1] }),
+        {
+          title: "Test", layerDefs: [], nodes: [], connections: [],
+          layerManualSizes: {}, lineCurve: "bezier", flows: [],
+          sources: [s1],
+          attachmentSubset: [],
+        },
+        null,
+        null,
+      );
+    });
+
+    // Step 2: User adds s2 — `doc.sources` updates to [s1, s2].
+    doc = makeDoc({ sources: [s1, s2] });
+    rerender();
+
+    // Step 3: Schedule a record capturing the post-add state.
+    act(() => {
+      result.current.scheduleRecord("Add source link");
+    });
+
+    // Flush the pending-record effect.
+    act(() => { rerender(); });
+
+    // History should have 2 entries: init + Add.
+    expect(result.current.history.entries).toHaveLength(2);
+    const addEntry = result.current.history.entries[1];
+
+    // The snapshot captures both sources.
+    expect(addEntry.snapshot.sources).toEqual([s1, s2]);
+
+    // Step 4: Undo — should restore the single-source state via dispatch.loadDoc.
+    (dispatch.loadDoc as ReturnType<typeof vi.fn>).mockClear();
+    act(() => {
+      result.current.handleUndo();
+    });
+
+    expect(dispatch.loadDoc).toHaveBeenCalledTimes(1);
+    const restored = (dispatch.loadDoc as ReturnType<typeof vi.fn>).mock.calls[0][0] as { sources?: typeof addEntry.snapshot.sources };
+    expect(restored.sources).toEqual([s1]);
+  });
+});
