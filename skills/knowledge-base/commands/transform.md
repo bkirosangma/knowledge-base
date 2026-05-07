@@ -18,7 +18,9 @@ Transform an existing file to conform to knowledge-base skill conventions. Conte
 | Default | With `--add-conventions` |
 |---------|--------------------------|
 | `<span data-wiki-link="X">Y</span>` → `[[X]]` | + Missing `Visual overview: [[slug.json]]` added after H1 |
-| YAML frontmatter stripped; title promoted to H1 | + Missing `## Related` section added if body wiki-links exist |
+| YAML frontmatter `title:` promoted to H1 (when missing) | + Missing `## Related` section added if body wiki-links exist |
+| YAML frontmatter `sources:` rewritten to canonical block-list (inline `sources: [{...}]` form is silently dropped by the project parser; we rewrite). | |
+| Frontmatter is preserved when (and only when) it carries a non-empty `sources:` field; legacy `title:`-only blocks are stripped. | |
 | `.json` files: full validate `--fix` pass | |
 
 Never changed: prose, section order, heading hierarchy, file location, node coordinates, flow definitions, `---` horizontal rules in body.
@@ -31,7 +33,7 @@ python3 ~/.claude/skills/knowledge-base/scripts/kb_transform.py "<path>" [--dry-
 
 The script handles all transforms:
 
-- `.md` files: strips frontmatter, converts span wiki-links, optionally adds conventions
+- `.md` files: rewrites/strips frontmatter (sources-aware), converts span wiki-links, optionally adds conventions
 - `.json` files: delegates to `kb_validate.py --fix`
 - Creates a `.transform-backup-<ISO>` before writing any file
 - Prints a per-file report with change summaries and a final total

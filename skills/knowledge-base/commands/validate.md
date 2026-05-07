@@ -37,7 +37,7 @@ For music-domain files (`.svg`, `.mid`/`.midi`, music documents, music diagrams)
 | `flows[].nodeOrders` values are integers. | Error | Drop non-integers on `--fix`. |
 | Empty `nodeOrders` / `startNodeIds` / `endNodeIds` / `sources` is **not** an error — these fields are optional clarity aids. | n/a | n/a |
 | `attachedTo[].type` is one of the allowed values. | Error | Drop entry on `--fix`. |
-| Document frontmatter `sources:` uses block-list syntax (inline `sources: [{...}]` silently dropped by the parser — block-list only). | Warning | Yes — convert inline to block-list on `--fix`. |
+| Document frontmatter `sources:` uses block-list syntax (inline `sources: [{...}]` silently dropped by the parser — block-list only). | Warning | Yes — `kb_transform.py` rewrites inline → canonical block-list. |
 
 The allowed `attachedTo[].type` values are: `root | node | connection | flow | type | tab | tab-section | tab-track`.
 
