@@ -127,6 +127,8 @@ src-tauri/
 
 `State` holds `Arc<RwLock<Option<PathBuf>>>` for the current vault root. All commands fail with `VaultError::NoVault` until `vault_set_root` runs.
 
+`AttachmentRepository` writes binary blobs (images etc.), so the Rust surface adds two more siblings — `vault_read_bytes` and `vault_write_bytes` — that mirror the text/JSON helpers. They follow the same path-safety and atomic-write rules. Conceptually still "VFS primitives"; surfaced separately because the spec count of 10 above is deliberately the *human-facing* API and binary support is an implementation detail of the attachment repo.
+
 **Path safety.** Every command goes through `vault::path::resolve(rel: &str, root: &Path)`:
 
 - Reject absolute paths, parent traversal (`..`), Windows-style separators.
