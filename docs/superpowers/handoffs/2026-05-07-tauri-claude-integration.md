@@ -146,6 +146,11 @@ Within MVP-1, sub-MVPs land in alphabetical order (1a → 1b → 1c → 1d). Ski
 
 Each MVP merges via PR (main is protected) before the next begins. The spec branch (`feat/tauri-claude-integration`) hosts only meta artifacts (spec, plans, this handoff doc); it never carries application code.
 
+**Branch base for each MVP:**
+
+- **MVP-1a** — base off `feat/tauri-claude-integration` so the spec + plan + handoff commits ride with the first implementation PR. See **Next Action** for the exact commands.
+- **MVP-1b → MVP-5** — base off `main` (which by then contains the meta commits via MVP-1a's merge). Standard flow.
+
 ---
 
 ## Reference architecture
@@ -194,14 +199,18 @@ _Empty._ As MVPs ship and reviews surface deferred items, add them here with a o
 
 1. Read the plan: `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` (30 tasks).
 2. Skim the spec section it implements: `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md` § 6.1.
-3. Branch:
+3. Branch — **base off `feat/tauri-claude-integration`, not `main`** (one-time exception, see note below):
 
    ```bash
+   git checkout feat/tauri-claude-integration
+   git pull --ff-only origin feat/tauri-claude-integration   # if you've never had it locally
    git checkout -b feat/tauri-mvp1a-scaffold
    ```
 
+   The spec, MVP-1a plan, and this handoff doc live as three commits on `feat/tauri-claude-integration` and have not yet reached `main`. Branching MVP-1a off the spec branch carries those commits into MVP-1a's PR so they merge to `main` alongside the first slice of implementation — the user's preference is to "ride with code" (no doc-only PRs).
+
 4. Execute via `superpowers:subagent-driven-development` — fresh subagent per task, two-stage review between tasks.
 5. After all 30 tasks pass review, follow the plan's Task 30 to push and open the PR.
-6. Once merged, run the **Post-merge cleanup protocol** above, then write the MVP-1b plan and start it.
+6. Once merged, run the **Post-merge cleanup protocol** above, then write the MVP-1b plan and start it. **From MVP-1b onward, base each new branch on `main`** (the meta commits are already there).
 
 **Ship target for MVP-1a:** the app launches via `npx tauri dev`, the user picks a vault folder via the OS-native dialog, the existing knowledge-base UI loads, and basic editing flows (read/write/list/rename/delete) work via Rust commands instead of the File System Access API. File watching, settings persistence, vault switcher UI, and uninitialized-folder splash all stay deliberately deferred to subsequent sub-MVPs.
