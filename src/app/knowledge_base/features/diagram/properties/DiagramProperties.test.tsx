@@ -325,4 +325,32 @@ describe('DiagramProperties — root-scope docs merge wiki-link backlinks (DIAG-
     // c.md appears in that section (the #intro suffix is rendered by DocumentsSection)
     expect(screen.getByText(/c\.md/)).toBeTruthy()
   })
+
+  it('DIAG-3.13-35: renders References section even when no docs attached and no backlinks', () => {
+    // Empty buckets + empty backlinks: the References section must still render
+    // so the Attach affordance is always reachable.
+    const attachmentsByType = vi.fn(({ type, id }: { type: string; id: string }) => {
+      if (type === 'root' && id === 'diagram.json') {
+        return { docs: [], diagrams: [], svgs: [], tabs: [] } satisfies AttachmentBuckets
+      }
+      return emptyBuckets
+    })
+    render(
+      <DiagramProperties
+        {...base({
+          diagramFilename: 'diagram.json',
+          attachmentsByType,
+          backlinks: [],
+          onOpenDocPicker: vi.fn(),
+          onPreviewDocument: vi.fn(),
+        })}
+      />,
+    )
+    // The "References" section title is present
+    expect(screen.getByText(/^References/)).toBeTruthy()
+    // FileLevelReferencesGroup renders the empty-state message
+    expect(screen.getByText(/No references/)).toBeTruthy()
+    // Attach button is still visible when readOnly is false and onOpenDocPicker is provided
+    expect(screen.getByTestId('file-references-attach')).toBeTruthy()
+  })
 })

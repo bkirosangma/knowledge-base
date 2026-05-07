@@ -1312,6 +1312,8 @@ git commit -m "feat(svg): wire attach/detach + rename + delete propagation in sh
 
 ## Task 13: Diagram root-scope wiki-backlinks merge
 
+**Deviation captured during execution:** `DocumentsSection` is **retained** and reused (with the new `title` prop) for anchored backlinks (`bl.section !== undefined`). The merge helper de-dupes by `sourcePath` alone, so anchored backlinks would collide with file-level entries if pushed through it. They route to a separate "Section References" block instead.
+
 **Files:**
 - Modify: `src/app/knowledge_base/features/diagram/properties/DiagramProperties.tsx`
 - Modify: `src/app/knowledge_base/features/diagram/properties/DiagramProperties.test.tsx`
