@@ -17,7 +17,10 @@
     "postinstall": "patch-package && npm run copy-alphatab",
     "copy-alphatab": "mkdir -p public/alphatab && cp node_modules/@coderline/alphatab/dist/alphaTab.js public/alphatab/alphaTab.js && cp node_modules/@coderline/alphatab/dist/alphaTab.worklet.mjs public/alphatab/alphaTab.worklet.mjs && cp node_modules/@coderline/alphatab/dist/alphaTab.core.mjs public/alphatab/alphaTab.core.mjs",
     "predev": "npm run copy-alphatab",
-    "prebuild": "npm run copy-alphatab"
+    "prebuild": "npm run copy-alphatab",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.2",
@@ -49,6 +52,8 @@
     "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/cli": "^2.11.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
