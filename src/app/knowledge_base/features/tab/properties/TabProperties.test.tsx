@@ -1013,7 +1013,7 @@ describe("TabProperties — cross-references", () => {
         />
       </Wrap>,
     );
-    await user.click(screen.getByTestId("attach-file"));
+    await user.click(screen.getByTestId("file-references-attach"));
     expect(onOpenDocPicker).toHaveBeenCalledWith("tab", "tabs/song.alphatex");
   });
 
