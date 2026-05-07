@@ -238,7 +238,7 @@ The Diagram Flow Enhancements feature itself is **functionally complete** at the
 
 ### Open follow-up items surfaced by MVP-2b execution (still active)
 
-- **`FlowProperties` has two doc-listing UIs** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`. A future cleanup should consolidate (likely retire the bespoke section once a confirmation flow is added to `AttachmentsSection.onDetach`).
+- ~~**`FlowProperties` has two doc-listing UIs** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`.~~ _Closed: bespoke section retired. `AttachmentsSection` now wraps `DetachDocModal` when `entityScope` + `getDocumentReferences` + `deleteDocumentWithCleanup` are wired (document-type rows only — diagrams/svgs/tabs still use direct detach). FlowProperties keeps the `Create & attach new…` affordance as a slim secondary button below the section. Coverage in `AttachmentsSection.test.tsx` (cascade-detach modal opens, querying refs, confirm-without-also-delete)._
 - ~~**DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is in `AttachmentsSection.test.tsx`).~~ _Closed: pinned by `PropertiesPanel.test.tsx` (`DIAG-3.13-50`) — each of the 4 entity selections (`null|root, node, line, flow`) routes through `onOpenDocPicker(<scope>, id)` with the correct scope and id. Case marker is ✅ in `test-cases/03-diagram.md`._
 - **`'layer'` is not in `EntityAttachmentTarget`** — `LayerProperties` does not mount `AttachmentsSection`. Add `'layer'` to the union if/when layer-scoped attachments are required. _Forward-looking note; not actionable unless layer-scoped attachments become a requirement._
 

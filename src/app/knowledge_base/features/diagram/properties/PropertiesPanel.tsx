@@ -243,10 +243,6 @@ export default function PropertiesPanel({ selection, title, nodes, connections, 
                 onDelete={onDeleteFlow}
                 onSelectLine={onSelectLine}
                 onSelectNode={onSelectNode}
-                attachedDocs={documents?.filter(d => d.attachedTo?.some(a => a.type === "flow" && a.id === lockedFlow.id)) ?? []}
-                onAttach={() => onOpenDocPicker?.("flow", lockedFlow.id)}
-                onDetach={(docPath) => onDetachDocument?.(docPath, "flow", lockedFlow.id)}
-                onPreview={(docPath) => onPreviewDocument?.(docPath, lockedFlow.name)}
                 getDocumentReferences={getDocumentReferences}
                 deleteDocumentWithCleanup={deleteDocumentWithCleanup}
                 onCreateAndAttach={(filename, editNow, type) => onCreateAndAttach?.(lockedFlow.id, filename, editNow, type) ?? Promise.resolve()}

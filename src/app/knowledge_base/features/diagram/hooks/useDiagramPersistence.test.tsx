@@ -1,7 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
+
+// Mock saveDraft so we can assert it fires with the latest sources without
+// needing real localStorage.
+vi.mock("../../../shared/utils/persistence", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../../shared/utils/persistence")>();
+  return { ...real, saveDraft: vi.fn() };
+});
+
 import { useDiagramPersistence } from "./useDiagramPersistence";
+import { saveDraft } from "../../../shared/utils/persistence";
 import { StubShellErrorProvider } from "../../../shell/ShellErrorContext";
 import type { LayerDef, NodeData, Connection, FlowDef, LineCurveAlgorithm } from "../types";
 import type { SourceLink } from "../../../shared/types/sources";
@@ -99,6 +108,62 @@ describe("useDiagramPersistence — workspace attachments do not mark diagram di
     });
 
     expect(result.current.isDirty).toBe(false);
+  });
+});
+
+describe("useDiagramPersistence — top-level sources are persisted on debounced autosave", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("DIAG-3.19-23: editing top-level `sources` writes a draft with the new sources after the 500 ms debounce", () => {
+    const s1: SourceLink = { url: "https://example.com/a", title: "A" };
+    const s2: SourceLink = { url: "https://example.com/b", title: "B" };
+
+    const before: Args = {
+      title: "Roadmap",
+      layerDefs: [],
+      nodes: [],
+      connections: [],
+      layerManualSizes: {},
+      lineCurve: "orthogonal",
+      flows: [],
+      sources: [s1],
+      activeFile: "diagram.json",
+    };
+
+    const { result, rerender } = callHook(before);
+
+    act(() => {
+      result.current.setLoadSnapshot(
+        before.title,
+        before.layerDefs,
+        before.nodes,
+        before.connections,
+        before.layerManualSizes,
+        before.lineCurve,
+        before.flows,
+        before.sources,
+      );
+    });
+    rerender(before);
+
+    (saveDraft as ReturnType<typeof vi.fn>).mockClear();
+
+    // Edit: add s2 to sources.
+    rerender({ ...before, sources: [s1, s2] });
+
+    // Debounce hasn't fired yet — saveDraft should not have been called.
+    expect(saveDraft).not.toHaveBeenCalled();
+
+    // Flush the 500 ms debounce.
+    act(() => { vi.advanceTimersByTime(500); });
+
+    expect(saveDraft).toHaveBeenCalledTimes(1);
+    const lastCall = (saveDraft as ReturnType<typeof vi.fn>).mock.calls[0];
+    // saveDraft signature: (fileName, title, layers, nodes, connections,
+    // layerManualSizes, lineCurve, flows, sources). sources is at index 8.
+    expect(lastCall[0]).toBe("diagram.json");
+    expect(lastCall[8]).toEqual([s1, s2]);
   });
 });
 
