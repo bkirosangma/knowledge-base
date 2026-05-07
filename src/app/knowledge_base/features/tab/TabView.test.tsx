@@ -67,7 +67,7 @@ function Wrap({ children, read = vi.fn().mockResolvedValue("\\title \"hi\"\n.") 
       <StubRepositoryProvider
         value={{
           attachment: null, attachmentLinks: null, document: null, diagram: null,
-          linkIndex: null, svg: null, vaultConfig: null,
+          linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
           tab: { read, write: vi.fn() }, tabRefs: null,
         }}
       >
@@ -151,7 +151,7 @@ describe("TabView", () => {
         <StubRepositoryProvider
           value={{
             attachment: null, attachmentLinks: null, document: null, diagram: null,
-            linkIndex: null, svg: null, vaultConfig: null,
+            linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
             tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() }, tabRefs: null,
           }}
         >

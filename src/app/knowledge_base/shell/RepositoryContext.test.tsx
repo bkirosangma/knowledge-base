@@ -63,4 +63,35 @@ describe("RepositoryProvider", () => {
     });
     expect(result.current.tabRefs).toBeNull();
   });
+
+  it("RepositoryProvider exposes svgRefs when a rootHandle is mounted", () => {
+    const fakeHandle = {
+      kind: "directory",
+      name: "vault",
+      async getDirectoryHandle() { return fakeHandle; },
+      async getFileHandle() { throw new Error("not used"); },
+    } as unknown as FileSystemDirectoryHandle;
+
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider rootHandle={fakeHandle}>
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.svgRefs).not.toBeNull();
+    expect(typeof result.current.svgRefs!.read).toBe("function");
+    expect(typeof result.current.svgRefs!.write).toBe("function");
+  });
+
+  it("RepositoryProvider sets svgRefs = null when no rootHandle is mounted", () => {
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider rootHandle={null}>
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.svgRefs).toBeNull();
+  });
 });

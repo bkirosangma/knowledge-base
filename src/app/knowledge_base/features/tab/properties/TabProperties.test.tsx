@@ -21,6 +21,7 @@ function Wrap({ children, tabRefs = null }: { children: ReactNode; tabRefs?: Par
         linkIndex: null,
         svg: null,
         vaultConfig: null,
+        svgRefs: null,
         tab: null,
         tabRefs,
       }}

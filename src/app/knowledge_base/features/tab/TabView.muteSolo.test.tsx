@@ -98,6 +98,7 @@ function Wrap({ children }: { children: ReactNode }) {
           diagram: null,
           linkIndex: null,
           svg: null,
+          svgRefs: null,
           vaultConfig: null,
           tab: { read: vi.fn().mockResolvedValue('\\title "Test Tab"\n.'), write: vi.fn() },
           tabRefs: null,

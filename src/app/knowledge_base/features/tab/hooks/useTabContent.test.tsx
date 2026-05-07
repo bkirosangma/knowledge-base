@@ -17,7 +17,7 @@ function renderWithTab(
 ) {
   const stub: Repositories = {
     attachment: null, attachmentLinks: null, document: null, diagram: null,
-    linkIndex: null, svg: null, vaultConfig: null,
+    linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
     tab: tab as Repositories["tab"], tabRefs: null,
   };
   const wrapper = ({ children }: { children: ReactNode }) =>
@@ -57,7 +57,7 @@ describe("useTabContent", () => {
     const stub: Repositories = {
       attachment: null, attachmentLinks: null, document: null, diagram: null,
       linkIndex: null, svg: null, vaultConfig: null,
-      tab: { read, write } as Repositories["tab"], tabRefs: null,
+      tab: { read, write } as Repositories["tab"], svgRefs: null, tabRefs: null,
     };
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(StubRepositoryProvider, { value: stub, children });
@@ -170,7 +170,7 @@ describe("useTabContent (editor flow)", () => {
     const stub: Repositories = {
       attachment: null, attachmentLinks: null, document: null, diagram: null,
       linkIndex: null, svg: null, vaultConfig: null,
-      tab: { read, write } as Repositories["tab"], tabRefs: null,
+      tab: { read, write } as Repositories["tab"], svgRefs: null, tabRefs: null,
     };
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(StubRepositoryProvider, { value: stub, children });

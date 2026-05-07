@@ -22,7 +22,7 @@ const meta = (sections: { name: string; startBeat: number }[]): TabMetadata => (
 function makeWrapper(tabRefs: Repositories["tabRefs"] = null) {
   const stub: Repositories = {
     attachment: null, attachmentLinks: null, document: null, diagram: null,
-    linkIndex: null, svg: null, vaultConfig: null,
+    linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
     tab: null, tabRefs,
   };
   const Wrapper = ({ children }: { children: ReactNode }) =>
