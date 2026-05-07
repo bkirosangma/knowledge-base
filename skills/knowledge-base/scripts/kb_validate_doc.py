@@ -34,6 +34,10 @@ SPAN_RE = re.compile(r'<span\s+data-wiki-link="([^"]+)"[^>]*>.*?</span>', re.IGN
 FRONTMATTER_RE = re.compile(r'\A---\r?\n.*?\r?\n---[ \t]*(?:\r?\n|$)', re.DOTALL)
 HEADING_RE = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
 WIKI_LINK_RE = re.compile(r'\[\[([^\]]+)\]\]')
+# Inline `sources: [{...}]` in frontmatter is silently dropped by the document
+# parser (block-list only). The kb_transform.py --add-conventions flow rewrites
+# inline → block on save.
+FRONTMATTER_INLINE_SOURCES_RE = re.compile(r'^sources:\s*\[', re.MULTILINE)
 
 
 # ── Shared Diag / Result (mirrors kb_validate.py) ─────────────────────────────
@@ -108,10 +112,20 @@ def validate_document(path: str, vault_root: str = None) -> Result:
         return r
 
     # ── 1. YAML frontmatter ────────────────────────────────────────────────────
-    if FRONTMATTER_RE.match(text):
+    fm_match = FRONTMATTER_RE.match(text)
+    if fm_match:
         r.add('error', 'format',
               'YAML frontmatter present at top of file — run kb_transform.py to strip it',
               fixable=True)
+
+        # Sub-check: inline `sources: [{...}]` is silently dropped by the
+        # parser; the documented form is a block list. `kb_transform.py
+        # --add-conventions` rewrites inline → block.
+        if FRONTMATTER_INLINE_SOURCES_RE.search(fm_match.group(0)):
+            r.add('warning', 'format',
+                  'frontmatter `sources:` uses inline-list syntax — silently dropped by parser; '
+                  'run kb_transform.py --add-conventions to rewrite as a block list',
+                  fixable=True)
 
     # ── 2. Span wiki-links ─────────────────────────────────────────────────────
     spans = SPAN_RE.findall(text)

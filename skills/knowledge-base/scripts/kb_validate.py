@@ -91,6 +91,34 @@ def _validate_sources(r: 'Result', section: str, owner: str, srcs) -> None:
                   f'{owner}: sources[{j}].title is empty — would omit on --fix', True)
 
 
+def _fix_sources(srcs):
+    """Return a cleaned `sources` list (or None when nothing remains).
+
+    Mirrors the diagnostics emitted by `_validate_sources`:
+      - drops non-dict entries entirely.
+      - drops entries whose `url` does not parse as `http(s)://` (after a
+        whitespace strip).
+      - normalises empty `title` to omitted (drops the key, not the entry).
+    Returns the cleaned list, OR `None` when the input was None / not a list /
+    became empty after filtering — caller decides whether to remove the key.
+    """
+    if not isinstance(srcs, list):
+        return None
+    cleaned: list = []
+    for s in srcs:
+        if not isinstance(s, dict):
+            continue
+        url = s.get('url')
+        if not isinstance(url, str) or not RE_HTTP_URL.match(url.strip()):
+            continue
+        entry = dict(s)
+        title = entry.get('title')
+        if isinstance(title, str) and title == '':
+            entry.pop('title', None)
+        cleaned.append(entry)
+    return cleaned if cleaned else None
+
+
 def _validate_attached_to(r: 'Result', section: str, owner: str, attached) -> None:
     """Validate a `documents[].attachedTo` array. Empty/absent is fine."""
     if attached is None:
@@ -417,6 +445,9 @@ def validate(data: dict, path: str = '') -> Result:
 
     # ── Documents (DocumentMeta entries persisted inside the diagram JSON)
     docs = data.get('documents', []) if isinstance(data.get('documents'), list) else []
+    # Top-level data.sources — same shape as per-entity arrays.
+    _validate_sources(r, 'schema', 'top-level', data.get('sources'))
+
     for i, D in enumerate(docs):
         if not isinstance(D, dict):
             r.add('error', 'documents', f'documents[{i}] is not an object'); continue
@@ -594,9 +625,33 @@ def fix(data: dict, basename: str = 'diagram') -> dict:
         fixed_flows.append(F)
     d['flows'] = fixed_flows
 
+    # Sources cleanup — drop entries with bad URLs, omit empty titles. Runs
+    # at every scope (top-level + per-entity); a list that becomes empty (or
+    # was malformed to start with) is removed entirely.
+    def _apply_sources_fix(owner):
+        if 'sources' not in owner:
+            return
+        cleaned = _fix_sources(owner.get('sources'))
+        if cleaned is None:
+            owner.pop('sources', None)
+        else:
+            owner['sources'] = cleaned
+
+    _apply_sources_fix(d)
+    for N in d['nodes']:
+        if isinstance(N, dict): _apply_sources_fix(N)
+    for C in d['connections']:
+        if isinstance(C, dict): _apply_sources_fix(C)
+    for F in d['flows']:
+        if isinstance(F, dict): _apply_sources_fix(F)
+    if isinstance(d.get('documents'), list):
+        for D in d['documents']:
+            if isinstance(D, dict): _apply_sources_fix(D)
+
     # Canonical key order
     ordered = {k: d[k] for k in ('title', 'layers', 'nodes', 'connections', 'layerManualSizes', 'lineCurve', 'flows') if k in d}
     if 'documents' in d: ordered['documents'] = d['documents']
+    if 'sources' in d: ordered['sources'] = d['sources']
     for k, v in d.items():
         if k not in ordered: ordered[k] = v
     return ordered
