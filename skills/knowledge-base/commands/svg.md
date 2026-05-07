@@ -46,6 +46,29 @@ SLUG=$(python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py next-slug "$S
 
 ---
 
+## Step 1.5: Gather Sources
+
+Sources are **strongly encouraged** for skill-generated SVGs. They're written to a sidecar file (`<file>.svg.refs.json`) so the user can verify what the visualization is grounded in.
+
+1. **Gather sources**: use WebSearch to find 1–4 canonical online resources for the topic. Prefer:
+   - For music notation conventions: a published reference (Behind Bars, the relevant tradition's musicological treatise, etc.).
+   - For specific scales/ragas/tals: the canonical theoretical source (treatise, scholarly article, or genre authority).
+   - For mathematical / geometric / signal diagrams: the original paper, RFC, or textbook chapter.
+   - Avoid: tutorial blogs that paraphrase canonical sources without adding insight.
+2. **Record** each source in `SourceLink` shape for the sidecar in Step 5c:
+   ```json
+   { "url": "https://example.org/raga-yaman", "title": "Title (publisher / year)" }
+   ```
+3. **Minimum**: at least one source SHOULD be present. If the topic is generic (e.g. "C major scale on treble staff") and no canonical source applies, this step may be skipped — Step 5c will then omit the sidecar entirely (lazy creation).
+
+The sidecar uses the schema from MVP-4b (`<file>.svg.refs.json`):
+```json
+{ "version": 1, "sources": [SourceLink, ...] }
+```
+Fields are optional — empty `sources` MUST result in no sidecar being written (delete-when-empty rule applied at write time).
+
+---
+
 ## Step 2: Suggest Placement
 
 If `vaultRoot` is set:
@@ -160,6 +183,29 @@ python3 ~/.claude/skills/knowledge-base/scripts/kb_utils.py append-registry \
 cd "<vaultRoot>" && graphify . --update 2>/dev/null || true
 ```
 
+### 5c. Write the sources sidecar
+
+Skip this sub-step entirely when Step 1.5 produced no sources — the app's `svgRefsRepo` follows the **delete-when-empty** rule and writing an empty sidecar would defeat that contract.
+
+When sources are present, write `<svg-path>.svg.refs.json` next to the generated `.svg`:
+
+```bash
+SIDECAR="<absolute-path>.svg.refs.json"
+cat > "$SIDECAR" <<'JSON'
+{
+  "version": 1,
+  "sources": [
+    { "url": "https://example.org/...", "title": "..." }
+  ]
+}
+JSON
+```
+
+Notes:
+- `version` MUST be `1` — the app's `domain/svgRefs.ts` rejects unknown versions on read.
+- Pretty-print with two-space indent and an `LF` terminator to match the app's `JSON.stringify(payload, null, 2)` output (keeps diffs minimal when the user re-saves via the UI).
+- Do NOT include an `attachedTo` field unless attachments were explicitly requested — the field is reserved for the deferred MVP-2 SVG attachment branches.
+
 ---
 
 ## Step 6: Report
@@ -169,6 +215,7 @@ SVG generated: <topic>
   File:     <absolute-path>
   Renderer: <renderer-name>
   Tradition: <tag or "none">
+  Sources:  <N sidecar entries | "none recorded">
   Vault:    <vault-name> (or "none — standalone file")
   Registry: <updated | created | skipped (no vault)>
 
