@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactElement } from "react";
-import { FileText, Paperclip, ArrowUpRight, X } from "lucide-react";
 import type { DocumentMeta } from "../../document/types";
+import { ReferenceRow } from "../../../shared/components/ReferenceRow";
 
 export interface TabReferencesListProps {
   attachments: DocumentMeta[];
@@ -47,35 +47,19 @@ export function TabReferencesList({
     <ul className="flex flex-col gap-1">
       {rows.map((row) => {
         const filename = row.sourcePath.split("/").pop() ?? row.sourcePath;
-        const Icon = row.source === "attachment" ? Paperclip : ArrowUpRight;
+        // Resolve title from the attachments list (only attachments carry titles).
+        const doc = attachments.find((a) => a.filename === row.sourcePath);
+        const label = doc?.title && doc.title.trim() !== "" ? doc.title : filename;
         return (
-          <li
+          <ReferenceRow
             key={row.sourcePath}
-            data-testid="tab-reference-row"
-            data-source={row.source}
-            className="flex items-center gap-1.5 rounded border border-line bg-surface-2 px-2 py-1 text-xs"
-          >
-            <Icon size={12} className="flex-shrink-0 text-emerald-500" />
-            <button
-              type="button"
-              onClick={() => onPreview?.(row.sourcePath)}
-              className="flex flex-1 items-center gap-1 truncate text-left text-accent hover:underline"
-            >
-              <FileText size={11} className="flex-shrink-0 opacity-60" />
-              {filename}
-            </button>
-            {!readOnly && row.source === "attachment" && onDetach && (
-              <button
-                type="button"
-                data-testid="detach-reference"
-                aria-label={`Detach ${filename}`}
-                onClick={() => onDetach(row.sourcePath)}
-                className="rounded p-0.5 text-mute hover:bg-line/30 hover:text-ink"
-              >
-                <X size={11} />
-              </button>
-            )}
-          </li>
+            filePath={row.sourcePath}
+            label={label}
+            source={row.source === "attachment" ? "attachment" : "wiki-link"}
+            readOnly={readOnly}
+            onPreview={onPreview}
+            onDetach={onDetach}
+          />
         );
       })}
     </ul>

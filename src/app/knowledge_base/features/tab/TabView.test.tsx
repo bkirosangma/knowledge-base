@@ -306,7 +306,7 @@ describe("TabView — cross-reference plumbing", () => {
       </Wrap>,
     );
     expect(screen.getByText(/whole-file references/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /song-history\.md/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open song-history/i })).toBeInTheDocument();
   });
 
   it("calls onMigrateAttachments when a section is renamed between metadata snapshots", async () => {

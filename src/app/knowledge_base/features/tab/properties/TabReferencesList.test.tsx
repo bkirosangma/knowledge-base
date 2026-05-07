@@ -28,9 +28,10 @@ describe("TabReferencesList", () => {
         backlinks={[]}
       />,
     );
-    const row = screen.getByTestId("tab-reference-row");
-    expect(row).toHaveTextContent("song-history.md");
-    expect(row).toHaveAttribute("data-source", "attachment");
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("song-history");
+    expect(screen.getByTestId("reference-row-icon-attachment")).toBeInTheDocument();
   });
 
   it("renders wiki-link backlinks with an arrow indicator and no detach button", () => {
@@ -40,10 +41,11 @@ describe("TabReferencesList", () => {
         backlinks={[{ sourcePath: "notes/intro-theory.md" }]}
       />,
     );
-    const row = screen.getByTestId("tab-reference-row");
-    expect(row).toHaveTextContent("intro-theory.md");
-    expect(row).toHaveAttribute("data-source", "backlink");
-    expect(row.querySelector('[data-testid="detach-reference"]')).toBeNull();
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("intro-theory.md");
+    expect(screen.getByTestId("reference-row-icon-wiki-link")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /detach/i })).toBeNull();
   });
 
   it("merges and de-duplicates by sourcePath, with attached winning over backlink", () => {
@@ -57,9 +59,9 @@ describe("TabReferencesList", () => {
         backlinks={[{ sourcePath: "notes/intro-theory.md" }]}
       />,
     );
-    const rows = screen.getAllByTestId("tab-reference-row");
+    const rows = screen.getAllByRole("listitem");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveAttribute("data-source", "attachment");
+    expect(screen.getByTestId("reference-row-icon-attachment")).toBeInTheDocument();
   });
 
   it("invokes onPreview with the source path on click", async () => {
@@ -72,7 +74,7 @@ describe("TabReferencesList", () => {
         onPreview={onPreview}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /x\.md/i }));
+    await user.click(screen.getByRole("button", { name: /open x\.md/i }));
     expect(onPreview).toHaveBeenCalledWith("notes/x.md");
   });
 
@@ -90,7 +92,7 @@ describe("TabReferencesList", () => {
         onDetach={onDetach}
       />,
     );
-    await user.click(screen.getByTestId("detach-reference"));
+    await user.click(screen.getByRole("button", { name: /detach/i }));
     expect(onDetach).toHaveBeenCalledWith("notes/song-history.md");
   });
 
@@ -106,6 +108,6 @@ describe("TabReferencesList", () => {
         readOnly
       />,
     );
-    expect(screen.queryByTestId("detach-reference")).toBeNull();
+    expect(screen.queryByRole("button", { name: /detach/i })).toBeNull();
   });
 });
