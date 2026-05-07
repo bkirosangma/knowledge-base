@@ -1,12 +1,19 @@
 "use client";
 
-import type { ReactElement } from "react";
+import type { ComponentType, ReactElement, SVGProps } from "react";
 import { Paperclip, ArrowUpRight, X } from "lucide-react";
 
 export interface ReferenceRowProps {
   filePath: string;
   label: string;
   source: "attachment" | "wiki-link";
+  /**
+   * Optional override for the leading icon. When provided, this icon
+   * replaces the default source-based icon (Paperclip/ArrowUpRight).
+   * Caller should pass a Lucide-compatible icon component (`FileText`,
+   * `Network`, `ImageIcon`, `Music`, etc).
+   */
+  Icon?: ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>;
   readOnly?: boolean;
   onPreview?: (filePath: string) => void;
   onDetach?: (filePath: string) => void;
@@ -16,11 +23,13 @@ export function ReferenceRow({
   filePath,
   label,
   source,
+  Icon: IconOverride,
   readOnly = false,
   onPreview,
   onDetach,
 }: ReferenceRowProps): ReactElement {
-  const Icon = source === "attachment" ? Paperclip : ArrowUpRight;
+  const DefaultIcon = source === "attachment" ? Paperclip : ArrowUpRight;
+  const ResolvedIcon = IconOverride ?? DefaultIcon;
   const iconTestId = `reference-row-icon-${source}`;
   const showDetach = !readOnly && source === "attachment" && onDetach !== undefined;
 
@@ -32,7 +41,7 @@ export function ReferenceRow({
         onClick={() => onPreview?.(filePath)}
         className="flex flex-1 items-center gap-1 truncate text-left hover:underline"
       >
-        <Icon className="h-3 w-3 shrink-0 text-mute" data-testid={iconTestId} aria-hidden="true" />
+        <ResolvedIcon className="h-3 w-3 shrink-0 text-mute" data-testid={iconTestId} aria-hidden="true" />
         <span className="truncate">{label}</span>
       </button>
       {showDetach && (
