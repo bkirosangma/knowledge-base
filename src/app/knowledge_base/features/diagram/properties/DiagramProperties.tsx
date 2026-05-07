@@ -8,6 +8,7 @@ import DocumentsSection from "./DocumentsSection";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { FlowProperties } from "./FlowProperties";
 import { SourcesSection } from "../../../shared/components/SourcesSection";
+import { FileLevelReferencesGroup } from "../../../shared/components/FileLevelReferencesGroup";
 import type { SourceLink } from "../../../shared/types/sources";
 
 function FlowListItem({
@@ -279,22 +280,57 @@ export function DiagramProperties({
         </Section>
       )}
 
-      {backlinks && (
-        <DocumentsSection
-          backlinks={backlinks}
-          onPreviewDocument={onPreviewDocument}
-        />
-      )}
-
-      {attachmentsByType && diagramFilename && (
-        <AttachmentsSection
-          buckets={attachmentsByType({ type: "root", id: diagramFilename })}
-          onPreview={() => openAttachmentPreviewFor?.({ type: "root", id: diagramFilename })}
-          onDetach={(filename) => onDetachDocument?.(filename, "root", diagramFilename)}
-          onAttach={() => onOpenDocPicker?.("root", diagramFilename)}
-          readOnly={readOnly}
-        />
-      )}
+      {(() => {
+        if (!attachmentsByType || !diagramFilename) {
+          // Fallback: no attachment context — just show raw backlinks if present.
+          return backlinks && backlinks.length > 0 ? (
+            <DocumentsSection
+              backlinks={backlinks}
+              onPreviewDocument={onPreviewDocument}
+            />
+          ) : null;
+        }
+        const rootBuckets = attachmentsByType({ type: "root", id: diagramFilename });
+        const docPaths = rootBuckets.docs.map((d) => d.filename);
+        const fileLevelBacklinks = (backlinks ?? []).filter((bl) => !bl.section);
+        const anchoredBacklinks = (backlinks ?? []).filter((bl) => bl.section);
+        // Strip docs from attachments — they flow through FileLevelReferencesGroup below.
+        const nonDocBuckets = { ...rootBuckets, docs: [] };
+        const hasNonDocAttachments =
+          nonDocBuckets.diagrams.length + nonDocBuckets.svgs.length + nonDocBuckets.tabs.length > 0;
+        return (
+          <>
+            <Section title="References">
+              <FileLevelReferencesGroup
+                filePath={diagramFilename}
+                attachmentPaths={docPaths}
+                backlinks={fileLevelBacklinks}
+                documents={rootBuckets.docs.map((d) => ({ filename: d.filename, title: d.title }))}
+                readOnly={readOnly}
+                onPreview={onPreviewDocument}
+                onDetach={(docPath) => onDetachDocument?.(docPath, "root", diagramFilename)}
+                onAttach={() => onOpenDocPicker?.("root", diagramFilename)}
+              />
+            </Section>
+            {anchoredBacklinks.length > 0 && (
+              <DocumentsSection
+                title="Section References"
+                backlinks={anchoredBacklinks}
+                onPreviewDocument={onPreviewDocument}
+              />
+            )}
+            {hasNonDocAttachments && (
+              <AttachmentsSection
+                buckets={nonDocBuckets}
+                onPreview={() => openAttachmentPreviewFor?.({ type: "root", id: diagramFilename })}
+                onDetach={(filename) => onDetachDocument?.(filename, "root", diagramFilename)}
+                onAttach={() => onOpenDocPicker?.("root", diagramFilename)}
+                readOnly={readOnly}
+              />
+            )}
+          </>
+        );
+      })()}
 
       <Section title="Sources">
         <SourcesSection
