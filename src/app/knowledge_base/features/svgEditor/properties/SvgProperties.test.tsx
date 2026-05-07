@@ -111,4 +111,57 @@ describe("SvgProperties", () => {
     fireEvent.click(screen.getByRole("button", { name: /collapse properties/i }));
     expect(onToggle).toHaveBeenCalledOnce();
   });
+
+  it("renders the References section with attached docs", async () => {
+    const { repo } = stubSvgRefs();
+    render(
+      <ShellErrorProvider>
+        <StubRepositoryProvider value={{
+          attachment: null, attachmentLinks: null, diagram: null,
+          document: null, linkIndex: null, svg: null, svgRefs: repo,
+          tab: null, tabRefs: null, vaultConfig: null,
+        }}>
+          <SvgProperties
+            filePath="diagrams/logo.svg"
+            collapsed={false}
+            onToggleCollapse={() => {}}
+            attachedDocPaths={["notes.md"]}
+            backlinks={[{ sourcePath: "other.md" }]}
+            documents={[
+              { filename: "notes.md", title: "Notes" },
+              { filename: "other.md", title: "Other" },
+            ]}
+          />
+        </StubRepositoryProvider>
+      </ShellErrorProvider>,
+    );
+    expect(await screen.findByText("Notes")).toBeInTheDocument();
+    expect(await screen.findByText("Other")).toBeInTheDocument();
+  });
+
+  it("invokes onOpenDocPicker when the Attach button is clicked", () => {
+    const { repo } = stubSvgRefs();
+    const onOpen = vi.fn();
+    render(
+      <ShellErrorProvider>
+        <StubRepositoryProvider value={{
+          attachment: null, attachmentLinks: null, diagram: null,
+          document: null, linkIndex: null, svg: null, svgRefs: repo,
+          tab: null, tabRefs: null, vaultConfig: null,
+        }}>
+          <SvgProperties
+            filePath="diagrams/logo.svg"
+            collapsed={false}
+            onToggleCollapse={() => {}}
+            attachedDocPaths={[]}
+            backlinks={[]}
+            documents={[]}
+            onOpenDocPicker={onOpen}
+          />
+        </StubRepositoryProvider>
+      </ShellErrorProvider>,
+    );
+    fireEvent.click(screen.getByTestId("file-references-attach"));
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
 });

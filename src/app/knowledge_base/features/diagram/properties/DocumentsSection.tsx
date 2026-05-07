@@ -7,11 +7,14 @@ import { Section } from "./shared";
 interface DocumentsSectionProps {
   backlinks: { sourcePath: string; section?: string }[];
   onPreviewDocument?: (path: string) => void;
+  /** Override the section heading. Defaults to "References". */
+  title?: string;
 }
 
 export default function DocumentsSection({
   backlinks,
   onPreviewDocument,
+  title = "References",
 }: DocumentsSectionProps) {
   const unique = backlinks.filter(
     (bl, i, arr) =>
@@ -20,7 +23,7 @@ export default function DocumentsSection({
       ) === i,
   );
   return (
-    <Section title={`References${unique.length > 0 ? ` (${unique.length})` : ""}`}>
+    <Section title={`${title}${unique.length > 0 ? ` (${unique.length})` : ""}`}>
       {unique.length > 0 ? (
         <div className="flex flex-col gap-1">
           {unique.map((bl) => (

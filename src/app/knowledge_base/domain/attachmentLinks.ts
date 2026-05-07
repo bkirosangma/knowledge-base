@@ -12,7 +12,8 @@ export type EntityType =
   | "type"
   | "tab"
   | "tab-section"
-  | "tab-track";
+  | "tab-track"
+  | "svg"; // whole-file only; entityId is the vault-relative .svg path
 
 export interface AttachmentLink {
   docPath: string;
@@ -104,6 +105,40 @@ export function migrateRows(
     if (replacement === undefined) return r;
     touched = true;
     return { ...r, entityId: replacement };
+  });
+  return touched ? next : rows;
+}
+
+/**
+ * Rewrite the entityId of file-scoped rows when a file is renamed or moved.
+ *
+ * Scope:
+ *   - `tab` and `svg` whole-file rows: rewrite when entityId === oldPath.
+ *   - `tab-section` and `tab-track`: rewrite when entityId starts with `oldPath + "#"`,
+ *     replacing the path prefix (the fragment after `#` is preserved).
+ *
+ * Returns the same array reference when nothing changes (no React re-render churn).
+ */
+export function rewriteFileScopedRows(
+  rows: AttachmentLink[],
+  oldPath: string,
+  newPath: string,
+): AttachmentLink[] {
+  if (oldPath === newPath) return rows;
+  let touched = false;
+  const next = rows.map((r) => {
+    if ((r.entityType === "tab" || r.entityType === "svg") && r.entityId === oldPath) {
+      touched = true;
+      return { ...r, entityId: newPath };
+    }
+    if (
+      (r.entityType === "tab-section" || r.entityType === "tab-track") &&
+      r.entityId.startsWith(oldPath + "#")
+    ) {
+      touched = true;
+      return { ...r, entityId: newPath + r.entityId.slice(oldPath.length) };
+    }
+    return r;
   });
   return touched ? next : rows;
 }

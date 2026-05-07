@@ -35,7 +35,7 @@ const ATTACHMENT_LINKS_PATH = ".kb/attachment-links.json";
 const BACKUP_PATH = ".kb/attachment-links.json.broken";
 
 const VALID_TYPES: ReadonlySet<EntityType> = new Set([
-  "root", "node", "connection", "flow", "type", "tab", "tab-section", "tab-track",
+  "root", "node", "connection", "flow", "type", "tab", "tab-section", "tab-track", "svg",
 ]);
 
 function isAttachmentLink(x: unknown): x is AttachmentLink {

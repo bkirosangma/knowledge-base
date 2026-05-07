@@ -67,3 +67,15 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 | SVG-6.4-20 | Wrapped canvas.addCommandToHistory fires onChanged for every meaningful change (unit) | ✅ |
 | SVG-6.4-21 | Wrapped addCommandToHistory is suppressed during programmatic setSvgString load (unit) | ✅ |
 | SVG-6.4-22 | Two SVGs side-by-side: changing the background on one pane does not mutate or autosave the other (e2e) | ✅ |
+
+## 6.6 Attachments (MVP-2 SVG)
+
+| ID | Scenario | Status |
+|----|----------|--------|
+| SVG-6.6-01 | User attaches a doc to an SVG via the picker → row persists in `attachmentLinks.json` and renders in the References group (component: `SvgProperties.test.tsx`) | ✅ |
+| SVG-6.6-02 | User detaches a doc → row removed; cascade-detach modal appears when the doc has no other attachments (existing detach-modal regression) | ✅ |
+| SVG-6.6-03 | Wiki-link backlinks (any `[[drawing.svg]]` in any doc body) appear in References alongside explicit attachments (component: `FileLevelReferencesGroup.test.tsx` + `SvgProperties.test.tsx`) | ✅ |
+| SVG-6.6-04 | `svgFileMatcher` matches `svg` rows for the given path; rejects other entity types and prefix-collision paths (unit: `fileTreeMatchers.test.ts`) | ✅ |
+| SVG-6.6-05 | Renaming an `.svg` rewrites all `attachmentLinks` rows pointing to the old path via `rewriteFileScopedRows` (unit: `attachmentLinks.test.ts` + `useDocuments.test.ts`) | ✅ |
+| SVG-6.6-06 | Deleting an `.svg` removes all attachment rows pointing to it via `svgFileMatcher` + `cleanupAttachmentsForPath` (integration: `knowledgeBase.tsx`) | ✅ |
+| SVG-6.6-07 | Sidecar `attachedTo?` field is forward-compat-unused — populating it does not affect attachments (the canonical store is `attachmentLinks.json`) (documentation in `domain/svgRefs.ts`) | ✅ |

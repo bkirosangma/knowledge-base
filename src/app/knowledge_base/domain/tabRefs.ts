@@ -25,7 +25,13 @@ export interface TabRefsPayload {
   trackRefs: TabRefEntry[]; // ordered array; index = track position in score
   /** File-level source links. */
   sources?: SourceLink[];
-  /** Reserved for MVP-2 Tab attachments; not wired in MVP-4b. */
+  /**
+   * Forward-compat field reserved in MVP-4b. **Not the canonical store.**
+   * The workspace flat file `attachmentLinks.json` (`attachmentLinksRepo`)
+   * is the single source of truth for Tab attachments — wired by TAB-007a
+   * (MVP-2b). This field stays in the schema only so legacy sidecars
+   * round-trip cleanly when read.
+   */
   attachedTo?: AttachedToEntry[];
 }
 

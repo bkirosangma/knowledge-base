@@ -6,6 +6,7 @@ import { DiagramProperties } from './DiagramProperties'
 import type { FlowDef, Connection, NodeData } from '../types'
 import type { RegionBounds } from './shared'
 import type { SourceLink } from '../../../shared/types/sources'
+import type { AttachmentBuckets } from '../../document/types'
 
 // Covers DIAG-3.10-12..16, DIAG-3.11-10.
 
@@ -244,5 +245,112 @@ describe('DiagramProperties — Sources section', () => {
         { url: 'https://docs.example.org', title: '' },
       ],
     })
+  })
+})
+
+// ── DIAG-3.13-62: root-scope docs merge with wiki-link backlinks ──────────────
+
+describe('DiagramProperties — root-scope docs merge wiki-link backlinks (DIAG-3.13-62)', () => {
+  const emptyBuckets: AttachmentBuckets = { docs: [], diagrams: [], svgs: [], tabs: [] }
+
+  function makeProps() {
+    const attachmentsByType = vi.fn(({ type, id }: { type: string; id: string }) => {
+      if (type === 'root' && id === 'diagram.json') {
+        return {
+          docs: [{ filename: 'a.md', title: 'A Doc' }],
+          diagrams: [],
+          svgs: [],
+          tabs: [],
+        } satisfies AttachmentBuckets
+      }
+      return emptyBuckets
+    })
+    return base({
+      diagramFilename: 'diagram.json',
+      attachmentsByType,
+      backlinks: [
+        { sourcePath: 'a.md' },   // file-level — same as attachment
+        { sourcePath: 'b.md' },   // file-level — backlink only
+      ],
+      onOpenDocPicker: vi.fn(),
+      onPreviewDocument: vi.fn(),
+    })
+  }
+
+  it('produces exactly 2 merged rows (no duplicate for a.md)', () => {
+    render(<DiagramProperties {...makeProps()} />)
+    // FileLevelReferencesGroup renders <li> rows via ReferenceRow
+    const rows = screen.getAllByRole('button', { name: /Open / })
+    const labels = rows.map((b) => b.textContent?.trim())
+    // a.md -> "A Doc" (title resolved), b.md -> "b.md" (filename fallback)
+    expect(labels.filter((l) => l === 'A Doc').length).toBe(1)
+    expect(labels.filter((l) => l === 'b.md').length).toBe(1)
+  })
+
+  it('a.md row carries attachment icon (attachment wins over wiki-link)', () => {
+    render(<DiagramProperties {...makeProps()} />)
+    const attachmentIcons = screen.getAllByTestId('reference-row-icon-attachment')
+    const filenames = attachmentIcons.map((el) =>
+      el.closest('li')?.querySelector('span')?.textContent?.trim(),
+    )
+    expect(filenames).toContain('A Doc')
+  })
+
+  it('b.md row carries wiki-link icon (backlink-only row)', () => {
+    render(<DiagramProperties {...makeProps()} />)
+    const wikiIcons = screen.getAllByTestId('reference-row-icon-wiki-link')
+    const filenames = wikiIcons.map((el) =>
+      el.closest('li')?.querySelector('span')?.textContent?.trim(),
+    )
+    expect(filenames).toContain('b.md')
+  })
+
+  it('shows file-references-attach button when not readOnly', () => {
+    render(<DiagramProperties {...makeProps()} />)
+    expect(screen.getByTestId('file-references-attach')).toBeTruthy()
+  })
+
+  it('section-anchored backlinks appear under Section References, not the merged list', () => {
+    render(
+      <DiagramProperties
+        {...makeProps()}
+        backlinks={[
+          { sourcePath: 'a.md' },
+          { sourcePath: 'c.md', section: 'intro' },
+        ]}
+      />,
+    )
+    // "Section References" heading rendered by DocumentsSection with title override
+    expect(screen.getByText(/Section References/)).toBeTruthy()
+    // c.md appears in that section (the #intro suffix is rendered by DocumentsSection)
+    expect(screen.getByText(/c\.md/)).toBeTruthy()
+  })
+
+  it('DIAG-3.13-62: renders References section even when no docs attached and no backlinks', () => {
+    // Empty buckets + empty backlinks: the References section must still render
+    // so the Attach affordance is always reachable.
+    const attachmentsByType = vi.fn(({ type, id }: { type: string; id: string }) => {
+      if (type === 'root' && id === 'diagram.json') {
+        return { docs: [], diagrams: [], svgs: [], tabs: [] } satisfies AttachmentBuckets
+      }
+      return emptyBuckets
+    })
+    render(
+      <DiagramProperties
+        {...base({
+          diagramFilename: 'diagram.json',
+          attachmentsByType,
+          backlinks: [],
+          onOpenDocPicker: vi.fn(),
+          onPreviewDocument: vi.fn(),
+        })}
+      />,
+    )
+    // The "References" section title is present
+    expect(screen.getByText(/^References/)).toBeTruthy()
+    // FileLevelReferencesGroup renders the empty-state message
+    expect(screen.getByText(/No references/)).toBeTruthy()
+    // Attach button is still visible when readOnly is false and onOpenDocPicker is provided
+    expect(screen.getByTestId('file-references-attach')).toBeTruthy()
   })
 })

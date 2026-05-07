@@ -15,6 +15,7 @@ import { ExportSection } from "./ExportSection";
 import type { WavState } from "../hooks/useTabExport";
 import { SourcesSection } from "../../../shared/components/SourcesSection";
 import { useTabSources } from "../hooks/useTabSources";
+import { FileLevelReferencesGroup } from "../../../shared/components/FileLevelReferencesGroup";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
@@ -780,31 +781,26 @@ function FileReferences({
   const fileAttachments = (documents ?? []).filter((d) =>
     d.attachedTo?.some((a) => a.type === "tab" && a.id === filePath),
   );
+  const attachmentPaths = fileAttachments.map((d) => d.filename);
   const fileBacklinks = (backlinks ?? []).filter((bl) => !bl.section);
   return (
     <section>
-      <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-xs font-medium uppercase text-mute">Whole-file references</h3>
-        {!readOnly && onOpenDocPicker && (
-          <button
-            type="button"
-            data-testid="attach-file"
-            aria-label="Attach to file"
-            onClick={() => onOpenDocPicker("tab", filePath)}
-            className="rounded p-0.5 text-mute hover:bg-line/30 hover:text-ink"
-          >
-            <Paperclip size={12} />
-          </button>
-        )}
-      </div>
-      <TabReferencesList
-        attachments={fileAttachments}
+      <h3 className="mb-1 text-xs font-medium uppercase text-mute">Whole-file references</h3>
+      <FileLevelReferencesGroup
+        filePath={filePath}
+        attachmentPaths={attachmentPaths}
         backlinks={fileBacklinks}
+        documents={documents ?? []}
         readOnly={readOnly}
         onPreview={onPreviewDocument}
         onDetach={
           onDetachDocument
             ? (docPath) => onDetachDocument(docPath, "tab", filePath)
+            : undefined
+        }
+        onAttach={
+          onOpenDocPicker
+            ? () => onOpenDocPicker("tab", filePath)
             : undefined
         }
       />

@@ -13,7 +13,12 @@ import type { AttachedToEntry } from "../shared/types/attachments";
 export interface SvgRefsPayload {
   version: 1;
   sources?: SourceLink[];
-  /** Reserved for MVP-2 SVG attachments; not wired in MVP-4b. */
+  /**
+   * Forward-compat field reserved in MVP-4b. **Not the canonical store.**
+   * The workspace flat file `attachmentLinks.json` (`attachmentLinksRepo`)
+   * is the single source of truth for SVG attachments. This field stays
+   * in the schema only so legacy sidecars round-trip cleanly when read.
+   */
   attachedTo?: AttachedToEntry[];
 }
 

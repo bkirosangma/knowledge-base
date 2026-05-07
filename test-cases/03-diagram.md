@@ -299,6 +299,7 @@ Additional coverage in [FlowBreakWarningModal.test.tsx](../src/app/knowledge_bas
 - **DIAG-3.13-59** ✅ **LayerProperties propagates SourcesSection edits via `onUpdate?.(id, { sources })`** (MVP-4a) — Add → blur commits through `onUpdate`. _(unit: `LayerProperties.test.tsx`)_
 - **DIAG-3.13-60** ✅ **FlowProperties propagates SourcesSection edits via `onUpdateFlow?.(id, { sources })`** (MVP-4a) — Add → blur commits through `onUpdateFlow`. _(unit: `FlowProperties.test.tsx`)_
 - **DIAG-3.13-61** ✅ **DiagramProperties (top-level) propagates SourcesSection edits via `onUpdateDiagram({ sources })`** (MVP-4a) — Add → blur commits through `onUpdateDiagram`. _(unit: `DiagramProperties.test.tsx`)_
+- **DIAG-3.13-62** ✅ **Root-scope reference list merges wiki-link backlinks** — file-level `[[diagram.json]]` backlinks merge with explicit `attachedTo` rows; attachment wins on duplicate path. Section-anchored backlinks (`[[diagram.json#node-id]]`) route to a separate "Section References" group. _(component: `DiagramProperties.test.tsx`.)_
 
 ## 3.14 Keyboard Shortcuts
 

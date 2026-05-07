@@ -191,7 +191,8 @@ describe('DIAG-3.13-50: AttachmentsSection mounted on every entity panel', () =>
   it('null selection → root-scoped Attach calls onOpenDocPicker("root", activeFile)', () => {
     const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
     renderPanel(null, onOpenDocPicker)
-    fireEvent.click(screen.getByTestId('attachment-attach-button'))
+    // Root scope now uses FileLevelReferencesGroup; its attach button is file-references-attach.
+    fireEvent.click(screen.getByTestId('file-references-attach'))
     expect(onOpenDocPicker).toHaveBeenCalledWith('root', 'roadmap.kbjson')
   })
 
@@ -213,12 +214,11 @@ describe('DIAG-3.13-50: AttachmentsSection mounted on every entity panel', () =>
     const onOpenDocPicker = vi.fn<OnOpenDocPicker>()
     renderPanel({ type: 'flow', id: 'flow-1' }, onOpenDocPicker)
     // For a flow selection, DiagramProperties renders the expanded flow's
-    // FlowProperties inline (first attach button) AND a root-scoped
-    // AttachmentsSection at the bottom (second attach button). Click the
-    // first — that's the flow-scoped one.
-    const buttons = screen.getAllByTestId('attachment-attach-button')
-    expect(buttons.length).toBe(2)
-    fireEvent.click(buttons[0])
+    // FlowProperties inline (attachment-attach-button) AND a root-scoped
+    // FileLevelReferencesGroup at the bottom (file-references-attach).
+    // Click the flow-scoped one.
+    const flowAttachButton = screen.getByTestId('attachment-attach-button')
+    fireEvent.click(flowAttachButton)
     expect(onOpenDocPicker).toHaveBeenCalledWith('flow', 'flow-1')
   })
 })

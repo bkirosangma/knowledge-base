@@ -5,6 +5,7 @@ import { FileText, Network, Image as ImageIcon, Music } from "lucide-react";
 import type { AttachmentBuckets, EntityAttachmentTarget } from "../../document/types";
 import type { PreviewItemType } from "../components/AttachmentPreviewModal";
 import DetachDocModal from "../components/DetachDocModal";
+import { ReferenceRow } from "../../../shared/components/ReferenceRow";
 import { Section } from "./shared";
 
 interface AttachmentsSectionProps {
@@ -81,35 +82,20 @@ export function AttachmentsSection({
           return (
             <div key={key} data-testid={`attachment-group-${key}`}>
               <h5 className="text-[10px] uppercase text-mute tracking-wide mb-1">{label}</h5>
-              <div className="flex flex-col gap-1">
+              <ul className="flex flex-col gap-1">
                 {rows.map((row) => (
-                  <div
+                  <ReferenceRow
                     key={row.filename}
-                    data-testid={`attachment-row-${row.filename}`}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-2 border border-line text-xs"
-                  >
-                    <Icon size={12} className="flex-shrink-0 text-accent" />
-                    <button
-                      type="button"
-                      data-testid={`attachment-preview-${row.filename}`}
-                      onClick={() => onPreview(row.filename, type)}
-                      className="flex-1 text-left text-accent hover:underline truncate"
-                    >
-                      {row.title || row.filename.split("/").pop()}
-                    </button>
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        data-testid={`attachment-detach-${row.filename}`}
-                        onClick={() => handleDetachClick(row.filename, type)}
-                        className="text-[10px] text-mute hover:text-danger"
-                      >
-                        Detach
-                      </button>
-                    )}
-                  </div>
+                    filePath={row.filename}
+                    label={row.title && row.title.trim() !== "" ? row.title : (row.filename.split("/").pop() ?? row.filename)}
+                    source="attachment"
+                    Icon={Icon}
+                    readOnly={readOnly}
+                    onPreview={() => onPreview(row.filename, type)}
+                    onDetach={() => handleDetachClick(row.filename, type)}
+                  />
                 ))}
-              </div>
+              </ul>
             </div>
           );
         })}

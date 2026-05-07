@@ -5,6 +5,7 @@ import {
   tabFileMatcher,
   diagramFileMatcher,
   mdFileMatcher,
+  svgFileMatcher,
   collectAttachableFilePaths,
 } from "./fileTreeMatchers";
 
@@ -159,9 +160,9 @@ describe("collectAttachableFilePaths", () => {
     expect(paths).toContain("docs/song.alphatex");
   });
 
-  it("FS-2.3-68/69/70: does not include non-attachable extensions (svg)", () => {
+  it("FS-2.3-76: returns .svg files in the target folder subtree", () => {
     const paths = collectAttachableFilePaths(tree, "docs");
-    expect(paths).not.toContain("docs/image.svg");
+    expect(paths).toContain("docs/image.svg");
   });
 
   it("FS-2.3-71: returns empty array for a folder path not in the tree", () => {
@@ -169,7 +170,7 @@ describe("collectAttachableFilePaths", () => {
     expect(paths).toEqual([]);
   });
 
-  it("FS-2.3-71: returns empty array for an empty tree", () => {
+  it("FS-2.3-77: returns empty array for an empty tree", () => {
     const paths = collectAttachableFilePaths([], "docs");
     expect(paths).toEqual([]);
   });
@@ -179,5 +180,29 @@ describe("collectAttachableFilePaths", () => {
     expect(paths).not.toContain("docs/notes.md");
     expect(paths).not.toContain("root.md");
     expect(paths).toContain("docs/sub/nested.md");
+  });
+});
+
+// ─── svgFileMatcher ──────────────────────────────────────────────────────────
+
+describe("svgFileMatcher", () => {
+  it("matches svg row with matching entityId path", () => {
+    const matcher = svgFileMatcher("diagrams/logo.svg");
+    expect(matcher({ docPath: "d.md", entityType: "svg", entityId: "diagrams/logo.svg" })).toBe(true);
+  });
+
+  it("does not match svg row with different path", () => {
+    const matcher = svgFileMatcher("diagrams/logo.svg");
+    expect(matcher({ docPath: "d.md", entityType: "svg", entityId: "diagrams/other.svg" })).toBe(false);
+  });
+
+  it("does not match non-svg entity types pointing to the same path", () => {
+    const matcher = svgFileMatcher("diagrams/logo.svg");
+    expect(matcher({ docPath: "d.md", entityType: "tab", entityId: "diagrams/logo.svg" })).toBe(false);
+  });
+
+  it("does not match prefix-collision paths (logo.svg vs logo.svg.bak)", () => {
+    const matcher = svgFileMatcher("diagrams/logo.svg");
+    expect(matcher({ docPath: "d.md", entityType: "svg", entityId: "diagrams/logo.svg.bak" })).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import SVGCanvas, { type SVGCanvasHandle, type SVGStyle, type SVGTool } from "./
 import SVGToolbar from "./components/SVGToolbar";
 import { useSVGPersistence } from "./hooks/useSVGPersistence";
 import { SvgProperties } from "./properties/SvgProperties";
+import DocumentPicker from "../../shared/components/DocumentPicker";
 import ExportMenu from "../export/ExportMenu";
 import { rasterizeSVG } from "../export/exportDiagramPNG";
 import { exportFilename } from "../export/exportFilename";
@@ -23,6 +24,19 @@ export interface SVGEditorViewProps {
   side: "left" | "right";
   activeFile: string | null;
   onSVGEditorBridge: (bridge: SVGEditorBridge) => void;
+  // References panel (all optional — renders empty References list when absent)
+  attachedDocPaths?: string[];
+  backlinks?: { sourcePath: string; section?: string }[];
+  documents?: { filename: string; title?: string }[];
+  /** Called when the user clicks Attach. Undefined → no Attach button. */
+  onAttachDocument?: (docPath: string) => void;
+  onDetachDocument?: (docPath: string) => void;
+  onPreviewDocument?: (docPath: string) => void;
+  // Needed for the local DocumentPicker
+  allDocPaths?: string[];
+  getDocumentsForEntity?: (entityType: string, entityId: string) => { filename: string }[];
+  rootHandle?: FileSystemDirectoryHandle | null;
+  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
 }
 
 function fileNameWithoutExtension(path: string): string {
@@ -35,6 +49,16 @@ export default function SVGEditorView({
   side: _side,
   activeFile,
   onSVGEditorBridge,
+  attachedDocPaths,
+  backlinks,
+  documents,
+  onAttachDocument,
+  onDetachDocument,
+  onPreviewDocument,
+  allDocPaths,
+  getDocumentsForEntity,
+  rootHandle,
+  onCreateDocument,
 }: SVGEditorViewProps) {
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
   const [activeTool, setActiveTool] = useState<SVGTool>("select");
@@ -44,6 +68,7 @@ export default function SVGEditorView({
   const [linkedHandles, setLinkedHandles] = useState(true);
   const [bgColor, setBgColor] = useState<string>("none");
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { isDirty, onChanged, handleSave, handleDiscard } = useSVGPersistence(
     activeFile,
@@ -176,8 +201,38 @@ export default function SVGEditorView({
           collapsed={propsCollapsed}
           onToggleCollapse={() => setPropsCollapsed((c) => !c)}
           readOnly={isReadOnly}
+          attachedDocPaths={attachedDocPaths}
+          backlinks={backlinks}
+          documents={documents}
+          onOpenDocPicker={onAttachDocument ? () => setPickerOpen(true) : undefined}
+          onDetachDocument={onDetachDocument}
+          onPreviewDocument={onPreviewDocument}
         />
       </div>
+      {pickerOpen && onAttachDocument && (
+        <DocumentPicker
+          allDocPaths={allDocPaths ?? []}
+          attachedPaths={
+            activeFile && getDocumentsForEntity
+              ? getDocumentsForEntity("svg", activeFile).map((d) => d.filename)
+              : (attachedDocPaths ?? [])
+          }
+          onAttach={(path) => {
+            onAttachDocument(path);
+            setPickerOpen(false);
+          }}
+          onCreate={
+            rootHandle && onCreateDocument
+              ? async (path) => {
+                  await onCreateDocument(rootHandle, path);
+                  onAttachDocument(path);
+                  setPickerOpen(false);
+                }
+              : undefined
+          }
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

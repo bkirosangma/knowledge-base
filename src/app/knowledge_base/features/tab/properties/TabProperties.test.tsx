@@ -935,7 +935,7 @@ describe("TabProperties — cross-references", () => {
       </Wrap>,
     );
     expect(screen.getByText(/whole-file references/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /song-history\.md/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open song-history/i })).toBeInTheDocument();
   });
 
   it("renders a per-section References sub-list using the deterministic section id", () => {
@@ -951,7 +951,7 @@ describe("TabProperties — cross-references", () => {
         />
       </Wrap>,
     );
-    expect(screen.getByRole("button", { name: /intro-theory\.md/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open intro-theory/i })).toBeInTheDocument();
   });
 
   it("renders an Attach affordance per section and at file level when not readOnly", () => {
@@ -1013,7 +1013,7 @@ describe("TabProperties — cross-references", () => {
         />
       </Wrap>,
     );
-    await user.click(screen.getByTestId("attach-file"));
+    await user.click(screen.getByTestId("file-references-attach"));
     expect(onOpenDocPicker).toHaveBeenCalledWith("tab", "tabs/song.alphatex");
   });
 
@@ -1138,10 +1138,10 @@ describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
         />
       </Wrap>,
     );
-    // Once sidecar resolves, the attached doc filename appears under the Lead track row.
-    // TabReferencesList renders the basename of the attachment filename, not the title.
+    // Once sidecar resolves, the attached doc label appears under the Lead track row.
+    // ReferenceRow uses the document title when available, falling back to filename.
     await vi.waitFor(() => {
-      expect(screen.getByRole("button", { name: /lead-tab-tips\.md/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /open lead tab tips/i })).toBeInTheDocument();
     });
   });
 

@@ -12,6 +12,7 @@ import {
   removeRow,
   removeMatchingRows,
   migrateRows,
+  rewriteFileScopedRows,
   type AttachmentLink,
 } from "../../../domain/attachmentLinks";
 import { createDocumentRepository } from "../../../infrastructure/documentRepo";
@@ -123,6 +124,17 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     },
     [],
   );
+
+  /**
+   * Rewrite attachmentLinks rows when a file is renamed or moved. Handles
+   * `tab`/`svg` whole-file rows (entityId === oldPath) and `tab-section`/
+   * `tab-track` sub-entity rows whose entityId starts with `oldPath + "#"`.
+   * No-op when oldPath === newPath or no matching rows exist (returns
+   * the same array reference per `rewriteFileScopedRows`).
+   */
+  const rewriteAttachments = useCallback((oldPath: string, newPath: string) => {
+    setRows((prev) => rewriteFileScopedRows(prev, oldPath, newPath));
+  }, []);
 
   const detachAttachmentsFor = useCallback(
     (matcher: (row: AttachmentLink) => boolean): { detached: number } => {
@@ -237,6 +249,7 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     detachDocument,
     removeDocument,
     migrateAttachments,
+    rewriteAttachments,
     detachAttachmentsFor,
     getDocumentsForEntity,
     hasDocuments,
