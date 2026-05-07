@@ -81,7 +81,9 @@ async function deleteSidecar(
       dir = await dir.getDirectoryHandle(part);
     }
     await dir.removeEntry(parts[parts.length - 1]);
-  } catch {
-    // Already absent — ignore.
+  } catch (e) {
+    const fsErr = classifyError(e);
+    if (fsErr.kind === "not-found") return;
+    throw fsErr;
   }
 }

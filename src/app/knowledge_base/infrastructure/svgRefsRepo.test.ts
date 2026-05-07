@@ -127,4 +127,31 @@ describe("createSvgRefsRepository", () => {
     const repo = createSvgRefsRepository(made.dirHandle);
     expect(await repo.read("drawing.svg")).toBeNull();
   });
+
+  it("deleteSidecar swallows NotFoundError (sidecar already absent)", async () => {
+    const made = makeHandle();
+    (made.dirHandle as unknown as { removeEntry: (n: string) => Promise<void> }).removeEntry =
+      async () => {
+        const e = new Error("not here") as Error & { name: string };
+        e.name = "NotFoundError";
+        throw e;
+      };
+    const repo = createSvgRefsRepository(made.dirHandle);
+    // No sources → triggers deleteSidecar; NotFoundError must be silently swallowed.
+    await expect(repo.write("drawing.svg", { version: 1 })).resolves.toBeUndefined();
+  });
+
+  it("deleteSidecar rethrows non-not-found errors via classifyError", async () => {
+    const made = makeHandle();
+    (made.dirHandle as unknown as { removeEntry: (n: string) => Promise<void> }).removeEntry =
+      async () => {
+        const e = new Error("nope") as Error & { name: string };
+        e.name = "NotAllowedError";
+        throw e;
+      };
+    const repo = createSvgRefsRepository(made.dirHandle);
+    await expect(repo.write("drawing.svg", { version: 1 })).rejects.toMatchObject({
+      kind: "permission",
+    });
+  });
 });
