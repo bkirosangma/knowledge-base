@@ -264,4 +264,45 @@ describe("sources/attachedTo preservation", () => {
     expect(next.sources).toEqual([{ url: "https://x.test" }]);
     expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
   });
+
+  it("updateSidecarOnEdit preserves sources/attachedTo through add-track", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [{ id: "tk-lead-uuid", name: "Lead" }],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const op: TabEditOp = {
+      type: "add-track",
+      name: "Bass",
+      instrument: "bass",
+      tuning: ["E1", "A1", "D2", "G2"],
+      capo: 0,
+    };
+    const next = updateSidecarOnEdit(current, op, { newTrackId: "tk-bass-uuid" });
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
+  });
+
+  it("updateSidecarOnEdit preserves sources/attachedTo through remove-track", () => {
+    const current: TabRefsPayload = {
+      version: 3,
+      sectionRefs: {},
+      trackRefs: [
+        { id: "tk-lead-uuid", name: "Lead" },
+        { id: "tk-bass-uuid", name: "Bass" },
+      ],
+      sources: [{ url: "https://x.test" }],
+      attachedTo: [{ type: "tab", documentPath: "n.md" }],
+    };
+    const next = updateSidecarOnEdit(
+      current,
+      { type: "remove-track", trackId: "tk-bass-uuid" },
+      { removedPosition: 1 },
+    );
+    expect(next.trackRefs).toEqual([{ id: "tk-lead-uuid", name: "Lead" }]);
+    expect(next.sources).toEqual([{ url: "https://x.test" }]);
+    expect(next.attachedTo).toEqual([{ type: "tab", documentPath: "n.md" }]);
+  });
 });

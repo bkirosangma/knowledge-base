@@ -323,7 +323,7 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
     const detachAttachmentsFor = vi.fn((_matcher: (r: AttachmentLink) => boolean) => ({ detached: 1 }));
     const withBatch = vi.fn(async <T,>(fn: () => Promise<T> | T): Promise<T> => fn()) as NonNullable<TabViewProps["withBatch"]>;
     const tabRefsRead = vi.fn().mockResolvedValue({
-      version: 2,
+      version: 3,
       sectionRefs: {},
       trackRefs: [
         { id: "uuid-A" },

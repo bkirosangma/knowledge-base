@@ -1057,7 +1057,7 @@ describe("TabProperties — cross-references", () => {
   it("C2: uses stable sidecar IDs from resolveSectionIds when sidecar is present", async () => {
     const tabRefs = {
       read: vi.fn().mockResolvedValue({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: {
           "stable-intro-99": "Intro",
           "stable-verse-99": "Verse 1",
@@ -1095,7 +1095,7 @@ describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
   function makeTabRefs(trackRefs: { id: string; name: string }[]) {
     return {
       read: vi.fn().mockResolvedValue({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: {},
         trackRefs,
       }),
