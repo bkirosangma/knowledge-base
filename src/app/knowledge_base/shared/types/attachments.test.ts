@@ -6,6 +6,7 @@ describe("AttachedToEntry", () => {
     const scopes: AttachedToScope[] = [
       "root", "node", "connection", "flow", "type",
       "tab", "tab-section", "tab-track",
+      "svg",
     ];
     for (const type of scopes) {
       const e: AttachedToEntry = { type, documentPath: "doc.md" };

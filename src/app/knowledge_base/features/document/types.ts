@@ -8,7 +8,8 @@ export type EntityAttachmentTarget =
   | 'type'
   | 'tab'
   | 'tab-section'
-  | 'tab-track';
+  | 'tab-track'
+  | 'svg'; // whole-file only; entityId is the vault-relative .svg path
 
 export interface EntityAttachment {
   type: EntityAttachmentTarget;

@@ -11,7 +11,8 @@ export type AttachedToScope =
   | "type"
   | "tab"
   | "tab-section"
-  | "tab-track";
+  | "tab-track"
+  | "svg"; // whole-file only; entityId is the vault-relative .svg path
 
 export interface AttachedToEntry {
   type: AttachedToScope;

@@ -137,3 +137,13 @@ describe("migrateRows", () => {
     expect(next).toEqual(rows);
   });
 });
+
+describe("svg entity type", () => {
+  it("supports svg whole-file rows", () => {
+    const row: AttachmentLink = { docPath: "doc.md", entityType: "svg", entityId: "drawing.svg" };
+    const rows = addRow([], row);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(row);
+    expect(removeRow(rows, row)).toEqual([]);
+  });
+});
