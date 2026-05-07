@@ -156,7 +156,7 @@ describe("useTabSectionSync (sidecar branch)", () => {
     // tabRefs.read returns a non-empty payload — sidecar is present.
     const tabRefs = {
       read: vi.fn(async () => ({
-        version: 2 as const,
+        version: 3 as const,
         sectionRefs: { "verse-1": "Verse 1" },
         trackRefs: [],
       })),

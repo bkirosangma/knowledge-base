@@ -229,7 +229,7 @@ describe("TabView sidecar write-side (C2)", () => {
       expect(tabRefs.write).toHaveBeenCalledWith(
         "song.alphatex",
         expect.objectContaining({
-          version: 2,
+          version: 3,
           sectionRefs: expect.any(Object),
           trackRefs: expect.any(Array),
         }),

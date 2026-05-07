@@ -1,16 +1,18 @@
 /**
  * File System Access API implementation of `TabRefsRepository`. Reads and
- * writes the `.alphatex.refs.json` sidecar file that maps stable section ids
- * to their current display names. Mirrors `tabRepo.ts`'s pattern exactly —
- * lazy creation only, `read` returns `null` when no sidecar exists.
+ * writes the `.alphatex.refs.json` sidecar file. Mirrors `tabRepo.ts`'s
+ * pattern — lazy creation only, `read` returns `null` when no sidecar
+ * exists.
  *
- * v1 → v2 migration: on read, v1 payloads are migrated in-memory to v2.
- * On write, v2 is always emitted (upgrading any previously-v1 file).
+ * Migration: on read, v1 and v2 payloads are migrated in-memory to v3.
+ * On write, v3 is always emitted (upgrading any previously-v1 or -v2 file).
+ * Empty sources/attachedTo arrays are dropped from the emitted JSON.
  */
 
 import type {
   TabRefsPayload,
   TabRefsPayloadV1,
+  TabRefsPayloadV2,
   TabRefsRepository,
 } from "../domain/tabRefs";
 import {
@@ -26,7 +28,7 @@ export function createTabRefsRepository(
   rootHandle: FileSystemDirectoryHandle,
 ): TabRefsRepository {
   return {
-    async read(filePath: string) {
+    async read(filePath) {
       const text = await readOrNull(async () => {
         try {
           const parts = sidecarPath(filePath).split("/");
@@ -46,17 +48,27 @@ export function createTabRefsRepository(
       if (text === null) return null;
 
       try {
-        const parsed = JSON.parse(text) as TabRefsPayload | TabRefsPayloadV1;
+        const parsed = JSON.parse(text) as
+          | TabRefsPayload
+          | TabRefsPayloadV2
+          | TabRefsPayloadV1;
         if (parsed.version === 1) {
-          // Migrate v1 → v2: flatten sectionRefs, add empty trackRefs.
           const v1 = parsed as TabRefsPayloadV1;
           const sectionRefs: Record<string, string> = {};
           for (const [stableId, entry] of Object.entries(v1.sections)) {
             sectionRefs[stableId] = entry.currentName;
           }
-          return { version: 2, sectionRefs, trackRefs: [] };
+          return { version: 3, sectionRefs, trackRefs: [] };
         }
         if (parsed.version === 2) {
+          const v2 = parsed as TabRefsPayloadV2;
+          return {
+            version: 3,
+            sectionRefs: v2.sectionRefs,
+            trackRefs: v2.trackRefs,
+          };
+        }
+        if (parsed.version === 3) {
           return parsed as TabRefsPayload;
         }
         return null;
@@ -65,14 +77,18 @@ export function createTabRefsRepository(
       }
     },
 
-    async write(filePath: string, payload: TabRefsPayload) {
+    async write(filePath, payload) {
       try {
-        const v2: TabRefsPayload = {
-          version: 2,
+        const sources = payload.sources ?? [];
+        const attachedTo = payload.attachedTo ?? [];
+        const cleaned: TabRefsPayload = {
+          version: 3,
           sectionRefs: payload.sectionRefs,
           trackRefs: payload.trackRefs,
         };
-        const json = JSON.stringify(v2, null, 2);
+        if (sources.length > 0) cleaned.sources = sources;
+        if (attachedTo.length > 0) cleaned.attachedTo = attachedTo;
+        const json = JSON.stringify(cleaned, null, 2);
         await writeTextFile(rootHandle, sidecarPath(filePath), json);
       } catch (e) {
         throw classifyError(e);

@@ -22,9 +22,11 @@ export function reconcileSidecarForSetSection(
   newName: string | null,
 ): TabRefsPayload {
   const next: TabRefsPayload = {
-    version: 2,
+    version: 3,
     sectionRefs: { ...current.sectionRefs },
     trackRefs: current.trackRefs ?? [],
+    ...(current.sources !== undefined ? { sources: current.sources } : {}),
+    ...(current.attachedTo !== undefined ? { attachedTo: current.attachedTo } : {}),
   };
 
   if (oldName !== null) {
@@ -69,9 +71,11 @@ export function reconcileSidecarByName(
   }
 
   const next: TabRefsPayload = {
-    version: 2,
+    version: 3,
     sectionRefs: {},
     trackRefs: current.trackRefs ?? [],
+    ...(current.sources !== undefined ? { sources: current.sources } : {}),
+    ...(current.attachedTo !== undefined ? { attachedTo: current.attachedTo } : {}),
   };
 
   for (const section of currentSections) {
