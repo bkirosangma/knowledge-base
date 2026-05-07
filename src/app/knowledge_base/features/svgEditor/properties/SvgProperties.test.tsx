@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
 import { ShellErrorProvider } from "../../../shell/ShellErrorContext";
 import { SvgProperties } from "./SvgProperties";
@@ -60,6 +60,7 @@ describe("SvgProperties", () => {
     const { repo } = stubSvgRefs();
     renderProps({ filePath: "a.svg", repo });
     expect(await screen.findByText(/no sources recorded/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /collapse properties/i })).toBeInTheDocument();
   });
 
   it("hides edit affordances when readOnly", async () => {
@@ -75,11 +76,12 @@ describe("SvgProperties", () => {
     expect(await screen.findByTestId("sources-add")).toBeInTheDocument();
   });
 
-  it("collapsed root has the collapsed marker and no body content", () => {
+  it("collapsed root has the collapsed marker, expand label, and no body content", () => {
     const { repo } = stubSvgRefs();
     renderProps({ filePath: "a.svg", collapsed: true, repo });
     const aside = screen.getByTestId("svg-properties");
     expect(aside.getAttribute("data-collapsed")).toBe("true");
+    expect(screen.getByRole("button", { name: /expand properties/i })).toBeInTheDocument();
     expect(screen.queryByText(/no sources recorded/i)).toBeNull();
   });
 
@@ -87,5 +89,26 @@ describe("SvgProperties", () => {
     const { repo } = stubSvgRefs();
     renderProps({ filePath: null, repo });
     expect(screen.getByTestId("svg-properties")).toBeInTheDocument();
+    // No body content rendered — header-only pane.
+    expect(screen.queryByRole("heading", { name: /sources/i })).toBeNull();
+    expect(screen.queryByTestId("sources-add")).toBeNull();
+  });
+
+  it("clicking the collapse button invokes onToggleCollapse", () => {
+    const onToggle = vi.fn();
+    const { repo } = stubSvgRefs();
+    render(
+      <ShellErrorProvider>
+        <StubRepositoryProvider value={{
+          attachment: null, attachmentLinks: null, diagram: null,
+          document: null, linkIndex: null, svg: null, svgRefs: repo,
+          tab: null, tabRefs: null, vaultConfig: null,
+        }}>
+          <SvgProperties filePath="a.svg" collapsed={false} onToggleCollapse={onToggle} />
+        </StubRepositoryProvider>
+      </ShellErrorProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /collapse properties/i }));
+    expect(onToggle).toHaveBeenCalledOnce();
   });
 });
