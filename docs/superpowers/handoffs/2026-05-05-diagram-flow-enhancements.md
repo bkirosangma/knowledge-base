@@ -239,7 +239,7 @@ The Diagram Flow Enhancements feature itself is **functionally complete** at the
 ### Open follow-up items surfaced by MVP-2b execution (still active)
 
 - **`FlowProperties` has two doc-listing UIs** — the pre-existing bespoke "Documents" section (with cascade-delete confirmation) AND the new `AttachmentsSection`. A future cleanup should consolidate (likely retire the bespoke section once a confirmation flow is added to `AttachmentsSection.onDetach`).
-- **DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is in `AttachmentsSection.test.tsx`).
+- ~~**DIAG-3.13-50** stays 🟡 — panel-level integration test for the Attach flow is deferred (component-level coverage is in `AttachmentsSection.test.tsx`).~~ _Closed: pinned by `PropertiesPanel.test.tsx` (`DIAG-3.13-50`) — each of the 4 entity selections (`null|root, node, line, flow`) routes through `onOpenDocPicker(<scope>, id)` with the correct scope and id. Case marker is ✅ in `test-cases/03-diagram.md`._
 - **`'layer'` is not in `EntityAttachmentTarget`** — `LayerProperties` does not mount `AttachmentsSection`. Add `'layer'` to the union if/when layer-scoped attachments are required. _Forward-looking note; not actionable unless layer-scoped attachments become a requirement._
 
 ### Open follow-up items surfaced by MVP 3 execution
@@ -257,7 +257,7 @@ These four items group naturally as **MVP-5b: validate/fix hardening** — small
 
 ### Open follow-up items surfaced by MVP-4a execution (still active)
 
-- ~~**DIAG-3.19-23 Sources Undo/Redo + Dirty Fingerprint** stays 🟡 — has no automated test. Wired through history (per S8525 / S8521) but not pinned by a test case.~~ _Partially closed: history undo for top-level sources is now pinned by `useDiagramHistoryStore.test.ts` (`DIAG-3.19-23`). The autosave-dirty-fingerprint + on-disk-draft assertions remain — the case marker stays 🟡 in `test-cases/03-diagram.md`._
+- ~~**DIAG-3.19-23 Sources Undo/Redo + Dirty Fingerprint** stays 🟡 — has no automated test. Wired through history (per S8525 / S8521) but not pinned by a test case.~~ _Closed: pinned by `useDiagramHistoryStore.test.ts` (history snapshot + undo restore) and `useDiagramPersistence.test.tsx` (dirty fingerprint flips on sources change, clears on revert). Case marker is ✅ in `test-cases/03-diagram.md`._
 - **`SourcesSection` accessibility pass** — initial review surfaced minor a11y gaps that were patched (`aria-label` on Title/URL inputs in cleanup commit `b892088`). Re-audit when the section gets reused outside diagram/document panels (e.g. when MVP-4b SVG/Tab branches land).
 - ~~**Frontmatter parser scope** — only accepts block-list `sources:` syntax (per S8527). Inline `sources: [{…}]` is silently treated as an unknown key. Document this in the KB skill's `validate.md` rules (relevant to MVP 5 Task 6).~~ _Closed: rule #8 in `~/.claude/skills/knowledge-base/commands/validate.md` (line 40) documents this with the inline-vs-block-list expectation. Enforcement is the remaining MVP-5b gap above (#3)._
 
