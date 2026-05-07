@@ -55,6 +55,11 @@ export function useTabSources(filePath: string | null): {
   }, [filePath]);
 
   // Read-modify-write so we don't clobber sectionRefs / trackRefs.
+  // This is coordination-by-convention, not mutual exclusion: a concurrent
+  // write landing during the read→write gap (or a malformed sidecar
+  // reading as null and falling back to emptyTabRefs) can still lose
+  // sectionRefs/trackRefs. In practice useTabEngine and this hook
+  // serialise through React's render loop, so the window is narrow.
   const flush = useCallback(async (path: string, next: SourceLink[]) => {
     const r = repoRef.current;
     if (!r) return;

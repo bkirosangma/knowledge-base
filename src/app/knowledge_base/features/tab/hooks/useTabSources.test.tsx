@@ -70,7 +70,7 @@ describe("useTabSources", () => {
     expect(written.sources).toEqual([{ url: "https://x.test" }]);
   });
 
-  it("write merges with current sidecar — no race with concurrent track rename", async () => {
+  it("write re-reads sidecar mid-debounce, picking up concurrent renames", async () => {
     const { repo, store, writeSpy } = stubTabRefs();
     store.set("a.alphatex", {
       version: 3, sectionRefs: {}, trackRefs: [{ id: "trk-1", name: "Lead" }],
