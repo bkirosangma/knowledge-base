@@ -6,6 +6,8 @@ import type { TabMetadata } from "../../../domain/tabEngine";
 import type { DocumentMeta } from "../../document/types";
 import { TabProperties } from "./TabProperties";
 import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
+import { ShellErrorProvider } from "../../../shell/ShellErrorContext";
+import type { TabRefsPayload, TabRefsRepository } from "../../../domain/tabRefs";
 
 /**
  * Wrap renders in a minimal RepositoryProvider so the Sections sub-component
@@ -13,21 +15,23 @@ import { StubRepositoryProvider } from "../../../shell/RepositoryContext";
  */
 function Wrap({ children, tabRefs = null }: { children: ReactNode; tabRefs?: Parameters<typeof StubRepositoryProvider>[0]["value"]["tabRefs"] }) {
   return (
-    <StubRepositoryProvider
-      value={{
-        attachment: null, attachmentLinks: null,
-        document: null,
-        diagram: null,
-        linkIndex: null,
-        svg: null,
-        vaultConfig: null,
-        svgRefs: null,
-        tab: null,
-        tabRefs,
-      }}
-    >
-      {children}
-    </StubRepositoryProvider>
+    <ShellErrorProvider>
+      <StubRepositoryProvider
+        value={{
+          attachment: null, attachmentLinks: null,
+          document: null,
+          diagram: null,
+          linkIndex: null,
+          svg: null,
+          vaultConfig: null,
+          svgRefs: null,
+          tab: null,
+          tabRefs,
+        }}
+      >
+        {children}
+      </StubRepositoryProvider>
+    </ShellErrorProvider>
   );
 }
 
@@ -1226,5 +1230,29 @@ describe("TabProperties — track attachment badges (TAB-009 T23)", () => {
     fireEvent.click(bassAttach);
     expect(onOpenDocPicker).toHaveBeenCalled();
     expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("renders SourcesSection at file scope with seeded sources (TAB-011)", async () => {
+    const store = new Map<string, TabRefsPayload>([
+      ["song.alphatex", {
+        version: 3, sectionRefs: {}, trackRefs: [],
+        sources: [{ url: "https://example.com" }],
+      }],
+    ]);
+    const tabRefs: TabRefsRepository = {
+      async read(p) { return store.get(p) ?? null; },
+      async write(p, payload) { store.set(p, { ...payload }); },
+    };
+    render(
+      <Wrap tabRefs={tabRefs}>
+        <TabProperties
+          metadata={makeMetadata()}
+          collapsed={false}
+          onToggleCollapse={vi.fn()}
+          filePath="song.alphatex"
+        />
+      </Wrap>,
+    );
+    expect(await screen.findByDisplayValue("https://example.com")).toBeInTheDocument();
   });
 });

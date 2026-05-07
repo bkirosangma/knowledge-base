@@ -13,6 +13,8 @@ import { resolveSectionIds } from "../../../domain/tabSectionIds";
 import type { TabRefsPayload } from "../../../domain/tabRefs";
 import { ExportSection } from "./ExportSection";
 import type { WavState } from "../hooks/useTabExport";
+import { SourcesSection } from "../../../shared/components/SourcesSection";
+import { useTabSources } from "../hooks/useTabSources";
 
 export interface TabPropertiesProps {
   metadata: TabMetadata | null;
@@ -105,6 +107,7 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
     wavState,
     exportingMidi,
   } = props;
+  const { sources, setSources } = useTabSources(filePath ?? null);
   const widthClass = collapsed ? "w-9" : "w-72";
   return (
     <aside
@@ -188,6 +191,12 @@ export function TabProperties(props: TabPropertiesProps): ReactElement {
                   onOpenDocPicker={onOpenDocPicker}
                   onDetachDocument={onDetachDocument}
                 />
+              )}
+              {filePath && (
+                <section data-testid="tab-sources-section">
+                  <h3 className="mb-2 text-xs font-medium text-mute">Sources</h3>
+                  <SourcesSection sources={sources} onChange={setSources} readOnly={readOnly} />
+                </section>
               )}
               {exportMidi && exportWav && exportPdf && wavState && (
                 <ExportSection
