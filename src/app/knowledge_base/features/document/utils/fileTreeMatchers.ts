@@ -19,6 +19,19 @@ export function tabFileMatcher(
 }
 
 /**
+ * Attachment-row matcher for `.svg` file-tree deletions.
+ *
+ * Matches `svg` rows whose entityId equals the file path exactly.
+ * Per-shape sub-entities are not supported in MVP-2 SVG; the matcher is
+ * deliberately tighter than tabFileMatcher (no `path#...` prefix branch).
+ */
+export function svgFileMatcher(
+  path: string,
+): (r: AttachmentLink) => boolean {
+  return (r: AttachmentLink) => r.entityType === "svg" && r.entityId === path;
+}
+
+/**
  * Attachment-row matcher for `.kbjson` file-tree deletions.
  *
  * Matches `node`, `connection`, and `flow` rows whose entityId appears in
@@ -48,7 +61,7 @@ export function mdFileMatcher(
 /**
  * Walk the subtree rooted at `folderPath` within `tree` and collect every
  * file path whose extension matches our attachment-cleanup branches:
- * `.md`, `.kbjson`, `.alphatex`. Used by folder-delete to compute the set
+ * `.md`, `.kbjson`, `.alphatex`, `.svg`. Used by folder-delete to compute the set
  * of attachment-link paths to clean up before the folder is unlinked.
  */
 export function collectAttachableFilePaths(
@@ -61,7 +74,8 @@ export function collectAttachableFilePaths(
     return (
       nodePath.endsWith(".md") ||
       nodePath.endsWith(".kbjson") ||
-      nodePath.endsWith(".alphatex")
+      nodePath.endsWith(".alphatex") ||
+      nodePath.endsWith(".svg")
     );
   }
 
