@@ -160,7 +160,7 @@ describe("collectAttachableFilePaths", () => {
     expect(paths).toContain("docs/song.alphatex");
   });
 
-  it("FS-2.3-72: returns .svg files in the target folder subtree", () => {
+  it("FS-2.3-76: returns .svg files in the target folder subtree", () => {
     const paths = collectAttachableFilePaths(tree, "docs");
     expect(paths).toContain("docs/image.svg");
   });
@@ -170,7 +170,7 @@ describe("collectAttachableFilePaths", () => {
     expect(paths).toEqual([]);
   });
 
-  it("FS-2.3-71: returns empty array for an empty tree", () => {
+  it("FS-2.3-77: returns empty array for an empty tree", () => {
     const paths = collectAttachableFilePaths([], "docs");
     expect(paths).toEqual([]);
   });

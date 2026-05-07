@@ -129,6 +129,8 @@
 - **FS-2.3-73** ❌ **Delete folder (bridge path) removes attachment rows for `.kbjson` files inside** — same path; `.kbjson` diagram-entity attachment rows are removed.
 - **FS-2.3-74** ❌ **Delete folder (bridge path) removes attachment rows for `.alphatex` files inside** — same path; tab attachment rows are removed.
 - **FS-2.3-75** ❌ **Delete folder (shell modal path) removes attachment rows for all attachable types in one `withBatch`** — the `onConfirm` handler in the shell modal calls `cleanupAttachmentsForFolder` before `fileExplorer.deleteFolder`; mixed-type folders produce a single flush.
+- **FS-2.3-76** ✅ **`collectAttachableFilePaths` returns `.svg` files in subtree** — `.svg` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
+- **FS-2.3-77** ✅ **`collectAttachableFilePaths` returns empty array for an empty tree** — empty input tree yields `[]`. _(fileTreeMatchers.test.ts)_
 
 ## 2.4 Confirmation Popover
 
