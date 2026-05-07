@@ -90,6 +90,34 @@ Use the `gatheredContext` block produced by SKILL.md. Items relevant to this com
 - **Music-theory documents** the user already has (`pentatonic-scale.md`, `chord-tree-of-fifths.json`) → reference them in the metadata block so the app's link index surfaces backlinks.
 - **Past sessions** (claude-mem) where this song or pattern was tabbed before → reuse the tuning + key choices for consistency unless the user overrides.
 
+## Step 4.5: Gather Sources
+
+Distinct from the wiki-link cross-references in Step 5a (those are vault-internal `[[…]]` links). Sources here are **canonical online resources** — the published transcription, an artist interview, the relevant theoretical reference — written to a sidecar (`<file>.alphatex.refs.json`) so the user can verify what the tab is grounded in.
+
+1. **Gather sources**: use WebSearch to find 1–4 canonical online resources for the topic. Prefer:
+   - For specific songs / riffs: the official tab archive (Songsterr, Ultimate Guitar verified versions), an artist interview that names the technique, or a published transcription.
+   - For exercises and warm-ups: a pedagogical reference (Berklee, Hal Leonard, a respected method book).
+   - For genre / style patterns (e.g. "Son clave", "Teentaal"): the canonical musicological source for that tradition.
+   - Avoid: random forum posts and tutorial blogs that paraphrase canonical sources without adding insight.
+2. **Record** each source in `SourceLink` shape for the sidecar in Step 6:
+   ```json
+   { "url": "https://example.org/song-tab", "title": "Title (publisher / year)" }
+   ```
+3. **Minimum**: at least one source SHOULD be present when the topic names a real song or established pattern. Pure exercises ("G major pentatonic warm-up") may have no canonical source — in that case Step 6 omits the sidecar entirely (the app's repo accepts the absence and the user can add sources later via the UI).
+
+The sidecar uses `TabRefsPayload` v3 (MVP-4b):
+```json
+{
+  "version": 3,
+  "sectionRefs": {},
+  "trackRefs": [],
+  "sources": [SourceLink, ...]
+}
+```
+The app's `tabRefsRepo.write` drops empty `sources` / `attachedTo` arrays from the emitted JSON automatically — when this command writes the sidecar in Step 6, follow the same convention (omit empty fields).
+
+---
+
 ## Step 5: Compose the alphaTex File
 
 Output one well-structured `.alphatex` file. Required sections in order:
@@ -174,9 +202,28 @@ The first `.` after a section header signals "music starts here". Bars are pipe-
 ## Step 6: Write the File + Register
 
 1. Write the alphaTex content to `<targetFolder>/<topic-slug>.alphatex` (UTF-8, LF line endings).
-2. If the vault has a `memory/topic-registry.md`, append the new slug there via the standard registration pattern from `commands/document.md`.
-3. If the vault has graphify wired, suggest running `/graphify .` to refresh the structural index — don't run it unprompted; long-running.
-4. Print a one-line success summary: `✓ Wrote <relative path> (<bar count> bars, <section count> sections, <bpm> bpm).`
+2. **Write the sources sidecar** when Step 4.5 produced sources. Skip when sources are empty — the app accepts a missing sidecar and the user can add sources later via `TabProperties`. When present, write `<targetFolder>/<topic-slug>.alphatex.refs.json`:
+   ```bash
+   SIDECAR="<targetFolder>/<topic-slug>.alphatex.refs.json"
+   cat > "$SIDECAR" <<'JSON'
+   {
+     "version": 3,
+     "sectionRefs": {},
+     "trackRefs": [],
+     "sources": [
+       { "url": "https://example.org/...", "title": "..." }
+     ]
+   }
+   JSON
+   ```
+   Notes:
+   - `version` MUST be `3` — the app's `tabRefsRepo` migrates v1/v2 reads to v3 in memory but writes always emit v3.
+   - Leave `sectionRefs: {}` and `trackRefs: []` — the app populates these on first user edit (section rename or track add). Pre-seeding section ids here is safe but unnecessary; don't compute them manually.
+   - Pretty-print with two-space indent and an `LF` terminator to match the app's `JSON.stringify(payload, null, 2)` output.
+   - Do NOT include an `attachedTo` field — reserved for the deferred MVP-2 Tab attachment branches.
+3. If the vault has a `memory/topic-registry.md`, append the new slug there via the standard registration pattern from `commands/document.md`.
+4. If the vault has graphify wired, suggest running `/graphify .` to refresh the structural index — don't run it unprompted; long-running.
+5. Print a one-line success summary: `✓ Wrote <relative path> (<bar count> bars, <section count> sections, <bpm> bpm, <N sources | no sidecar>).`
 
 ## Step 7: Suggest Cross-References (silent)
 
