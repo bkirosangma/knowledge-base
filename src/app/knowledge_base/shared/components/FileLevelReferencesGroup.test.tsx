@@ -20,6 +20,8 @@ describe("FileLevelReferencesGroup", () => {
       />,
     );
     expect(screen.getByText(/no references/i)).toBeInTheDocument();
+    // No onAttach was provided — the attach affordance should not render.
+    expect(screen.queryByTestId("file-references-attach")).toBeNull();
   });
 
   it("renders attachment rows", () => {

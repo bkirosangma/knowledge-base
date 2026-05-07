@@ -83,7 +83,7 @@ interface FileLevelReferencesGroupProps {
 }
 ```
 
-Internal: merges `attachedRows` and `backlinks`, de-dupes by `docPath` (attachment wins), sorts by display title, renders one `<ReferenceRow>` per item, plus a "+ Attach document" affordance at the bottom (hidden when `readOnly` or `onAttach` is undefined).
+Internal: merges `attachedRows` and `backlinks`, de-dupes by `docPath` (attachment wins), preserves caller-supplied insertion order (attachments first, then unique backlinks), renders one `<ReferenceRow>` per item, plus a "+ Attach document" affordance at the bottom (hidden when `readOnly` or `onAttach` is undefined). Sort order is the caller's responsibility; the existing `TabReferencesList` behaviour (no internal sort) is preserved.
 
 `TabProperties.tsx` migrates to consume `<FileLevelReferencesGroup>` for its file-level group, replacing the existing inline merge logic. No behaviour change for tabs.
 
