@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Diagram Flow Enhancements feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-07 (MVP 5 Tasks 5 + 6 — skill source-gathering steps for `commands/svg.md` + `commands/guitar-tabs.md` — shipped on `chore/skill-mvp5-tasks-5-6-source-gathering` after MVP-4b unblocked them. Skill 59/59 tests green; bidirectional sync verified. Diagram Flow Enhancements is now feature-complete at both the app layer (all five MVPs merged) and the skill layer (all 12 MVP-5 tasks shipped).).
+**Last updated:** 2026-05-07 (MVP-2 SVG attachment branch — shipped on `feat/diagram-mvp2-svg-attachments`. New `"svg"` `EntityType` (whole-file scope, flat-file storage). `<FileLevelReferencesGroup>` mounted in `SvgProperties`. Diagram root-scope reference list now merges wiki-link backlinks (parity with Tab). Two shared component extractions: `<ReferenceRow>` and `<FileLevelReferencesGroup>`. `rewriteFileScopedRows` closes a latent whole-file rename gap that affected both `tab` and `svg`. 15 tasks, ~25 commits, 2463/2463 tests pass; typecheck + lint + build clean. Diagram Flow Enhancements feature is now fully complete.).
 
 ---
 
@@ -228,7 +228,7 @@ These are the load-bearing decisions you should not relitigate without explicit 
 
 ## Next Action
 
-**Diagram Flow Enhancements is feature-complete.** All five MVPs (1, 2a, 2b, 3, 4a, 4b) are merged at the app layer, and MVP 5 (KB Skill Update) is fully implemented. Remaining deferred work — MVP-2 SVG/Tab attachment branches — is now thin: the `attachedTo` schema is in place in both sidecars, so a future MVP just needs to wire the detach UI and adapt `useDocuments.migrateAttachments` for the new entity scopes. There is no on-fire next action.
+**Diagram Flow Enhancements is fully complete.** All MVPs merged at the app layer (1, 2a, 2b, 3, 4a, 4b, and now MVP-2 SVG attachments) and MVP 5 (KB Skill Update) fully implemented. The original "MVP-2 SVG + Tab attachment branches" deferral closed in two waves: Tab attachments shipped via TAB-007a / MVP-2b; SVG attachments shipped on `feat/diagram-mvp2-svg-attachments`. There is no on-fire next action.
 
 Concrete next steps:
 
@@ -242,7 +242,7 @@ Concrete next steps:
 8. ✅ **MVP-4b** (SVG + Tab source links) shipped on `feat/diagram-mvp4b-svg-tab-metadata`. 13 tasks, 20 commits. New SVG sidecar + Tab sidecar v3 migration. `<SourcesSection>` mounted in new `SvgProperties` aside and existing `TabProperties`. Forward-compat `attachedTo?` on both schemas (no UI binds it; reserved for the still-deferred MVP-2 SVG/Tab attachment branches). Re-enables MVP 5 Tasks 5 + 6 (skill archetype docs).
 9. ✅ **MVP-5b** (validate/fix hardening) — closed by PRs #143, #144. Inline-vs-block-list `sources:` frontmatter normalisation shipped.
 10. ✅ **MVP 5 Tasks 5 + 6 — skill source-gathering steps** for `commands/svg.md` and `commands/guitar-tabs.md`. Both files now carry a "Step 1.5 / 4.5: Gather Sources" instruction mirroring `commands/diagram.md`, plus a sidecar-write substep that produces `<file>.svg.refs.json` (lazy creation, delete-when-empty) and `<file>.alphatex.refs.json` v3 (`sectionRefs`/`trackRefs` left empty for the app to populate on first edit). Mirrored bidirectionally between `~/.claude/skills/knowledge-base/` and `<project>/skills/knowledge-base/`. Skill test suite 59/59 green.
-11. **MVP-2 SVG + Tab attachment branches** stays deferred. The schema is now in place — both sidecars accept `attachedTo: AttachedToEntry[]`. When this MVP runs it becomes thin: wire detach UI + adapt `useDocuments.migrateAttachments` for the new entity scopes.
+11. ✅ **MVP-2 SVG attachment branch** shipped on `feat/diagram-mvp2-svg-attachments`. 15 tasks, ~25 commits. New `"svg"` `EntityType` (whole-file scope), stored in workspace `attachmentLinks.json`. `<FileLevelReferencesGroup>` mounted in `SvgProperties` (attach via `DocumentPicker`, detach with cascade modal, wiki-link backlinks merged in). Two shared component extractions land along the way: `<ReferenceRow>` (Diagrams + Tab + SVG) and `<FileLevelReferencesGroup>` (Tab + SVG). Diagram root-scope reference list also gains wiki-link backlinks merge (parity with Tab). Discovered + fixed during planning: latent whole-file rename gap for `tab` rows — `rewriteFileScopedRows` now covers both `tab` and `svg`. Sidecar `attachedTo?` field in both `<file>.svg.refs.json` and `.alphatex.refs.json` v3 stays unused; canonical store is the workspace flat file. The Tab attachment branch was already shipped via TAB-007a / MVP-2b, so this MVP completes the original deferral.
 
 The Diagram Flow Enhancements feature itself is **functionally complete** at the app layer (MVPs 1, 2a, 2b, 3, 4a all merged) and **operationally complete** at the skill layer (MVP 5 implemented). What remains (MVP-4b, MVP-5b) is hardening, not core scope.
 
