@@ -110,4 +110,22 @@ describe("TabReferencesList", () => {
     );
     expect(screen.queryByRole("button", { name: /detach/i })).toBeNull();
   });
+
+  it("falls back to filename basename when attachment title is blank", () => {
+    const attachment: DocumentMeta = {
+      id: "notes/song-history.md",
+      filename: "notes/song-history.md",
+      title: "",
+      attachedTo: [{ type: "tab", id: "tabs/song.alphatex" }],
+    };
+    render(
+      <TabReferencesList
+        attachments={[attachment]}
+        backlinks={[]}
+      />,
+    );
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("song-history.md");
+  });
 });
