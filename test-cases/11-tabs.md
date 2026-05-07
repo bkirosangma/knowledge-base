@@ -184,7 +184,7 @@ Click-to-place + keyboard fret/duration/technique editing. Single-track scope. L
 - **TAB-11.9-23** ✅ **TabView does not load editor chunk in read-only mode** — _(component: `TabView.editor.test.tsx`.)_
 - **TAB-11.9-24** ✅ **TabEditorToolbar shows Edit toggle on desktop only** — _(component: `TabEditorToolbar.test.tsx`.)_
 - **TAB-11.9-25** ✅ **Selected note details subsection only renders with cursor + edit mode** — _(component: `TabView.test.tsx`.)_
-- **TAB-11.9-26** 🧪 **e2e click-edit-save round-trip** — blocked by Bravura font 404 (see `e2e/tabEditor.spec.ts` `test.fixme`). _(playwright: `e2e/tabEditor.spec.ts`.)_
+- **TAB-11.9-26** ✅ **e2e click-edit-save round-trip** — un-fixme'd. Verifies: alphaTab loads, edit mode toggles via PaneHeader's "Exit Read Mode", click on `tab-editor-cursor-target-0-6` sets cursor (asserted via `cursor-highlight` style.top), digit `5` flushes a `set-fret` op through the cursor → internal-string conversion, vault writes `5.6` to disk. _(playwright: `e2e/tabEditor.spec.ts`.)_
 - **TAB-11.9-27** ✅ **PROPERTIES_COLLAPSED_KEY consolidated across DocumentView/DiagramView/TabView** — _(unit: `paneStorage.test.ts` / grep assertion.)_
 
 ---

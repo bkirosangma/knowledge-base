@@ -50,6 +50,10 @@ export function findBeat(
  * Find a specific note by string number within the beat at `globalBeatIndex`.
  * Returns null when beat or note is not found.
  *
+ * `stringNum` follows alphaTab's internal Note.string convention (1 = lowest
+ * pitch, N = highest). Cursor-convention callers (1 = top of staff = highest
+ * pitch) should use `findNoteByCursor` instead, which performs the inversion.
+ *
  * @param trackId    Matched against `String(track.index)`.  Defaults to track 0.
  * @param voiceIndex 0 = primary voice, 1 = secondary.  Falls back to voice 0.
  */
@@ -62,6 +66,34 @@ export function findNote(
 ): any | null {
   const beat = findBeat(score, globalBeatIndex, trackId, voiceIndex);
   return beat?.notes?.find((n: any) => n.string === stringNum) ?? null;
+}
+
+/**
+ * Find a note by cursor-convention string (1 = top of staff = highest pitch,
+ * N = bottom = lowest pitch — same as alphaTex notation). Wraps `findNote` with
+ * the alphaTab-internal inversion: `internalString = numStrings - cursorString + 1`.
+ *
+ * Use this when the caller works with `cursor.string` and the score holds notes
+ * parsed from alphaTex; using bare `findNote(..., cursor.string, ...)` reads the
+ * wrong physical string and silently misses real notes.
+ */
+export function findNoteByCursor(
+  score: any,
+  globalBeatIndex: number,
+  cursorString: number,
+  trackId?: string,
+  voiceIndex: 0 | 1 = 0,
+): any | null {
+  const tracks: any[] = score?.tracks ?? [];
+  const track = trackId !== undefined
+    ? (tracks.find((t: any) => String(t.index) === trackId) ?? tracks[0])
+    : tracks[0];
+  const numStrings: number =
+    track?.staves?.[0]?.stringTuning?.tunings?.length
+      ?? track?.staves?.[0]?.tuning?.length
+      ?? 6;
+  const internalString = numStrings - cursorString + 1;
+  return findNote(score, globalBeatIndex, internalString, trackId, voiceIndex);
 }
 
 /**

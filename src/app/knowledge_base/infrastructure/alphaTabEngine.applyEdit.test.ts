@@ -120,12 +120,34 @@ function findBeat(session: any, globalBeatIndex: number): any {
   return null;
 }
 
+/**
+ * Translate a cursor-convention string number (1 = top of staff = highest
+ * pitch, alphaTex notation) to alphaTab's internal Note.string (1 = lowest
+ * pitch). Mirrors the engine's `cursorStringToInternal` so test assertions
+ * stay in the same convention the ops use.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getNoteFret(session: any, beatIndex: number, stringNum: number): number | null {
+function cursorToInternalString(session: any, cursorString: number, trackId?: string): number {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tracks: any[] = session?.latestScore?.tracks ?? [];
+  const track = trackId !== undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? (tracks.find((t: any) => String(t.index) === trackId) ?? tracks[0])
+    : tracks[0];
+  const numStrings: number =
+    track?.staves?.[0]?.stringTuning?.tunings?.length
+      ?? track?.staves?.[0]?.tuning?.length
+      ?? 6;
+  return numStrings - cursorString + 1;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNoteFret(session: any, beatIndex: number, cursorString: number): number | null {
   const beat = findBeat(session, beatIndex);
   if (!beat) return null;
+  const internal = cursorToInternalString(session, cursorString);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const note = beat.notes.find((n: any) => n.string === stringNum);
+  const note = beat.notes.find((n: any) => n.string === internal);
   return note != null ? note.fret : null;
 }
 
@@ -137,11 +159,12 @@ function getBeatDuration(session: any, beatIndex: number): number {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function findNote(session: any, beatIndex: number, stringNum: number): any {
+function findNote(session: any, beatIndex: number, cursorString: number): any {
   const beat = findBeat(session, beatIndex);
   if (!beat) throw new Error(`Beat ${beatIndex} not found`);
+  const internal = cursorToInternalString(session, cursorString);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return beat.notes.find((n: any) => n.string === stringNum) ?? null;
+  return beat.notes.find((n: any) => n.string === internal) ?? null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,58 +315,58 @@ describe("AlphaTabSession.applyEdit", () => {
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
-  // NOTE: The fixture `:4 5.6 0.6 0.6 0.6` uses AlphaTex notation where
-  // `fret.string` orders from the high-E string (1) upward.  alphaTab stores
-  // the note internally with string=1 (the lowest string index from the top).
-  // All technique tests therefore target string=1 which is where beat 0's note
-  // actually lives in the parsed Score.
+  // NOTE: The fixture `:4 5.6 0.6 0.6 0.6` puts beat 0's note at alphaTex
+  // string 6 (low E, bottom of staff). Edit ops use the cursor / alphaTex
+  // convention (1 = top of staff = highest pitch). The engine inverts to
+  // alphaTab's internal Note.string (1 = lowest pitch) at the boundary, so
+  // tests targeting the existing note pass `string: 6`.
   // The "throws when note does not exist" test uses string=99 (absent).
   // ---------------------------------------------------------------------------
 
   it("add-technique sets the technique flag on the targeted note (hammer-on)", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
-    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 6, "hammer-on")).toBe(true);
   });
 
   it("remove-technique clears the flag (hammer-on)", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "hammer-on" });
-    session.applyEdit({ type: "remove-technique", beat: 0, string: 1, technique: "hammer-on" });
-    expect(getNoteHasTechnique(session, 0, 1, "hammer-on")).toBe(false);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "hammer-on" });
+    session.applyEdit({ type: "remove-technique", beat: 0, string: 6, technique: "hammer-on" });
+    expect(getNoteHasTechnique(session, 0, 6, "hammer-on")).toBe(false);
   });
 
   it("bend applies a default ½-step bend", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend" });
-    const note = findNote(session, 0, 1);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "bend" });
+    const note = findNote(session, 0, 6);
     expect(note.bendType).toBeTruthy();
     expect(note.bendPoints![1].value).toBe(50);
   });
 
   describe("applyEdit add-technique bend — amount cycle", () => {
     it("amount 50 produces a half-step bend (default behavior preserved when omitted)", () => {
-      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend" });
-      const note = findNote(session, 0, 1);
+      session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "bend" });
+      const note = findNote(session, 0, 6);
       expect(note.bendType).toBeTruthy();
       expect(note.bendPoints![1].value).toBe(50);
     });
 
     it("amount 100 produces a full-step bend", () => {
-      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 100 });
-      const note = findNote(session, 0, 1);
+      session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "bend", amount: 100 });
+      const note = findNote(session, 0, 6);
       expect(note.bendType).toBeTruthy();
       expect(note.bendPoints![1].value).toBe(100);
     });
 
     it("explicit amount 50 matches default", () => {
-      session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "bend", amount: 50 });
-      const note = findNote(session, 0, 1);
+      session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "bend", amount: 50 });
+      const note = findNote(session, 0, 6);
       expect(note.bendType).toBeTruthy();
       expect(note.bendPoints![1].value).toBe(50);
     });
   });
 
   it("slide applies slide-up by default", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
-    expect(findNote(session, 0, 1).slideOutType).toBeTruthy();
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "slide" });
+    expect(findNote(session, 0, 6).slideOutType).toBeTruthy();
   });
 
   it("throws when the targeted note does not exist", () => {
@@ -353,43 +376,43 @@ describe("AlphaTabSession.applyEdit", () => {
   });
 
   it("add-technique pull-off sets isHammerPullOrigin (same flag as hammer-on)", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "pull-off" });
-    expect(getNoteHasTechnique(session, 0, 1, "pull-off")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "pull-off" });
+    expect(getNoteHasTechnique(session, 0, 6, "pull-off")).toBe(true);
   });
 
   it("add-technique ghost sets isGhost on the note", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "ghost" });
-    expect(getNoteHasTechnique(session, 0, 1, "ghost")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "ghost" });
+    expect(getNoteHasTechnique(session, 0, 6, "ghost")).toBe(true);
   });
 
   it("add-technique let-ring sets isLetRing on the note", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "let-ring" });
-    expect(getNoteHasTechnique(session, 0, 1, "let-ring")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "let-ring" });
+    expect(getNoteHasTechnique(session, 0, 6, "let-ring")).toBe(true);
   });
 
   it("add-technique palm-mute sets isPalmMute on the note", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "palm-mute" });
-    expect(getNoteHasTechnique(session, 0, 1, "palm-mute")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "palm-mute" });
+    expect(getNoteHasTechnique(session, 0, 6, "palm-mute")).toBe(true);
   });
 
   it("add-technique vibrato sets vibrato on the note", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "vibrato" });
-    expect(getNoteHasTechnique(session, 0, 1, "vibrato")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "vibrato" });
+    expect(getNoteHasTechnique(session, 0, 6, "vibrato")).toBe(true);
   });
 
   it("add-technique harmonic sets harmonicType on the note", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "harmonic" });
-    expect(getNoteHasTechnique(session, 0, 1, "harmonic")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "harmonic" });
+    expect(getNoteHasTechnique(session, 0, 6, "harmonic")).toBe(true);
   });
 
   it("add-technique tap sets beat.tap on the note's parent beat", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tap" });
-    expect(getNoteHasTechnique(session, 0, 1, "tap")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "tap" });
+    expect(getNoteHasTechnique(session, 0, 6, "tap")).toBe(true);
   });
 
   it("add-technique tremolo sets beat.tremoloSpeed on the note's parent beat", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "tremolo" });
-    expect(getNoteHasTechnique(session, 0, 1, "tremolo")).toBe(true);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "tremolo" });
+    expect(getNoteHasTechnique(session, 0, 6, "tremolo")).toBe(true);
   });
 
   it("emits exactly one 'loaded' event per applyEdit call", () => {
@@ -576,11 +599,12 @@ function findBeatOnTrack(session: any, trackId: string, globalBeatIndex: number)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getNoteFretOnTrack(session: any, trackId: string, beatIndex: number, stringNum: number): number | null {
+function getNoteFretOnTrack(session: any, trackId: string, beatIndex: number, cursorString: number): number | null {
   const beat = findBeatOnTrack(session, trackId, beatIndex);
   if (!beat) return null;
+  const internal = cursorToInternalString(session, cursorString, trackId);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const note = beat.notes.find((n: any) => n.string === stringNum);
+  const note = beat.notes.find((n: any) => n.string === internal);
   return note != null ? note.fret : null;
 }
 
@@ -592,12 +616,13 @@ function getBeatDurationOnTrack(session: any, trackId: string, beatIndex: number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getNoteHasTechniqueOnTrack(session: any, trackId: string, beatIndex: number, stringNum: number, technique: string): boolean {
+function getNoteHasTechniqueOnTrack(session: any, trackId: string, beatIndex: number, cursorString: number, technique: string): boolean {
   const beat = findBeatOnTrack(session, trackId, beatIndex);
   if (!beat) throw new Error(`Beat ${beatIndex} not found on track ${trackId}`);
+  const internal = cursorToInternalString(session, cursorString, trackId);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const note = beat.notes.find((n: any) => n.string === stringNum);
-  if (!note) throw new Error(`Note on string ${stringNum} at beat ${beatIndex} track ${trackId} not found`);
+  const note = beat.notes.find((n: any) => n.string === internal);
+  if (!note) throw new Error(`Note on string ${cursorString} at beat ${beatIndex} track ${trackId} not found`);
   switch (technique) {
     case "hammer-on": return note.isHammerPullOrigin === true;
     case "ghost":     return note.isGhost === true;
@@ -633,40 +658,36 @@ describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)",
   });
 
   it("set-fret on track[1] does not mutate track[0] (TAB-009 T4)", () => {
-    // Read the original fret on track[0] beat[0] string[1]
-    const t0b0Before = findBeatOnTrack(session, "0", 0);
-    const t0NoteBefore = t0b0Before?.notes?.[0];
-    const originalT0Fret = t0NoteBefore?.fret ?? null;
-    const originalT0String = t0NoteBefore?.string ?? null;
+    // MT_FIXTURE: track 0 beat 0 = alphaTex `5.6` → cursor string 6, fret 5.
+    const TRACK0_CURSOR_STRING = 6;
+    const t0FretBefore = getNoteFretOnTrack(session, "0", 0, TRACK0_CURSOR_STRING);
 
-    // Apply set-fret only to track[1]
+    // Apply set-fret only to track[1] at the same string position.
     session.applyEdit({
       type: "set-fret",
       beat: 0,
-      string: originalT0String ?? 1,
+      string: TRACK0_CURSOR_STRING,
       fret: 99,
       trackId: "1",
     });
 
     // track[0] must be unchanged
-    const t0FretAfter = getNoteFretOnTrack(session, "0", 0, originalT0String ?? 1);
-    expect(t0FretAfter).toBe(originalT0Fret);
+    expect(getNoteFretOnTrack(session, "0", 0, TRACK0_CURSOR_STRING)).toBe(t0FretBefore);
   });
 
   it("set-fret on track[1] mutates only track[1] beat (TAB-009 T4)", () => {
-    // Find which string track[1] beat[0] has a note on
-    const t1b0 = findBeatOnTrack(session, "1", 0);
-    const t1String = t1b0?.notes?.[0]?.string ?? 1;
+    // MT_FIXTURE: track 1 beat 0 = alphaTex `3.3` → cursor string 3, fret 3.
+    const TRACK1_CURSOR_STRING = 3;
 
     session.applyEdit({
       type: "set-fret",
       beat: 0,
-      string: t1String,
+      string: TRACK1_CURSOR_STRING,
       fret: 77,
       trackId: "1",
     });
 
-    expect(getNoteFretOnTrack(session, "1", 0, t1String)).toBe(77);
+    expect(getNoteFretOnTrack(session, "1", 0, TRACK1_CURSOR_STRING)).toBe(77);
   });
 
   it("set-duration on track[1] does not affect track[0] duration (TAB-009 T4)", () => {
@@ -686,29 +707,21 @@ describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)",
   });
 
   it("add-technique on track[1] does not leak into track[0] (TAB-009 T4)", () => {
-    // Get the string for track[1] beat[0]
-    const t1b0 = findBeatOnTrack(session, "1", 0);
-    const t1String = t1b0?.notes?.[0]?.string ?? 1;
-
-    // Get the string for track[0] beat[0]
-    const t0b0 = findBeatOnTrack(session, "0", 0);
-    const t0String = t0b0?.notes?.[0]?.string ?? 1;
+    // MT_FIXTURE: track 0 beat 0 = `5.6` (cursor 6), track 1 beat 0 = `3.3`
+    // (cursor 3). Different cursor strings → different physical strings, so
+    // a leak into the same string slot on track 0 is structurally impossible
+    // here; the assertion is just that track 1 picks up the flag.
+    const TRACK1_CURSOR_STRING = 3;
 
     session.applyEdit({
       type: "add-technique",
       beat: 0,
-      string: t1String,
+      string: TRACK1_CURSOR_STRING,
       technique: "ghost",
       trackId: "1",
     });
 
-    // track[1] beat[0] has the technique
-    expect(getNoteHasTechniqueOnTrack(session, "1", 0, t1String, "ghost")).toBe(true);
-
-    // track[0] beat[0] must NOT have the technique (if same string number exists)
-    if (t0String === t1String) {
-      expect(getNoteHasTechniqueOnTrack(session, "0", 0, t0String, "ghost")).toBe(false);
-    }
+    expect(getNoteHasTechniqueOnTrack(session, "1", 0, TRACK1_CURSOR_STRING, "ghost")).toBe(true);
   });
 
   // Voice-isolation: use a hand-rolled ScoreShape (voice 1 alphatex syntax is unreliable)
@@ -739,12 +752,12 @@ describe("AlphaTabSession.applyEdit — multi-track / multi-voice (TAB-009 T4)",
     session.applyEdit({
       type: "set-fret",
       beat: 0,
-      string: 1,
+      string: 6, // cursor=6 → internal note.string=1 (numStrings fallback=6)
       fret: 42,
       voiceIndex: 1,
     });
 
-    // voice 1 beat got the note
+    // voice 1 beat got the note (at internal string=1)
     expect(voice1Beat.notes.find((n) => n.string === 1)?.fret).toBe(42);
     // voice 0 beat is untouched
     expect(voice0Beat.notes.find((n) => n.string === 1)).toBeUndefined();
@@ -1150,17 +1163,17 @@ describe("applyEdit add-technique slide — direction cycle", () => {
   });
 
   it("direction omitted defaults to slide-up (Shift)", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide" });
-    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_SHIFT);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "slide" });
+    expect(findNote(session, 0, 6).slideOutType).toBe(SLIDE_TYPE_SHIFT);
   });
 
   it("direction 'up' explicit also sets Shift", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "up" });
-    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_SHIFT);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "slide", direction: "up" });
+    expect(findNote(session, 0, 6).slideOutType).toBe(SLIDE_TYPE_SHIFT);
   });
 
   it("direction 'down' sets OutDown (4)", () => {
-    session.applyEdit({ type: "add-technique", beat: 0, string: 1, technique: "slide", direction: "down" });
-    expect(findNote(session, 0, 1).slideOutType).toBe(SLIDE_TYPE_OUTDOWN);
+    session.applyEdit({ type: "add-technique", beat: 0, string: 6, technique: "slide", direction: "down" });
+    expect(findNote(session, 0, 6).slideOutType).toBe(SLIDE_TYPE_OUTDOWN);
   });
 });

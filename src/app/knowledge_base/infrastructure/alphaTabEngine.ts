@@ -821,7 +821,8 @@ class AlphaTabSession implements TabSession {
     const voiceIndex = op.voiceIndex ?? 0;
     const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
-    const existing = beat.notes.find((n) => n.string === op.string);
+    const internalString = cursorStringToInternal(this.latestScore!, trackId, op.string);
+    const existing = beat.notes.find((n) => n.string === internalString);
     if (op.fret === null) {
       if (existing) beat.removeNote(existing);
       return;
@@ -830,7 +831,7 @@ class AlphaTabSession implements TabSession {
       existing.fret = op.fret;
     } else {
       const note = new this.NoteCtor();
-      note.string = op.string;
+      note.string = internalString;
       note.fret = op.fret;
       beat.addNote(note);
     }
@@ -854,7 +855,8 @@ class AlphaTabSession implements TabSession {
     const voiceIndex = op.voiceIndex ?? 0;
     const beat = locateBeat(this.latestScore!, op.beat, trackId, voiceIndex);
     if (!beat) throw new Error(`Beat ${op.beat} not found`);
-    const note = beat.notes.find((n) => n.string === op.string);
+    const internalString = cursorStringToInternal(this.latestScore!, trackId, op.string);
+    const note = beat.notes.find((n) => n.string === internalString);
     if (!note) throw new Error(`Note on string ${op.string} at beat ${op.beat} not found`);
     if (mode === "apply") {
       this.techniqueMutators[op.technique].apply(note, op as AddTechniqueOp);
@@ -1065,6 +1067,30 @@ export function locateBeat(
  *
  * Round-trips with `scientificPitchToMidi` for all sharp-form pitches.
  */
+/**
+ * Convert from the cursor's "alphaTex string" convention (1 = top of staff =
+ * highest pitch, N = bottom = lowest pitch) to alphaTab's internal Note.string
+ * convention (1 = lowest pitch, N = highest pitch).
+ *
+ * AlphaTab parses alphaTex `0.6` (string 6 in alphaTex = bottom of staff = low E)
+ * and stores it as `Note.string = 1` (lowest pitch in alphaTab's internal model),
+ * then serializes it back to alphaTex `0.6` on round-trip. The cursor / overlay
+ * follow the user-facing alphaTex convention; ops that reach into the alphaTab
+ * model must invert through this helper or new notes will land on the wrong
+ * physical string.
+ */
+export function cursorStringToInternal(
+  score: ScoreShape,
+  trackId: string,
+  cursorString: number,
+): number {
+  const track = findTrack(score, trackId) ?? score.tracks[0];
+  const numStrings = track?.staves?.[0]?.stringTuning?.tunings?.length
+    ?? (track?.staves?.[0] as unknown as { tuning?: number[] })?.tuning?.length
+    ?? 6;
+  return numStrings - cursorString + 1;
+}
+
 export function midiToScientificPitch(midi: number): string {
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   const semitone = ((midi % 12) + 12) % 12;
@@ -1080,9 +1106,23 @@ export function scoreToMetadata(score: unknown): TabMetadata {
     tempo?: number;
     tracks?: Array<{
       name?: string;
-      staves?: Array<{ tuning?: number[]; capo?: number }>;
+      staves?: Array<{
+        tuning?: number[];
+        capo?: number;
+        bars?: Array<{ voices?: Array<{ beats?: unknown[] }> }>;
+      }>;
     }>;
   };
+  // Total beats across the first track's primary voice (voice 0). The
+  // editor cursor-target overlay draws one column per beat, so this count
+  // must reflect the playable beat positions — `bars[i].voices[0].beats`.
+  // alphaTab populates these synchronously when the "loaded" event fires,
+  // so reading them here is safe.
+  const firstTrackBars = s.tracks?.[0]?.staves?.[0]?.bars ?? [];
+  let totalBeats = 0;
+  for (const bar of firstTrackBars) {
+    totalBeats += bar.voices?.[0]?.beats?.length ?? 0;
+  }
   return {
     title: s.title ?? "Untitled",
     artist: s.artist,
@@ -1103,7 +1143,7 @@ export function scoreToMetadata(score: unknown): TabMetadata {
       };
     }),
     sections: [],
-    totalBeats: 0,
+    totalBeats,
     durationSeconds: 0,
   };
 }

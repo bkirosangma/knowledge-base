@@ -46,6 +46,11 @@ function makeNoteScore(noteFields: {
   bendPoints?: { value: number }[] | null;
   slideOutType?: number;
 }) {
+  // The bend / slide cycle handler reads via `findNoteByCursor`, which converts
+  // the cursor's alphaTex string number (1 = top of staff) to alphaTab's
+  // internal Note.string (1 = lowest pitch). With the default 6-string fallback
+  // (no `staves[0].tuning`), cursor 6 → internal 1, so the existing note must
+  // be stored at `string: 1` for the cycle handlers to find it.
   return {
     tracks: [
       {
@@ -57,7 +62,7 @@ function makeNoteScore(noteFields: {
                 voices: [
                   {
                     beats: [
-                      { notes: [{ string: 6, ...noteFields }] },
+                      { notes: [{ string: 1, ...noteFields }] },
                     ],
                   },
                 ],
