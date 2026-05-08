@@ -11,7 +11,7 @@ pub struct VaultChangeEvent {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum ChangeKind {
     Created,
     Modified,
