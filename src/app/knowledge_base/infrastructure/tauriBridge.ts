@@ -108,4 +108,10 @@ export const tauriBridge = {
       new Uint8Array(arr).buffer,
     );
   },
+  watchStart(): Promise<void> {
+    return call<void>("vault_watch_start", {}, "");
+  },
+  watchStop(): Promise<void> {
+    return call<void>("vault_watch_stop", {}, "");
+  },
 };
