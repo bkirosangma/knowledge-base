@@ -8,6 +8,7 @@ pub mod commands;
 pub mod error;
 pub mod io;
 pub mod path;
+pub mod watcher;
 pub use error::VaultError;
 
 /// In-memory holder for the active vault root path. Tauri stores this as
