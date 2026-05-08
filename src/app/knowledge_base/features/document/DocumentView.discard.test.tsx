@@ -97,7 +97,7 @@ function renderDocView(
       <StubRepositoryProvider
         value={{ attachment: null, attachmentLinks: null, document: docRepo, diagram: null, linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null, vaultConfig: null, vaultIndex: null }}
       >
-        <FileWatcherProvider>
+        <FileWatcherProvider vaultPath={null}>
           <ToastProvider>
             <DocumentView
               focused

@@ -93,7 +93,7 @@ function renderDV(props: React.ComponentProps<typeof DiagramView>) {
     }}>
       <ShellErrorProvider>
         <ToastProvider>
-          <FileWatcherProvider>
+          <FileWatcherProvider vaultPath={null}>
             <FooterProvider>
               <DiagramView {...props} />
             </FooterProvider>
@@ -132,7 +132,7 @@ describe('DiagramView — smoke', () => {
         }}>
           <ShellErrorProvider>
             <ToastProvider>
-              <FileWatcherProvider>
+              <FileWatcherProvider vaultPath={null}>
                 <FooterProvider>
                   <DiagramView {...baseProps({ activeFile: 'flow.json' })} />
                 </FooterProvider>

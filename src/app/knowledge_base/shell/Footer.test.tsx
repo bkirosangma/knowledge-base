@@ -43,7 +43,7 @@ function FooterHarness({
   return (
     <ToolbarProvider>
       <FooterProvider>
-        <FileWatcherProvider>
+        <FileWatcherProvider vaultPath={null}>
           <Setup />
           <Footer focusedEntry={focusedEntry} isSplit={isSplit} />
         </FileWatcherProvider>

@@ -37,7 +37,7 @@ export function useFileWatcher(): FileWatcherContextValue {
 }
 
 interface ProviderProps {
-  vaultPath?: string | null;
+  vaultPath: string | null;
   children: ReactNode;
 }
 
