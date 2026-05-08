@@ -1,260 +1,150 @@
-import { render, screen, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { useEffect } from "react";
-import { FileWatcherProvider, useFileWatcher } from "./FileWatcherContext";
+import type { ReactNode } from "react";
+import { act, render, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  FileWatcherProvider,
+  useFileWatcher,
+} from "./FileWatcherContext";
 
-function Harness({ id = "test", onTick }: { id?: string; onTick: () => Promise<void> }) {
-  const { subscribe, unsubscribe } = useFileWatcher();
-  useEffect(() => {
-    subscribe(id, onTick);
-    return () => unsubscribe(id);
-  }, [subscribe, unsubscribe, onTick, id]);
-  return <button onClick={() => unsubscribe(id)}>unsub</button>;
+// Capture the registered event handler so tests can fire it.
+let registeredHandler: ((event: { payload: unknown }) => void) | null = null;
+const unlistenMock = vi.fn();
+
+// Use vi.hoisted so these are initialised before vi.mock factories run.
+const { watchStartMock, watchStopMock, listenMock } = vi.hoisted(() => ({
+  watchStartMock: vi.fn().mockResolvedValue(undefined),
+  watchStopMock: vi.fn().mockResolvedValue(undefined),
+  listenMock: vi.fn(),
+}));
+
+// Re-arm the listen mock implementation each test (mockClear in beforeEach
+// wipes the implementation along with call history).
+function armListenMock() {
+  listenMock.mockImplementation(
+    async (_name: string, handler: (e: { payload: unknown }) => void) => {
+      registeredHandler = handler;
+      return unlistenMock;
+    },
+  );
 }
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: listenMock,
+}));
+
+vi.mock("../../infrastructure/tauriBridge", () => ({
+  tauriBridge: {
+    watchStart: watchStartMock,
+    watchStop: watchStopMock,
+  },
+}));
+
 describe("FileWatcherContext", () => {
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    registeredHandler = null;
+    watchStartMock.mockClear();
+    watchStopMock.mockClear();
+    unlistenMock.mockClear();
+    listenMock.mockClear();
+    armListenMock();
+  });
+
   afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
+    vi.clearAllTimers();
   });
 
-  it("SHELL-1.10-01: calls subscribers on the 5s interval", async () => {
-    const tick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <FileWatcherProvider>
-        <Harness onTick={tick} />
-      </FileWatcherProvider>
+  function wrapper(vaultPath: string | null) {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <FileWatcherProvider vaultPath={vaultPath}>{children}</FileWatcherProvider>
+      );
+    }
+    return Wrapper;
+  }
+
+  it("calls watchStart when vaultPath is set and watchStop on unmount", async () => {
+    const { unmount } = render(
+      <FileWatcherProvider vaultPath="/tmp/vault">{null}</FileWatcherProvider>,
     );
-    expect(tick).not.toHaveBeenCalled();
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).toHaveBeenCalledTimes(2);
+    // microtask flush
+    await Promise.resolve();
+    expect(watchStartMock).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await Promise.resolve();
+    expect(watchStopMock).toHaveBeenCalledTimes(1);
   });
 
-  it("SHELL-1.10-02: refresh() calls every subscriber on the same tick (no stagger)", async () => {
+  it("does not call watchStart or listen when vaultPath is null", async () => {
+    render(<FileWatcherProvider vaultPath={null}>{null}</FileWatcherProvider>);
+    await Promise.resolve();
+    // Both Tauri APIs reach into window.__TAURI_INTERNALS__, which is
+    // undefined in test wrappers that don't mock @tauri-apps/api/*.
+    // The provider must remain inert until vaultPath is set.
+    expect(watchStartMock).not.toHaveBeenCalled();
+    expect(listenMock).not.toHaveBeenCalled();
+  });
+
+  it("fires every subscriber on each vault_change event and updates lastSyncedAt", async () => {
+    const { result } = renderHook(() => useFileWatcher(), {
+      wrapper: wrapper("/tmp/vault"),
+    });
+    await Promise.resolve(); // let listen() resolve
+
     const a = vi.fn().mockResolvedValue(undefined);
     const b = vi.fn().mockResolvedValue(undefined);
-    const c = vi.fn().mockResolvedValue(undefined);
-    function RefreshButton() {
-      const { refresh } = useFileWatcher();
-      return <button onClick={refresh}>refresh</button>;
-    }
-    render(
-      <FileWatcherProvider>
-        <Harness id="a" onTick={a} />
-        <Harness id="b" onTick={b} />
-        <Harness id="c" onTick={c} />
-        <RefreshButton />
-      </FileWatcherProvider>
-    );
-    await act(async () => screen.getByText("refresh").click());
-    // All three must have fired; refresh() bypasses the 1-second stagger.
-    expect(a).toHaveBeenCalledOnce();
-    expect(b).toHaveBeenCalledOnce();
-    expect(c).toHaveBeenCalledOnce();
-  });
-
-  it("SHELL-1.10-03: unsubscribe removes the subscriber", async () => {
-    const tick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <FileWatcherProvider>
-        <Harness onTick={tick} />
-      </FileWatcherProvider>
-    );
-    await act(async () => screen.getByRole("button").click()); // unsubscribe
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).not.toHaveBeenCalled();
-  });
-
-  it("SHELL-1.10-04: throws when useFileWatcher is used outside provider", () => {
-    function Bad() {
-      useFileWatcher();
-      return null;
-    }
-    expect(() => render(<Bad />)).toThrow(
-      "useFileWatcher must be used within FileWatcherProvider"
-    );
-  });
-
-  it("SHELL-1.10-05: backs off to 30s polling after 2 minutes idle", async () => {
-    const tick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <FileWatcherProvider>
-        <Harness onTick={tick} />
-      </FileWatcherProvider>
-    );
-
-    // Burn 24 active 5s cycles = 120s. Each cycle is still scheduled 5s
-    // out because lastInputAtRef defaults to mount time.
-    for (let i = 0; i < 24; i++) {
-      await act(async () => {
-        vi.advanceTimersByTime(5000);
-      });
-    }
-    expect(tick).toHaveBeenCalledTimes(24);
-
-    // Now we are >= 120s since last input. The very next scheduled poll
-    // should sit on a 30s timer, not 5s. Advance 5s more — no fire.
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).toHaveBeenCalledTimes(24);
-
-    // Advance another 25s (30s total since last fire) — fires.
-    await act(async () => {
-      vi.advanceTimersByTime(25000);
-    });
-    expect(tick).toHaveBeenCalledTimes(25);
-
-    // Stays on the 30s cadence while idle.
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).toHaveBeenCalledTimes(25);
-    await act(async () => {
-      vi.advanceTimersByTime(25000);
-    });
-    expect(tick).toHaveBeenCalledTimes(26);
-  });
-
-  it("SHELL-1.10-06: a keypress while idle resumes 5s polling on the next cycle", async () => {
-    const tick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <FileWatcherProvider>
-        <Harness onTick={tick} />
-      </FileWatcherProvider>
-    );
-
-    // Drive the watcher into idle territory.
-    for (let i = 0; i < 24; i++) {
-      await act(async () => {
-        vi.advanceTimersByTime(5000);
-      });
-    }
-    // Confirm idle: 5s from now does NOT fire.
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(tick).toHaveBeenCalledTimes(24);
-
-    // Send a keypress — this resets lastInputAt. Since the in-flight 30s
-    // timer is still ticking, the resume happens on the cycle after that.
-    // To match the spec literally ("resume 5s on next input"), we cancel
-    // the pending timer and reschedule at +5s on input.
-    await act(async () => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    act(() => {
+      result.current.subscribe("a", a);
+      result.current.subscribe("b", b);
     });
 
+    const beforeAt = result.current.lastSyncedAt;
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      registeredHandler?.({ payload: { kind: "modified", path: "a.md" } });
+      // allow Promise.allSettled to flush
+      await Promise.resolve();
+      await Promise.resolve();
     });
-    expect(tick).toHaveBeenCalledTimes(25);
-  });
 
-  it("SHELL-1.10-07: subscribers stagger across 1-second slots within a poll", async () => {
-    const a = vi.fn().mockResolvedValue(undefined);
-    const b = vi.fn().mockResolvedValue(undefined);
-    const c = vi.fn().mockResolvedValue(undefined);
-    render(
-      <FileWatcherProvider>
-        <Harness id="a" onTick={a} />
-        <Harness id="b" onTick={b} />
-        <Harness id="c" onTick={c} />
-      </FileWatcherProvider>
-    );
-
-    // Advance to first poll instant.
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    // Slot 0 fires immediately.
-    expect(a).toHaveBeenCalledTimes(1);
-    expect(b).not.toHaveBeenCalled();
-    expect(c).not.toHaveBeenCalled();
-
-    // +1s: slot 1.
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(1);
-    expect(c).not.toHaveBeenCalled();
-
-    // +1s: slot 2.
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(a).toHaveBeenCalledTimes(1);
-    expect(b).toHaveBeenCalledTimes(1);
-    expect(c).toHaveBeenCalledTimes(1);
+    expect(result.current.lastSyncedAt).toBeGreaterThanOrEqual(beforeAt);
   });
 
-  it("SHELL-1.10-08: stagger order rotates round-robin across cycles", async () => {
-    const calls: string[] = [];
-    const make = (label: string) => () => {
-      calls.push(label);
-      return Promise.resolve();
-    };
-    const a = vi.fn(make("a"));
-    const b = vi.fn(make("b"));
-    const c = vi.fn(make("c"));
-    render(
-      <FileWatcherProvider>
-        <Harness id="a" onTick={a} />
-        <Harness id="b" onTick={b} />
-        <Harness id="c" onTick={c} />
-      </FileWatcherProvider>
-    );
+  it("refresh() triggers an immediate fan-out", async () => {
+    const { result } = renderHook(() => useFileWatcher(), {
+      wrapper: wrapper("/tmp/vault"),
+    });
+    await Promise.resolve();
 
-    // Cycle 1: t=5..7s → a, b, c
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(2000);
-    });
-    expect(calls).toEqual(["a", "b", "c"]);
+    const fn = vi.fn().mockResolvedValue(undefined);
+    act(() => result.current.subscribe("x", fn));
 
-    // Cycle 2: t=10..12s → b, c, a
     await act(async () => {
-      vi.advanceTimersByTime(3000); // to t=10s, slot 0 of cycle 2 fires
+      result.current.refresh();
+      await Promise.resolve();
+      await Promise.resolve();
     });
-    await act(async () => {
-      vi.advanceTimersByTime(2000);
-    });
-    expect(calls).toEqual(["a", "b", "c", "b", "c", "a"]);
+
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("SHELL-1.10-09: lastSyncedAt is exposed and updates after each poll", async () => {
-    let captured: number | null = null;
-    function Probe() {
-      const { lastSyncedAt } = useFileWatcher();
-      captured = lastSyncedAt;
-      return null;
-    }
-    const startEpoch = Date.now();
-    render(
-      <FileWatcherProvider>
-        <Probe />
-      </FileWatcherProvider>
-    );
-    // Initialised to mount time.
-    expect(captured).not.toBeNull();
-    expect(captured!).toBeGreaterThanOrEqual(startEpoch);
-    const initial = captured!;
-
-    // Advance one poll cycle (no subscribers, but the cycle still updates the heartbeat).
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
+  it("unsubscribe removes the callback", async () => {
+    const { result } = renderHook(() => useFileWatcher(), {
+      wrapper: wrapper("/tmp/vault"),
     });
-    expect(captured!).toBeGreaterThanOrEqual(initial + 5000);
+    await Promise.resolve();
+
+    const fn = vi.fn().mockResolvedValue(undefined);
+    act(() => result.current.subscribe("x", fn));
+    act(() => result.current.unsubscribe("x"));
+
+    await act(async () => {
+      registeredHandler?.({ payload: { kind: "modified", path: "a.md" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fn).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@ import type { DiagramSnapshot } from "../../../shared/hooks/useDiagramHistory";
 import type { ReactNode } from "react";
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <FileWatcherProvider><ToastProvider>{children}</ToastProvider></FileWatcherProvider>;
+  return <FileWatcherProvider vaultPath={null}><ToastProvider>{children}</ToastProvider></FileWatcherProvider>;
 }
 
 const emptySnapshot: DiagramSnapshot = {

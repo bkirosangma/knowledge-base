@@ -24,7 +24,17 @@ pub async fn vault_pick(app: AppHandle) -> Result<Option<String>, VaultError> {
 
 #[tauri::command]
 pub async fn vault_set_root(path: String, state: State<'_, VaultState>) -> Result<(), VaultError> {
-    state.set_root(PathBuf::from(path)).await;
+    // Canonicalize to match Watcher::start's path normalization (handles
+    // macOS /var → /private/var symlinks). Without this, Vault.root and
+    // WatcherInner.root diverge silently and any future path comparison
+    // (e.g. MVP-1c idempotency checks) will misfire.
+    let resolved = PathBuf::from(&path)
+        .canonicalize()
+        .map_err(|e| VaultError::Io {
+            path,
+            message: e.to_string(),
+        })?;
+    state.set_root(resolved).await;
     Ok(())
 }
 
@@ -114,4 +124,29 @@ pub async fn vault_write_bytes(
 ) -> Result<(), VaultError> {
     let root = state.root_or_error().await?;
     io::write_bytes_atomic(&path, &bytes, &root).await
+}
+
+use super::watcher::Watcher;
+use std::sync::Arc;
+
+#[tauri::command]
+pub async fn vault_watch_start(
+    app: AppHandle,
+    state: State<'_, VaultState>,
+    watcher: State<'_, Arc<Watcher>>,
+) -> Result<(), VaultError> {
+    let root = state.root_or_error().await?;
+    watcher
+        .start(root, app)
+        .await
+        .map_err(|message| VaultError::Io {
+            path: String::new(),
+            message,
+        })
+}
+
+#[tauri::command]
+pub async fn vault_watch_stop(watcher: State<'_, Arc<Watcher>>) -> Result<(), VaultError> {
+    watcher.stop().await;
+    Ok(())
 }

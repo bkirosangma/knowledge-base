@@ -75,3 +75,25 @@ describe("tauriBridge", () => {
     }
   });
 });
+
+describe("watchStart / watchStop", () => {
+  it("invokes vault_watch_start with no args", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.watchStart();
+    expect(invokeMock).toHaveBeenCalledWith("vault_watch_start", {});
+  });
+
+  it("invokes vault_watch_stop with no args", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.watchStop();
+    expect(invokeMock).toHaveBeenCalledWith("vault_watch_stop", {});
+  });
+
+  it("translates raw VaultError on watch_start failure", async () => {
+    invokeMock.mockRejectedValueOnce({ kind: "no_vault" });
+    await expect(tauriBridge.watchStart()).rejects.toMatchObject({
+      kind: "unknown",
+      message: expect.stringContaining("No vault configured"),
+    });
+  });
+});

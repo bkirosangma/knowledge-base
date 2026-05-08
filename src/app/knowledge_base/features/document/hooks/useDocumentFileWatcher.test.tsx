@@ -7,7 +7,7 @@ import { ToastProvider } from "../../../shell/ToastContext";
 import type { ReactNode } from "react";
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <FileWatcherProvider><ToastProvider>{children}</ToastProvider></FileWatcherProvider>;
+  return <FileWatcherProvider vaultPath={null}><ToastProvider>{children}</ToastProvider></FileWatcherProvider>;
 }
 
 function makeHistory() {

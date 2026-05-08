@@ -144,7 +144,7 @@ function renderDV(props: React.ComponentProps<typeof DiagramView>) {
     }}>
       <ShellErrorProvider>
         <ToastProvider>
-          <FileWatcherProvider>
+          <FileWatcherProvider vaultPath={null}>
             <FooterProvider>
               <DiagramView {...props} />
             </FooterProvider>
