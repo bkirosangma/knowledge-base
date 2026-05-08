@@ -15,7 +15,6 @@ import {
   rewriteFileScopedRows,
   type AttachmentLink,
 } from "../../../domain/attachmentLinks";
-import { createDocumentRepository } from "../../../infrastructure/documentRepo";
 import type { TreeNode } from "../../../shared/hooks/useFileExplorer";
 
 interface AttachmentTargetQuery {
@@ -210,20 +209,6 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     [documents],
   );
 
-  // ─── Disk creation (unchanged) ───────────────────────────────────
-  const createDocument = useCallback(
-    async (
-      rootHandle: FileSystemDirectoryHandle,
-      path: string,
-      initialContent = "",
-    ) => {
-      const repo = createDocumentRepository(rootHandle);
-      await repo.write(path, initialContent);
-      return path;
-    },
-    [],
-  );
-
   const withBatch = useCallback(
     async <T,>(fn: () => Promise<T> | T): Promise<T> => {
       batchDepthRef.current += 1;
@@ -244,7 +229,6 @@ export function useDocuments(opts: UseDocumentsOpts = {}) {
     rows,
     setRows,
     documents,
-    createDocument,
     attachDocument,
     detachDocument,
     removeDocument,

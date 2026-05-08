@@ -79,7 +79,6 @@ function renderDocView(
   docRepo: DocumentRepository,
   extra?: { onDocBridge?: (b: DocumentPaneBridge | null) => void },
 ) {
-  const dirHandleRef = { current: null } as React.RefObject<FileSystemDirectoryHandle | null>
   const stubLinkManager = {
     linkIndex: { updatedAt: '', documents: {}, backlinks: {} },
     loadIndex: vi.fn(),
@@ -103,7 +102,6 @@ function renderDocView(
             <DocumentView
               focused
               filePath="test.md"
-              dirHandleRef={dirHandleRef}
               linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
               tree={[]}
               onNavigateLink={vi.fn()}

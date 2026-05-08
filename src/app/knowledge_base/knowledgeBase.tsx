@@ -1296,7 +1296,6 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         focused={focused}
         filePath={entry.filePath}
         anchor={entry.anchor ?? null}
-        dirHandleRef={fileExplorer.dirHandleRef}
         // Force focus-mode on mobile so markdown toolbar + Properties panel
         // collapse for a reader-first chrome.
         focusMode={focusMode || isMobile}
