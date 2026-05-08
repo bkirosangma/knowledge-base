@@ -10,21 +10,31 @@ use super::error::VaultError;
 /// Used by every command before touching the filesystem.
 pub fn resolve(rel: &str, root: &Path) -> Result<PathBuf, VaultError> {
     if rel.contains('\\') {
-        return Err(VaultError::PathEscape { path: rel.to_string() });
+        return Err(VaultError::PathEscape {
+            path: rel.to_string(),
+        });
     }
     let p = Path::new(rel);
     if p.is_absolute() {
-        return Err(VaultError::PathEscape { path: rel.to_string() });
+        return Err(VaultError::PathEscape {
+            path: rel.to_string(),
+        });
     }
     for component in p.components() {
         use std::path::Component;
         match component {
             Component::Normal(_) | Component::CurDir => continue,
             Component::ParentDir => {
-                return Err(VaultError::PathEscape { path: rel.to_string() })
+                return Err(VaultError::PathEscape {
+                    path: rel.to_string(),
+                })
             }
             // Reject RootDir, Prefix (Windows), and any future unsafe variants.
-            _ => return Err(VaultError::PathEscape { path: rel.to_string() }),
+            _ => {
+                return Err(VaultError::PathEscape {
+                    path: rel.to_string(),
+                })
+            }
         }
     }
     let joined = root.join(p);

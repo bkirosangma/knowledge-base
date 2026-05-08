@@ -33,7 +33,10 @@ impl VaultError {
         match e.kind() {
             io::ErrorKind::NotFound => Self::NotFound { path },
             io::ErrorKind::PermissionDenied => Self::PermissionDenied { path },
-            _ => Self::Io { path, message: e.to_string() },
+            _ => Self::Io {
+                path,
+                message: e.to_string(),
+            },
         }
     }
 }
@@ -51,12 +54,17 @@ mod tests {
 
     #[test]
     fn serializes_not_found_with_path() {
-        let err = VaultError::NotFound { path: "docs/missing.md".into() };
+        let err = VaultError::NotFound {
+            path: "docs/missing.md".into(),
+        };
         let json = serde_json::to_value(&err).unwrap();
-        assert_eq!(json, serde_json::json!({
-            "kind": "not_found",
-            "path": "docs/missing.md"
-        }));
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "kind": "not_found",
+                "path": "docs/missing.md"
+            })
+        );
     }
 
     #[test]

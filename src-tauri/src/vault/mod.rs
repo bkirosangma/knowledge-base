@@ -21,11 +21,7 @@ pub type VaultState = Arc<Vault>;
 
 impl Vault {
     pub async fn root_or_error(&self) -> Result<PathBuf, VaultError> {
-        self.root
-            .read()
-            .await
-            .clone()
-            .ok_or(VaultError::NoVault)
+        self.root.read().await.clone().ok_or(VaultError::NoVault)
     }
 
     pub async fn set_root(&self, path: PathBuf) {

@@ -9,6 +9,7 @@ vi.mock("./tauriBridge", () => ({ tauriBridge: bridge }));
 
 import { createVaultConfigRepositoryTauri } from "./vaultConfigRepoTauri";
 import { FileSystemError } from "../domain/errors";
+import type { VaultConfig } from "../shared/utils/types";
 
 const CONFIG_PATH = ".archdesigner/config.json";
 
@@ -445,7 +446,7 @@ describe("vaultConfigRepoTauri", () => {
         lastOpened: "2026-05-08T07:00:00.000Z",
       };
 
-      const result = repo.isVault(config as any);
+      const result = repo.isVault(config as unknown as VaultConfig);
 
       expect(result).toBe(false);
     });
@@ -459,7 +460,7 @@ describe("vaultConfigRepoTauri", () => {
         lastOpened: "2026-05-08T07:00:00.000Z",
       };
 
-      const result = repo.isVault(config as any);
+      const result = repo.isVault(config as unknown as VaultConfig);
 
       expect(result).toBe(false);
     });
@@ -473,7 +474,7 @@ describe("vaultConfigRepoTauri", () => {
         lastOpened: "2026-05-08T07:00:00.000Z",
       };
 
-      const result = repo.isVault(config as any);
+      const result = repo.isVault(config as unknown as VaultConfig);
 
       expect(result).toBe(false);
     });

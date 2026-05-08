@@ -9,11 +9,9 @@ use super::VaultState;
 #[tauri::command]
 pub async fn vault_pick(app: AppHandle) -> Result<Option<String>, VaultError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .file()
-        .pick_folder(move |result| {
-            let _ = tx.send(result);
-        });
+    app.dialog().file().pick_folder(move |result| {
+        let _ = tx.send(result);
+    });
     let result = rx.await.map_err(|e| VaultError::Io {
         path: String::new(),
         message: e.to_string(),
@@ -25,10 +23,7 @@ pub async fn vault_pick(app: AppHandle) -> Result<Option<String>, VaultError> {
 }
 
 #[tauri::command]
-pub async fn vault_set_root(
-    path: String,
-    state: State<'_, VaultState>,
-) -> Result<(), VaultError> {
+pub async fn vault_set_root(path: String, state: State<'_, VaultState>) -> Result<(), VaultError> {
     state.set_root(PathBuf::from(path)).await;
     Ok(())
 }
@@ -91,19 +86,13 @@ pub async fn vault_rename(
 }
 
 #[tauri::command]
-pub async fn vault_delete(
-    path: String,
-    state: State<'_, VaultState>,
-) -> Result<(), VaultError> {
+pub async fn vault_delete(path: String, state: State<'_, VaultState>) -> Result<(), VaultError> {
     let root = state.root_or_error().await?;
     io::delete(&path, &root).await
 }
 
 #[tauri::command]
-pub async fn vault_exists(
-    path: String,
-    state: State<'_, VaultState>,
-) -> Result<bool, VaultError> {
+pub async fn vault_exists(path: String, state: State<'_, VaultState>) -> Result<bool, VaultError> {
     let root = state.root_or_error().await?;
     io::exists(&path, &root).await
 }

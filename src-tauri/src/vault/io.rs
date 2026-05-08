@@ -15,11 +15,7 @@ pub async fn read_text(rel: &str, root: &Path) -> Result<String, VaultError> {
 
 /// Atomically write UTF-8 text to vault-relative `rel`. Writes to
 /// `<rel>.tmp`, fsyncs, then renames. Creates parent directories as needed.
-pub async fn write_text_atomic(
-    rel: &str,
-    content: &str,
-    root: &Path,
-) -> Result<(), VaultError> {
+pub async fn write_text_atomic(rel: &str, content: &str, root: &Path) -> Result<(), VaultError> {
     let abs = resolve(rel, root)?;
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent)
@@ -48,10 +44,7 @@ pub async fn write_text_atomic(
 }
 
 /// Read and parse a JSON file at vault-relative `rel`.
-pub async fn read_json(
-    rel: &str,
-    root: &Path,
-) -> Result<serde_json::Value, VaultError> {
+pub async fn read_json(rel: &str, root: &Path) -> Result<serde_json::Value, VaultError> {
     let text = read_text(rel, root).await?;
     serde_json::from_str(&text).map_err(|e| VaultError::Parse {
         path: rel.to_string(),
@@ -94,17 +87,14 @@ pub async fn list(dir: &str, root: &Path) -> Result<Vec<DirEntry>, VaultError> {
         .await
         .map_err(|e| VaultError::io(dir, e))?;
     let mut out = Vec::new();
-    while let Some(entry) = rd
-        .next_entry()
-        .await
-        .map_err(|e| VaultError::io(dir, e))?
-    {
+    while let Some(entry) = rd.next_entry().await.map_err(|e| VaultError::io(dir, e))? {
         let file_name = entry.file_name().to_string_lossy().into_owned();
-        let metadata = entry
-            .metadata()
-            .await
-            .map_err(|e| VaultError::io(dir, e))?;
-        let kind = if metadata.is_dir() { "directory" } else { "file" };
+        let metadata = entry.metadata().await.map_err(|e| VaultError::io(dir, e))?;
+        let kind = if metadata.is_dir() {
+            "directory"
+        } else {
+            "file"
+        };
         let path = if dir.is_empty() {
             file_name.clone()
         } else {
@@ -154,9 +144,9 @@ pub async fn delete(rel: &str, root: &Path) -> Result<(), VaultError> {
 /// Check whether a vault-relative path exists. Path traversal still rejects.
 pub async fn exists(rel: &str, root: &Path) -> Result<bool, VaultError> {
     let abs = resolve(rel, root)?;
-    Ok(fs::try_exists(&abs)
+    fs::try_exists(&abs)
         .await
-        .map_err(|e| VaultError::io(rel, e))?)
+        .map_err(|e| VaultError::io(rel, e))
 }
 
 /// Read raw bytes at vault-relative `rel`.
@@ -167,11 +157,7 @@ pub async fn read_bytes(rel: &str, root: &Path) -> Result<Vec<u8>, VaultError> {
 
 /// Atomically write raw bytes to vault-relative `rel`. Creates parent
 /// directories as needed.
-pub async fn write_bytes_atomic(
-    rel: &str,
-    bytes: &[u8],
-    root: &Path,
-) -> Result<(), VaultError> {
+pub async fn write_bytes_atomic(rel: &str, bytes: &[u8], root: &Path) -> Result<(), VaultError> {
     let abs = resolve(rel, root)?;
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent)
@@ -217,7 +203,9 @@ mod tests {
     #[tokio::test]
     async fn write_creates_parent_dirs() {
         let td = TempDir::new().unwrap();
-        write_text_atomic("a/b/c/d.md", "x", td.path()).await.unwrap();
+        write_text_atomic("a/b/c/d.md", "x", td.path())
+            .await
+            .unwrap();
         assert!(td.path().join("a/b/c/d.md").exists());
     }
 
@@ -278,7 +266,9 @@ mod tests {
     #[tokio::test]
     async fn lists_subdirectory() {
         let td = TempDir::new().unwrap();
-        write_text_atomic("docs/x.md", "x", td.path()).await.unwrap();
+        write_text_atomic("docs/x.md", "x", td.path())
+            .await
+            .unwrap();
         let got = list("docs", td.path()).await.unwrap();
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].path, "docs/x.md");
@@ -330,7 +320,9 @@ mod tests {
     async fn round_trips_bytes() {
         let td = TempDir::new().unwrap();
         let bytes = vec![0u8, 1, 2, 3, 255];
-        write_bytes_atomic("bin/x.dat", &bytes, td.path()).await.unwrap();
+        write_bytes_atomic("bin/x.dat", &bytes, td.path())
+            .await
+            .unwrap();
         let got = read_bytes("bin/x.dat", td.path()).await.unwrap();
         assert_eq!(got, bytes);
     }

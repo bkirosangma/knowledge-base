@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Arc;
 use knowledge_base_lib::vault::{commands, Vault, VaultState};
+use std::sync::Arc;
 
 fn main() {
     let state: VaultState = Arc::new(Vault::default());
