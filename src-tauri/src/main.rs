@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use knowledge_base_lib::settings::commands as settings_commands;
 use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
 use std::sync::Arc;
 
@@ -8,6 +9,7 @@ fn main() {
     let watcher: WatcherState = Arc::new(Watcher::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(vault)
         .manage(watcher)
         .invoke_handler(tauri::generate_handler![
@@ -25,6 +27,8 @@ fn main() {
             commands::vault_write_bytes,
             commands::vault_watch_start,
             commands::vault_watch_stop,
+            settings_commands::settings_read,
+            settings_commands::settings_write,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
