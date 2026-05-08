@@ -12,17 +12,11 @@ import {
   uniqueName,
   collectFilePaths,
   findChildren,
-  readTextFile,
-  writeTextFile,
-  getSubdirectoryHandle,
 } from "./fileExplorerHelpers";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { readOrNull } from "../../domain/repositoryHelpers";
 import * as settingsStore from "../../infrastructure/settingsStore";
 export type { TreeNode };
-
-// Re-export file-I/O helpers for callers that import them from this module.
-export { readTextFile, writeTextFile, getSubdirectoryHandle };
 
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
 const DIR_NAME_KEY = "knowledge-base-directory-name";

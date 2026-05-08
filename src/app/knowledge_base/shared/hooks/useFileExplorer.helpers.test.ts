@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
+  isDiagramData,
   readTextFile,
   writeTextFile,
   getSubdirectoryHandle,
-} from './useFileExplorer'
-import {
-  isDiagramData,
   renameSidecar,
   propagateRename,
   propagateMoveLinks,
@@ -54,8 +52,8 @@ function makeDocumentRepo(dir: MockDir): DocumentRepository {
   return { read: readFile, write: writeFile }
 }
 
-// Covers HOOK-6.5-06 (resolveParentHandle — tested via writeTextFile/getSubdirectoryHandle)
-// plus the exported FS-access helpers. Bulk of useFileExplorer (IDB + showDirectoryPicker
+// Covers HOOK-6.5-06 (intermediate-directory creation — tested via writeTextFile/getSubdirectoryHandle)
+// plus the exported FS-access helpers. Bulk of useFileExplorer (IDB + vault_pick
 // + scanTree) is an integration surface; covered by Playwright in Bucket 20.
 
 function asRoot(dir: MockDir): FileSystemDirectoryHandle {
