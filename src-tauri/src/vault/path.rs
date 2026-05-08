@@ -4,8 +4,10 @@ use super::error::VaultError;
 
 /// Resolve a vault-relative POSIX path against `root`. Rejects absolute
 /// paths, parent traversal (`..`), and Windows-style separators. Returns
-/// the canonical absolute path under `root`. Used by every command before
-/// touching the filesystem.
+/// the absolute path under `root` with `.` segments preserved literally —
+/// does NOT canonicalize (callers that need symlink-aware normalization
+/// should use `fs::canonicalize`, which requires the file to exist).
+/// Used by every command before touching the filesystem.
 pub fn resolve(rel: &str, root: &Path) -> Result<PathBuf, VaultError> {
     if rel.contains('\\') {
         return Err(VaultError::PathEscape { path: rel.to_string() });
@@ -21,6 +23,7 @@ pub fn resolve(rel: &str, root: &Path) -> Result<PathBuf, VaultError> {
             Component::ParentDir => {
                 return Err(VaultError::PathEscape { path: rel.to_string() })
             }
+            // Reject RootDir, Prefix (Windows), and any future unsafe variants.
             _ => return Err(VaultError::PathEscape { path: rel.to_string() }),
         }
     }
