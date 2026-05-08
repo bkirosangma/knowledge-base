@@ -2,4 +2,5 @@
 
 pub mod claude;
 pub mod settings;
+pub mod skill;
 pub mod vault;

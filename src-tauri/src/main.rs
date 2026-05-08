@@ -2,6 +2,7 @@
 
 use knowledge_base_lib::claude::{commands as claude_commands, ClaudeState};
 use knowledge_base_lib::settings::commands as settings_commands;
+use knowledge_base_lib::skill::commands as skill_commands;
 use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
 use std::sync::Arc;
 
@@ -35,6 +36,8 @@ fn main() {
             claude_commands::claude_send,
             claude_commands::claude_interrupt,
             claude_commands::claude_reset,
+            skill_commands::skill_status,
+            skill_commands::skill_install_from_bundle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
