@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-08 (MVP-1d implementation complete on `feat/tauri-mvp1d-cleanup-bundle` — FSA layer retired, Pages deploy gone, static export permanent, macOS Tauri debug job added. Task 14 opens the PR. Next action after merge: run the Post-merge cleanup protocol, then write the MVP-1e plan (history substrate retirement) or jump straight to MVP-2 if MVP-1e is folded into MVP-2's setup.)
+**Last updated:** 2026-05-08 (MVP-1d merged via PR #152 (`0f5e152` on `main`) — FSA layer retired, Pages deploy gone, static export permanent, macOS Tauri debug job added. Post-merge cleanup run; `feat/tauri-mvp1e-history-substrate` cut from `main`. **MVP-1e is its own plan** — history is per-document undo sidecars (not chat history) and is independent of MVP-2's chat surface. Next action: write the MVP-1e plan (port FSA → Tauri for sidecar I/O) and dispatch via subagents.)
 
 ---
 
@@ -108,9 +108,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | **MVP-1a** | Tauri scaffold + Rust VFS adapter | `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` | ✅ Merged via PR #149 (`844a474` on `main`). |
 | **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | ✅ Merged via PR #150 (`03c2919` on `main`). |
 | **MVP-1c** | Settings, vault management, basic init | `docs/superpowers/plans/2026-05-08-tauri-mvp1c-settings-vaults-plan.md` | ✅ Merged via PR #151 (`a74f847` on `main`). |
-| **MVP-1d** | Cleanup, bundle, CI | `docs/superpowers/plans/2026-05-08-tauri-mvp1d-cleanup-bundle-plan.md` | 🚧 Implementation complete; PR pending Task 14. |
-| **MVP-1e** | History substrate retirement | _not yet written; due after MVP-1d merges_ | ⏳ Not started. |
-| **MVP-2** | Claude subprocess integration | _not yet written; due after MVP-1d merges_ | ⏳ Not started. |
+| **MVP-1d** | Cleanup, bundle, CI | `docs/superpowers/plans/2026-05-08-tauri-mvp1d-cleanup-bundle-plan.md` | ✅ Merged via PR #152 (`0f5e152` on `main`). |
+| **MVP-1e** | History substrate retirement | _not yet written; due now on `feat/tauri-mvp1e-history-substrate`_ | 🚧 Branch cut; plan pending. |
+| **MVP-2** | Claude subprocess integration | _not yet written; due after MVP-1e merges_ | ⏳ Not started. |
 | **MVP-3** | Skill bootstrap + `/kb` invocation | _not yet written; due after MVP-2 merges_ | ⏳ Not started. |
 | **MVP-4** | Test infrastructure on the new shell | _not yet written; due after MVP-3 merges_ | ⏳ Not started. |
 | **MVP-5** | Promote previously-blocked test cases | _not yet written; due after MVP-4 merges_ | ⏳ Not started. |
@@ -199,7 +199,7 @@ Map of files introduced or touched by the migration, by MVP. Update as code arri
 
 **Deferred / future MVPs:**
 
-- **MVP-1e — history substrate retirement (separated from MVP-1d 2026-05-08):** `historyPersistence.ts` (23 callers; `fnv1a` / `historyFileName` / `readHistoryFile` / `writeHistoryFile`); `useBackgroundScanner.ts` (still receives `dirHandleRef` from `knowledgeBase.tsx`); `useHistoryFileSync.ts` / `useDocumentHistory.ts` (`initHistory` accepts `FileSystemDirectoryHandle | null`; signature cleanup tied to substrate decision); `useFileExplorer.dirHandleRef` stub + `seed` callback (removable once `useBackgroundScanner` is migrated); `FirstRunHero.tsx` + `seedSampleVault.ts` (broken in Tauri mode; needs redesign); remaining FSA helpers in `fileExplorerHelpers.ts`. Decision pending at MVP-1d merge: own MVP-1e, or fold into MVP-2's chat-context substrate.
+- **MVP-1e — history substrate retirement (now active on `feat/tauri-mvp1e-history-substrate`; plan pending):** `historyPersistence.ts` (23 callers; `fnv1a` / `historyFileName` / `readHistoryFile` / `writeHistoryFile`) — port FSA reads/writes to `vault_read_text` / `vault_write_text`; `useBackgroundScanner.ts` (still receives `dirHandleRef` from `knowledgeBase.tsx`); `useHistoryFileSync.ts` / `useDocumentHistory.ts` (`initHistory` accepts `FileSystemDirectoryHandle | null`; signature drops the FSA arm); `useFileExplorer.dirHandleRef` stub + `seed` callback (removable once `useBackgroundScanner` is migrated); remaining FSA helpers in `fileExplorerHelpers.ts`. Separate sub-decision in the same MVP: `FirstRunHero.tsx` + `seedSampleVault.ts` redesign-vs-delete (broken in Tauri mode; `UninitializedVaultSplash` from MVP-1c already covers the empty-vault path).
 - **Footer** — `src/app/knowledge_base/shell/Footer.tsx` (gains `ClaudeStatusLine` + chat toggle icon in MVP-2).
 - **Bundled skill source** — `<project>/skills/knowledge-base/` (resource-bundled by MVP-3 build wiring).
 - **Test cases** — `test-cases/01-app-shell.md`, `02-file-system.md`, `04-document.md`, `05-links-and-graph.md`, `06-shared-hooks.md`, `06-svg-editor.md`, `07-persistence.md`, `11-tabs.md` (MVP-5 sweep targets).
@@ -229,23 +229,31 @@ These are non-negotiable; don't relitigate them mid-MVP.
 - **macOS FSEvents kind-mapping gap — `Modified`→`Deleted` half RESOLVED in MVP-1c (Task 10); rename-cookie half deferred to MVP-4 (updated 2026-05-08).** During MVP-1b Task 4 we discovered that `notify 6.1.1` + macOS FSEvents emits the "wrong" `ChangeKind` for several user actions: `tokio::fs::write` on an existing file → `Created` instead of `Modified`; `remove_file` → `Modified(Data)` instead of `Deleted`; `rename(a, b)` → only `Created(b.md)` with no source event. Real product impact: subscribers that try to re-read on `Modified` may hit `NotFound` for a deleted file, and tree-view consumers that reference the old rename source will see stale entries until the next full rescan. MVP-1b's integration tests therefore assert "any event for the affected path" rather than the exact kind. **Status:** ✅ MVP-1c Task 10 landed the post-process for the `Modified`→`Deleted` half (`postprocess_existence` in `src-tauri/src/vault/watcher.rs` runs `tokio::fs::metadata` on each `Modified` event in the worker and re-emits as `Deleted` when the file is gone). 🚧 The rename-cookie half — investigating `notify` config that exposes FSEvents rename cookies, or otherwise stitching rename source/target — stays deferred to MVP-4's cross-platform CI. Production `Watcher::start` already primes the FileIdMap cache via `cache().add_root()` (landed in MVP-1b) to enable rename stitching for pre-existing files on macOS/Windows. A `#[cfg(target_os = "linux")]` companion test that strictly asserts the paired-rename shape with `old_path == "a.md"` is also deferred to MVP-4.
 - **CI `e2e` job disabled in MVP-1a (2026-05-08).** Repository layer now routes through `@tauri-apps/api/core`'s `invoke()`, but the Playwright suite still boots `npm run dev` in vanilla Chromium with the FSA-shaped `e2e/fixtures/fsMock.ts`, so every spec throws `TypeError: Cannot read properties of undefined (reading 'invoke')`. The `e2e` block in `.github/workflows/ci.yml` is replaced with a comment pointing at MVP-4. **MVP-4 must restore this job** when it wires `tauri-plugin-webdriver` (spec § 9) — port the original steps from `.github/workflows/ci.yml` at commit `ad26115` (the last commit on `feat/tauri-mvp1a-scaffold` before the disable).
 - **MVP-1a Tasks 27/28 re-scoped (2026-05-08).** Discovered during execution that ~30 consumer callsites bypass the typed `Repository` abstraction by reading `useFileExplorer.dirHandleRef.current` directly. Re-shaped Task 27 → 27a (new `VaultIndexRepository`) + 27b (hook migration to typed repos), and Task 28 → 28a (knowledgeBase.tsx consumers) + 28b (DiagramOverlays / GraphifyView / linkManager / useOfflineCache) + 28c (final FSA-prop cleanup pass). Spec § 11.5 has the rationale; plan tasks 27a/b/28a/b/c are the canonical execution path. Original Task 27/28 sections in the plan are preserved as historical reference but not executed.
-- **MVP-1e — history substrate retirement (carved out of MVP-1d 2026-05-08; decision pending at MVP-1d merge).** The following targets need an in-memory history substrate decision before deletion is safe: `historyPersistence.ts` (23 callers); `useBackgroundScanner.ts` (still receives `dirHandleRef`); `useHistoryFileSync.ts` / `useDocumentHistory.ts` (`initHistory` accepts `FileSystemDirectoryHandle | null`); `useFileExplorer.dirHandleRef` stub + `seed` callback; `FirstRunHero.tsx` + `seedSampleVault.ts` (broken in Tauri mode); remaining FSA helpers in `fileExplorerHelpers.ts`. Decide at MVP-1d merge: own MVP-1e, or fold into MVP-2's chat-context substrate. Full detail in Reference architecture "Deferred / future MVPs" above.
+- **MVP-1e — history substrate retirement (decided 2026-05-08 post-merge: own plan, not folded into MVP-2).** Rationale: spec § 7.8 explicitly defers chat-history out of MVP-2, and `historyPersistence` is per-document undo-sidecar I/O (`.<filename>.history.json`) — orthogonal to MVP-2's chat-turn buffering. Folding would smear 23 unrelated callsites across the chat PR. Default approach for the plan: **port FSA → Tauri** mirroring the MVP-1a pattern (`vault_read_text` / `vault_write_text` for sidecars) — preserves user undo across restarts (`readHistoryFile` is called on file open in `useHistoryFileSync.ts:73` and on background scans in `useBackgroundScanner.ts:80`, so dropping persistence is a real UX regression). Targets: `historyPersistence.ts` (23 callers); `useBackgroundScanner.ts` (still receives `dirHandleRef`); `useHistoryFileSync.ts` / `useDocumentHistory.ts` (`initHistory` accepts `FileSystemDirectoryHandle | null`); `useFileExplorer.dirHandleRef` stub + `seed` callback; remaining FSA helpers in `fileExplorerHelpers.ts`. **Separate decision in the same MVP:** `FirstRunHero.tsx` + `seedSampleVault.ts` are broken in Tauri mode — the plan must call out redesign-vs-delete as its own option, distinct from sidecar porting, so the user can decide each.
 
 ---
 
 ## Next Action
 
-**MVP-1d implementation complete on `feat/tauri-mvp1d-cleanup-bundle`. Task 14 opens PR #152 — wait for CI green (3 jobs: checks + build + tauri-build), request review, merge.**
+**MVP-1d merged via PR #152. Branch `feat/tauri-mvp1e-history-substrate` is cut from `main`. Write the MVP-1e plan, then dispatch.**
 
 ```bash
 cd "/Users/kiro/My Projects/knowledge-base"
-git checkout feat/tauri-mvp1d-cleanup-bundle
-git log --oneline main..HEAD          # 11 commits — 1 plan-seed + 10 task commits + this doc commit
-gh pr view --web                      # PR opened by Task 14 (PR #152)
+git checkout feat/tauri-mvp1e-history-substrate
+git log --oneline -5             # confirms branch is at main's tip plus this doc commit
+ls docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md
 ```
 
-**On merge:**
+**Plan-writing brief (run via `superpowers:writing-plans`):**
 
-1. Run the **Post-merge cleanup protocol** above (sync `main`, delete the merged local branch, prune origin, cut the next branch).
-2. **Decide MVP-1e vs MVP-2:** the deferred history-substrate work (`historyPersistence`, `useBackgroundScanner`, `useHistoryFileSync`, `useDocumentHistory`, `useFileExplorer.dirHandleRef` stub, `FirstRunHero` + `seedSampleVault`, FSA helpers in `fileExplorerHelpers.ts`) needs an in-memory history substrate decision. Either write an MVP-1e plan that designs and ships that substrate alone, or fold it into MVP-2's chat-context substrate (where in-memory history aligns with chat-turn buffering). Decide based on what MVP-2's plan needs — if MVP-2 wants chat-context state regardless, fold; if not, MVP-1e first.
-3. Whichever way, dispatch via `superpowers:subagent-driven-development`.
+- **Sidecar I/O migration (default approach — Option 1: port FSA → Tauri).** Mirror MVP-1a's per-repo pattern: rewrite `historyPersistence.ts` reads/writes to use `vault_read_text` / `vault_write_text` (paths are POSIX-relative — no `FileSystemDirectoryHandle` required). Migrate `useHistoryFileSync.ts:73` and `useBackgroundScanner.ts:80` (real cold-start readers — undo persistence across restarts is a user-facing feature, not optional). `initHistory` signature drops `FileSystemDirectoryHandle | null`. `useBackgroundScanner.ts` stops receiving `dirHandleRef`. `useFileExplorer.dirHandleRef` stub + `seed` callback removed once `useBackgroundScanner` no longer needs it. Final FSA helpers in `fileExplorerHelpers.ts` deleted.
+- **Surfaced as a separate, explicit option in the plan: Option 2 — drop persistence, in-memory only.** UX regression (undo dies on restart). Don't pick this silently; require user opt-in.
+- **Surfaced as a separate, explicit option in the plan: Option 3 — hybrid (in-memory primary, opportunistic write-back).** Adds complexity for unclear benefit; flag as not recommended.
+- **Separate decision in the same plan: `FirstRunHero.tsx` + `seedSampleVault.ts`.** Broken in Tauri mode. Two sub-options to call out cleanly: redesign for Tauri (rebuild sample vault via `vault_*` writes against a user-picked path) vs delete (covered by MVP-1c's `UninitializedVaultSplash`). Don't lump with sidecar porting — these are independent product calls.
+- **Spec touch:** add an § 11.4 entry referencing MVP-1e's existence and the substrate decision, or extend § 6 with a § 6.5 for MVP-1e if the plan exceeds the cross-cutting scope.
+
+**After plan lands on this branch:**
+
+1. Commit the plan + this handoff edit alongside the first task's seed commit (no doc-only PRs).
+2. Dispatch via `superpowers:subagent-driven-development` — that's the default for this MVP per the project conventions.
+3. On PR merge, run the **Post-merge cleanup protocol** and decide between MVP-2 (start) and any deferred items the review surfaced.
