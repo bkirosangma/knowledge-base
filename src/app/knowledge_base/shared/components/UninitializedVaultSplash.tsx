@@ -5,12 +5,14 @@ import React from "react";
 interface Props {
   folderName: string;
   onInitialize: () => void;
+  onInitializeWithTemplate: () => void;
   onPickDifferent: () => void;
 }
 
 export function UninitializedVaultSplash({
   folderName,
   onInitialize,
+  onInitializeWithTemplate,
   onPickDifferent,
 }: Props) {
   return (
@@ -23,13 +25,20 @@ export function UninitializedVaultSplash({
         <p className="text-lg font-medium text-ink">
           {folderName} is not yet a knowledge-base vault.
         </p>
-        <div className="mt-6 flex justify-center gap-3">
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
           <button
             type="button"
             className="rounded bg-accent px-4 py-2 text-white hover:opacity-90 transition-opacity"
             onClick={onInitialize}
           >
             Initialize this vault
+          </button>
+          <button
+            type="button"
+            className="rounded border border-accent px-4 py-2 text-accent hover:bg-surface-2 transition-colors"
+            onClick={onInitializeWithTemplate}
+          >
+            Initialize with full template
           </button>
           <button
             type="button"

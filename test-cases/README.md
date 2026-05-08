@@ -22,6 +22,7 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 | 10 | `FIRSTRUN` | First-run experience (KB-012) — hero + sample vault | [10-first-run.md](10-first-run.md) |
 | 11 | `TAB` | Guitar Tabs (`.alphatex`, `TabEngine`, `TabRepository`, viewer + editor) | [11-tabs.md](11-tabs.md) |
 | 12 | `CHAT` | Claude Chat Surface (drawer, session, composer, status line, crash recovery, permission mode) | [12-claude-chat.md](12-claude-chat.md) |
+| 13 | `SKILLS` / `SLASH` / `VAULTPICK` | Skills (bootstrap, slash-command palette, Skills sheet, vault file picker, init-with-template) | [13-skills.md](13-skills.md) |
 
 ---
 

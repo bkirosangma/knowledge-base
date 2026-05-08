@@ -15,6 +15,7 @@ interface Props {
   onOpenVault: () => void;
   onSwitchVault: (path: string) => void;
   onInitializeVault: () => void;
+  onInitializeVaultWithTemplate?: () => void;
 }
 
 export function VaultSwitcher({
@@ -24,6 +25,7 @@ export function VaultSwitcher({
   onOpenVault,
   onSwitchVault,
   onInitializeVault,
+  onInitializeVaultWithTemplate,
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const close = () => setOpen(false);
@@ -131,6 +133,19 @@ export function VaultSwitcher({
               }}
             >
               Initialize Vault…
+            </button>
+          )}
+          {isUninitialised && onInitializeVaultWithTemplate && (
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full border-t border-line px-3 py-2 text-left hover:bg-surface-2 transition-colors"
+              onClick={() => {
+                close();
+                onInitializeVaultWithTemplate();
+              }}
+            >
+              Initialize with full template
             </button>
           )}
         </div>

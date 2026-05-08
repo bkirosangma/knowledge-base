@@ -288,6 +288,8 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.17-05** ✅ **"Open a different folder" re-runs the picker** — clicking the secondary action calls the bridge picker so the user can choose another folder without initializing the current one. _(unit: `UninitializedVaultSplash.test.tsx`)_
 - **SHELL-1.17-06** ✅ **No-vault CTA renders Open Vault button that triggers `fileExplorer.openFolder`** — `KnowledgeBaseInner` renders `<NoVaultCTA>` when `vaultStatus === "no-vault"`; clicking its Open Vault button calls `fileExplorer.openFolder`. Replaces the deleted `FirstRunHero` card (retired in MVP-1e). _(unit: `knowledgeBase.noVault.test.tsx`)_
 
+> Splash gains a third "Initialize with full template" action (MVP-3 Task 9) — see SKILLS-13.5-01..02 in [`test-cases/13-skills.md`](13-skills.md).
+
 ## 1.18 Tauri Build / CI (MVP-1d)
 
 > macOS Tauri debug build job added in MVP-1d (`.github/workflows/ci.yml` `tauri-build` job). Runs on `macos-latest`; executes `npm run build` (static export) then `cargo build --manifest-path src-tauri/Cargo.toml` to verify the Rust shell compiles against the front-end bundle on every PR.

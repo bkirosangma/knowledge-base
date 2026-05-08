@@ -44,7 +44,7 @@ import { readOrNull } from "./domain/repositoryHelpers";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
-import { ChatProvider } from "./features/claude/ChatContext";
+import { ChatProvider, useChat } from "./features/claude/ChatContext";
 import { ClaudeChatDrawer } from "./features/claude/ClaudeChatDrawer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { Command, CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
@@ -225,6 +225,14 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     const cfg = await repos.vaultConfig.read().catch(() => null);
     setVaultConfig(cfg);
   }, [fileExplorer.vaultPath, fileExplorer.directoryName, repos.vaultConfig]);
+
+  const { send: chatSend, open: openDrawer } = useChat();
+
+  const handleInitializeWithTemplate = useCallback(async () => {
+    await initializeCurrentVault();
+    openDrawer();
+    queueMicrotask(() => void chatSend("/kb init"));
+  }, [initializeCurrentVault, openDrawer, chatSend]);
 
   // Workspace-scoped attachment-links repo — reads from the context bag.
   // repos.attachmentLinks is non-null once vaultPath is set (same lifecycle
@@ -1457,10 +1465,12 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
                 onOpenVault={handleOpenFolder}
                 onSwitchVault={handleSwitchVault}
                 onInitializeVault={() => void initializeCurrentVault()}
+                onInitializeVaultWithTemplate={() => void handleInitializeWithTemplate()}
               />
               <UninitializedVaultSplash
                 folderName={folderName}
                 onInitialize={() => void initializeCurrentVault()}
+                onInitializeWithTemplate={() => void handleInitializeWithTemplate()}
                 onPickDifferent={handleOpenFolder}
               />
             </div>

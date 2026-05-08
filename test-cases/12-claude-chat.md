@@ -25,6 +25,10 @@
 - CHAT-12.3-03: 🟡 When the textarea is empty/whitespace-only, the send button is disabled. (unit: Composer.test "does not submit empty messages")
 - CHAT-12.3-04: 🟡 During streaming, the send button is replaced by a stop button. (unit: Composer.test "shows stop button while streaming")
 - CHAT-12.3-05: 🟡 When the stop button is clicked, the active stream is cancelled (subsequent partial_text events stop) and the subprocess stays alive. (unit: Composer.test "fires onInterrupt when stop clicked")
+- CHAT-12.3-10: 🟡 When the user types "/" in the composer, a slash-command palette opens above the textarea. (unit: Composer.test "CHAT-12.3-10: slash palette opens on '/'")
+- CHAT-12.3-11: 🟡 When the user types a space after "/…", the slash palette closes. (unit: Composer.test "CHAT-12.3-11: typing space closes the palette")
+- CHAT-12.3-12: 🟡 ArrowDown moves highlight and Enter inserts the selected template (trailing space, cursor at end). (unit: Composer.test "CHAT-12.3-12: ArrowDown then Enter inserts the next template")
+- CHAT-12.3-13: 🟡 Escape dismisses the palette without inserting, appending a space to prevent re-trigger. (unit: Composer.test "CHAT-12.3-13: Escape dismisses palette without inserting")
 
 ## CHAT-12.4 — interrupt + reset
 
@@ -59,3 +63,7 @@
 - CHAT-12.8-01: 🟡 Default `claude.permissionMode` is `acceptEdits`. (unit: VaultSwitcher.test "displays the current permission mode (acceptEdits by default)")
 - CHAT-12.8-02: 🟡 Toggling permission mode in the VaultSwitcher dropdown persists across launches. (unit: VaultSwitcher.test "toggles from acceptEdits to default and persists")
 - CHAT-12.8-03: 🟡 Drawer height persists across launches under `ui.claudeChat.height`. (unit: useDrawerState.test "persists height on setHeight")
+
+## CHAT-12.9 — skills header button
+
+- CHAT-12.9-01: 🟡 Clicking the "Skills" button in the drawer header opens the SkillsSheet overlay. (unit: ClaudeChatDrawer.test "CHAT-12.9-01: Skills header button opens the SkillsSheet")

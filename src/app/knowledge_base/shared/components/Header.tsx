@@ -45,6 +45,8 @@ interface HeaderProps {
   onSwitchVault?: (path: string) => void;
   /** Initialise the current folder as a vault (creates `.knowledgebase/`). */
   onInitializeVault?: () => void;
+  /** Initialise vault then auto-submit `/kb init` into the chat. */
+  onInitializeVaultWithTemplate?: () => void;
 }
 
 /**
@@ -65,6 +67,7 @@ export default function Header({
   onOpenVault,
   onSwitchVault,
   onInitializeVault,
+  onInitializeVaultWithTemplate,
 }: HeaderProps) {
   const { setOpen } = useCommandRegistry();
 
@@ -91,6 +94,7 @@ export default function Header({
             onOpenVault={onOpenVault}
             onSwitchVault={onSwitchVault}
             onInitializeVault={onInitializeVault}
+            onInitializeVaultWithTemplate={onInitializeVaultWithTemplate}
           />
         ) : null}
         <div role="status" aria-live="polite" className="flex items-center justify-end">
