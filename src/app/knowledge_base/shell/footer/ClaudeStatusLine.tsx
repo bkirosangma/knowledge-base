@@ -1,3 +1,4 @@
+import { useChat } from "../../features/claude/ChatContext";
 import { useClaudeStatus } from "../../features/claude/hooks/useClaudeStatus";
 import { useClaudeUsage } from "../../features/claude/hooks/useClaudeUsage";
 
@@ -15,12 +16,28 @@ function formatCost(usd: number): string {
 }
 
 export function ClaudeStatusLine({ vaultName }: ClaudeStatusLineProps) {
+  const { errorMessage, reset } = useChat();
   const { status } = useClaudeStatus();
   const { model, inputTokens, outputTokens, costUsd } = useClaudeUsage();
 
   const vaultClause = vaultName ? ` · vault: ${vaultName}` : "";
 
   if (status.binary === "unknown") return null;
+
+  if (errorMessage?.startsWith("Claude crashed")) {
+    return (
+      <span className="text-xs text-red-400 tabular-nums">
+        claude: failing to start{" "}
+        <button
+          type="button"
+          onClick={() => void reset()}
+          className="cursor-pointer underline hover:text-red-300"
+        >
+          Retry
+        </button>
+      </span>
+    );
+  }
 
   if (status.binary === "missing") {
     return (

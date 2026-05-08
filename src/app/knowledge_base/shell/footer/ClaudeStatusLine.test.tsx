@@ -1,7 +1,12 @@
 // Covers CHAT-12.6-01 through 12.6-06 — ClaudeStatusLine display states.
-import { describe, it, expect, vi } from "vitest";
+// Covers CHAT-14-01, CHAT-14-02 — crashed-state banner + Retry.
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
+vi.mock("../../features/claude/ChatContext", () => ({
+  useChat: vi.fn(),
+}));
 vi.mock("../../features/claude/hooks/useClaudeStatus", () => ({
   useClaudeStatus: vi.fn(),
 }));
@@ -9,12 +14,18 @@ vi.mock("../../features/claude/hooks/useClaudeUsage", () => ({
   useClaudeUsage: vi.fn(),
 }));
 
+import { useChat } from "../../features/claude/ChatContext";
 import { useClaudeStatus } from "../../features/claude/hooks/useClaudeStatus";
 import { useClaudeUsage } from "../../features/claude/hooks/useClaudeUsage";
 import { ClaudeStatusLine } from "./ClaudeStatusLine";
 
+const mockedChat = vi.mocked(useChat);
 const mockedStatus = vi.mocked(useClaudeStatus);
 const mockedUsage = vi.mocked(useClaudeUsage);
+
+beforeEach(() => {
+  mockedChat.mockReturnValue({ errorMessage: null, reset: vi.fn() } as any);
+});
 
 describe("ClaudeStatusLine", () => {
   it("CHAT-12.6-01: renders nothing while status is unknown", () => {
@@ -63,5 +74,42 @@ describe("ClaudeStatusLine", () => {
     render(<ClaudeStatusLine vaultName="" />);
     expect(screen.getByText(/claude: idle/)).toBeInTheDocument();
     expect(screen.queryByText(/vault:/)).toBeNull();
+  });
+
+  it("CHAT-14-01: renders crashed state with Retry button that calls reset", async () => {
+    const reset = vi.fn();
+    mockedChat.mockReturnValue({
+      errorMessage: "Claude crashed: subprocess exited",
+      reset,
+    } as any);
+    mockedStatus.mockReturnValue({
+      status: { binary: "found", version: "2.1.129", auth: "oauth" },
+      refresh: vi.fn(),
+    });
+    mockedUsage.mockReturnValue({
+      model: null, inputTokens: 0, outputTokens: 0, costUsd: 0,
+    });
+    render(<ClaudeStatusLine vaultName="kb" />);
+    expect(screen.getByText(/claude: failing to start/)).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: /retry/i });
+    await userEvent.click(retry);
+    expect(reset).toHaveBeenCalled();
+  });
+
+  it("CHAT-14-02: crashed banner takes priority over missing-binary state", () => {
+    mockedChat.mockReturnValue({
+      errorMessage: "Claude crashed: subprocess exited",
+      reset: vi.fn(),
+    } as any);
+    mockedStatus.mockReturnValue({
+      status: { binary: "missing", auth: "unknown" },
+      refresh: vi.fn(),
+    });
+    mockedUsage.mockReturnValue({
+      model: null, inputTokens: 0, outputTokens: 0, costUsd: 0,
+    });
+    render(<ClaudeStatusLine vaultName="kb" />);
+    expect(screen.getByText(/claude: failing to start/)).toBeInTheDocument();
+    expect(screen.queryByText(/not installed/)).toBeNull();
   });
 });
