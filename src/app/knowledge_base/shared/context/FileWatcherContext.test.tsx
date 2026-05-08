@@ -11,16 +11,25 @@ let registeredHandler: ((event: { payload: unknown }) => void) | null = null;
 const unlistenMock = vi.fn();
 
 // Use vi.hoisted so these are initialised before vi.mock factories run.
-const { watchStartMock, watchStopMock } = vi.hoisted(() => ({
+const { watchStartMock, watchStopMock, listenMock } = vi.hoisted(() => ({
   watchStartMock: vi.fn().mockResolvedValue(undefined),
   watchStopMock: vi.fn().mockResolvedValue(undefined),
+  listenMock: vi.fn(),
 }));
 
+// Re-arm the listen mock implementation each test (mockClear in beforeEach
+// wipes the implementation along with call history).
+function armListenMock() {
+  listenMock.mockImplementation(
+    async (_name: string, handler: (e: { payload: unknown }) => void) => {
+      registeredHandler = handler;
+      return unlistenMock;
+    },
+  );
+}
+
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(async (_name: string, handler: (e: { payload: unknown }) => void) => {
-    registeredHandler = handler;
-    return unlistenMock;
-  }),
+  listen: listenMock,
 }));
 
 vi.mock("../../infrastructure/tauriBridge", () => ({
@@ -36,6 +45,8 @@ describe("FileWatcherContext", () => {
     watchStartMock.mockClear();
     watchStopMock.mockClear();
     unlistenMock.mockClear();
+    listenMock.mockClear();
+    armListenMock();
   });
 
   afterEach(() => {
@@ -64,10 +75,14 @@ describe("FileWatcherContext", () => {
     expect(watchStopMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call watchStart when vaultPath is null", async () => {
+  it("does not call watchStart or listen when vaultPath is null", async () => {
     render(<FileWatcherProvider vaultPath={null}>{null}</FileWatcherProvider>);
     await Promise.resolve();
+    // Both Tauri APIs reach into window.__TAURI_INTERNALS__, which is
+    // undefined in test wrappers that don't mock @tauri-apps/api/*.
+    // The provider must remain inert until vaultPath is set.
     expect(watchStartMock).not.toHaveBeenCalled();
+    expect(listenMock).not.toHaveBeenCalled();
   });
 
   it("fires every subscriber on each vault_change event and updates lastSyncedAt", async () => {

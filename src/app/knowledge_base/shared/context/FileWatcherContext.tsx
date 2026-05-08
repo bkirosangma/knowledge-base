@@ -51,26 +51,24 @@ export function FileWatcherProvider({ vaultPath, children }: ProviderProps) {
     setLastSyncedAt(Date.now());
   }, []);
 
-  // Start/stop the Rust watcher around vault lifecycle.
+  // Start/stop the Rust watcher AND subscribe to vault_change events,
+  // gated on `vaultPath`. Both Tauri APIs (`tauriBridge.watchStart` and
+  // `listen`) reach into `window.__TAURI_INTERNALS__`, which is undefined
+  // in Vitest test environments that haven't mocked the Tauri APIs.
+  // Gating both on `vaultPath` keeps the provider safe in test wrappers
+  // that mount with `vaultPath={null}` and never touch Tauri.
   useEffect(() => {
     if (!vaultPath) return;
     let cancelled = false;
+    let unlisten: UnlistenFn | null = null;
+
     void tauriBridge.watchStart().catch((err) => {
       if (!cancelled) {
         // Log only; subscribers can still trigger manual refreshes via refresh().
         console.warn("[FileWatcher] watchStart failed:", err);
       }
     });
-    return () => {
-      cancelled = true;
-      void tauriBridge.watchStop().catch(() => undefined);
-    };
-  }, [vaultPath]);
 
-  // Listen for vault_change events and fan out to subscribers.
-  useEffect(() => {
-    let unlisten: UnlistenFn | null = null;
-    let cancelled = false;
     void listen("vault_change", () => {
       void fanOut();
     }).then((fn) => {
@@ -80,11 +78,13 @@ export function FileWatcherProvider({ vaultPath, children }: ProviderProps) {
         unlisten = fn;
       }
     });
+
     return () => {
       cancelled = true;
       unlisten?.();
+      void tauriBridge.watchStop().catch(() => undefined);
     };
-  }, [fanOut]);
+  }, [vaultPath, fanOut]);
 
   const subscribe = useCallback((id: string, fn: () => Promise<void>) => {
     subscribersRef.current.set(id, fn);
