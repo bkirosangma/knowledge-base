@@ -38,6 +38,7 @@ impl Runner {
 
         let mut cmd = Command::new("claude");
         cmd.arg("-p")
+            .arg("--verbose")
             .arg("--input-format").arg("stream-json")
             .arg("--output-format").arg("stream-json")
             .arg("--include-partial-messages")

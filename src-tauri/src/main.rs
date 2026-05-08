@@ -32,6 +32,7 @@ fn main() {
             settings_commands::settings_read,
             settings_commands::settings_write,
             claude_commands::claude_status,
+            claude_commands::claude_send,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
