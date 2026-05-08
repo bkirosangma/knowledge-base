@@ -1,4 +1,4 @@
-export type ClaudeBinaryState = "found" | "missing";
+export type ClaudeBinaryState = "found" | "missing" | "unknown";
 export type ClaudeAuthMode = "oauth" | "api_key" | "unknown";
 
 export interface ClaudeStatus {

@@ -7,13 +7,15 @@ import { useToolbarContext, GRAPH_SENTINEL } from "./ToolbarContext";
 import type { PaneEntry } from "./PaneManager";
 import ConfirmPopover from "../shared/components/explorer/ConfirmPopover";
 import { useFileWatcher } from "../shared/context/FileWatcherContext";
+import { ClaudeStatusLine } from "./footer/ClaudeStatusLine";
 
 interface FooterProps {
   focusedEntry: PaneEntry | null;
   isSplit: boolean;
+  vaultName: string;
 }
 
-export default function Footer({ focusedEntry, isSplit }: FooterProps) {
+export default function Footer({ focusedEntry, isSplit, vaultName }: FooterProps) {
   const { leftInfo, rightInfo } = useFooterContext();
   const { focusedPane } = useToolbarContext();
   const [resetConfirmPos, setResetConfirmPos] = useState<{ x: number; y: number } | null>(null);
@@ -58,6 +60,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
               </span>
             </>
           )}
+          <ClaudeStatusLine vaultName={vaultName} />
           <LastSyncedChip />
           <button
             onClick={(e) => setResetConfirmPos({ x: e.clientX, y: e.clientY })}

@@ -85,6 +85,7 @@ Top-level chrome that hosts every other feature.
 - ✅ **Diagram stats** — world dimensions (`W x H px`), patch count, current zoom %.
 - ✅ **Last synced chip** (KB-041) — small monospace pill reading `Last synced N s ago`, sourced from `useFileWatcher().lastSyncedAt` and re-rendered every second so users can trust the watcher cadence. Hidden in focus mode (Footer is unmounted).
 - ✅ **Reset App button** — clears localStorage and reloads the window (destructive — confirm path worth testing).
+- ✅ **Claude status line** (MVP-2 Task 4) — right-aligned monospace chip showing `claude: idle · vault: <name>` (mute), `claude: not installed` (amber), or `claude: api-key billing (not subscription)` (amber). Sourced from `useClaudeStatus()` (IPC round-trip to Rust `claude_status` command) and `useClaudeUsage()` (stub; Task 15 wires real accumulation). Suppresses `vault:` segment when no vault is open. `src/app/knowledge_base/shell/footer/ClaudeStatusLine.tsx`.
 
 ### 1.4 Pane Manager & Split Pane
 `src/app/knowledge_base/shell/PaneManager.tsx`, `shared/components/SplitPane.tsx`

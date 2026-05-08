@@ -1654,7 +1654,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
 
       {/* Footer unmounts in Focus Mode so document content fills the
           full vertical space. */}
-      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
+      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} vaultName={fileExplorer.directoryName ?? ""} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
       <CommandPalette searchFn={searchManager.search} onSearchPick={handleSearchPick} />

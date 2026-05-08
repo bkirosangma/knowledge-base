@@ -7,6 +7,10 @@ import { ToolbarProvider, useToolbarContext, type PaneType, type FocusedPane } f
 import type { PaneEntry } from './PaneManager'
 import { FileWatcherProvider } from '../shared/context/FileWatcherContext'
 
+vi.mock('./footer/ClaudeStatusLine', () => ({
+  ClaudeStatusLine: () => null,
+}))
+
 // Covers SHELL-1.3-01 through 1.3-08. 1.3-05/06 (live updates) are integration-level
 // and covered by Canvas/useZoom tests in later buckets.
 
@@ -19,6 +23,7 @@ function FooterHarness({
   leftPaneType = null,
   rightPaneType = null,
   focused = 'single',
+  vaultName = 'test-vault',
 }: {
   focusedEntry: PaneEntry | null
   isSplit: boolean
@@ -27,6 +32,7 @@ function FooterHarness({
   leftPaneType?: PaneType | null
   rightPaneType?: PaneType | null
   focused?: FocusedPane
+  vaultName?: string
 }) {
   function Setup() {
     const toolbar = useToolbarContext()
@@ -45,7 +51,7 @@ function FooterHarness({
       <FooterProvider>
         <FileWatcherProvider vaultPath={null}>
           <Setup />
-          <Footer focusedEntry={focusedEntry} isSplit={isSplit} />
+          <Footer focusedEntry={focusedEntry} isSplit={isSplit} vaultName={vaultName} />
         </FileWatcherProvider>
       </FooterProvider>
     </ToolbarProvider>
