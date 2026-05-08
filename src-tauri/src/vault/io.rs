@@ -3,6 +3,7 @@ use tokio::fs;
 
 use super::error::VaultError;
 use super::path::resolve;
+use serde::Serialize;
 
 /// Read a UTF-8 text file at vault-relative `rel`.
 pub async fn read_text(rel: &str, root: &Path) -> Result<String, VaultError> {
@@ -71,6 +72,54 @@ pub async fn write_json_atomic(
     write_text_atomic(rel, &text, root).await
 }
 
+/// One directory entry, vault-relative-pathed and OS-neutral.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct DirEntry {
+    pub name: String,
+    /// `"file"` or `"directory"`. Symlinks resolved.
+    pub kind: String,
+    /// Vault-relative POSIX path, e.g. `docs/topic.md`.
+    pub path: String,
+}
+
+/// List a directory's immediate entries (non-recursive). Returns entries
+/// sorted by name. The vault-relative `dir` may be `""` for the root.
+pub async fn list(dir: &str, root: &Path) -> Result<Vec<DirEntry>, VaultError> {
+    let abs = if dir.is_empty() {
+        root.to_path_buf()
+    } else {
+        resolve(dir, root)?
+    };
+    let mut rd = fs::read_dir(&abs)
+        .await
+        .map_err(|e| VaultError::io(dir, e))?;
+    let mut out = Vec::new();
+    while let Some(entry) = rd
+        .next_entry()
+        .await
+        .map_err(|e| VaultError::io(dir, e))?
+    {
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        let metadata = entry
+            .metadata()
+            .await
+            .map_err(|e| VaultError::io(dir, e))?;
+        let kind = if metadata.is_dir() { "directory" } else { "file" };
+        let path = if dir.is_empty() {
+            file_name.clone()
+        } else {
+            format!("{dir}/{file_name}")
+        };
+        out.push(DirEntry {
+            name: file_name,
+            kind: kind.to_string(),
+            path,
+        });
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,5 +183,33 @@ mod tests {
             .unwrap();
         let err = read_json("config.json", td.path()).await.unwrap_err();
         assert!(matches!(err, VaultError::Parse { .. }));
+    }
+
+    #[tokio::test]
+    async fn lists_root_entries_sorted() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("b.md", "x", td.path()).await.unwrap();
+        write_text_atomic("a.md", "x", td.path()).await.unwrap();
+        std::fs::create_dir(td.path().join("docs")).unwrap();
+        let got = list("", td.path()).await.unwrap();
+        let names: Vec<_> = got.iter().map(|e| &e.name).collect();
+        assert_eq!(names, vec!["a.md", "b.md", "docs"]);
+    }
+
+    #[tokio::test]
+    async fn lists_subdirectory() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("docs/x.md", "x", td.path()).await.unwrap();
+        let got = list("docs", td.path()).await.unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].path, "docs/x.md");
+        assert_eq!(got[0].kind, "file");
+    }
+
+    #[tokio::test]
+    async fn list_missing_directory_returns_not_found() {
+        let td = TempDir::new().unwrap();
+        let err = list("nope", td.path()).await.unwrap_err();
+        assert!(matches!(err, VaultError::NotFound { .. }));
     }
 }
