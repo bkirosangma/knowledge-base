@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VaultSwitcher } from "./VaultSwitcher";
+import * as settingsStore from "../../infrastructure/settingsStore";
+
+vi.mock("../../infrastructure/settingsStore", () => ({
+  getClaudePermissionMode: vi.fn().mockResolvedValue("acceptEdits"),
+  setClaudePermissionMode: vi.fn().mockResolvedValue(undefined),
+}));
 
 const baseProps = {
   currentVaultName: "my-vault",
@@ -13,6 +19,11 @@ const baseProps = {
 };
 
 describe("VaultSwitcher", () => {
+  beforeEach(() => {
+    vi.mocked(settingsStore.getClaudePermissionMode).mockResolvedValue("acceptEdits");
+    vi.mocked(settingsStore.setClaudePermissionMode).mockResolvedValue(undefined);
+  });
+
   it("shows the current vault name on the trigger", () => {
     render(<VaultSwitcher {...baseProps} />);
     expect(screen.getByRole("button", { name: /my-vault/i })).toBeInTheDocument();
@@ -73,5 +84,33 @@ describe("VaultSwitcher", () => {
     expect(screen.getByRole("menuitem", { name: /open vault/i })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("menuitem", { name: /open vault/i })).not.toBeInTheDocument();
+  });
+
+  describe("permission mode toggle", () => {
+    it("displays the current permission mode (acceptEdits by default)", async () => {
+      render(<VaultSwitcher {...baseProps} />);
+      await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
+      expect(await screen.findByRole("menuitem", { name: /toggle claude permission mode/i })).toBeInTheDocument();
+      expect(screen.getByText("acceptEdits")).toBeInTheDocument();
+    });
+
+    it("toggles from acceptEdits to default and persists", async () => {
+      render(<VaultSwitcher {...baseProps} />);
+      await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
+      const toggleBtn = await screen.findByRole("menuitem", { name: /toggle claude permission mode/i });
+      await userEvent.click(toggleBtn);
+      expect(vi.mocked(settingsStore.setClaudePermissionMode)).toHaveBeenCalledWith("default");
+      expect(await screen.findByText("default")).toBeInTheDocument();
+    });
+
+    it("toggles from default back to acceptEdits and persists", async () => {
+      vi.mocked(settingsStore.getClaudePermissionMode).mockResolvedValue("default");
+      render(<VaultSwitcher {...baseProps} />);
+      await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
+      const toggleBtn = await screen.findByRole("menuitem", { name: /toggle claude permission mode/i });
+      await userEvent.click(toggleBtn);
+      expect(vi.mocked(settingsStore.setClaudePermissionMode)).toHaveBeenCalledWith("acceptEdits");
+      expect(await screen.findByText("acceptEdits")).toBeInTheDocument();
+    });
   });
 });
