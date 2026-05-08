@@ -1,1 +1,6 @@
-// Tauri command entry points stub — filled in Tasks 3, 6, 13, 14.
+use crate::claude::{status, types::ClaudeStatus};
+
+#[tauri::command]
+pub async fn claude_status() -> Result<ClaudeStatus, String> {
+    Ok(status::detect().await)
+}
