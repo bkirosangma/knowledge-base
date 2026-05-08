@@ -191,7 +191,15 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 - **MVP-1a Tasks 27/28 re-scoped (2026-05-08).** Discovered during execution that ~30 consumer callsites bypass the typed `Repository` abstraction by reading `useFileExplorer.dirHandleRef.current` directly. Re-shaped Task 27 → 27a (new `VaultIndexRepository`) + 27b (hook migration to typed repos), and Task 28 → 28a (knowledgeBase.tsx consumers) + 28b (DiagramOverlays / GraphifyView / linkManager / useOfflineCache) + 28c (final FSA-prop cleanup pass). Spec § 11.5 has the rationale; plan tasks 27a/b/28a/b/c are the canonical execution path. Original Task 27/28 sections in the plan are preserved as historical reference but not executed.
 - **`useOfflineCache` is browser-deploy-specific** (PWA Cache API). Becomes a no-op in Tauri mode for MVP-1a (Task 28b); slated for full removal in MVP-1d.
-- **MVP-1d cleanup target list grew:** in addition to FSA `*Repo.ts` deletion + `idbHandles.ts` deletion + `types/file-system.d.ts` deletion + GitHub Pages workflow removal, MVP-1d should also delete `vaultIndexRepoFsa.ts`, the `useOfflineCache` hook, and any remaining FSA-mode helpers in `fileExplorerHelpers.ts`.
+- **MVP-1d cleanup target list grew** (updated 2026-05-08 after Task 28c):
+  - In addition to FSA `*Repo.ts` deletion + `idbHandles.ts` deletion + `types/file-system.d.ts` deletion + GitHub Pages workflow removal, MVP-1d should also delete:
+    - `vaultIndexRepoFsa.ts` (added during Task 27a re-scope)
+    - `useOfflineCache.ts` (now no-op in Tauri mode after Task 28b)
+    - `historyPersistence.ts` (FSA-only sidecar history; Task 28c deferred its cleanup; document history runs in-memory in Tauri mode until then)
+    - Remaining FSA-mode helpers in `fileExplorerHelpers.ts`
+  - **Task 28c deferrals to MVP-1d:**
+    - `knowledgeBase.tsx:246` still passes `dirHandleRef: fileExplorer.dirHandleRef` (always null) into `useBackgroundScanner` — touching it requires migrating `useBackgroundScanner.ts` + `historyPersistence.ts`, both MVP-1d retirement targets.
+    - `useHistoryFileSync.ts` / `useDocumentHistory.ts` — `initHistory` still accepts `FileSystemDirectoryHandle | null` as a parameter; we pass `null` everywhere now (history is in-memory only) but the signature stays until those files are migrated/deleted in MVP-1d.
 
 ---
 
