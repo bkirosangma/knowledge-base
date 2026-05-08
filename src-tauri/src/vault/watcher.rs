@@ -1,7 +1,14 @@
 use notify::event::{EventKind, ModifyKind};
+use notify::RecursiveMode;
+use notify::Watcher as _;
 use notify_debouncer_full::DebouncedEvent;
+use notify_debouncer_full::{new_debouncer, Debouncer, FileIdMap};
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Runtime};
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +85,93 @@ fn relativise(p: &Path, root: &Path) -> Option<String> {
             .collect::<Vec<_>>()
             .join("/")
     })
+}
+
+const DEBOUNCE_MS: u64 = 200;
+
+/// Owns the active filesystem debouncer and the task that forwards events
+/// onto the `vault_change` Tauri event channel. `Default` constructs an
+/// empty (not-yet-started) watcher; `start` arms it; `stop` disarms it.
+#[derive(Default)]
+pub struct Watcher {
+    inner: Mutex<Option<WatcherInner>>,
+}
+
+struct WatcherInner {
+    /// Holding the debouncer alive keeps the underlying `notify::RecommendedWatcher` alive.
+    _debouncer: Debouncer<notify::RecommendedWatcher, FileIdMap>,
+    forwarder: JoinHandle<()>,
+    root: PathBuf,
+}
+
+impl Watcher {
+    /// Start watching `root`. Idempotent — calling `start` while already
+    /// watching the same root is a no-op; calling it with a different root
+    /// stops the existing watcher first.
+    pub async fn start<R: Runtime>(&self, root: PathBuf, app: AppHandle<R>) -> Result<(), String> {
+        let root = root
+            .canonicalize()
+            .map_err(|e| format!("canonicalize failed: {e}"))?;
+        let mut guard = self.inner.lock().await;
+        if let Some(existing) = guard.as_ref() {
+            if existing.root == root {
+                return Ok(());
+            }
+        }
+        if let Some(old) = guard.take() {
+            old.forwarder.abort();
+        }
+
+        let (tx, mut rx) =
+            tokio::sync::mpsc::unbounded_channel::<notify_debouncer_full::DebounceEventResult>();
+
+        let mut debouncer = new_debouncer(
+            Duration::from_millis(DEBOUNCE_MS),
+            None,
+            move |res: notify_debouncer_full::DebounceEventResult| {
+                let _ = tx.send(res);
+            },
+        )
+        .map_err(|e| format!("debouncer init failed: {e}"))?;
+
+        debouncer
+            .watcher()
+            .watch(&root, RecursiveMode::Recursive)
+            .map_err(|e| format!("watch failed: {e}"))?;
+
+        let app_handle = app.clone();
+        let root_for_task = root.clone();
+        let forwarder = tokio::spawn(async move {
+            while let Some(batch_result) = rx.recv().await {
+                let events = match batch_result {
+                    Ok(events) => events,
+                    Err(errs) => {
+                        eprintln!("[vault watcher] notify errors: {errs:?}");
+                        continue;
+                    }
+                };
+                for change in to_vault_changes(events, &root_for_task) {
+                    if let Err(e) = app_handle.emit("vault_change", change) {
+                        eprintln!("[vault watcher] emit failed: {e}");
+                    }
+                }
+            }
+        });
+
+        *guard = Some(WatcherInner {
+            _debouncer: debouncer,
+            forwarder,
+            root,
+        });
+        Ok(())
+    }
+
+    pub async fn stop(&self) {
+        let mut guard = self.inner.lock().await;
+        if let Some(inner) = guard.take() {
+            inner.forwarder.abort();
+        }
+    }
 }
 
 #[cfg(test)]

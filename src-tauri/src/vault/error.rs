@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn io_helper_falls_back_to_io_kind() {
-        let io_err = io::Error::new(io::ErrorKind::Other, "disk full");
+        let io_err = io::Error::other("disk full");
         let err = VaultError::io("docs/x.md", io_err);
         assert!(matches!(err, VaultError::Io { .. }));
     }
