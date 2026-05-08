@@ -88,6 +88,8 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-16** ✅ **`openFile` writes anchor onto the active `PaneEntry`** — calling `openFile(path, "document", { anchor: "intro" })` results in `activeEntry.anchor === "intro"`. Wiki-link MVP 3 plumbing for `[[doc.md#section]]`. _(unit: `PaneManager.test.tsx`)_
 - **SHELL-1.4-17** ✅ **`openFile` defaults anchor to `null`** — calling `openFile(path, "document")` (no opts) or `openFile(path, "document", {})` leaves `activeEntry.anchor === null`, so a stale anchor never bleeds into a fresh navigation. _(unit: `PaneManager.test.tsx`)_
 - **SHELL-1.4-18** ✅ **Subsequent navigation without anchor resets the entry's anchor** — after `openFile(path, "document", { anchor: "intro" })` then `openFile(path, "document")`, `activeEntry.anchor === null`. Each navigation produces a fresh entry, so an old `#section` cannot persist. _(unit: `PaneManager.test.tsx`)_
+- **SHELL-1.4-19** 🟡 **Footer renders chat toggle button on the left edge** — the chat toggle (MessageCircle icon) is the left-most footer slot, present on every page with an open vault. _(unit: `ChatToggleButton.test`)_
+- **SHELL-1.4-20** 🟡 **Chat toggle icon pulses when drawer is closed and a stream is in flight** — `animate-pulse` class applied to the toggle icon while `isStreaming && !isOpen`; static once the drawer is open. _(unit: `ChatToggleButton.test "pulses while streaming and closed"`)_
 
 ## 1.5 Contexts (Toolbar / Footer)
 
