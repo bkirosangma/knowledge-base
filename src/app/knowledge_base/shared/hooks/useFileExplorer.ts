@@ -165,6 +165,33 @@ export function useFileExplorer() {
     }
   }, [reportError]);
 
+  // MVP-1c: non-picker vault switch used by the Header recents dropdown.
+  // Confirms-dirty before swapping; reuses the same internals as openFolder
+  // minus the picker call. The watcher's vaultPath-keyed effect handles
+  // stop-old + start-new automatically.
+  const switchVault = useCallback(async (path: string) => {
+    if (drafts.dirtyFiles.size > 0) {
+      const ok = window.confirm(
+        `You have ${drafts.dirtyFiles.size} unsaved file(s). Switch vaults and discard?`,
+      );
+      if (!ok) return;
+    }
+    try {
+      setIsLoading(true);
+      await tauriBridge.setRoot(path);
+      setVaultPath(path);
+      const name = path.split("/").pop() ?? path.split("\\").pop() ?? path;
+      setDirectoryName(name);
+      setActiveFile(null);
+      await settingsStore.setLastPath(path);
+      await settingsStore.pushRecent(path);
+    } catch (e) {
+      reportError(e, "Switching vault");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [drafts.dirtyFiles, reportError]);
+
   // KB-012: pick a folder, run a seeder against the just-acquired handle
   // (e.g. unpack the bundled sample vault), then scan + open it.
   //
@@ -649,6 +676,7 @@ export function useFileExplorer() {
     clearPendingFile,
     openFolder,
     openFolderWithSeed,
+    switchVault,
     selectFile,
     saveFile,
     createFile,
