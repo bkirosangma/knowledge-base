@@ -1616,7 +1616,9 @@ function KnowledgeBaseWithProvider() {
   const [vaultPath, setVaultPath] = useState<string | null>(null);
   return (
     <RepositoryProvider vaultPath={vaultPath}>
-      <KnowledgeBaseInner onVaultPath={setVaultPath} />
+      <FileWatcherProvider vaultPath={vaultPath}>
+        <KnowledgeBaseInner onVaultPath={setVaultPath} />
+      </FileWatcherProvider>
     </RepositoryProvider>
   );
 }
@@ -1670,13 +1672,11 @@ export default function KnowledgeBase() {
         <ShellErrorBanner />
         <ToolbarProvider>
           <FooterProvider>
-            <FileWatcherProvider>
-              <ToastProvider>
-                <CommandRegistryProvider>
-                  <KnowledgeBaseWithProvider />
-                </CommandRegistryProvider>
-              </ToastProvider>
-            </FileWatcherProvider>
+            <ToastProvider>
+              <CommandRegistryProvider>
+                <KnowledgeBaseWithProvider />
+              </CommandRegistryProvider>
+            </ToastProvider>
           </FooterProvider>
         </ToolbarProvider>
       </ShellErrorProvider>
