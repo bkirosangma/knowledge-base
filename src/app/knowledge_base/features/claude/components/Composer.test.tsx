@@ -58,4 +58,45 @@ describe("Composer", () => {
     await userEvent.keyboard("{Enter}");
     expect(onSend).not.toHaveBeenCalled();
   });
+
+  it("CHAT-12.3-10: slash palette opens on '/'", async () => {
+    const user = userEvent.setup();
+    render(<Composer onSend={vi.fn()} onInterrupt={vi.fn()} isStreaming={false} />);
+    const ta = screen.getByLabelText("Message Claude");
+    await user.type(ta, "/");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("CHAT-12.3-11: typing space closes the palette", async () => {
+    const user = userEvent.setup();
+    render(<Composer onSend={vi.fn()} onInterrupt={vi.fn()} isStreaming={false} />);
+    const ta = screen.getByLabelText("Message Claude");
+    await user.type(ta, "/ ");
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("CHAT-12.3-12: ArrowDown then Enter inserts the next template", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(<Composer onSend={onSend} onInterrupt={vi.fn()} isStreaming={false} />);
+    const ta = screen.getByLabelText("Message Claude") as HTMLTextAreaElement;
+    await user.type(ta, "/");                  // palette opens, highlight=0 (create)
+    await user.keyboard("{ArrowDown}");        // highlight=1 (diagram)
+    await user.keyboard("{Enter}");            // insert "/kb diagram "
+    expect(ta.value).toBe("/kb diagram ");
+    // Enter inserted the template; palette should be closed (no longer matches /^\/[a-z-]*$/).
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("CHAT-12.3-13: Escape dismisses palette without inserting", async () => {
+    const user = userEvent.setup();
+    render(<Composer onSend={vi.fn()} onInterrupt={vi.fn()} isStreaming={false} />);
+    const ta = screen.getByLabelText("Message Claude") as HTMLTextAreaElement;
+    await user.type(ta, "/d");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    // Textarea retains the user's "/d" plus the dismiss space.
+    expect(ta.value).toBe("/d ");
+  });
 });

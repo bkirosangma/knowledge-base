@@ -833,6 +833,7 @@ Bottom-overlay conversational AI panel that runs a long-lived `claude -p` subpro
 
 ### 11.x.3 Composer
 - ✅ **`<Composer>`** — auto-growing textarea + send/stop button. Enter sends (trims whitespace, disables on empty). Shift+Enter inserts newline. Send button replaced by stop button during streaming. `features/claude/components/Composer.tsx`.
+  - ✅ **Slash-command palette** (MVP-3 Task 5) — when the textarea value matches `/^\/[a-z-]*$/`, a `<SlashPalette>` floats above the textarea listing the 8 `/kb` subcommands (create, diagram, document, edit, guitar-tabs, svg, transform, validate). Keyboard nav: ↑/↓ move highlight (wrapping), Enter/Tab inserts `"/kb <subcommand> "` (trailing space, cursor at end), Esc appends a space to dismiss without inserting. Selecting via mouseDown keeps textarea focus. `features/claude/slash/slashCommands.ts`, `features/claude/slash/SlashPalette.tsx`.
 
 ### 11.x.4 Session reducer & IPC
 - ✅ **`useClaudeSession` hook** — FSM reducer over `ClaudeEvent` variants (`message_start`, `partial_text`, `tool_use`, `message_end`, `crashed`). Accumulates turns; tracks streaming state; exposes `send`, `interrupt`, `reset`. `features/claude/hooks/useClaudeSession.ts`.
@@ -855,7 +856,7 @@ Bottom-overlay conversational AI panel that runs a long-lived `claude -p` subpro
 - ✅ **VaultSwitcher permission-mode toggle** (MVP-2 Task 17) — dropdown menu item in `<VaultSwitcher>` showing the current mode (`acceptEdits` / `default`); toggling calls `setClaudePermissionMode` and re-reads the persisted value. Default is `acceptEdits`. `shared/components/VaultSwitcher.tsx`, `infrastructure/settingsStore.ts`.
 
 ### 11.x.9 Deferred / explicit anti-goals (MVP-3+)
-- ❌ `/kb` slash-command palette — type `/` in Composer to attach diagrams or documents as context. Deferred to MVP-3.
+- ✅ `/kb` slash-command palette — shipped in MVP-3 Task 5. See §11.x.3 Composer.
 - ❌ "Attach this document/diagram to context" UI — explicit context-attachment affordance outside the slash-command palette. Deferred.
 - ❌ Saved chats / chat history persistence — turns do not survive app restarts. Deferred.
 - ❌ In-pane permission-prompt UI — `create_file` / `edit_file` tool-use blocks with Accept/Reject controls inline. Deferred.
