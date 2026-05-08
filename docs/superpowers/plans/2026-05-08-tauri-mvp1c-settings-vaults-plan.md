@@ -674,23 +674,23 @@ export function UninitializedVaultSplash({
     <div
       role="dialog"
       aria-modal="false"
-      className="fixed inset-0 z-40 flex items-center justify-center bg-bg p-8"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-surface p-8"
     >
       <div className="max-w-md text-center">
-        <p className="text-lg font-medium">
-          <span className="font-mono">{folderName}</span> is not yet a knowledge-base vault.
+        <p className="text-lg font-medium text-ink">
+          {folderName} is not yet a knowledge-base vault.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <button
             type="button"
-            className="rounded bg-accent px-4 py-2 text-bg"
+            className="rounded bg-accent px-4 py-2 text-white hover:opacity-90 transition-opacity"
             onClick={onInitialize}
           >
             Initialize this vault
           </button>
           <button
             type="button"
-            className="rounded border border-border px-4 py-2"
+            className="rounded border border-line px-4 py-2 hover:bg-surface-2 transition-colors"
             onClick={onPickDifferent}
           >
             Open a different folder
@@ -826,7 +826,7 @@ export function VaultSwitcher({
     <div className="relative">
       <button
         type="button"
-        className="flex items-center gap-1 rounded px-2 py-1 hover:bg-hover"
+        className="flex items-center gap-1 rounded px-2 py-1 hover:bg-surface-2 transition-colors"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -838,12 +838,12 @@ export function VaultSwitcher({
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-30 mt-1 min-w-[16rem] rounded border border-border bg-bg shadow-lg"
+          className="absolute left-0 top-full z-30 mt-1 min-w-[16rem] rounded border border-line bg-surface shadow-lg"
         >
           <button
             type="button"
             role="menuitem"
-            className="block w-full px-3 py-2 text-left hover:bg-hover"
+            className="block w-full px-3 py-2 text-left hover:bg-surface-2 transition-colors"
             onClick={() => {
               close();
               onOpenVault();
@@ -852,14 +852,14 @@ export function VaultSwitcher({
             Open Vault…
           </button>
           {recents.length > 0 && (
-            <div className="border-t border-border py-1">
+            <div className="border-t border-line py-1">
               <div className="px-3 py-1 text-xs uppercase text-mute">Recent</div>
               {recents.map((p) => (
                 <button
                   key={p}
                   type="button"
                   role="menuitem"
-                  className="block w-full truncate px-3 py-1 text-left font-mono text-xs hover:bg-hover"
+                  className="block w-full truncate px-3 py-1 text-left font-mono text-xs hover:bg-surface-2 transition-colors"
                   onClick={() => {
                     close();
                     onSwitchVault(p);
@@ -874,7 +874,7 @@ export function VaultSwitcher({
             <button
               type="button"
               role="menuitem"
-              className="block w-full border-t border-border px-3 py-2 text-left hover:bg-hover"
+              className="block w-full border-t border-line px-3 py-2 text-left hover:bg-surface-2 transition-colors"
               onClick={() => {
                 close();
                 onInitializeVault();
