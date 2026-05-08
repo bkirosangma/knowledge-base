@@ -665,6 +665,25 @@ Created at `docs/superpowers/handoffs/2026-05-07-tauri-claude-integration.md` wh
 - Capture-fixture CLI ergonomics (interactive prompt vs. one-shot CLI) — plan-level decision in MVP-4.
 - Linux build target — explicitly deferred; ~2–3 days of work when wanted, contingent on cross-platform discipline being upheld through MVPs 1–5.
 
+### 11.5 Discovered during MVP-1a execution — abstraction debt clean-up
+
+**Finding (2026-05-08, during Task 27 dispatch):** the spec's § 6.1 claim that "FSA-specific knowledge is concentrated in `RepositoryContext.tsx`, `idbHandles.ts`, `useFileExplorer`, `vaultConfig.ts`" was abstractly correct but practically optimistic. The typed `Repository` abstractions in `domain/repositories.ts` are clean, but ~30 callsites across `knowledgeBase.tsx`, `DiagramOverlays.tsx`, `useDiagramController.ts`, `GraphifyView.tsx`, `useOfflineCache`, and `linkManager` reach *past* the abstraction by consuming `useFileExplorer.dirHandleRef.current` directly to perform raw FSA operations. `useFileExplorer` itself does ~10 internal FSA operations beyond the picker (scanTree, writeTextFile, getFileHandle, removeEntry, createWritable, requestPermission, etc.). `TreeNode` carries `FileSystemFileHandle` / `FileSystemDirectoryHandle` fields that downstream consumers depend on for direct FS work.
+
+**Decision:** consolidate persistence on the `Repository` seam rather than introduce a parallel-adapter cruft layer. This is the proper fix and we're already touching every FSA callsite as part of the migration.
+
+**Scope expansion to MVP-1a:**
+- Add a new typed `VaultIndexRepository` interface (vault-level structural operations: `scan`, `rename`, `delete`, `exists`, `createFolder`). Both FSA and Tauri implementations.
+- `TreeNode` loses its `handle` / `dirHandle` fields (only made sense in FSA mode). Consumers that read `node.handle` migrate to using `useRepositories()` for the underlying I/O.
+- `useFileExplorer` stops exposing `dirHandleRef`. Internally it consumes `vaultIndex.scan()` and the typed content repos. Externally it exposes `vaultPath: string | null` only.
+- All ~30 direct-FSA consumers across `knowledgeBase.tsx`, `DiagramOverlays`, `useDiagramController`, `GraphifyView`, `useOfflineCache`, `linkManager` migrate to typed repos via `useRepositories()`.
+- `useOfflineCache` is browser-deploy-specific (PWA Cache API); it becomes a no-op in Tauri mode for MVP-1a, slated for full removal in MVP-1d.
+- FSA permission management (`requestPermission`, etc.) is removed — Tauri has no equivalent permission model at the file-handle level.
+
+**Cost:** ~3 extra task days (Tasks 27a/b + 28a/b/c instead of original 27 + 28).
+**Benefit:** the codebase ships MVP-1a with cleaner architecture than it had before the migration. Future backend swaps (cloud sync, SQLite, encrypted storage) become free — change one factory.
+
+The MVP-1a plan was updated in the same commit as this spec amendment to reflect the re-scoped tasks.
+
 ## 12. Acceptance criteria for the whole feature
 
 After MVP-5 ships, all of the following must be true:

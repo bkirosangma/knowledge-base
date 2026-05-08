@@ -2687,7 +2687,517 @@ git commit -m "feat(shell): RepositoryProvider takes vaultPath; Tauri-backed fac
 
 ---
 
-## Task 27: Swap `useFileExplorer` picker to `vault_pick`
+> **Re-scope note (2026-05-08):** Tasks 27 and 28 below were re-shaped during MVP-1a execution into Tasks 27a / 27b / 28a / 28b / 28c after discovering that ~30 consumer callsites reach past the typed `Repository` abstraction directly into `useFileExplorer.dirHandleRef.current` for raw FSA operations. See spec § 11.5 for the rationale. The original Task 27 / Task 28 sections that follow are kept as historical reference for what the plan looked like before re-scope, but the actual execution path is the lettered tasks below them.
+
+## Task 27a: Add `VaultIndexRepository` for vault-level structural operations
+
+**Files:**
+- Modify: `src/app/knowledge_base/domain/repositories.ts` — add `VaultIndexRepository` interface.
+- Modify: `src/app/knowledge_base/shared/utils/fileTree.ts` — remove `handle` / `dirHandle` fields from the `TreeNode` interface (or make them optional and never populated by the new scanner).
+- Create: `src/app/knowledge_base/infrastructure/vaultIndexRepoFsa.ts` — FSA implementation (delegates to existing `scanTree` + helpers from `fileExplorerHelpers.ts`).
+- Create: `src/app/knowledge_base/infrastructure/vaultIndexRepoTauri.ts` — Tauri implementation (delegates to `tauriBridge.list` / `rename` / `delete` / `exists`).
+- Create: `src/app/knowledge_base/infrastructure/vaultIndexRepoTauri.test.ts` — Vitest tests against mocked `tauriBridge`.
+- Modify: `src/app/knowledge_base/shell/RepositoryContext.tsx` — add `vaultIndex: VaultIndexRepository | null` to the `Repositories` bag and instantiate via `createVaultIndexRepositoryTauri()`.
+
+- [ ] **Step 1: Read existing tree-walk + helpers**
+
+```bash
+cat src/app/knowledge_base/shared/utils/fileTree.ts
+cat src/app/knowledge_base/shared/hooks/fileExplorerHelpers.ts
+```
+
+Note the existing `scanTree(handle, prefix) → TreeNode[]` shape. The new repo `scan()` returns `TreeNode[]` — same content, but `handle` and `dirHandle` fields are dropped.
+
+- [ ] **Step 2: Define the interface in `domain/repositories.ts`**
+
+Append:
+
+```ts
+import type { TreeNode } from "../shared/utils/types"; // or wherever TreeNode lives
+
+/**
+ * Vault-level structural operations: tree scan, rename, delete, exists,
+ * createFolder. Decouples consumers from the underlying filesystem driver
+ * (FSA vs Tauri).
+ */
+export interface VaultIndexRepository {
+  /** Recursive scan of the vault root. Returns a sorted tree. Throws
+   *  `FileSystemError` on failure. */
+  scan(): Promise<TreeNode[]>;
+  /** Rename or move a file or directory by vault-relative path. */
+  rename(from: string, to: string): Promise<void>;
+  /** Delete a file or directory (recursive for directories). */
+  delete(path: string): Promise<void>;
+  /** Check whether a vault-relative path exists. */
+  exists(path: string): Promise<boolean>;
+  /** Create an empty directory (and parents). */
+  createFolder(path: string): Promise<void>;
+}
+```
+
+If `TreeNode` lives in `shared/utils/fileTree.ts`, move its definition (or re-export) so the domain layer doesn't import from `shared/utils`.
+
+- [ ] **Step 3: Drop FSA-specific fields from `TreeNode`**
+
+Edit `fileTree.ts`:
+
+```ts
+export interface TreeNode {
+  name: string;
+  path: string;
+  type: "file" | "folder";
+  fileType?: "diagram" | "document" | "svg" | "tab";
+  children?: TreeNode[];
+  lastModified?: number;
+  // handle and dirHandle removed — consumers use useRepositories() for I/O.
+}
+```
+
+This change WILL break direct-FSA callsites that read `node.handle` or `node.dirHandle`. Note them but do not fix them in this task — they're addressed in Tasks 28a/b.
+
+- [ ] **Step 4: FSA-side implementation**
+
+Create `vaultIndexRepoFsa.ts`:
+
+```ts
+import type { VaultIndexRepository } from "../domain/repositories";
+import type { TreeNode } from "../shared/utils/fileTree";
+import { scanTree } from "../shared/utils/fileTree";
+// ...import the existing helpers for rename / delete / etc. from fileExplorerHelpers
+
+export function createVaultIndexRepositoryFsa(
+  rootHandle: FileSystemDirectoryHandle,
+): VaultIndexRepository {
+  return {
+    async scan(): Promise<TreeNode[]> {
+      const tree = await scanTree(rootHandle, "");
+      // Strip handle/dirHandle from every node (recursive).
+      return stripHandles(tree);
+    },
+    async rename(from, to) { /* delegate to existing helper */ },
+    async delete(path) { /* delegate to existing helper */ },
+    async exists(path) { /* try { getFileHandle/getDirectoryHandle } catch { return false } */ },
+    async createFolder(path) { /* recursive getDirectoryHandle({ create: true }) */ },
+  };
+}
+
+function stripHandles(nodes: TreeNode[]): TreeNode[] {
+  return nodes.map(({ handle, dirHandle, children, ...rest }) => ({
+    ...rest,
+    children: children ? stripHandles(children) : undefined,
+  }));
+}
+```
+
+(The exact body depends on what helpers already exist in `fileExplorerHelpers.ts`. Read that file first and reuse, don't duplicate.)
+
+- [ ] **Step 5: Tauri-side implementation**
+
+Create `vaultIndexRepoTauri.ts`:
+
+```ts
+import type { VaultIndexRepository } from "../domain/repositories";
+import type { TreeNode } from "../shared/utils/fileTree";
+import { tauriBridge } from "./tauriBridge";
+
+const KIND_BY_EXT: Record<string, TreeNode["fileType"]> = {
+  ".md": "document",
+  ".json": "diagram",
+  ".svg": "svg",
+  ".alphatex": "tab",
+};
+
+const HIDDEN_FOLDERS = new Set(["memory"]);
+const HIDDEN_FILES = new Set(["CLAUDE.md", "MEMORY.md", "AGENTS.md"]);
+const HIDDEN_FOLDER_PREFIX = ".";   // dot-folders skipped (.archdesigner, .claude, etc.)
+const HISTORY_SIDECAR = /^\..*\.history\.json$/;
+
+export function createVaultIndexRepositoryTauri(): VaultIndexRepository {
+  return {
+    scan() {
+      return scanRecursive("");
+    },
+    rename(from, to) {
+      return tauriBridge.rename(from, to);
+    },
+    delete(path) {
+      return tauriBridge.delete(path);
+    },
+    exists(path) {
+      return tauriBridge.exists(path);
+    },
+    async createFolder(path) {
+      // Tauri's vault_write_text creates parent dirs as a side effect; for an
+      // empty folder we use a sentinel sidecar then delete it, OR add a
+      // vault_create_dir command. Simplest: if Rust doesn't have create_dir
+      // exposed, write an empty `.gitkeep` and call it a day.
+      // For MVP-1a: write a zero-byte sentinel file `<path>/.kbkeep` then leave it.
+      await tauriBridge.writeText(`${path}/.kbkeep`, "");
+    },
+  };
+}
+
+async function scanRecursive(dir: string): Promise<TreeNode[]> {
+  const entries = await tauriBridge.list(dir);
+  const folders: TreeNode[] = [];
+  const files: TreeNode[] = [];
+  for (const e of entries) {
+    if (e.kind === "directory") {
+      if (HIDDEN_FOLDERS.has(e.name)) continue;
+      if (e.name.startsWith(HIDDEN_FOLDER_PREFIX)) continue;
+      folders.push({
+        name: e.name,
+        path: e.path,
+        type: "folder",
+        children: await scanRecursive(e.path),
+      });
+    } else {
+      if (HIDDEN_FILES.has(e.name)) continue;
+      if (HISTORY_SIDECAR.test(e.name)) continue;
+      const ext = e.name.includes(".") ? e.name.slice(e.name.lastIndexOf(".")) : "";
+      const fileType = KIND_BY_EXT[ext];
+      if (!fileType) continue;   // mirror FSA filter: only md/json/svg/alphatex
+      files.push({
+        name: e.name,
+        path: e.path,
+        type: "file",
+        fileType,
+      });
+    }
+  }
+  folders.sort((a, b) => a.name.localeCompare(b.name));
+  files.sort((a, b) => a.name.localeCompare(b.name));
+  return [...folders, ...files];
+}
+```
+
+(Confirm filter rules against `fileTree.ts`'s actual filter logic before writing — these constants must match.)
+
+- [ ] **Step 6: Tests for the Tauri implementation**
+
+Create `vaultIndexRepoTauri.test.ts` with `vi.hoisted` + `vi.mock("./tauriBridge")` pattern. At minimum:
+
+```ts
+const bridge = vi.hoisted(() => ({
+  list: vi.fn(),
+  rename: vi.fn(),
+  delete: vi.fn(),
+  exists: vi.fn(),
+  writeText: vi.fn(),
+}));
+```
+
+Tests:
+- `scan` returns sorted folders-first-then-files at root.
+- `scan` filters hidden folders (`memory`, dot-prefixed).
+- `scan` filters hidden files (`CLAUDE.md`, `MEMORY.md`, `AGENTS.md`, history sidecars).
+- `scan` filters non-recognized extensions.
+- `scan` recurses into subdirectories.
+- `rename` / `delete` / `exists` forward to the matching `tauriBridge` calls.
+- `createFolder` writes a `.kbkeep` sentinel.
+
+- [ ] **Step 7: Wire `vaultIndex` into `RepositoryContext.tsx`**
+
+Add it to the `Repositories` interface, `EMPTY_REPOS`, and the memo body alongside the other 10. Update the test to assert the new field is non-null when `vaultPath` is set.
+
+- [ ] **Step 8: Run targeted tests + typecheck**
+
+```bash
+npm run test:run -- src/app/knowledge_base/infrastructure/vaultIndexRepoTauri.test.ts
+npm run test:run -- src/app/knowledge_base/shell/RepositoryContext.test.tsx
+npm run typecheck 2>&1 | tail -20
+```
+
+The typecheck WILL show errors — most of them in places that consume `node.handle` (now removed) or that pass `dirHandle` to functions. **Do NOT fix these.** They are fixed in Tasks 27b/28a/b/c. Just count them and note the count in your report.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src/app/knowledge_base/domain/repositories.ts \
+        src/app/knowledge_base/shared/utils/fileTree.ts \
+        src/app/knowledge_base/infrastructure/vaultIndexRepoFsa.ts \
+        src/app/knowledge_base/infrastructure/vaultIndexRepoTauri.ts \
+        src/app/knowledge_base/infrastructure/vaultIndexRepoTauri.test.ts \
+        src/app/knowledge_base/shell/RepositoryContext.tsx \
+        src/app/knowledge_base/shell/RepositoryContext.test.tsx
+git commit -m "feat(domain): VaultIndexRepository — scan/rename/delete/exists/createFolder seam"
+```
+
+The typecheck failures introduced by removing TreeNode handles are tracked-and-deferred to 27b/28a/b/c; the next implementer must not be surprised by them.
+
+---
+
+## Task 27b: Swap `useFileExplorer` picker to `vault_pick`, migrate internals to typed repos
+
+**Files:**
+- Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.ts` — full rewrite of FSA-specific internals.
+- Modify: any test that directly stubs the hook's old shape.
+
+- [ ] **Step 1: Re-read the hook end-to-end**
+
+```bash
+cat src/app/knowledge_base/shared/hooks/useFileExplorer.ts
+grep -rn "useFileExplorer\b" src/app/knowledge_base | head -10
+```
+
+Note the hook's external return shape. Internally, it has callbacks for: `pickRoot`, `createFile`, `deleteFile`, `renameFile`, `renameFolder`, `moveItem`, `duplicateFile`, `createDocument`, `createSVG`, `createFolder`, `selectFile`, `saveFile`, `discardFile`, `rescan`, `watcherRescan`, etc. Each of these currently uses `dirHandleRef.current` for raw FSA work.
+
+- [ ] **Step 2: Plan the migration**
+
+The hook's NEW internal model:
+- State: `vaultPath: string | null` (replaces `dirHandle`).
+- Tree state: same `TreeNode[]` but populated via `vaultIndex.scan()` (not `scanTree(handle, ...)`).
+- Each fileops callback uses `useRepositories()` to get the typed repos and calls them.
+- IndexedDB persistence is REMOVED for MVP-1a (re-pick every launch — accepted regression). Add a `// TODO MVP-1c: persist via tauri-plugin-store` comment where the persistence used to live.
+
+The hook's NEW external return shape:
+- Replace `dirHandle` / `dirHandleRef` with `vaultPath` / `vaultPathRef`. Keep all OTHER returned properties unchanged (callbacks, tree, selection, etc.) so consumer migration is mechanical.
+
+- [ ] **Step 3: Implement the migrated hook**
+
+Replace the body of `useFileExplorer.ts`. The skeleton:
+
+```ts
+import { useRepositories } from "../../shell/RepositoryContext";
+import { tauriBridge } from "../../infrastructure/tauriBridge";
+// ... other imports
+
+export function useFileExplorer() {
+  const repos = useRepositories();
+  const [vaultPath, setVaultPath] = useState<string | null>(null);
+  const [tree, setTree] = useState<TreeNode[] | null>(null);
+  // ... other state (selection, etc.)
+
+  const pickRoot = useCallback(async () => {
+    const picked = await tauriBridge.pick();
+    if (!picked) return;
+    await tauriBridge.setRoot(picked);
+    setVaultPath(picked);
+    // TODO MVP-1c: persist `picked` via tauri-plugin-store
+  }, []);
+
+  const rescan = useCallback(async () => {
+    if (!repos.vaultIndex) return;
+    setTree(await repos.vaultIndex.scan());
+  }, [repos.vaultIndex]);
+
+  // After vaultPath changes, rescan automatically:
+  useEffect(() => {
+    if (vaultPath) void rescan();
+  }, [vaultPath, rescan]);
+
+  const createDocument = useCallback(async (path: string, content: string) => {
+    if (!repos.document) return;
+    await repos.document.write(path, content);
+    await rescan();
+  }, [repos.document, rescan]);
+
+  const deleteFile = useCallback(async (path: string) => {
+    if (!repos.vaultIndex) return;
+    await repos.vaultIndex.delete(path);
+    await rescan();
+  }, [repos.vaultIndex, rescan]);
+
+  // ... all other callbacks similarly migrated to use typed repos
+
+  return {
+    vaultPath,
+    vaultPathRef: useRef(vaultPath),   // for any consumer that wants ref-style access
+    tree,
+    pickRoot,
+    rescan,
+    createDocument,
+    deleteFile,
+    renameFile: ...,
+    moveItem: ...,
+    duplicateFile: ...,
+    createSVG: ...,
+    createFolder: ...,
+    selectFile: ...,
+    saveFile: ...,
+    discardFile: ...,
+    watcherRescan: ...,
+    // do NOT export dirHandle or dirHandleRef
+  };
+}
+```
+
+(The actual return shape must mirror today's callsites — keep every callback's signature unchanged from today.)
+
+- [ ] **Step 4: Update `useFileExplorer`'s test (if any) + dependent test stubs**
+
+Search:
+
+```bash
+grep -rn "dirHandleRef\|MockDir\|FileSystemDirectoryHandle" src/app/knowledge_base | grep -i test
+```
+
+For each test file, swap FSA stubs for typed-repo stubs (via `StubRepositoryProvider`).
+
+- [ ] **Step 5: Run the hook + the suite**
+
+```bash
+npm run typecheck 2>&1 | tail -20
+npm run test:run 2>&1 | tail -20
+```
+
+Expect typecheck failures STILL in the consumer sites (28a/b/c handle them). The hook itself + its direct tests should be green.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/knowledge_base/shared/hooks/useFileExplorer.ts <test files touched>
+git commit -m "feat(hooks): useFileExplorer migrates to typed repos; vault_pick replaces FSA"
+```
+
+---
+
+## Task 28a: Migrate `knowledgeBase.tsx` consumer sites off `dirHandleRef.current`
+
+**Files:**
+- Modify: `src/app/knowledge_base/knowledgeBase.tsx` — replace ~20 `dirHandleRef.current` reads with `useRepositories()` calls.
+- Possibly modify: `src/app/knowledge_base/knowledgeBase.tabRouting.test.tsx`, `knowledgeBase.dirty.test.tsx`, `knowledgeBase.exportTab.test.tsx`, `knowledgeBase.gpImport.test.tsx`.
+
+- [ ] **Step 1: Enumerate the call sites**
+
+```bash
+grep -n "dirHandleRef\|dirHandle\b" src/app/knowledge_base/knowledgeBase.tsx
+```
+
+Group them by what operation they're doing:
+- Reading/writing a document → `repos.document.read/write`
+- Reading/writing a diagram → `repos.diagram.read/write`
+- Renaming/deleting/checking-existence → `repos.vaultIndex.rename/delete/exists`
+- Tree-scan → `repos.vaultIndex.scan()`
+- Passing to `linkManager` → migrate `linkManager` to take a typed repo (handled in 28b)
+- Passing to `<GraphifyView>` → drop the FSA prop (handled in 28b)
+- Passing to `useOfflineCache` → no-op in Tauri (handled in 28b)
+- Inline `createXRepository(rootHandle)` factory calls → replace with `useRepositories()` reads
+
+- [ ] **Step 2: Migrate each callsite, one operation cluster at a time**
+
+For example, if the file has:
+
+```ts
+const doc = await readTextFile(/* fileHandle */);
+await writeTextFile(fileExplorer.dirHandleRef.current, path, content);
+```
+
+Replace with:
+
+```ts
+const repos = useRepositories();
+const doc = await repos.document.read(path);
+await repos.document.write(path, content);
+```
+
+For inline factory creations (`createAttachmentLinksRepository(rootHandle)`), replace with `repos.attachmentLinks` from `useRepositories()`.
+
+- [ ] **Step 3: Drop unused imports** as you go (e.g., `import { createAttachmentLinksRepository } from ...` becomes unused after migration).
+
+- [ ] **Step 4: Run typecheck + tests as you go**
+
+```bash
+npm run typecheck 2>&1 | tail -10
+npm run test:run -- src/app/knowledge_base/knowledgeBase 2>&1 | tail -15
+```
+
+Fix test stubs as needed (use `StubRepositoryProvider` instead of FSA `MockDir`).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/knowledge_base/knowledgeBase.tsx <test files>
+git commit -m "feat(kb): migrate knowledgeBase.tsx consumers off FSA dirHandleRef onto typed repos"
+```
+
+---
+
+## Task 28b: Migrate remaining direct-FSA consumers
+
+**Files:**
+- Modify: `src/app/knowledge_base/features/diagram/components/DiagramOverlays.tsx` — drop `dirHandleRef` reads.
+- Modify: `src/app/knowledge_base/features/diagram/hooks/useDiagramController.ts` — same.
+- Modify: `src/app/knowledge_base/features/graph/GraphifyView.tsx` — drop `FileSystemDirectoryHandle` prop; use `useRepositories()` internally.
+- Modify: `src/app/knowledge_base/features/document/hooks/useLinkIndex.ts` (and `linkManager`) — refactor `linkManager.removeDocumentFromIndex(rootHandle, ...)` to take a typed `LinkIndexRepository` instead.
+- Modify: `src/app/knowledge_base/shared/hooks/useOfflineCache.ts` — make it a no-op when `vaultPath` is set (Tauri mode), or remove entirely if its only consumer is gone (decision per implementer judgment based on what's reachable).
+- Modify: any other file the typecheck still complains about after Task 28a.
+
+- [ ] **Step 1: Enumerate remaining direct-FSA consumers**
+
+```bash
+grep -rn "FileSystemDirectoryHandle\|dirHandleRef\b\|dirHandle\b" src/app/knowledge_base | grep -v "test\|spec\|MockDir" | grep -v ".d.ts"
+```
+
+- [ ] **Step 2: For each consumer, refactor onto the appropriate typed repo or drop the FSA prop**
+
+The `linkManager` refactor is the largest: the existing API takes a `rootHandle`; change every call site to take a `LinkIndexRepository` (already in `useRepositories()`). `linkManager` itself becomes a pure module operating against a `LinkIndexRepository` interface — no FSA inside.
+
+`useOfflineCache` decision: if the only callers are knowledgeBase.tsx and they're being migrated, the offline cache is dead-code in Tauri mode. Best path: make `useOfflineCache` detect "no FSA root available" (because `dirHandleRef` no longer exists) and silently no-op. If that's awkward, just remove the import + call from `knowledgeBase.tsx` and add a `// TODO MVP-1d: delete useOfflineCache` comment.
+
+- [ ] **Step 3: Run typecheck + full Vitest**
+
+```bash
+npm run typecheck 2>&1 | tail -20
+npm run test:run 2>&1 | tail -20
+```
+
+Goal: zero typecheck errors related to FSA types, full vitest suite green.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add <all touched files>
+git commit -m "feat(kb): migrate DiagramOverlays/GraphifyView/linkManager/useOfflineCache off FSA"
+```
+
+---
+
+## Task 28c: Final cleanup pass — drop remaining FSA-typed props
+
+**Files:** any component or hook whose signature still mentions `FileSystemDirectoryHandle` or `FileSystemFileHandle`.
+
+- [ ] **Step 1: Grep for residual FSA types**
+
+```bash
+grep -rn "FileSystemDirectoryHandle\|FileSystemFileHandle" src/app/knowledge_base \
+  --include="*.ts" --include="*.tsx" \
+  | grep -v "test\|spec\|MockDir\|file-system.d.ts"
+```
+
+- [ ] **Step 2: For each residual reference**
+
+- If it's a component prop that's now unused, drop the prop.
+- If it's a function parameter, change to a typed repo or `vaultPath: string`.
+- If it's a `useRef<FileSystemDirectoryHandle>`, replace with `useRef<string | null>` for `vaultPath` ref usage.
+
+`src/app/knowledge_base/types/file-system.d.ts` STAYS for now — it's deleted in MVP-1d. Don't preemptively remove it.
+
+- [ ] **Step 3: Run typecheck + tests**
+
+```bash
+npm run typecheck
+npm run test:run
+```
+
+Both must be green. If they aren't, fix before committing.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add <all touched files>
+git commit -m "refactor(kb): drop residual FSA-typed props; persistence flows through typed repos only"
+```
+
+After this commit, the only FSA references in the app should be inside the `infrastructure/*Repo.ts` (FSA implementations, deleted in MVP-1d), the `idbHandles.ts` shim (deleted in MVP-1d), and the `types/file-system.d.ts` shim (deleted in MVP-1d).
+
+---
+
+## Task 27 (original — historical reference, NOT executed)
+
+(The original Task 27 below is preserved for historical context. The actual execution path is Tasks 27a/b above.)
+
+### Task 27 (original): Swap `useFileExplorer` picker to `vault_pick`
 
 **Files:**
 - Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`
