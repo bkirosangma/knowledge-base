@@ -12,17 +12,11 @@ import {
   uniqueName,
   collectFilePaths,
   findChildren,
-  readTextFile,
-  writeTextFile,
-  getSubdirectoryHandle,
 } from "./fileExplorerHelpers";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { readOrNull } from "../../domain/repositoryHelpers";
 import * as settingsStore from "../../infrastructure/settingsStore";
 export type { TreeNode };
-
-// Re-export file-I/O helpers for callers that import them from this module.
-export { readTextFile, writeTextFile, getSubdirectoryHandle };
 
 const ACTIVE_FILE_KEY = "knowledge-base-active-file";
 const DIR_NAME_KEY = "knowledge-base-directory-name";
@@ -191,43 +185,6 @@ export function useFileExplorer() {
       setIsLoading(false);
     }
   }, [drafts.dirtyFiles, reportError]);
-
-  // KB-012: pick a folder, run a seeder against the just-acquired handle
-  // (e.g. unpack the bundled sample vault), then scan + open it.
-  //
-  // NOTE: The `seed` callback still accepts `FileSystemDirectoryHandle` in its
-  // type signature for backwards compat. In the Tauri world there is no real
-  // handle object — this parameter will be `null` until seedSampleVault is
-  // ported in Task 28a/b. The return type also preserves `{ handle }` for the
-  // same reason. Both will become `(repos: Repositories) => Promise<void>` in
-  // Task 28a.
-  const openFolderWithSeed = useCallback(async (
-    seed: (handle: FileSystemDirectoryHandle) => Promise<void>,
-  ): Promise<{ handle: FileSystemDirectoryHandle } | null> => {
-    const picked = await tauriBridge.pick();
-    if (!picked) return null;
-    try {
-      setIsLoading(true);
-      await tauriBridge.setRoot(picked);
-      // TODO 28a: pass typed repos to seed once seedSampleVault is ported.
-      // For now pass null cast to appease the legacy callback shape.
-      await seed(null as unknown as FileSystemDirectoryHandle);
-      setVaultPath(picked);
-      const name = picked.split("/").pop() ?? picked.split("\\").pop() ?? picked;
-      setDirectoryName(name);
-      localStorage.setItem(DIR_NAME_KEY, name);
-      setActiveFile(null);
-      // Scan will fire via the vaultPath effect.
-      // Return a minimal object so callers that check `result?.handle` don't crash.
-      // TODO 28a: remove the handle shim once FirstRunHero is ported.
-      return { handle: null as unknown as FileSystemDirectoryHandle };
-    } catch (e) {
-      reportError(e, "Opening vault folder with seed");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [reportError]);
 
   // Fallback input handler for environments without the FSA picker.
   // Tauri always has a native picker, so this is a no-op stub.
@@ -657,11 +614,6 @@ export function useFileExplorer() {
   // TODO 28a: remove rootHandle from this return once knowledgeBase.tsx stops reading it.
   const rootHandle = null as unknown as (FileSystemDirectoryHandle | null);
 
-  // dirHandleRef is kept as a stub (always null current) so consumers in
-  // knowledgeBase.tsx/DiagramOverlays/etc. (Task 28a/b) still compile.
-  // TODO 28a: remove dirHandleRef from this return once all consumers are migrated.
-  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
-
   return {
     directoryName: tree.length > 0 || vaultPath ? directoryName : null,
     rootHandle,
@@ -675,7 +627,6 @@ export function useFileExplorer() {
     pendingFile,
     clearPendingFile,
     openFolder,
-    openFolderWithSeed,
     switchVault,
     selectFile,
     saveFile,
@@ -696,8 +647,6 @@ export function useFileExplorer() {
     handleFallbackInput,
     inputRef,
     setActiveFile,
-    /** @deprecated Use vaultPathRef instead. Kept for Task-28a/b migration. */
-    dirHandleRef,
     clearSavedHandle,
   };
 }

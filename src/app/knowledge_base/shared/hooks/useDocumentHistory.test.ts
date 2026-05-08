@@ -15,7 +15,7 @@ describe('useDocumentHistory — initHistory', () => {
   it('seeds a "File loaded" entry with the file content as snapshot', async () => {
     const { result } = renderHook(() => useDocumentHistory())
     await act(async () => {
-      await result.current.initHistory('# Hello', null, null)
+      await result.current.initHistory('# Hello', null)
     })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.entries[0].description).toBe('File loaded')
@@ -26,14 +26,14 @@ describe('useDocumentHistory — initHistory', () => {
 describe('useDocumentHistory — onContentChange debounce', () => {
   it('does not record immediately', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v1') })
     expect(result.current.entries).toHaveLength(1)
   })
 
   it('records a "Draft" entry after 5 s', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v1') })
     act(() => { vi.advanceTimersByTime(5000) })
     expect(result.current.entries).toHaveLength(2)
@@ -43,7 +43,7 @@ describe('useDocumentHistory — onContentChange debounce', () => {
 
   it('resets the debounce timer on subsequent calls', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v1') })
     act(() => { vi.advanceTimersByTime(3000) })
     act(() => { result.current.onContentChange('v2') })
@@ -58,7 +58,7 @@ describe('useDocumentHistory — onContentChange debounce', () => {
 describe('useDocumentHistory — onBlockChange', () => {
   it('records a "Block changed" entry immediately', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onBlockChange('v1') })
     expect(result.current.entries).toHaveLength(2)
     expect(result.current.entries[1].description).toBe('Block changed')
@@ -67,14 +67,14 @@ describe('useDocumentHistory — onBlockChange', () => {
 
   it('does NOT record when content is identical to the current snapshot', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onBlockChange('v0') })
     expect(result.current.entries).toHaveLength(1)
   })
 
   it('cancels any pending debounce timer', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v1') })
     act(() => { result.current.onBlockChange('v2') })
     act(() => { vi.advanceTimersByTime(6000) })
@@ -86,7 +86,7 @@ describe('useDocumentHistory — onBlockChange', () => {
 describe('useDocumentHistory — onContentChange debounce no-op', () => {
   it('does NOT record a Draft when content is identical to the current snapshot', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v0') })
     act(() => { vi.advanceTimersByTime(5000) })
     expect(result.current.entries).toHaveLength(1)
@@ -96,7 +96,7 @@ describe('useDocumentHistory — onContentChange debounce no-op', () => {
 describe('useDocumentHistory — onFileSave', () => {
   it('flushes pending debounce as Draft and marks savedIndex (no Saved entry)', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onContentChange('v1') })
     act(() => { result.current.onFileSave('v1') })
     expect(result.current.entries).toHaveLength(2)
@@ -106,7 +106,7 @@ describe('useDocumentHistory — onFileSave', () => {
 
   it('does not record a new entry when content matches current snapshot', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     act(() => { result.current.onFileSave('v0') })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.savedIndex).toBe(0)
@@ -116,7 +116,7 @@ describe('useDocumentHistory — onFileSave', () => {
 describe('useDocumentHistory — goToSaved after discard', () => {
   it('goToSaved returns the saved snapshot and moves currentIndex to savedIndex', async () => {
     const { result } = renderHook(() => useDocumentHistory())
-    await act(async () => { await result.current.initHistory('v0', null, null) })
+    await act(async () => { await result.current.initHistory('v0', null) })
     // Save with matching content — no new entry, savedIndex stays at 0
     act(() => { result.current.onFileSave('v0') })
     // Make edits after save

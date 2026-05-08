@@ -34,7 +34,7 @@ describe('useHistoryFileSync — initHistory with no handle', () => {
   it('seeds a "File loaded" entry', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
     await act(async () => {
-      await result.current.initHistory('hello world', 'hello world', null, null)
+      await result.current.initHistory('hello world', 'hello world', null)
     })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.entries[0].description).toBe('File loaded')
@@ -54,10 +54,9 @@ describe('useHistoryFileSync — initHistory with matching checksum', () => {
     ]
     mockRead.mockResolvedValue({ checksum, currentIndex: 1, savedIndex: 0, entries: stored })
 
-    const fakeHandle = {} as FileSystemDirectoryHandle
     const { result } = renderHook(() => useHistoryFileSync<string>())
     await act(async () => {
-      await result.current.initHistory(fileContent, fileContent, fakeHandle, 'notes.md')
+      await result.current.initHistory(fileContent, fileContent, 'notes.md')
     })
     expect(result.current.entries).toHaveLength(2)
     expect(result.current.currentIndex).toBe(1)
@@ -73,10 +72,9 @@ describe('useHistoryFileSync — initHistory with mismatched checksum', () => {
       savedIndex: 3,
       entries: [makeEntry(0, 'old')],
     })
-    const fakeHandle = {} as FileSystemDirectoryHandle
     const { result } = renderHook(() => useHistoryFileSync<string>())
     await act(async () => {
-      await result.current.initHistory('new content', 'new content', fakeHandle, 'notes.md')
+      await result.current.initHistory('new content', 'new content', 'notes.md')
     })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.entries[0].description).toBe('File loaded')
@@ -86,9 +84,8 @@ describe('useHistoryFileSync — initHistory with mismatched checksum', () => {
 describe('useHistoryFileSync — onFileSave', () => {
   it('marks saved position and schedules a write', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+      await result.current.initHistory('v0', 'v0', 'notes.md')
     })
     act(() => { result.current.recordAction('edit', 'v1') })
     act(() => { result.current.onFileSave('v1') })
@@ -101,9 +98,8 @@ describe('useHistoryFileSync — onFileSave', () => {
 describe('useHistoryFileSync — clearHistory', () => {
   it('resets state and cancels pending writes', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+      await result.current.initHistory('v0', 'v0', 'notes.md')
     })
     act(() => { result.current.recordAction('edit', 'v1') })
     act(() => { result.current.clearHistory() })
@@ -117,9 +113,8 @@ describe('useHistoryFileSync — clearHistory', () => {
 describe('useHistoryFileSync — recordAction triggers debounced write', () => {
   it('does not write immediately after recordAction', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+      await result.current.initHistory('v0', 'v0', 'notes.md')
     })
     act(() => { result.current.recordAction('edit', 'v1') })
     expect(mockWrite).not.toHaveBeenCalled()
@@ -127,19 +122,18 @@ describe('useHistoryFileSync — recordAction triggers debounced write', () => {
 
   it('writes after 1000ms debounce following recordAction', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+      await result.current.initHistory('v0', 'v0', 'notes.md')
     })
     act(() => { result.current.recordAction('edit', 'v1') })
     act(() => { vi.advanceTimersByTime(1100) })
     expect(mockWrite).toHaveBeenCalledOnce()
   })
 
-  it('does NOT write when no dirHandle is provided', async () => {
+  it('does NOT write when no filePath is provided', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', null, null)
+      await result.current.initHistory('v0', 'v0', null)
     })
     act(() => { result.current.recordAction('edit', 'v1') })
     act(() => { vi.advanceTimersByTime(2000) })
@@ -148,9 +142,8 @@ describe('useHistoryFileSync — recordAction triggers debounced write', () => {
 
   it('multiple rapid recordActions only trigger one write', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     await act(async () => {
-      await result.current.initHistory('v0', 'v0', fakeHandle, 'notes.md')
+      await result.current.initHistory('v0', 'v0', 'notes.md')
     })
     act(() => { result.current.recordAction('edit1', 'v1') })
     act(() => { vi.advanceTimersByTime(500) })
@@ -166,10 +159,9 @@ describe('useHistoryFileSync — recordAction triggers debounced write', () => {
 describe('useHistoryFileSync — file switch re-initializes state', () => {
   it('re-init clears prior entries and loads fresh history', async () => {
     const { result } = renderHook(() => useHistoryFileSync<string>())
-    const fakeHandle = {} as FileSystemDirectoryHandle
     // Init for file A
     await act(async () => {
-      await result.current.initHistory('fileA', 'fileA', fakeHandle, 'a.md')
+      await result.current.initHistory('fileA', 'fileA', 'a.md')
     })
     act(() => { result.current.recordAction('edit', 'fileA-v2') })
     expect(result.current.entries).toHaveLength(2)
@@ -177,7 +169,7 @@ describe('useHistoryFileSync — file switch re-initializes state', () => {
     // Switch to file B (no disk history)
     mockRead.mockResolvedValueOnce(null)
     await act(async () => {
-      await result.current.initHistory('fileB', 'fileB', fakeHandle, 'b.md')
+      await result.current.initHistory('fileB', 'fileB', 'b.md')
     })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.entries[0].description).toBe('File loaded')

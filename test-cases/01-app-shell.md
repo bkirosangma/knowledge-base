@@ -284,6 +284,7 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.17-03** ✅ **Initialize button calls `vaultConfigRepo.init`** — clicking the splash's **Initialize Vault** button calls `vaultConfigRepo.init(name)` for the open folder. _(unit: `UninitializedVaultSplash.test.tsx`)_
 - **SHELL-1.17-04** ✅ **Splash dismisses on successful init** — after a successful `init`, the host re-evaluates `vaultStatus` and the splash unmounts; the explorer + panes mount in its place. _(unit: `knowledgeBase.initGuard.test.tsx`)_
 - **SHELL-1.17-05** ✅ **"Open a different folder" re-runs the picker** — clicking the secondary action calls the bridge picker so the user can choose another folder without initializing the current one. _(unit: `UninitializedVaultSplash.test.tsx`)_
+- **SHELL-1.17-06** ✅ **No-vault CTA renders Open Vault button that triggers `fileExplorer.openFolder`** — `KnowledgeBaseInner` renders `<NoVaultCTA>` when `vaultStatus === "no-vault"`; clicking its Open Vault button calls `fileExplorer.openFolder`. Replaces the deleted `FirstRunHero` card (retired in MVP-1e). _(unit: `knowledgeBase.noVault.test.tsx`)_
 
 ## 1.18 Tauri Build / CI (MVP-1d)
 

@@ -87,7 +87,6 @@ function stubFileExplorer() {
     dirtyFiles: new Set<string>(),
     pendingFile: null,
     inputRef: { current: null },
-    dirHandleRef: { current: null },
     markDirty: vi.fn(),
     selectFile: vi.fn(async () => null),
     saveFile: vi.fn(async () => false),

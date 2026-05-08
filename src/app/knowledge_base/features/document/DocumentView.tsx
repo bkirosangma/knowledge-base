@@ -187,7 +187,7 @@ export default function DocumentView({
     if (historyInitedPathRef.current === filePath) return;
     historyInitedPathRef.current = filePath;
     (async () => {
-      await history.initHistory(content, null, filePath);
+      await history.initHistory(content, filePath);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, loadedPath, content]);

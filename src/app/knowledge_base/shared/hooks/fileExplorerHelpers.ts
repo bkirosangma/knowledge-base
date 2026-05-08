@@ -3,32 +3,21 @@
  * so the hook file can focus on React state + operation wiring, and so the
  * pure functions are unit-testable without a mocked hook.
  *
- * Three groups:
+ * Two groups:
  *
- * 1. **Tree / naming** — `isSupported`, `isDiagramData`, `uniqueName`,
- *    `collectFilePaths`, `collectAllFilePaths`, `findChildren`. Pure
- *    functions of `TreeNode[]`.
- * 2. **FileSystemDirectoryHandle navigation** — `resolveParentHandle`,
- *    `copyDirContents`. Async walkers over the File System Access API.
- *    TODO MVP-1d: delete resolveParentHandle + copyDirContents with FSA.
- * 3. **File I/O** — `readTextFile`, `writeTextFile`, `getSubdirectoryHandle`
- *    (already re-exported so any caller importing them from the hook file
- *    continues to work — see `useFileExplorer.ts` for the re-export).
- *    TODO MVP-1d: delete FSA I/O helpers when FSA layer is removed.
+ * 1. **Tree / naming** — `isDiagramData`, `uniqueName`, `collectFilePaths`,
+ *    `findChildren`. Pure functions of `TreeNode[]`.
+ * 2. **File I/O (FSA)** — `readTextFile`, `writeTextFile`,
+ *    `getSubdirectoryHandle`, `renameSidecar`. Still used in test fixtures;
+ *    will be retired when the FSA test layer is removed.
+ * 3. **Link propagation** — `propagateRename`, `propagateMoveLinks`.
+ *    Path-only; no FSA handles.
  */
 
 import type { DiagramData } from "../utils/types";
 import type { TreeNode } from "../utils/fileTree";
 import type { DocumentRepository } from "../../domain/repositories";
 import { updateWikiLinkPaths } from "../../features/document/utils/wikiLinkParser";
-
-// TypeScript lib.dom doesn't ship the async iterator over FSA directory entries.
-// This is part of the standard FSA spec, so augment here.
-declare global {
-  interface FileSystemDirectoryHandle {
-    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
-  }
-}
 
 /** Minimal surface of `useLinkIndex` needed for wiki-link propagation helpers. */
 export interface LinkPropagator {
@@ -37,10 +26,6 @@ export interface LinkPropagator {
     newPath: string,
   ): Promise<unknown>;
   getBacklinksFor(docPath: string): { sourcePath: string }[];
-}
-
-export function isSupported(): boolean {
-  return typeof window !== "undefined" && "showDirectoryPicker" in window;
 }
 
 export function isDiagramData(data: unknown): data is DiagramData {
@@ -93,33 +78,6 @@ export function collectFilePaths(nodes: TreeNode[], folderPath: string): string[
   return result;
 }
 
-/** Collect all file paths in the tree. */
-export function collectAllFilePaths(nodes: TreeNode[]): Set<string> {
-  const result = new Set<string>();
-  function walk(items: TreeNode[]) {
-    for (const item of items) {
-      if (item.type === "file") result.add(item.path);
-      else if (item.children) walk(item.children);
-    }
-  }
-  walk(nodes);
-  return result;
-}
-
-/** Resolve parent dir handle from a path. Empty string = root.
- *  TODO MVP-1d: delete with FSA layer. */
-export async function resolveParentHandle(
-  rootHandle: FileSystemDirectoryHandle,
-  parentPath: string,
-): Promise<FileSystemDirectoryHandle> {
-  if (!parentPath) return rootHandle;
-  let current = rootHandle;
-  for (const part of parentPath.split("/")) {
-    current = await current.getDirectoryHandle(part);
-  }
-  return current;
-}
-
 /** Find children of a given folder path in the tree. */
 export function findChildren(tree: TreeNode[], folderPath: string): TreeNode[] {
   if (!folderPath) return tree;
@@ -133,30 +91,7 @@ export function findChildren(tree: TreeNode[], folderPath: string): TreeNode[] {
   return nodes;
 }
 
-/** Recursively copy all contents from one directory to another.
- *  TODO MVP-1d: delete with FSA layer. */
-export async function copyDirContents(
-  src: FileSystemDirectoryHandle,
-  dest: FileSystemDirectoryHandle,
-): Promise<void> {
-  for await (const entry of src.values()) {
-    if (entry.kind === "file") {
-      const fileHandle = entry as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
-      const content = await file.arrayBuffer();
-      const newHandle = await dest.getFileHandle(entry.name, { create: true });
-      const writable = await newHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
-    } else if (entry.kind === "directory") {
-      const dirHandle = entry as unknown as FileSystemDirectoryHandle;
-      const newDir = await dest.getDirectoryHandle(entry.name, { create: true });
-      await copyDirContents(dirHandle, newDir);
-    }
-  }
-}
-
-/* ── File I/O (FSA) — TODO MVP-1d: delete below with FSA layer ── */
+/* ── File I/O (FSA) — still consumed by test fixtures ── */
 
 export async function readTextFile(handle: FileSystemFileHandle): Promise<string> {
   const file = await handle.getFile();

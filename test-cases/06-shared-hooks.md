@@ -11,17 +11,23 @@
 - **HIST-5.1-01** ✅ **fnv1a: returns an 8-char hex string** — output matches `/^[0-9a-f]{8}$/`.
 - **HIST-5.1-02** ✅ **fnv1a: deterministic for the same input** — calling twice with identical string returns the same hash.
 - **HIST-5.1-03** ✅ **fnv1a: different inputs produce different hashes** — `fnv1a('abc') !== fnv1a('xyz')`.
-- **HIST-5.2-01** ✅ **historyFileName: strips .json extension and prefixes dot** — `diagram.json` → `.diagram.history.json`.
-- **HIST-5.2-02** ✅ **historyFileName: strips .md extension and prefixes dot** — `notes.md` → `.notes.history.json`.
-- **HIST-5.2-03** ✅ **historyFileName: preserves directory prefix in output path** — `docs/notes.md` → `docs/.notes.history.json`.
-- **HIST-5.2-04** ✅ **historyFileName: handles nested directory paths** — `a/b/c.json` → `a/b/.c.history.json`.
-- **HIST-5.3-01** ✅ **resolveParentHandle: traverses directory tree and returns parent handle** — `sub/notes.md` → calls `getDirectoryHandle('sub')` and returns the resulting handle.
-- **HIST-5.3-02** ✅ **resolveParentHandle: returns root handle when filePath has no directory** — top-level path with no `/` returns the root handle unchanged.
-- **HIST-5.4-01** ✅ **readHistoryFile: returns null when history file does not exist** — `getFileHandle` throws `NotFoundError`; function swallows it and returns `null`.
+- **HIST-5.2-01** ✅ **historyFileName: preserves full filename including extension** — `diagram.json` → `.diagram.json.history.json`.
+- **HIST-5.2-02** ✅ **historyFileName: preserves .md extension in sidecar name** — `notes.md` → `.notes.md.history.json`.
+- **HIST-5.2-03** ✅ **historyFileName: preserves directory prefix in output path** — `docs/notes.md` → `docs/.notes.md.history.json`.
+- **HIST-5.2-04** ✅ **historyFileName: handles nested directory paths** — `a/b/c.json` → `a/b/.c.json.history.json`.
+- **HIST-5.3-01** 🚫 **resolveParentHandle: traverses directory tree and returns parent handle** — function removed in MVP-1e; `historyPersistence` now uses path-only `tauriBridge.readText`/`writeText` calls that accept POSIX-relative paths directly.
+- **HIST-5.3-02** 🚫 **resolveParentHandle: returns root handle when filePath has no directory** — function removed in MVP-1e; see HIST-5.3-01.
+- **HIST-5.4-01** ✅ **readHistoryFile: returns null when history file does not exist** — `tauriBridge.readText` rejects with a `not-found` error; function swallows it and returns `null`.
 - **HIST-5.4-02** ✅ **readHistoryFile: parses and returns valid HistoryFile JSON** — file containing a valid `HistoryFile<T>` is round-tripped correctly.
 - **HIST-5.4-03** ✅ **readHistoryFile: returns null for malformed JSON** — `JSON.parse` throws; function returns `null`.
-- **HIST-5.5-01** ✅ **writeHistoryFile: creates and writes serialized HistoryFile JSON** — creates the file handle with `{ create: true }` and writes `JSON.stringify(data)`.
-- **HIST-5.5-02** ✅ **writeHistoryFile: silently ignores write errors** — missing intermediate directory throws; function swallows it and resolves without error.
+- **HIST-5.4-04** ❌ **readHistoryFile: legacy fallback — tries pre-collision-fix sidecar name when new-name read or parse fails for any reason** — when the outer try (read primary + JSON.parse) throws — file absent, read error, OR malformed JSON — the function retries with `historyFileNameLegacy(filePath)` (strips the extension before inserting `.history.json`) and returns that content if found. Note: the catch deliberately widens beyond `not-found` so a corrupt new-style sidecar can fall back to a legacy sidecar that may still parse cleanly.
+- **HIST-5.4-05** ❌ **readHistoryFile: returns null when missing in both new and legacy paths** — when both the new-style and legacy sidecar names are absent, the function returns `null` without error.
+- **HIST-5.5-01** ✅ **writeHistoryFile: creates and writes serialized HistoryFile JSON** — calls `tauriBridge.writeText(historyFileName(filePath), JSON.stringify(data))`.
+- **HIST-5.5-02** ✅ **writeHistoryFile: silently ignores write errors** — `tauriBridge.writeText` rejects (e.g. vault not mounted); function swallows the error and resolves without throwing.
+
+## HIST-5.6 historyPersistence — Tauri routing (MVP-1e)
+
+- **HIST-5.6-01** ❌ **Sidecar reads route through `tauriBridge.readText`** — `readHistoryFile` calls `tauriBridge.readText(historyFileName(filePath))` and not any FSA `FileSystemDirectoryHandle` API; confirmed by mocking `tauriBridge` directly in unit tests.
 
 ## HIST-6 useHistoryCore
 

@@ -32,7 +32,7 @@ describe('useDiagramHistory — initHistory', () => {
   it('seeds a "File loaded" entry with the diagram snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => {
-      await result.current.initHistory(JSON.stringify(snap), snap, null, null)
+      await result.current.initHistory(JSON.stringify(snap), snap, null)
     })
     expect(result.current.entries).toHaveLength(1)
     expect(result.current.entries[0].description).toBe('File loaded')
@@ -53,10 +53,9 @@ describe('useDiagramHistory — initHistory', () => {
         { id: 1, description: 'edit', timestamp: 2000, snapshot: snap2 },
       ],
     })
-    const fakeHandle = {} as FileSystemDirectoryHandle
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => {
-      await result.current.initHistory(fileJson, snap, fakeHandle, 'diagram.json')
+      await result.current.initHistory(fileJson, snap, 'diagram.json')
     })
     expect(result.current.entries).toHaveLength(2)
     expect(result.current.currentIndex).toBe(1)
@@ -67,7 +66,7 @@ describe('useDiagramHistory — initHistory', () => {
 describe('useDiagramHistory — recordAction', () => {
   it('appends an entry and advances currentIndex', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('Node added', snap2) })
     expect(result.current.entries).toHaveLength(2)
     expect(result.current.entries[1].description).toBe('Node added')
@@ -79,14 +78,14 @@ describe('useDiagramHistory — recordAction', () => {
 describe('useDiagramHistory — canUndo / canRedo', () => {
   it('canUndo=false at first entry, canRedo=false at last entry', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     expect(result.current.canUndo).toBe(false)
     expect(result.current.canRedo).toBe(false)
   })
 
   it('canUndo=true and canRedo=false after recording an action', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('edit', snap2) })
     expect(result.current.canUndo).toBe(true)
     expect(result.current.canRedo).toBe(false)
@@ -94,7 +93,7 @@ describe('useDiagramHistory — canUndo / canRedo', () => {
 
   it('canUndo=false and canRedo=true after undoing to the first entry', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('edit', snap2) })
     act(() => { result.current.undo() })
     expect(result.current.canUndo).toBe(false)
@@ -105,7 +104,7 @@ describe('useDiagramHistory — canUndo / canRedo', () => {
 describe('useDiagramHistory — undo / redo', () => {
   it('undo() returns the previous snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('edit', snap2) })
     let restored: DiagramSnapshot | null = null
     act(() => { restored = result.current.undo() })
@@ -115,7 +114,7 @@ describe('useDiagramHistory — undo / redo', () => {
 
   it('redo() returns the next snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('edit', snap2) })
     act(() => { result.current.undo() })
     let redone: DiagramSnapshot | null = null
@@ -126,7 +125,7 @@ describe('useDiagramHistory — undo / redo', () => {
 
   it('undo() returns null at the first entry', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     let res: DiagramSnapshot | null = snap
     act(() => { res = result.current.undo() })
     expect(res).toBeNull()
@@ -136,7 +135,7 @@ describe('useDiagramHistory — undo / redo', () => {
 describe('useDiagramHistory — goToEntry', () => {
   it('navigates to a specific index and returns its snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('e1', snap2) })
     act(() => { result.current.recordAction('e2', { ...snap, title: 'v3' }) })
     let target: DiagramSnapshot | null = null
@@ -150,7 +149,7 @@ describe('useDiagramHistory — onSave is an alias for onFileSave', () => {
   it('marks saved and updates checksum', async () => {
     const { result } = renderHook(() => useDiagramHistory())
     await act(async () => {
-      await result.current.initHistory(JSON.stringify(snap), snap, null, null)
+      await result.current.initHistory(JSON.stringify(snap), snap, null)
     })
     act(() => { result.current.recordAction('edit', snap2) })
     act(() => { result.current.onSave(JSON.stringify(snap2)) })
@@ -164,7 +163,7 @@ describe('useDiagramHistory — attachment subset in snapshots', () => {
 
   it('DIAG-3.10-38: "Attach document to flow" entry stores attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     const snapWithAttachment: DiagramSnapshot = { ...snap, attachmentSubset: [attachmentRow] }
     act(() => { result.current.recordAction('Attach document to flow', snapWithAttachment) })
     expect(result.current.entries[1].description).toBe('Attach document to flow')
@@ -173,7 +172,7 @@ describe('useDiagramHistory — attachment subset in snapshots', () => {
 
   it('DIAG-3.10-39: "Detach document from flow" entry stores empty attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), { ...snap, attachmentSubset: [attachmentRow] }, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), { ...snap, attachmentSubset: [attachmentRow] }, null) })
     act(() => { result.current.recordAction('Detach document from flow', snap) })
     expect(result.current.entries[1].description).toBe('Detach document from flow')
     expect(result.current.entries[1].snapshot.attachmentSubset).toBeUndefined()
@@ -181,7 +180,7 @@ describe('useDiagramHistory — attachment subset in snapshots', () => {
 
   it('DIAG-3.10-40: undo after attach returns snapshot without attachment', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('Attach document to flow', { ...snap, attachmentSubset: [attachmentRow] }) })
     let restored: DiagramSnapshot | null = null
     act(() => { restored = result.current.undo() })
@@ -191,7 +190,7 @@ describe('useDiagramHistory — attachment subset in snapshots', () => {
 
   it('DIAG-3.10-41: redo after undo-attach returns snapshot with attachment restored', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     act(() => { result.current.recordAction('Attach document to flow', { ...snap, attachmentSubset: [attachmentRow] }) })
     act(() => { result.current.undo() })
     let redone: DiagramSnapshot | null = null
@@ -202,7 +201,7 @@ describe('useDiagramHistory — attachment subset in snapshots', () => {
 
   it('DIAG-3.10-42: "Create and attach document to flow" entry stores attachmentSubset in snapshot', async () => {
     const { result } = renderHook(() => useDiagramHistory())
-    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null, null) })
+    await act(async () => { await result.current.initHistory(JSON.stringify(snap), snap, null) })
     const snapWithAttachment: DiagramSnapshot = { ...snap, attachmentSubset: [attachmentRow] }
     act(() => { result.current.recordAction('Create and attach document to flow', snapWithAttachment) })
     expect(result.current.entries[1].description).toBe('Create and attach document to flow')

@@ -22,7 +22,7 @@ Tauri 2 native wrapper that hosts the existing Next.js app as a desktop applicat
 - ⚙️ Native vault picker via `tauri-plugin-dialog`, replacing `showDirectoryPicker` — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`.
 - ⚙️ Path-traversal safety (`vault::path::resolve`) + atomic writes (write-tmp → fsync → rename) on every Rust write path.
 
-(File watching landed in MVP-1b; settings persistence, vault switcher UI, and the uninitialized-folder splash landed in MVP-1c. GitHub Pages workflow removal, FSA infrastructure deletion, and macOS Tauri CI job all landed in MVP-1d — see §12.4.)
+(File watching landed in MVP-1b; settings persistence, vault switcher UI, and the uninitialized-folder splash landed in MVP-1c. GitHub Pages workflow removal, FSA infrastructure deletion, and macOS Tauri CI job all landed in MVP-1d — see §12.4. MVP-1e: history sidecar I/O ported to Tauri; FirstRunHero/seedSampleVault retired; FSA layer fully gone — `vaultConfig.ts` and `renameSidecar` orphans flagged for MVP-1f cleanup.)
 
 ---
 
@@ -316,8 +316,8 @@ Root: `src/app/knowledge_base/features/diagram/`. Top-level is `DiagramView.tsx`
 - ⚙️ **`useHistoryFileSync`** (`shared/hooks/useHistoryFileSync.ts`) — wraps `useHistoryCore`; adds `initHistory` (loads sidecar on open), `onFileSave` (FNV-1a checksum + 1 s debounced write), and `clearHistory`. Used by both diagram and document history adapters.
 - ⚙️ **`useDiagramHistory`** (`shared/hooks/useDiagramHistory.ts`) — thin adapter over `useHistoryFileSync<DiagramSnapshot>`; exposes `onSave` alias. Snapshots: title + layers + nodes + connections + lineCurve + flows.
 - ⚙️ **`useDocumentHistory`** (`shared/hooks/useDocumentHistory.ts`) — adapter over `useHistoryFileSync<string>`; adds `onContentChange` (5 s debounced record) and `onBlockChange` (immediate record) for Tiptap paragraph-level granularity.
-- ⚙️ **`historyPersistence`** (`shared/utils/historyPersistence.ts`) — FS utilities: `fnv1a`, `historyFileName`, `resolveParentHandle`, `readHistoryFile`, `writeHistoryFile`; all FS ops silent-fail.
-- ✅ **Sidecar file** — `.<filename>.history.json` next to the file; max 100 entries, FNV-1a checksum for disk-change detection.
+- ⚙️ **`historyPersistence`** (`shared/utils/historyPersistence.ts`) — FS utilities: `fnv1a`, `historyFileName`, `readHistoryFile`, `writeHistoryFile`; all FS ops silent-fail. `readHistoryFile(filePath)` / `writeHistoryFile(filePath, data)` route through `tauriBridge.readText` / `tauriBridge.writeText` (path-only API; `resolveParentHandle` removed in MVP-1e). Legacy-fallback read tries the pre-collision-fix sidecar name (`.basename.history.json`) when the new name is absent.
+- ✅ **Sidecar file** — `.<filename>.<ext>.history.json` next to the file (e.g. `notes.md` → `.notes.md.history.json`); max 100 entries, FNV-1a checksum for disk-change detection.
 - ✅ **`goToSaved()`** — revert to last saved snapshot.
 - ✅ **HistoryPanel** (`shared/components/HistoryPanel.tsx`) — collapsible UI list of history entries with click-to-revert; `relativeTime()` bucketing (just now / Xs ago / Xm ago / Xh ago / Xd ago); entries rendered newest-first.
 
@@ -699,17 +699,11 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 
 Prose spec: [`test-cases/10-first-run.md`](test-cases/10-first-run.md).
 
-### 10.1 First-run hero
-`shared/components/FirstRunHero.tsx`
-- ✅ **Hero replaces the right-pane empty state when no vault is open** — gated by `!directoryName && tree.length === 0`. The explorer's own "no folder open" UI on the left remains as-is per the audit-plan brief.
-- ✅ **Two CTAs** — primary "Open Vault" (calls the existing picker via `useFileExplorer.openFolder`) and secondary "Try with sample vault" (calls `useFileExplorer.openFolderWithSeed` with the bundled-vault seeder).
-- ✅ **"What's a vault?" disclosure** — collapsed by default, expands to a 3-bullet explainer covering the FS Access API, the file-shape conventions, and the index folder.
-- ✅ **Mobile browsing notice** (KB-040) — when `useViewport().isMobile` is true the hero renders a small `role="note"` (`[data-testid="first-run-mobile-notice"]`) telling the user that creating new files and switching vaults is desktop-only ("Mobile is for browsing"). Pairs with §2.3's mobile gating that hides the explorer create surfaces; the notice deliberately does not claim existing-file editing is blocked.
+### 10.1 No-vault CTA
+`knowledgeBase.tsx` — `NoVaultCTA` component (inline, not a separate file)
+- ✅ **No-vault CTA** — `knowledgeBase.tsx` `NoVaultCTA` shown when no vault is open; replaces the deleted FirstRunHero card (retired in MVP-1e). Renders an "Open Vault" button that calls `fileExplorer.openFolder` to trigger the native vault picker.
 
-### 10.2 Sample vault
-`public/sample-vault/`
-- ✅ **Realistic content** — five `.md` documents (README, architecture, api-reference, design-decisions, roadmap) about a fictional "Books API" project, cross-linked via `[[wiki-links]]`. Plus one diagram (`system-overview.json` — three layers, four nodes, three connections, one flow), one SVG logo, and one PNG image in `.attachments/cover.png` referenced from the README.
-- ⚙️ **Manifest-driven loader** — `public/sample-vault/manifest.json` lists every file plus its kind (`text` / `binary`). `seedSampleVault(handle)` fetches the manifest, then writes each file (via `getSubdirectoryHandle` for nested paths). No runtime zip dependency: Next serves the files individually from `public/`.
+> **Removed in MVP-1e:** `shared/components/FirstRunHero.tsx` and `seedSampleVault.ts` are deleted. `FirstRunHero` was gated by `!directoryName && tree.length === 0` and offered "Open Vault" + "Try with sample vault" CTAs; the sample-vault seeder (`seedSampleVault(handle)`) used `getSubdirectoryHandle` via the FSA handle, which is incompatible with the Tauri VFS path. The `UninitializedVaultSplash` (MVP-1c) covers the initialized-folder guard; `NoVaultCTA` covers the no-vault-open state.
 
 ---
 

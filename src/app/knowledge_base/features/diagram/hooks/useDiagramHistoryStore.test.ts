@@ -108,7 +108,6 @@ describe("useDiagramHistoryStore — attachmentSubset snapshot isolation", () =>
           attachmentSubset: [rowN1],
         },
         null,
-        null,
       );
     });
 
@@ -193,7 +192,6 @@ describe("useDiagramHistoryStore — top-level sources history", () => {
           sources: [s1],
           attachmentSubset: [],
         },
-        null,
         null,
       );
     });

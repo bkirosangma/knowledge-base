@@ -6,11 +6,7 @@ import type { HistoryFileSync } from "./useHistoryFileSync";
 const DEBOUNCE_MS = 5_000;
 
 export interface DocumentHistory extends Omit<HistoryFileSync<string>, 'initHistory' | 'onFileSave'> {
-  initHistory(
-    fileContent: string,
-    dirHandle: FileSystemDirectoryHandle | null,
-    filePath: string | null,
-  ): Promise<void>;
+  initHistory(fileContent: string, filePath: string | null): Promise<void>;
   onContentChange(content: string): void;
   onBlockChange(content: string): void;
   onFileSave(content: string): void;
@@ -22,10 +18,9 @@ export function useDocumentHistory(): DocumentHistory {
 
   const initHistory = useCallback(async (
     fileContent: string,
-    dirHandle: FileSystemDirectoryHandle | null,
     filePath: string | null,
   ) => {
-    await sync.initHistory(fileContent, fileContent, dirHandle, filePath);
+    await sync.initHistory(fileContent, fileContent, filePath);
   }, [sync]);
 
   const onContentChange = useCallback((content: string) => {
