@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import type React from "react";
 import { flattenTree } from "../utils/fileTree";
 import type { TreeNode } from "../utils/fileTree";
 import {
@@ -10,29 +9,16 @@ import {
   writeHistoryFile,
 } from "../utils/historyPersistence";
 import type { HistoryFile } from "../utils/historyPersistence";
-import { readTextFile } from "./fileExplorerHelpers";
+import { tauriBridge } from "../../infrastructure/tauriBridge";
 import { clearDraft } from "../utils/persistence";
 
 export interface UseBackgroundScannerOptions {
   tree: TreeNode[];
   openFilePath: string | null;
-  dirHandleRef: React.RefObject<FileSystemDirectoryHandle | null>;
   dirtyFiles: Set<string>;
-  /**
-   * Override for testability — when provided, called instead of reading via
-   * the real FileSystemFileHandle. In production this is left undefined and
-   * the handle from flattenTree is used directly.
-   */
+  /** Test override for reading file content. In production this routes through `tauriBridge.readText(filePath)`. */
   readFile?: (path: string) => Promise<string>;
-  /**
-   * Override for testability — when provided, called instead of
-   * readHistoryFile(rootHandle, path).
-   */
   readHistory?: (path: string) => Promise<HistoryFile<unknown> | null>;
-  /**
-   * Override for testability — when provided, called instead of
-   * writeHistoryFile(rootHandle, path, data).
-   */
   writeHistory?: (path: string, data: HistoryFile<unknown>) => Promise<void>;
 }
 
@@ -51,46 +37,35 @@ export interface UseBackgroundScannerResult {
 export function useBackgroundScanner({
   tree,
   openFilePath,
-  dirHandleRef,
   dirtyFiles,
   readFile: readFileOverride,
   readHistory: readHistoryOverride,
   writeHistory: writeHistoryOverride,
 }: UseBackgroundScannerOptions): UseBackgroundScannerResult {
   const scan = useCallback(async (): Promise<number> => {
-    const rootHandle = dirHandleRef.current;
     const flatMap = flattenTree(tree);
     let updatedCount = 0;
 
-    for (const [filePath, { handle }] of flatMap) {
-      // Skip folders (they have no handle) — unless a readFile override is
-      // provided (tests), in which case we still need to check file nodes that
-      // were created without real FS handles.
-      if (!handle && !readFileOverride) continue;
+    for (const [filePath] of flatMap) {
       // Skip the currently open file (handled by its own watcher)
       if (filePath === openFilePath) continue;
       // Only scan .md and .json files
       if (!filePath.endsWith(".md") && !filePath.endsWith(".json")) continue;
 
       // Read sidecar — skip if none
-      let sidecar: HistoryFile<unknown> | null;
-      if (readHistoryOverride) {
-        sidecar = await readHistoryOverride(filePath);
-      } else if (rootHandle) {
-        sidecar = await readHistoryFile<unknown>(rootHandle, filePath);
-      } else {
-        sidecar = null;
-      }
+      const sidecar = readHistoryOverride
+        ? await readHistoryOverride(filePath)
+        : await readHistoryFile<unknown>(filePath);
       if (!sidecar) continue;
 
       // Read current file content
       let text: string;
-      if (readFileOverride) {
-        text = await readFileOverride(filePath);
-      } else if (handle) {
-        text = await readTextFile(handle);
-      } else {
-        continue; // no way to read without handle or override
+      try {
+        text = readFileOverride
+          ? await readFileOverride(filePath)
+          : await tauriBridge.readText(filePath);
+      } catch {
+        continue;
       }
 
       // Normalize JSON content to match the checksum format used by
@@ -155,8 +130,8 @@ export function useBackgroundScanner({
 
       if (writeHistoryOverride) {
         await writeHistoryOverride(filePath, updated);
-      } else if (rootHandle) {
-        await writeHistoryFile(rootHandle, filePath, updated);
+      } else {
+        await writeHistoryFile(filePath, updated);
       }
 
       // Clear any localStorage draft so the next file open loads disk content,
@@ -169,7 +144,6 @@ export function useBackgroundScanner({
   }, [
     tree,
     openFilePath,
-    dirHandleRef,
     dirtyFiles,
     readFileOverride,
     readHistoryOverride,

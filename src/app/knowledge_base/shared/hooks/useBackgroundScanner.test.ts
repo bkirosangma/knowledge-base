@@ -5,6 +5,21 @@ import { fnv1a } from "../utils/historyPersistence";
 import type { TreeNode } from "../utils/fileTree";
 import type { HistoryFile } from "../utils/historyPersistence";
 
+vi.mock("../utils/historyPersistence", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../utils/historyPersistence")>();
+  return {
+    ...real,
+    readHistoryFile: vi.fn().mockResolvedValue(null),
+    writeHistoryFile: vi.fn(),
+  };
+});
+
+vi.mock("../../infrastructure/tauriBridge", () => ({
+  tauriBridge: {
+    readText: vi.fn(),
+  },
+}));
+
 function makeTree(paths: string[]): TreeNode[] {
   return paths.map((p) => ({
     name: p.split("/").pop()!,
@@ -30,13 +45,11 @@ describe("useBackgroundScanner", () => {
     const readHistory = vi.fn().mockResolvedValue(makeHistoryFile("content"));
     const writeHistory = vi.fn();
     const tree = makeTree(["a.md", "b.md"]);
-    const dirHandleRef = { current: null };
 
     const { result } = renderHook(() =>
       useBackgroundScanner({
         tree,
         openFilePath: "a.md",
-        dirHandleRef,
         dirtyFiles: new Set(),
         readFile,
         readHistory,
@@ -60,13 +73,11 @@ describe("useBackgroundScanner", () => {
     const readHistory = vi.fn().mockResolvedValue(null);
     const writeHistory = vi.fn();
     const tree = makeTree(["notes.md"]);
-    const dirHandleRef = { current: null };
 
     const { result } = renderHook(() =>
       useBackgroundScanner({
         tree,
         openFilePath: null,
-        dirHandleRef,
         dirtyFiles: new Set(),
         readFile,
         readHistory,
@@ -91,13 +102,11 @@ describe("useBackgroundScanner", () => {
     const readHistory = vi.fn().mockResolvedValue(sidecar);
     const writeHistory = vi.fn();
     const tree = makeTree(["notes.md"]);
-    const dirHandleRef = { current: null };
 
     const { result } = renderHook(() =>
       useBackgroundScanner({
         tree,
         openFilePath: null,
-        dirHandleRef,
         dirtyFiles: new Set(),
         readFile,
         readHistory,
@@ -138,13 +147,11 @@ describe("useBackgroundScanner", () => {
     const readHistory = vi.fn().mockResolvedValue(sidecar);
     const writeHistory = vi.fn();
     const tree = makeTree(["notes.md"]);
-    const dirHandleRef = { current: null };
 
     const { result } = renderHook(() =>
       useBackgroundScanner({
         tree,
         openFilePath: null,
-        dirHandleRef,
         dirtyFiles: new Set(["notes.md"]),
         readFile,
         readHistory,
@@ -179,13 +186,11 @@ describe("useBackgroundScanner", () => {
     const writeHistory = vi.fn();
     // Three files, none open, all with changed content
     const tree = makeTree(["a.md", "b.md", "c.md"]);
-    const dirHandleRef = { current: null };
 
     const { result } = renderHook(() =>
       useBackgroundScanner({
         tree,
         openFilePath: null,
-        dirHandleRef,
         dirtyFiles: new Set(),
         readFile,
         readHistory,
