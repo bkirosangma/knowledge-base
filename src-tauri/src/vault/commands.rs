@@ -125,3 +125,28 @@ pub async fn vault_write_bytes(
     let root = state.root_or_error().await?;
     io::write_bytes_atomic(&path, &bytes, &root).await
 }
+
+use super::watcher::Watcher;
+use std::sync::Arc;
+
+#[tauri::command]
+pub async fn vault_watch_start(
+    app: AppHandle,
+    state: State<'_, VaultState>,
+    watcher: State<'_, Arc<Watcher>>,
+) -> Result<(), VaultError> {
+    let root = state.root_or_error().await?;
+    watcher
+        .start(root, app)
+        .await
+        .map_err(|message| VaultError::Io {
+            path: String::new(),
+            message,
+        })
+}
+
+#[tauri::command]
+pub async fn vault_watch_stop(watcher: State<'_, Arc<Watcher>>) -> Result<(), VaultError> {
+    watcher.stop().await;
+    Ok(())
+}

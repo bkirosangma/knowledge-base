@@ -10,6 +10,8 @@ pub mod io;
 pub mod path;
 pub mod watcher;
 pub use error::VaultError;
+pub use watcher::Watcher;
+pub type WatcherState = Arc<Watcher>;
 
 /// In-memory holder for the active vault root path. Tauri stores this as
 /// shared state; commands lock-and-clone the root before doing IO.
