@@ -4,12 +4,12 @@
 
 **Goal:** Persist vault state across app restarts via `tauri-plugin-store`, ship a Header vault-switcher dropdown (Open / Recents / Initialize), gate the app behind a splash when the chosen folder is not yet a knowledge-base vault, and patch the macOS FSEvents `Modified`-on-delete kind-mapping gap surfaced in MVP-1b.
 
-**Architecture:** Add `tauri-plugin-store` to the Rust shell and wrap it in a typed TS facade (`settingsStore.ts`). Replace the `localStorage`-based vault-name memory + the commented-out IDB restore stub in `useFileExplorer` with a single store-backed `vault.lastPath` + `vault.recents` (MRU 5). Introduce `VaultSwitcher` (Header dropdown) and `UninitializedVaultSplash` (full-screen splash gating `KnowledgeBaseInner` when `vaultConfig.read()` returns `null`). Vault switching reuses `vault_pick` + `vault_set_root` — `FileWatcherContext`'s `vaultPath`-keyed effect handles stop-old + start-new transparently. On the Rust side, post-process the watcher's `Modified` events: if the file no longer exists by the time the debouncer flushes, re-emit as `Deleted` so subscribers don't try to re-read a removed file.
+**Architecture:** Add `tauri-plugin-store` to the Rust shell and wrap it in two typed Rust commands (`settings_read`, `settings_write`) — the JS plugin is **not** imported on the frontend, mirroring the MVP-1a pattern where `tauri-plugin-dialog` is registered in Rust but `@tauri-apps/plugin-dialog` is never installed (this avoids needing `src-tauri/capabilities/*.json` ACL changes for a JS plugin). On the TS side, a `settingsStore.ts` facade calls those two commands via the existing `tauriBridge.call()` helper. Replace the `localStorage`-based vault-name memory + the commented-out IDB restore stub in `useFileExplorer` with a store-backed `vault.lastPath` + `vault.recents` (MRU 5). Introduce `VaultSwitcher` (Header dropdown) and `UninitializedVaultSplash` (full-screen splash gating `KnowledgeBaseInner` when `vaultConfig.read()` returns `null`). Vault switching reuses `vault_pick` + `vault_set_root` — `FileWatcherContext`'s `vaultPath`-keyed effect handles stop-old + start-new transparently. On the Rust side, post-process the watcher's `Modified` events: if the file no longer exists by the time the debouncer flushes, re-emit as `Deleted` so subscribers don't try to re-read a removed file.
 
 **Tech Stack:**
-- Rust: `tauri-plugin-store = "2"` (resolved at plan-write time; pin exactly), existing `tokio::fs::metadata` for the post-process existence check, existing `tauri 2.11` + `serde`.
-- Frontend: `@tauri-apps/plugin-store` (matching JS bindings for the Rust plugin), existing `react`, `lucide-react`, `@tauri-apps/api/core`.
-- Tests: `cargo test` (Rust, post-process unit + integration), Vitest (frontend, with `vi.mock` of `@tauri-apps/plugin-store`), no Playwright (parked until MVP-4).
+- Rust: `tauri-plugin-store = "=2.4.3"` (verified on crates.io against `tauri = "=2.11.1"`), existing `tokio::fs::metadata` for the post-process existence check, existing `tauri 2.11` + `serde`.
+- Frontend: existing `@tauri-apps/api/core` (`invoke`) — no new JS deps. The JS-side `@tauri-apps/plugin-store` is deliberately **not** installed; settings access goes through Rust commands wrapped by `tauriBridge`.
+- Tests: `cargo test` (Rust, post-process unit + integration + settings round-trip), Vitest (frontend, with `vi.mock` of `@tauri-apps/api/core` matching the existing `tauriBridge.test.ts` pattern), no Playwright (parked until MVP-4).
 
 ---
 
@@ -20,8 +20,9 @@ Make the Tauri shell remember which vault was last open, surface a vault switche
 ## 2. Scope
 
 **In scope:**
-- `tauri-plugin-store` registered in `src-tauri/src/main.rs` (Rust) and used via `@tauri-apps/plugin-store` (TS).
-- New TS facade `src/app/knowledge_base/infrastructure/settingsStore.ts` exposing: `getSettings()`, `setLastPath(path)`, `pushRecent(path)`, `getRecents()`, `clearLastPath()`, `setClaudeChatHeight(n)`. Internally backed by the plugin's `Store` API.
+- `tauri-plugin-store` registered in `src-tauri/src/main.rs` (Rust). **Frontend does not import `@tauri-apps/plugin-store`** — settings access is exclusively through new Rust commands `settings_read` / `settings_write`, mirroring MVP-1a's dialog-plugin pattern. This avoids the Tauri 2 ACL/capabilities config that would otherwise be needed for a JS-side plugin.
+- New Rust module `src-tauri/src/settings/{mod,commands,store}.rs` defining a typed `Settings` struct + the two `#[tauri::command]` wrappers around `tauri_plugin_store::Store`.
+- New TS facade `src/app/knowledge_base/infrastructure/settingsStore.ts` exposing: `getSettings()`, `setLastPath(path)`, `pushRecent(path)`, `getRecents()`, `clearLastPath()`, `setClaudeChatHeight(n)`. Internally each call dispatches `settings_read`, mutates the returned struct, and dispatches `settings_write` — both via `tauriBridge.call()`.
 - Settings JSON shape (single file `settings.json` under `app_config_dir()`):
   ```ts
   {
@@ -30,7 +31,7 @@ Make the Tauri shell remember which vault was last open, surface a vault switche
     claude:{ /* reserved — populated by MVP-2 */ }
   }
   ```
-- `useFileExplorer` boot path swapped from the commented-out `dirHandle.restoreSavedHandle()` stub to `settingsStore.getSettings()` → if `vault.lastPath` is non-null and exists on disk, call `tauriBridge.setRoot(path)` + `setVaultPath(path)`; otherwise leave `vaultPath` null and let the user pick.
+- `useFileExplorer` boot path swapped from the commented-out `dirHandle.restoreSavedHandle()` stub to `settingsStore.getSettings()` → if `vault.lastPath` is non-null, call `tauriBridge.setRoot(path)` + `setVaultPath(path)`; if `setRoot` rejects (the underlying `PathBuf::canonicalize` returns `NotFound` when the directory has been moved/deleted), `clearLastPath()` and bail. **No separate "does this absolute path exist?" IPC is needed** — `vault_set_root`'s canonicalize already serves as the existence check, and `vault_exists` is vault-relative so it can't be used here.
 - `useFileExplorer.openFolder` writes `vault.lastPath` and pushes onto `vault.recents` (MRU 5, dedup) on success.
 - New component `VaultSwitcher` in the Header showing the current vault's basename. Click opens a dropdown with: **Open Vault…** (calls `pick + switch`), **Recent Vaults** submenu (top 5 from `vault.recents`), **Initialize Vault…** (only when current vault is uninitialised — wired through to the splash flow).
 - New component `UninitializedVaultSplash` — full-screen, blocks `KnowledgeBaseInner` rendering. Two buttons: **Initialize this vault** (calls `vaultConfig.initVault(name)` then re-checks; on success mounts the app) and **Open a different folder** (calls `pick + switch`).
@@ -50,17 +51,23 @@ Make the Tauri shell remember which vault was last open, surface a vault switche
 ## 3. File structure
 
 **New (Rust):**
-- _none_ — the Rust plugin is registered in existing `main.rs` and the FSEvents fix lives in existing `watcher.rs`.
+- `src-tauri/src/settings/mod.rs` — `pub mod commands;` + `pub mod store;` + re-export of `Settings`.
+- `src-tauri/src/settings/store.rs` — typed `Settings` struct (matches the spec JSON shape) with `serde::{Serialize, Deserialize}`, `Default` impl, and a thin `read_settings(app: &AppHandle) -> Settings` / `write_settings(app: &AppHandle, settings: &Settings) -> Result<()>` pair backed by `app.store("settings.json")` (`StoreExt` trait from `tauri_plugin_store`).
+- `src-tauri/src/settings/commands.rs` — `#[tauri::command] settings_read() -> Settings` and `#[tauri::command] settings_write(settings: Settings) -> Result<(), String>`. Uses `app: AppHandle` to reach the plugin.
 
 **Modified (Rust):**
-- `src-tauri/Cargo.toml` — add `tauri-plugin-store = "=2.2.0"` to `[dependencies]`.
-- `src-tauri/src/main.rs` — `.plugin(tauri_plugin_store::Builder::default().build())` in the `Builder::default()` chain.
+- `src-tauri/Cargo.toml` — add `tauri-plugin-store = "=2.4.3"` to `[dependencies]`.
+- `src-tauri/src/lib.rs` — `pub mod settings;` next to `pub mod vault;`.
+- `src-tauri/src/main.rs` — `.plugin(tauri_plugin_store::Builder::default().build())` in the `Builder::default()` chain; register `commands::settings_read` and `commands::settings_write` in `generate_handler!`. Import path: `use knowledge_base_lib::settings::commands as settings_commands;` (or similar — match the existing `commands::vault_*` style).
 - `src-tauri/src/vault/watcher.rs` — wrap the per-event forwarding step with the `Modified`-existence post-process. Update the `kind_from_notify_kind` consumer (the spawned worker task) so it awaits `tokio::fs::metadata(absolute_path).await` after translation and rewrites `ChangeKind::Modified` to `ChangeKind::Deleted` when `Err(NotFound)` comes back.
 - `src-tauri/tests/watcher_integration.rs` — un-ignore (or replace with active versions) the two macOS-ignored cases that the new post-process turns green: `delete_emits_deleted` and `modify_emits_modified` (the latter still asserts `Modified` for a *real* modify; only delete-disguised-as-modify gets rewritten).
 
 **New (Frontend):**
-- `src/app/knowledge_base/infrastructure/settingsStore.ts` — typed facade over `@tauri-apps/plugin-store`. One module-level `Store` handle (lazily loaded via `Store.load("settings.json")` — the plugin's recommended idiom). Default settings constant + `getSettings()` (returns merged-with-defaults), `setLastPath`, `clearLastPath`, `getRecents`, `pushRecent`, `setClaudeChatHeight`.
-- `src/app/knowledge_base/infrastructure/settingsStore.test.ts` — Vitest with `vi.mock("@tauri-apps/plugin-store", …)` returning a fake in-memory `Store` to unit-test the recents MRU + dedup + max-5 invariants and the default-merge behaviour.
+- `src/app/knowledge_base/infrastructure/settingsStore.ts` — typed facade calling `tauriBridge.call("settings_read", {}, "")` and `tauriBridge.call("settings_write", { settings }, "")`. Exposes `getSettings`, `setLastPath`, `clearLastPath`, `getRecents`, `pushRecent`, `setClaudeChatHeight`. Each mutation reads-then-writes (no per-key partial writes — keeps the Rust API minimal).
+- `src/app/knowledge_base/infrastructure/settingsStore.test.ts` — Vitest with `vi.mock("@tauri-apps/api/core", …)` returning an `invoke` mock backed by an in-memory `Settings` object. Covers the MRU + dedup + max-5 invariants, default-merge, and the round-trip through `invoke`.
+- `src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx` — new test file (mirrors `.operations.test.tsx` harness) covering the `settingsStore`-backed boot path.
+- `src/app/knowledge_base/shared/hooks/useFileExplorer.switchVault.test.tsx` — new test file covering `switchVault(path)` with dirty-confirm.
+- `src/app/knowledge_base/knowledgeBase.initGuard.test.tsx` — new test file (mirrors the harness in `knowledgeBase.dirty.test.tsx`) covering splash render vs ready render.
 - `src/app/knowledge_base/shared/components/VaultSwitcher.tsx` — Header-mounted dropdown trigger + popover.
 - `src/app/knowledge_base/shared/components/VaultSwitcher.test.tsx` — Vitest covering: empty-recents (no submenu disabled), 5-item submenu, click-Open-Vault calls onOpen, click-recent calls onSwitch with that path, "Initialize Vault…" only renders when `isUninitialised`.
 - `src/app/knowledge_base/shared/components/UninitializedVaultSplash.tsx` — full-screen card with the spec wording: `<folder-name> is not yet a knowledge-base vault.` and two buttons.
@@ -74,9 +81,9 @@ Make the Tauri shell remember which vault was last open, surface a vault switche
   - On successful `openFolder`, write `settingsStore.setLastPath(picked)` + `settingsStore.pushRecent(picked)`.
   - Drop `localStorage.setItem(DIR_NAME_KEY, name)` — `directoryName` is derivable from `vaultPath` via `path.basename`-equivalent. (The `DIR_NAME_KEY` constant + reads can come out; the file is small and that field is only used for display.)
   - Add `switchVault(path: string)` for use by the Header's recents picks: confirms-dirty → `setRoot(path)` → `setVaultPath(path)` → `setLastPath` + `pushRecent`. Re-uses the same internals as `openFolder` minus the picker call.
-- `src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts` — additional tests: store-restore happy path, missing-`lastPath` no-op, `pushRecent` ordering, `switchVault` dirty-confirm path.
-- `src/app/knowledge_base/knowledgeBase.tsx` — derive `vaultStatus` from `(vaultPath, repos.vaultConfig?.read())`, render `<UninitializedVaultSplash>` when `'uninitialised'`, otherwise the existing tree. Pass new Header props down. Update the `KnowledgeBaseInner` arg list documentation.
-- `src/app/knowledge_base/knowledgeBase.test.tsx` (or whichever test file already covers the boot flow) — add cases for splash render + ready render.
+- (Boot + switchVault tests live in the new files listed under **New (Frontend)** — they don't extend an existing useFileExplorer test file because the existing three are scoped to `operations`, `helpers`, and `createDocument` and adding boot/restore cases would mix concerns.)
+- `src/app/knowledge_base/knowledgeBase.tsx` — derive `vaultStatus` from `(vaultPath, repos.vaultConfig?.read())`, render `<UninitializedVaultSplash>` when `'uninitialised'`, render `null` (placeholder during async config load) when `'loading'`, otherwise the existing tree. Pass new Header props down. Update the `KnowledgeBaseInner` arg-list documentation.
+- (Splash render + ready render tests live in the new `knowledgeBase.initGuard.test.tsx` listed under **New (Frontend)** — the existing `knowledgeBase.dirty.test.tsx` / `.tabRouting.test.tsx` / etc. are scoped to other concerns and shouldn't grow to cover boot gating.)
 
 **Updated (docs / catalogues):**
 - `Features.md` — add bullets under "App shell" for the vault switcher + splash + recents memory; under "File system" note that vault path persistence is now via `tauri-plugin-store`.
@@ -98,140 +105,298 @@ Make the Tauri shell remember which vault was last open, surface a vault switche
 
 ---
 
-## Task 1: Add `tauri-plugin-store` deps and register the plugin
+## Task 1: Rust settings module — dep, plugin, typed `Settings`, two commands
 
 **Files:**
 - Modify: `src-tauri/Cargo.toml`
+- Modify: `src-tauri/src/lib.rs`
 - Modify: `src-tauri/src/main.rs`
-- Modify: `package.json`
+- Create: `src-tauri/src/settings/mod.rs`
+- Create: `src-tauri/src/settings/store.rs`
+- Create: `src-tauri/src/settings/commands.rs`
 
 - [ ] **Step 1: Add the Rust dep (exact pin)**
 
 In `[dependencies]` of `src-tauri/Cargo.toml`, after `notify-debouncer-full = "=0.3.2"`, append:
 
 ```toml
-tauri-plugin-store = "=2.2.0"
+tauri-plugin-store = "=2.4.3"
 ```
 
-Pin exactly with `=` so the executing engineer can't accidentally pull a newer minor and run into a renamed `Store::load` or builder API.
+Pin exactly with `=` so the executing engineer can't accidentally pull a newer minor and run into a renamed `StoreExt` or builder API. (Verified on crates.io 2026-05-08; matches `tauri = "=2.11.1"`.)
 
-- [ ] **Step 2: Register the plugin in `main.rs`**
+- [ ] **Step 2: Write the failing Rust round-trip test**
 
-In `src-tauri/src/main.rs`, replace the existing `Builder::default()` chain so it reads:
+Create `src-tauri/src/settings/store.rs`:
 
 ```rust
-tauri::Builder::default()
-    .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_store::Builder::default().build())
-    .manage(vault)
-    .manage(watcher)
-    .invoke_handler(tauri::generate_handler![ /* … unchanged … */ ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultSettings {
+    #[serde(default)]
+    pub last_path: Option<String>,
+    #[serde(default)]
+    pub recents: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeChatSettings {
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSettings {
+    pub claude_chat: ClaudeChatSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Settings {
+    #[serde(default)]
+    pub vault: VaultSettings,
+    #[serde(default)]
+    pub ui: UiSettings,
+    #[serde(default)]
+    pub claude: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Default for VaultSettings {
+    fn default() -> Self {
+        Self { last_path: None, recents: Vec::new() }
+    }
+}
+
+impl Default for ClaudeChatSettings {
+    fn default() -> Self { Self { height: 320 } }
+}
+
+impl Default for UiSettings {
+    fn default() -> Self { Self { claude_chat: ClaudeChatSettings::default() } }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            vault: VaultSettings::default(),
+            ui: UiSettings::default(),
+            claude: serde_json::Map::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_serialise_to_camel_case_with_320_height() {
+        let s = Settings::default();
+        let json = serde_json::to_value(&s).unwrap();
+        assert_eq!(json["vault"]["lastPath"], serde_json::Value::Null);
+        assert_eq!(json["vault"]["recents"], serde_json::json!([]));
+        assert_eq!(json["ui"]["claudeChat"]["height"], 320);
+    }
+
+    #[test]
+    fn settings_round_trip_through_serde_json() {
+        let s = Settings {
+            vault: VaultSettings { last_path: Some("/v".into()), recents: vec!["/v".into(), "/w".into()] },
+            ui: UiSettings { claude_chat: ClaudeChatSettings { height: 480 } },
+            claude: serde_json::Map::new(),
+        };
+        let json = serde_json::to_value(&s).unwrap();
+        let back: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(s, back);
+    }
+
+    #[test]
+    fn settings_deserialises_from_partial_json_with_defaults() {
+        let json = serde_json::json!({ "vault": { "lastPath": "/v" } });
+        let s: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(s.vault.last_path, Some("/v".into()));
+        assert_eq!(s.vault.recents, Vec::<String>::new());
+        assert_eq!(s.ui.claude_chat.height, 320);
+    }
+}
 ```
 
-- [ ] **Step 3: Verify the Rust build still compiles**
+Create `src-tauri/src/settings/mod.rs`:
+
+```rust
+pub mod commands;
+pub mod store;
+
+pub use store::Settings;
+```
+
+Create `src-tauri/src/settings/commands.rs` with a stub that fails to compile so the test below is the green target:
+
+```rust
+use tauri::AppHandle;
+use tauri_plugin_store::StoreExt;
+
+use super::store::Settings;
+
+const STORE_FILE: &str = "settings.json";
+const SETTINGS_KEY: &str = "settings";
+
+#[tauri::command]
+pub async fn settings_read(app: AppHandle) -> Result<Settings, String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    let value = store.get(SETTINGS_KEY).unwrap_or_else(|| serde_json::to_value(Settings::default()).unwrap());
+    let settings: Settings = serde_json::from_value(value).map_err(|e| e.to_string())?;
+    Ok(settings)
+}
+
+#[tauri::command]
+pub async fn settings_write(app: AppHandle, settings: Settings) -> Result<(), String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
+    store.set(SETTINGS_KEY, value);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+```
+
+Add `pub mod settings;` to `src-tauri/src/lib.rs` next to `pub mod vault;`.
 
 ```bash
 cd src-tauri && cargo build --tests 2>&1 | tail -20
 ```
 
-Expected: `Finished test [unoptimized + debuginfo] target(s)`. New crate `tauri-plugin-store v2.2.0` resolves; no new warnings.
+Expected: build succeeds. (`tauri-plugin-store` v2.4.3 resolves and pulls its transitive deps. The `StoreExt::store` method returns `Result<Arc<Store>, _>` per the 2.4 plugin API.)
 
-- [ ] **Step 4: Add the matching JS dep**
-
-```bash
-cd "/Users/kiro/My Projects/knowledge-base"
-npm install --save @tauri-apps/plugin-store@^2.2.0
-```
-
-Confirm `package.json` gained the dependency and `package-lock.json` updated. Commit both.
-
-- [ ] **Step 5: Smoke-build the frontend**
+- [ ] **Step 3: Run the unit tests**
 
 ```bash
-npm run typecheck
-npm run build
+cd src-tauri && cargo test --lib settings::store::tests
 ```
 
-Expected: both pass. (TypeScript will not yet see imports of the new plugin — those land in Task 2 — but the install must not break compilation.)
+Expected: 3 passed.
+
+- [ ] **Step 4: Register the plugin and the two commands in `main.rs`**
+
+In `src-tauri/src/main.rs`, change the import line and the builder chain:
+
+```rust
+use knowledge_base_lib::settings::commands as settings_commands;
+use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
+// …
+tauri::Builder::default()
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_store::Builder::default().build())
+    .manage(vault)
+    .manage(watcher)
+    .invoke_handler(tauri::generate_handler![
+        commands::vault_pick,
+        // … existing 13 vault commands unchanged …
+        commands::vault_watch_stop,
+        settings_commands::settings_read,
+        settings_commands::settings_write,
+    ])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+```
+
+- [ ] **Step 5: Verify clippy clean and all tests still pass**
+
+```bash
+cd src-tauri && cargo clippy --all-targets -- -D warnings && cargo test
+```
+
+Expected: clippy clean; all pre-existing tests + 3 new settings::store tests green.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src/main.rs package.json package-lock.json
-git commit -m "feat(tauri): add tauri-plugin-store deps and register the plugin"
+git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src/lib.rs src-tauri/src/main.rs src-tauri/src/settings
+git commit -m "feat(tauri): settings module — typed Settings + read/write commands"
 ```
 
 ---
 
-## Task 2: TS settings store facade — schema + `getSettings`
+## Task 2: TS settings store facade — `getSettings` via `invoke`
 
 **Files:**
 - Create: `src/app/knowledge_base/infrastructure/settingsStore.ts`
 - Create: `src/app/knowledge_base/infrastructure/settingsStore.test.ts`
 
-- [ ] **Step 1: Write the failing test for the default-merge shape**
+- [ ] **Step 1: Write the failing test for `getSettings` via mocked `invoke`**
 
-Create `src/app/knowledge_base/infrastructure/settingsStore.test.ts`:
+Create `src/app/knowledge_base/infrastructure/settingsStore.test.ts`. The mock pattern mirrors `src/app/knowledge_base/infrastructure/tauriBridge.test.ts` — mock `@tauri-apps/api/core` and dispatch on the command name.
 
 ```ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const fakeStoreEntries = new Map<string, unknown>();
-const fakeStore = {
-  get: vi.fn(async (key: string) => fakeStoreEntries.get(key)),
-  set: vi.fn(async (key: string, value: unknown) => {
-    fakeStoreEntries.set(key, value);
-  }),
-  save: vi.fn(async () => undefined),
-};
+let storeState: unknown = null; // simulates the Rust-side persisted Settings JSON
 
-vi.mock("@tauri-apps/plugin-store", () => ({
-  Store: { load: vi.fn(async () => fakeStore) },
-  load: vi.fn(async () => fakeStore),
-}));
+const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
+  if (cmd === "settings_read") {
+    if (storeState === null) {
+      return {
+        vault: { lastPath: null, recents: [] },
+        ui: { claudeChat: { height: 320 } },
+        claude: {},
+      };
+    }
+    return storeState;
+  }
+  if (cmd === "settings_write") {
+    storeState = args?.settings;
+    return undefined;
+  }
+  throw new Error(`unexpected command: ${cmd}`);
+});
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 import { getSettings } from "./settingsStore";
 
 describe("settingsStore.getSettings", () => {
   beforeEach(() => {
-    fakeStoreEntries.clear();
-    fakeStore.get.mockClear();
-    fakeStore.set.mockClear();
-    fakeStore.save.mockClear();
+    storeState = null;
+    invokeMock.mockClear();
   });
 
-  it("returns defaults when the store is empty", async () => {
+  it("returns the Rust default when the store is fresh", async () => {
     const s = await getSettings();
     expect(s).toEqual({
       vault: { lastPath: null, recents: [] },
       ui: { claudeChat: { height: 320 } },
       claude: {},
     });
+    expect(invokeMock).toHaveBeenCalledWith("settings_read", {});
   });
 
-  it("merges persisted partial state with defaults", async () => {
-    fakeStoreEntries.set("vault", { lastPath: "/Users/x/v", recents: ["/Users/x/v"] });
+  it("returns persisted state once it's been written", async () => {
+    storeState = {
+      vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
+      ui: { claudeChat: { height: 480 } },
+      claude: {},
+    };
     const s = await getSettings();
     expect(s.vault.lastPath).toBe("/Users/x/v");
-    expect(s.ui.claudeChat.height).toBe(320);
+    expect(s.ui.claudeChat.height).toBe(480);
   });
 });
 ```
 
-Run it; expect FAIL with module-not-found.
-
 ```bash
 npm run test:run -- src/app/knowledge_base/infrastructure/settingsStore.test.ts
 ```
+
+Expected: FAIL — module not found.
 
 - [ ] **Step 2: Implement `settingsStore.ts` minimally to pass Step 1**
 
 Create `src/app/knowledge_base/infrastructure/settingsStore.ts`:
 
 ```ts
-import { load, type Store } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface VaultSettings {
   lastPath: string | null;
@@ -248,56 +413,22 @@ export interface Settings {
   claude: Record<string, unknown>;
 }
 
-const DEFAULT_SETTINGS: Settings = {
-  vault: { lastPath: null, recents: [] },
-  ui: { claudeChat: { height: 320 } },
-  claude: {},
-};
-
 const RECENTS_MAX = 5;
-const STORE_FILE = "settings.json";
-
-let storePromise: Promise<Store> | null = null;
-function getStore(): Promise<Store> {
-  storePromise ??= load(STORE_FILE);
-  return storePromise;
-}
-
-async function readKey<T>(key: keyof Settings, fallback: T): Promise<T> {
-  const store = await getStore();
-  const v = await store.get<T>(key);
-  return (v ?? fallback) as T;
-}
 
 export async function getSettings(): Promise<Settings> {
-  const [vault, ui, claude] = await Promise.all([
-    readKey("vault", DEFAULT_SETTINGS.vault),
-    readKey("ui", DEFAULT_SETTINGS.ui),
-    readKey("claude", DEFAULT_SETTINGS.claude),
-  ]);
-  return {
-    vault: { ...DEFAULT_SETTINGS.vault, ...(vault as Partial<VaultSettings>) },
-    ui: {
-      ...DEFAULT_SETTINGS.ui,
-      ...(ui as Partial<UiSettings>),
-      claudeChat: {
-        ...DEFAULT_SETTINGS.ui.claudeChat,
-        ...((ui as Partial<UiSettings>)?.claudeChat ?? {}),
-      },
-    },
-    claude: { ...DEFAULT_SETTINGS.claude, ...(claude as Record<string, unknown>) },
-  };
+  return await invoke<Settings>("settings_read", {});
 }
 
-// Exported for test reset only — do not call in app code.
-export function __resetStoreForTests(): void {
-  storePromise = null;
+async function writeSettings(settings: Settings): Promise<void> {
+  await invoke<void>("settings_write", { settings });
 }
 
 export const __RECENTS_MAX = RECENTS_MAX;
+// Internal export for the mutation helpers in Task 3 — keeps them in the same module.
+export { writeSettings as __writeSettings };
 ```
 
-- [ ] **Step 3: Re-run the test to verify it passes**
+- [ ] **Step 3: Re-run; expect GREEN**
 
 ```bash
 npm run test:run -- src/app/knowledge_base/infrastructure/settingsStore.test.ts
@@ -309,7 +440,7 @@ Expected: 2 passed.
 
 ```bash
 git add src/app/knowledge_base/infrastructure/settingsStore.ts src/app/knowledge_base/infrastructure/settingsStore.test.ts
-git commit -m "feat(infra): settingsStore.getSettings with default-merge"
+git commit -m "feat(infra): settingsStore.getSettings backed by settings_read"
 ```
 
 ---
@@ -331,33 +462,37 @@ import {
   pushRecent,
   getRecents,
   setClaudeChatHeight,
-  __resetStoreForTests,
   __RECENTS_MAX,
 } from "./settingsStore";
 
 describe("settingsStore mutations", () => {
   beforeEach(() => {
-    fakeStoreEntries.clear();
-    __resetStoreForTests();
-    fakeStore.set.mockClear();
-    fakeStore.save.mockClear();
+    storeState = null;
+    invokeMock.mockClear();
   });
 
-  it("setLastPath writes vault.lastPath and saves", async () => {
+  it("setLastPath writes a settings object with vault.lastPath set", async () => {
     await setLastPath("/Users/x/v");
-    expect(fakeStore.set).toHaveBeenCalledWith(
-      "vault",
-      expect.objectContaining({ lastPath: "/Users/x/v" }),
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          vault: expect.objectContaining({ lastPath: "/Users/x/v" }),
+        }),
+      }),
     );
-    expect(fakeStore.save).toHaveBeenCalled();
   });
 
-  it("clearLastPath sets vault.lastPath to null", async () => {
-    fakeStoreEntries.set("vault", { lastPath: "/old", recents: [] });
+  it("clearLastPath nulls vault.lastPath", async () => {
+    storeState = { vault: { lastPath: "/old", recents: [] }, ui: { claudeChat: { height: 320 } }, claude: {} };
     await clearLastPath();
-    expect(fakeStore.set).toHaveBeenCalledWith(
-      "vault",
-      expect.objectContaining({ lastPath: null }),
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          vault: expect.objectContaining({ lastPath: null }),
+        }),
+      }),
     );
   });
 
@@ -381,9 +516,13 @@ describe("settingsStore mutations", () => {
 
   it("setClaudeChatHeight writes ui.claudeChat.height", async () => {
     await setClaudeChatHeight(456);
-    expect(fakeStore.set).toHaveBeenCalledWith(
-      "ui",
-      expect.objectContaining({ claudeChat: { height: 456 } }),
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          ui: expect.objectContaining({ claudeChat: { height: 456 } }),
+        }),
+      }),
     );
   });
 });
@@ -395,50 +534,38 @@ npm run test:run -- src/app/knowledge_base/infrastructure/settingsStore.test.ts
 
 Expected: FAIL with "is not a function" / undefined exports.
 
-- [ ] **Step 2: Implement the mutation helpers**
+- [ ] **Step 2: Implement the mutation helpers via read-then-write**
 
 Append to `settingsStore.ts`:
 
 ```ts
-async function readVault(): Promise<VaultSettings> {
-  return (await getSettings()).vault;
-}
-
 export async function setLastPath(path: string): Promise<void> {
-  const store = await getStore();
-  const vault = await readVault();
-  await store.set("vault", { ...vault, lastPath: path });
-  await store.save();
+  const s = await getSettings();
+  await __writeSettings({ ...s, vault: { ...s.vault, lastPath: path } });
 }
 
 export async function clearLastPath(): Promise<void> {
-  const store = await getStore();
-  const vault = await readVault();
-  await store.set("vault", { ...vault, lastPath: null });
-  await store.save();
+  const s = await getSettings();
+  await __writeSettings({ ...s, vault: { ...s.vault, lastPath: null } });
 }
 
 export async function getRecents(): Promise<string[]> {
-  return (await readVault()).recents;
+  return (await getSettings()).vault.recents;
 }
 
 export async function pushRecent(path: string): Promise<void> {
-  const store = await getStore();
-  const vault = await readVault();
-  const filtered = vault.recents.filter((p) => p !== path);
+  const s = await getSettings();
+  const filtered = s.vault.recents.filter((p) => p !== path);
   const next = [path, ...filtered].slice(0, RECENTS_MAX);
-  await store.set("vault", { ...vault, recents: next });
-  await store.save();
+  await __writeSettings({ ...s, vault: { ...s.vault, recents: next } });
 }
 
 export async function setClaudeChatHeight(height: number): Promise<void> {
-  const store = await getStore();
-  const settings = await getSettings();
-  await store.set("ui", {
-    ...settings.ui,
-    claudeChat: { ...settings.ui.claudeChat, height },
+  const s = await getSettings();
+  await __writeSettings({
+    ...s,
+    ui: { ...s.ui, claudeChat: { ...s.ui.claudeChat, height } },
   });
-  await store.save();
 }
 ```
 
@@ -880,13 +1007,23 @@ git commit -m "feat(shell): mount VaultSwitcher in Header"
 
 **Files:**
 - Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`
-- Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts`
+- Create: `src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing tests in a new boot-scoped test file**
 
-Append to `useFileExplorer.test.ts`:
+Mirror the harness used by `src/app/knowledge_base/shared/hooks/useFileExplorer.operations.test.tsx` (which renders `useFileExplorer` inside `<ShellErrorProvider>` + `<StubRepositoryProvider value={mockReposFor(root)}>` and uses `MockDir` from `../testUtils/fsMock`).
 
-```ts
+Create `src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx`:
+
+```tsx
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
+import { useFileExplorer } from "./useFileExplorer";
+import { ShellErrorProvider } from "../../shell/ShellErrorContext";
+import { StubRepositoryProvider } from "../../shell/RepositoryContext";
+import { MockDir } from "../testUtils/fsMock";
+import * as tauriBridgeModule from "../../infrastructure/tauriBridge";
 import * as settingsStore from "../../infrastructure/settingsStore";
 
 vi.mock("../../infrastructure/settingsStore", () => ({
@@ -898,59 +1035,80 @@ vi.mock("../../infrastructure/settingsStore", () => ({
   setClaudeChatHeight: vi.fn(async () => undefined),
 }));
 
+vi.spyOn(tauriBridgeModule.tauriBridge, "setRoot").mockResolvedValue();
+vi.spyOn(tauriBridgeModule.tauriBridge, "pick").mockResolvedValue(null);
+
+function wrapper({ children }: { children: ReactNode }) {
+  return createElement(
+    ShellErrorProvider,
+    null,
+    createElement(StubRepositoryProvider, { value: mockReposFor(new MockDir("/")) }, children),
+  );
+}
+
+// Reuse the helper from operations.test.tsx — copy the function definition verbatim.
+function mockReposFor(_root: MockDir) {
+  return {
+    attachment: null,
+    attachmentLinks: null,
+    linkIndex: null,
+    svgRefs: null,
+    tabRefs: null,
+    vaultConfig: null,
+    vaultIndex: { scan: async () => [] },
+  } as unknown as Parameters<typeof StubRepositoryProvider>[0]["value"];
+}
+
 describe("useFileExplorer boot — settingsStore restore", () => {
-  it("restores lastPath when the store has one and the path exists", async () => {
-    (settingsStore.getSettings as Mock).mockResolvedValueOnce({
+  beforeEach(() => {
+    vi.mocked(settingsStore.getSettings).mockReset();
+    vi.mocked(settingsStore.clearLastPath).mockClear();
+    vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockClear();
+  });
+
+  it("restores lastPath and calls setRoot when the path is reachable", async () => {
+    vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
       ui: { claudeChat: { height: 320 } },
       claude: {},
     });
-    (tauriBridge.exists as Mock).mockResolvedValueOnce(true);
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
+    const { result } = renderHook(() => useFileExplorer(), { wrapper });
     await waitFor(() => expect(result.current.vaultPath).toBe("/Users/x/v"));
-    expect(tauriBridge.setRoot).toHaveBeenCalledWith("/Users/x/v");
+    expect(tauriBridgeModule.tauriBridge.setRoot).toHaveBeenCalledWith("/Users/x/v");
   });
 
-  it("leaves vaultPath null when the store is empty", async () => {
-    (settingsStore.getSettings as Mock).mockResolvedValueOnce({
+  it("leaves vaultPath null when the store has no lastPath", async () => {
+    vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: null, recents: [] },
       ui: { claudeChat: { height: 320 } },
       claude: {},
     });
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
+    const { result } = renderHook(() => useFileExplorer(), { wrapper });
     await waitFor(() => expect(settingsStore.getSettings).toHaveBeenCalled());
     expect(result.current.vaultPath).toBeNull();
-    expect(tauriBridge.setRoot).not.toHaveBeenCalled();
+    expect(tauriBridgeModule.tauriBridge.setRoot).not.toHaveBeenCalled();
   });
 
-  it("clears lastPath when the stored path no longer exists on disk", async () => {
-    (settingsStore.getSettings as Mock).mockResolvedValueOnce({
+  it("clears lastPath when setRoot rejects (canonicalize NotFound)", async () => {
+    vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/gone", recents: ["/gone"] },
       ui: { claudeChat: { height: 320 } },
       claude: {},
     });
-    (tauriBridge.exists as Mock).mockResolvedValueOnce(false);
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
+    vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockRejectedValueOnce(
+      new Error("canonicalize: NotFound"),
+    );
+    const { result } = renderHook(() => useFileExplorer(), { wrapper });
     await waitFor(() => expect(settingsStore.clearLastPath).toHaveBeenCalled());
     expect(result.current.vaultPath).toBeNull();
-  });
-
-  it("openFolder writes lastPath and pushes recent", async () => {
-    (tauriBridge.pick as Mock).mockResolvedValueOnce("/Users/x/new");
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
-    await act(async () => {
-      await result.current.openFolder();
-    });
-    expect(settingsStore.setLastPath).toHaveBeenCalledWith("/Users/x/new");
-    expect(settingsStore.pushRecent).toHaveBeenCalledWith("/Users/x/new");
   });
 });
 ```
 
-The `{ /* … */ }` placeholder for `useFileExplorer`'s constructor args must be filled with whatever the existing tests in this file already use — copy the harness from the file's first `describe` block. (Don't fabricate new args.)
+(If `useFileExplorer()` takes positional args today, match the existing call shape from `.operations.test.tsx`. The above assumes argless — confirm before editing.)
 
 ```bash
-npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx
 ```
 
 Expected: FAIL — settingsStore is not used in the hook yet.
@@ -960,6 +1118,8 @@ Expected: FAIL — settingsStore is not used in the hook yet.
 In the file, replace the current `useEffect` block at roughly lines 76–110 (the one with `// TODO MVP-1c: load persisted vaultPath …`) with:
 
 ```ts
+import * as settingsStore from "../../infrastructure/settingsStore";
+
 const restoredRef = useRef(false);
 useEffect(() => {
   if (restoredRef.current) return;
@@ -968,12 +1128,9 @@ useEffect(() => {
     const settings = await settingsStore.getSettings();
     const lastPath = settings.vault.lastPath;
     if (!lastPath) return;
-    const exists = await tauriBridge.exists(lastPath).catch(() => false);
-    if (!exists) {
-      await settingsStore.clearLastPath();
-      return;
-    }
     try {
+      // vault_set_root canonicalizes the path; a deleted/moved directory
+      // surfaces here as a rejection, not a silent succeed-with-stale-root.
       await tauriBridge.setRoot(lastPath);
       setVaultPath(lastPath);
       const name = lastPath.split("/").pop() ?? lastPath.split("\\").pop() ?? lastPath;
@@ -987,7 +1144,7 @@ useEffect(() => {
 }, []);
 ```
 
-`tauriBridge.exists(path)` already returns `Promise<boolean>` (existing command). The `.catch(() => false)` covers the edge case where the user passed a path the OS rejects entirely.
+(`vault_exists` is vault-relative — it can't validate an absolute path before `setRoot` runs. Relying on `setRoot`'s canonicalize for the existence check uses the IPC we already have.)
 
 - [ ] **Step 3: Update `openFolder` to write through the store**
 
@@ -998,20 +1155,45 @@ await settingsStore.setLastPath(picked);
 await settingsStore.pushRecent(picked);
 ```
 
-Remove the now-stale `localStorage.setItem(DIR_NAME_KEY, name)` line; remove `DIR_NAME_KEY` from the file (and its constant declaration if it has no remaining readers — confirm with `grep -n DIR_NAME_KEY src/app/knowledge_base`).
+Remove the now-stale `localStorage.setItem(DIR_NAME_KEY, name)` line. Run `grep -n DIR_NAME_KEY src/app/knowledge_base/` — if the constant has no remaining readers, delete it; if it still has readers (e.g. a localStorage-restore in MobileShell or similar), leave it for MVP-1d cleanup.
 
-- [ ] **Step 4: Re-run tests; expect GREEN**
+- [ ] **Step 4: Add an openFolder write-through test**
 
-```bash
-npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+Append to `useFileExplorer.boot.test.tsx`:
+
+```tsx
+import { act } from "@testing-library/react";
+
+it("openFolder writes lastPath and pushes a recent on success", async () => {
+  vi.mocked(settingsStore.getSettings).mockResolvedValue({
+    vault: { lastPath: null, recents: [] },
+    ui: { claudeChat: { height: 320 } },
+    claude: {},
+  });
+  vi.mocked(tauriBridgeModule.tauriBridge.pick).mockResolvedValueOnce("/Users/x/new");
+  vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockResolvedValueOnce();
+  const { result } = renderHook(() => useFileExplorer(), { wrapper });
+  await waitFor(() => expect(settingsStore.getSettings).toHaveBeenCalled());
+  await act(async () => {
+    await result.current.openFolder();
+  });
+  expect(settingsStore.setLastPath).toHaveBeenCalledWith("/Users/x/new");
+  expect(settingsStore.pushRecent).toHaveBeenCalledWith("/Users/x/new");
+});
 ```
 
-Expected: pre-existing tests + 4 new passes.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Re-run; expect GREEN**
 
 ```bash
-git add src/app/knowledge_base/shared/hooks/useFileExplorer.ts src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx
+```
+
+Expected: 4 passing.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/knowledge_base/shared/hooks/useFileExplorer.ts src/app/knowledge_base/shared/hooks/useFileExplorer.boot.test.tsx
 git commit -m "feat(shell): replace localStorage vault boot with settingsStore"
 ```
 
@@ -1021,45 +1203,95 @@ git commit -m "feat(shell): replace localStorage vault boot with settingsStore"
 
 **Files:**
 - Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`
-- Modify: `src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts`
+- Create: `src/app/knowledge_base/shared/hooks/useFileExplorer.switchVault.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing tests in a switchVault-scoped test file**
 
-Append to `useFileExplorer.test.ts`:
+Re-use the wrapper / `mockReposFor` helper pattern from Task 7's boot test file. Inspect how dirtyFiles are set in `useFileExplorer.operations.test.tsx` (the file should have a "delete makes file dirty" or similar test — find one with `grep -n dirtyFiles src/app/knowledge_base/shared/hooks/useFileExplorer.operations.test.tsx` and copy its setup verbatim). If the hook doesn't expose a way to mutate `dirtyFiles` directly from a test, the cleanest path is to call `result.current.markDirty(path)` (or whatever exported function the hook offers — confirm by reading the hook's return object).
 
-```ts
+```tsx
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
+import { useFileExplorer } from "./useFileExplorer";
+import { ShellErrorProvider } from "../../shell/ShellErrorContext";
+import { StubRepositoryProvider } from "../../shell/RepositoryContext";
+import { MockDir } from "../testUtils/fsMock";
+import * as tauriBridgeModule from "../../infrastructure/tauriBridge";
+import * as settingsStore from "../../infrastructure/settingsStore";
+
+vi.mock("../../infrastructure/settingsStore", () => ({
+  getSettings: vi.fn(async () => ({
+    vault: { lastPath: null, recents: [] },
+    ui: { claudeChat: { height: 320 } },
+    claude: {},
+  })),
+  setLastPath: vi.fn(async () => undefined),
+  pushRecent: vi.fn(async () => undefined),
+  clearLastPath: vi.fn(async () => undefined),
+  getRecents: vi.fn(async () => []),
+}));
+
+vi.spyOn(tauriBridgeModule.tauriBridge, "setRoot").mockResolvedValue();
+
+function mockReposFor(_root: MockDir) {
+  return {
+    attachment: null, attachmentLinks: null, linkIndex: null,
+    svgRefs: null, tabRefs: null, vaultConfig: null,
+    vaultIndex: { scan: async () => [] },
+  } as unknown as Parameters<typeof StubRepositoryProvider>[0]["value"];
+}
+
+function wrapper({ children }: { children: ReactNode }) {
+  return createElement(
+    ShellErrorProvider, null,
+    createElement(StubRepositoryProvider, { value: mockReposFor(new MockDir("/")) }, children),
+  );
+}
+
 describe("useFileExplorer.switchVault", () => {
-  it("calls setRoot, setVaultPath, setLastPath, pushRecent for a clean switch", async () => {
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
+  beforeEach(() => {
+    vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockClear();
+    vi.mocked(settingsStore.setLastPath).mockClear();
+    vi.mocked(settingsStore.pushRecent).mockClear();
+  });
+
+  it("performs a clean switch when no files are dirty", async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper });
+    await waitFor(() => expect(result.current).toBeDefined());
     await act(async () => {
       await result.current.switchVault("/Users/x/other");
     });
-    expect(tauriBridge.setRoot).toHaveBeenCalledWith("/Users/x/other");
+    expect(tauriBridgeModule.tauriBridge.setRoot).toHaveBeenCalledWith("/Users/x/other");
     expect(result.current.vaultPath).toBe("/Users/x/other");
     expect(settingsStore.setLastPath).toHaveBeenCalledWith("/Users/x/other");
     expect(settingsStore.pushRecent).toHaveBeenCalledWith("/Users/x/other");
   });
 
-  it("aborts the switch when dirtyFiles is non-empty and confirm returns false", async () => {
+  it("aborts when dirty and confirm returns false", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    const { result } = renderHook(() => useFileExplorer({ /* … */ }));
-    // Simulate a dirty file by populating fileExplorer.dirtyFiles via the setter the
-    // existing test harness exposes — copy from the existing dirtyFiles tests in this file.
-    /* dirty-state setup omitted — copy from existing test */
+    const { result } = renderHook(() => useFileExplorer(), { wrapper });
+    await waitFor(() => expect(result.current).toBeDefined());
+    // Mark a file dirty via whatever public surface the hook exposes.
+    // Inspect the hook's return-object keys with grep -n "return {" useFileExplorer.ts;
+    // typical names: markDirty / setDirty / addDirtyFile. If none exist, adapt by
+    // calling the renameFile / deleteFile path that the existing tests use to
+    // produce dirty state.
+    await act(async () => {
+      result.current.markDirty?.("doc.md");
+    });
     await act(async () => {
       await result.current.switchVault("/Users/x/other");
     });
     expect(confirmSpy).toHaveBeenCalled();
-    expect(tauriBridge.setRoot).not.toHaveBeenCalled();
+    expect(tauriBridgeModule.tauriBridge.setRoot).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 });
 ```
 
-(If the existing tests in `useFileExplorer.test.ts` already construct dirty state via a different mechanism — e.g. setting `dirtyFiles` directly — use that mechanism. Don't invent a new dirty-state setter.)
-
 ```bash
-npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.switchVault.test.tsx
 ```
 
 Expected: FAIL — `switchVault` not exported.
@@ -1095,18 +1327,18 @@ const switchVault = useCallback(async (path: string) => {
 
 Add `switchVault` to the hook's return object.
 
-- [ ] **Step 3: Re-run tests; expect GREEN**
+- [ ] **Step 3: Re-run; expect GREEN**
 
 ```bash
-npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+npm run test:run -- src/app/knowledge_base/shared/hooks/useFileExplorer.switchVault.test.tsx
 ```
 
-Expected: 2 new passes plus the previous Task 7 set.
+Expected: 2 passing.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/app/knowledge_base/shared/hooks/useFileExplorer.ts src/app/knowledge_base/shared/hooks/useFileExplorer.test.ts
+git add src/app/knowledge_base/shared/hooks/useFileExplorer.ts src/app/knowledge_base/shared/hooks/useFileExplorer.switchVault.test.tsx
 git commit -m "feat(shell): switchVault(path) with dirty-confirm + store update"
 ```
 
@@ -1116,34 +1348,69 @@ git commit -m "feat(shell): switchVault(path) with dirty-confirm + store update"
 
 **Files:**
 - Modify: `src/app/knowledge_base/knowledgeBase.tsx`
-- Modify: `src/app/knowledge_base/knowledgeBase.test.tsx` (or whichever test file already covers boot — use `grep -n "describe.*knowledgeBase\|render.*KnowledgeBase" src/app/knowledge_base/knowledgeBase*.test.tsx` to locate)
+- Create: `src/app/knowledge_base/knowledgeBase.initGuard.test.tsx`
 
 - [ ] **Step 1: Write the failing tests**
 
-In the `knowledgeBase` test file, add:
+There is no `knowledgeBase.test.tsx` in the project — existing knowledgeBase tests are scoped (`.dirty`, `.tabRouting`, `.exportTab`, `.gpImport`). Mirror their harness pattern (read `knowledgeBase.dirty.test.tsx` first to confirm import paths and any test-only providers) and create `src/app/knowledge_base/knowledgeBase.initGuard.test.tsx`:
 
 ```tsx
-import { UninitializedVaultSplash } from "./shared/components/UninitializedVaultSplash";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import KnowledgeBase from "./knowledgeBase";
 
-it("renders UninitializedVaultSplash when vaultPath is set but vault config is missing", async () => {
-  // The existing test harness in this file already mocks the Tauri repos.
-  // Make readVaultConfig resolve to null for this case.
-  mockVaultConfigRead.mockResolvedValueOnce(null);
-  render(<KnowledgeBase initialVaultPath="/Users/x/empty" />);
-  expect(await screen.findByText(/empty is not yet a knowledge-base vault/i)).toBeInTheDocument();
-});
+// Mock the Tauri-repo factories so vaultConfig.read() is the only knob the test cares about.
+vi.mock("./infrastructure/tauriBridge", () => ({
+  tauriBridge: {
+    setRoot: vi.fn().mockResolvedValue(undefined),
+    pick: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue([]),
+    exists: vi.fn().mockResolvedValue(true),
+    readJson: vi.fn(), // overridden per-test
+    writeJson: vi.fn().mockResolvedValue(undefined),
+    watchStart: vi.fn().mockResolvedValue(undefined),
+    watchStop: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+vi.mock("./infrastructure/settingsStore", () => ({
+  getSettings: vi.fn(async () => ({
+    vault: { lastPath: "/Users/x/empty", recents: [] },
+    ui: { claudeChat: { height: 320 } },
+    claude: {},
+  })),
+  getRecents: vi.fn(async () => []),
+  setLastPath: vi.fn(async () => undefined),
+  pushRecent: vi.fn(async () => undefined),
+  clearLastPath: vi.fn(async () => undefined),
+}));
 
-it("does NOT render UninitializedVaultSplash when vault config is present", async () => {
-  mockVaultConfigRead.mockResolvedValueOnce({ name: "v" });
-  render(<KnowledgeBase initialVaultPath="/Users/x/v" />);
-  await waitFor(() => expect(screen.queryByText(/is not yet a knowledge-base vault/i)).not.toBeInTheDocument());
+import { tauriBridge } from "./infrastructure/tauriBridge";
+
+describe("KnowledgeBase init-guard", () => {
+  it("renders UninitializedVaultSplash when vaultConfig.read() returns null", async () => {
+    vi.mocked(tauriBridge.readJson).mockResolvedValue(null);
+    render(<KnowledgeBase />);
+    expect(
+      await screen.findByText(/empty is not yet a knowledge-base vault/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the app interior when vaultConfig.read() returns a valid config", async () => {
+    vi.mocked(tauriBridge.readJson).mockResolvedValue({ name: "v" });
+    render(<KnowledgeBase />);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/is not yet a knowledge-base vault/i),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });
 ```
 
-(Adapt the harness names to whatever `knowledgeBase.test.tsx` already uses. If `KnowledgeBase` doesn't take `initialVaultPath` as a prop today, drive the path through the existing `useFileExplorer` test mock instead — the goal is to assert the splash appears given those two preconditions.)
+(`KnowledgeBase` does not take an `initialVaultPath` prop today; the path is driven through the mocked `settingsStore.getSettings`. If reading `knowledgeBase.dirty.test.tsx` reveals additional providers or wrappers needed — `BrowserRouter`, theme provider, etc. — wrap the rendered tree the same way.)
 
 ```bash
-npm run test:run -- src/app/knowledge_base/knowledgeBase
+npm run test:run -- src/app/knowledge_base/knowledgeBase.initGuard.test.tsx
 ```
 
 Expected: FAIL — splash never renders.
@@ -1180,11 +1447,18 @@ const vaultStatus: "no-vault" | "loading" | "uninitialised" | "ready" =
 
 (`repos.vaultConfig` already exists post-MVP-1a. If the field isn't named that, run `grep -n vaultConfig src/app/knowledge_base/shell/RepositoryContext.tsx` to confirm — the spec calls it `vaultConfigRepoTauri` and the bridge expects a `read()` method.)
 
-- [ ] **Step 3: Render the splash when `vaultStatus === "uninitialised"`**
+- [ ] **Step 3: Render the splash when `vaultStatus === "uninitialised"`; render `null` while `'loading'`**
 
 Wrap the existing top-level return so that, before the existing PaneManager / explorer / drawer subtree, we render:
 
 ```tsx
+if (vaultStatus === "loading") {
+  // The async vaultConfig.read() resolves within one tick of the vault being
+  // mounted; rendering null avoids a "flash of uninitialised splash" while
+  // the read is in flight. (No spinner: the read is too fast to justify one.)
+  return null;
+}
+
 if (vaultStatus === "uninitialised") {
   const folderName = fileExplorer.directoryName ?? "this folder";
   return (
@@ -1252,12 +1526,12 @@ React.useEffect(() => {
 npm run test:run -- src/app/knowledge_base/knowledgeBase
 ```
 
-Expected: 2 new passes; existing tests still green.
+Expected: 2 new passes (in `knowledgeBase.initGuard.test.tsx`); existing knowledgeBase tests still green.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/app/knowledge_base/knowledgeBase.tsx src/app/knowledge_base/knowledgeBase.test.tsx
+git add src/app/knowledge_base/knowledgeBase.tsx src/app/knowledge_base/knowledgeBase.initGuard.test.tsx
 git commit -m "feat(shell): vault init-guard + splash + Header switcher wiring"
 ```
 
@@ -1527,7 +1801,7 @@ In `docs/superpowers/handoffs/2026-05-07-tauri-claude-integration.md`:
 
 - Bump **Last updated** to today's date with a short parenthetical: *"MVP-1c shipped — settings store, vault switcher, init splash, FSEvents Modified→Deleted post-process."*
 - In **Where we are → Plans**, flip MVP-1c to ✅ Merged with the PR number once merged. (Until merge, leave it 🚧 with the open PR number.)
-- In **Reference architecture**, add a "**Landed (MVP-1c, PR #N):**" block listing `settingsStore.ts`, `VaultSwitcher.tsx`, `UninitializedVaultSplash.tsx`, the Header changes, and the `postprocess_existence` Rust addition.
+- In **Reference architecture**, add a "**Landed (MVP-1c, PR #N):**" block listing the new Rust `src-tauri/src/settings/{mod,store,commands}.rs` module + `tauri-plugin-store` registration, `settingsStore.ts`, `VaultSwitcher.tsx`, `UninitializedVaultSplash.tsx`, the Header changes, the `useFileExplorer.boot/switchVault` test files, and the `postprocess_existence` Rust addition in `vault/watcher.rs`.
 - In **Open follow-up items**, close the **macOS FSEvents kind-mapping gap** row (the `Modified`→`Deleted` half) and leave the rename/cookie half open for MVP-4. Update the wording.
 - Replace **Next Action** with the MVP-1d bootstrap (write MVP-1d plan; reference spec § 6.4).
 
@@ -1580,9 +1854,9 @@ After PR review + merge, run the **Post-merge cleanup protocol** in the handoff 
 
 14 tasks, decomposed:
 
-- **Task 1** — Add `tauri-plugin-store` deps (Rust + JS) and register the plugin in `main.rs`.
-- **Task 2** — TS settings facade `getSettings` with default-merge and tests.
-- **Task 3** — Mutation helpers (`setLastPath`, `clearLastPath`, `pushRecent`, `getRecents`, `setClaudeChatHeight`) with MRU + dedup + cap-5 tests.
+- **Task 1** — Rust settings module: `tauri-plugin-store` dep + plugin registration + typed `Settings` struct + `settings_read` / `settings_write` commands.
+- **Task 2** — TS settings facade `getSettings` calling `settings_read` via `invoke`.
+- **Task 3** — Mutation helpers (`setLastPath`, `clearLastPath`, `pushRecent`, `getRecents`, `setClaudeChatHeight`) with MRU + dedup + cap-5 tests; each does a read-then-write through `settings_write`.
 - **Task 4** — `UninitializedVaultSplash` component + tests.
 - **Task 5** — `VaultSwitcher` Header dropdown + tests.
 - **Task 6** — Mount `VaultSwitcher` in `Header.tsx`.
@@ -1595,7 +1869,7 @@ After PR review + merge, run the **Post-merge cleanup protocol** in the handoff 
 - **Task 13** — `Features.md`, `test-cases/`, handoff doc updates.
 - **Task 14** — Push and open PR.
 
-**Test totals after Task 10:** 3 new Rust unit tests (post-process) + 1 un-ignored Rust integration test + 6 Vitest tests in `settingsStore.test.ts` (Tasks 2 + 3) + 3 in `UninitializedVaultSplash.test.tsx` + 6 in `VaultSwitcher.test.tsx` + 2 in `Header.test.tsx` + 6 in `useFileExplorer.test.ts` + 2 in `knowledgeBase.test.tsx` = +29 across the suite.
+**Test totals after Task 10:** 3 new Rust unit tests in `settings::store::tests` (Task 1) + 3 new Rust unit tests in `watcher::tests` (Task 10 post-process) + 1 un-ignored Rust integration test + 6 Vitest tests in `settingsStore.test.ts` (Tasks 2 + 3) + 3 in `UninitializedVaultSplash.test.tsx` + 6 in `VaultSwitcher.test.tsx` + 2 in `Header.test.tsx` + 4 in `useFileExplorer.boot.test.tsx` + 2 in `useFileExplorer.switchVault.test.tsx` + 2 in `knowledgeBase.initGuard.test.tsx` = +32 across the suite.
 
 ## Out of scope (next MVPs)
 
@@ -1616,18 +1890,21 @@ After PR review + merge, run the **Post-merge cleanup protocol** in the handoff 
 - "Switching vaults at runtime — confirms unsaved, calls `vault_watch_stop`, `vault_set_root(newPath)`, re-runs boot" → Task 8 (`switchVault`); the watcher stop/start happens automatically in `FileWatcherContext`'s `vaultPath`-keyed effect (MVP-1b), so we don't need to call `vault_watch_stop` directly.
 - macOS FSEvents kind-mapping gap (handoff Open follow-up, deferred to MVP-1c/MVP-4) → Task 10 (`Modified`→`Deleted` half; rename half stays in MVP-4).
 
-**Placeholder scan:** "TBD"/"TODO"/"appropriate error handling"/"similar to" — none introduced. Task 7's *"copy the harness from the file's first describe block"* and Task 8's *"copy from existing test"* are deliberate references because the existing test file is the single source of truth for that test fixture; reproducing it here would diverge if the harness later changes. Task 9's *"adapt the harness names to whatever knowledgeBase.test.tsx already uses"* is the same kind of deliberate reference.
+**Placeholder scan:** "TBD"/"TODO"/"appropriate error handling"/"similar to" — none introduced. Tasks 7-8 reference the existing `useFileExplorer.operations.test.tsx` harness explicitly (with the new boot/switchVault tests in their own scoped files mirroring that pattern); Task 9 references `knowledgeBase.dirty.test.tsx` as the harness model. The "find a `markDirty`-shaped function on the hook" instruction in Task 8 is a deliberate reference to the hook's actual exported surface; hard-coding a name here would diverge if the hook is restructured.
 
 **Type consistency:**
-- `Settings`, `VaultSettings`, `UiSettings` shapes match across Tasks 2, 3, 7, 8, 9.
+- `Settings`, `VaultSettings`, `UiSettings` shapes match across the Rust `settings::store` module (Task 1) and the TS `settingsStore.ts` facade (Tasks 2, 3) — the Rust `#[serde(rename_all = "camelCase")]` makes the Rust↔TS shape identical (`lastPath`, `claudeChat.height`).
 - `VaultChangeEvent { kind, path, oldPath? }` (Rust) is unchanged; only the per-event `kind` is rewritten in Task 10's post-process.
 - `switchVault` is `(path: string) => Promise<void>` across Tasks 8, 9.
 - `currentVaultName: string | null` is consistent across Tasks 5, 6, 9.
+- `settings_read` and `settings_write` command names are consistent across Tasks 1 (Rust definition) and 2-3 (TS `invoke` callsites).
 
-**Pinned versions (verified at plan-write time):**
-- `tauri-plugin-store = "=2.2.0"` chosen because it matches `tauri = "=2.11.1"`'s plugin API generation; bump deliberately in MVP-1d alongside any other plugin upgrades.
-- `@tauri-apps/plugin-store@^2.2.0` matches the Rust plugin major.
+**Pinned versions (verified at plan-write time on crates.io / npm 2026-05-08):**
+- `tauri-plugin-store = "=2.4.3"` — latest 2.x; matches `tauri = "=2.11.1"`'s plugin generation.
+- No JS-side plugin dep. Frontend stays on `@tauri-apps/api/core` only — same surface as MVP-1a/1b. This removes the need for `src-tauri/capabilities/*.json` ACL config (this project does not currently have a `capabilities/` directory; introducing one would be a separate, larger change).
 
-**Scope check:** Tasks 7 + 8 are the largest (`useFileExplorer.ts` is a sizeable file). Both have test-first steps and concrete diffs. Task 9 is the next-largest because `knowledgeBase.tsx` is a god-file (~1600 lines per MVP-1a's reference architecture); the changes are localised to the `KnowledgeBaseInner` boot path and Header invocation — explicitly *not* a refactor.
+**Scope check:** Tasks 7 + 8 are the largest TS edits (`useFileExplorer.ts` is sizeable). Both have test-first steps and concrete diffs. Task 9 is the next-largest because `knowledgeBase.tsx` is a god-file (~1600 lines per MVP-1a's reference architecture); the changes are localised to the `KnowledgeBaseInner` boot path and Header invocation — explicitly *not* a refactor. Task 1 is the largest Rust edit (new module + plugin + 2 commands) but is mostly boilerplate.
 
 **FSEvents post-process scope:** only the `Modified`→`Deleted` half is in scope here. The rename-cookie half stays open for MVP-4 (where cross-platform CI exists). The handoff doc's Open follow-up captures this; Task 13 closes the right half of that row only.
+
+**Capabilities/ACL note:** `tauri-plugin-store` registered on the Rust side does not need ACL/capability config because the frontend does not call the JS plugin directly — only the Rust commands `settings_read` / `settings_write`, which are part of `generate_handler!` and not gated by Tauri 2's frontend ACL. This is the same pattern as `tauri-plugin-dialog` in MVP-1a (registered in Rust, never imported in JS).
