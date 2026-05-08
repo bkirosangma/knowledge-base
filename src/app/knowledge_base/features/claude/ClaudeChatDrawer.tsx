@@ -32,10 +32,10 @@ export function ClaudeChatDrawer() {
     await setClaudePermissionMode(next);
   }, [permissionMode]);
 
-  const onRunSkill = useCallback((_command: SlashCommand, _formattedText: string) => {
-    // Task 8 wires this to send(_formattedText). For now, just close the sheet.
+  const onRunSkill = useCallback((_command: SlashCommand, formattedText: string) => {
+    send(formattedText);
     setSkillsOpen(false);
-  }, []);
+  }, [send]);
 
   useEffect(() => {
     if (!isOpen) return;
