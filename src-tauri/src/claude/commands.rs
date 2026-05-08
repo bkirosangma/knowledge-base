@@ -32,3 +32,15 @@ pub async fn claude_send(
         .await?;
     runner.send(app, vault_root, message).await
 }
+
+#[tauri::command]
+pub async fn claude_interrupt(state: State<'_, ClaudeState>) -> Result<(), String> {
+    let mut runner = state.0.lock().await;
+    runner.interrupt().await
+}
+
+#[tauri::command]
+pub async fn claude_reset(state: State<'_, ClaudeState>) -> Result<(), String> {
+    let mut runner = state.0.lock().await;
+    runner.reset().await
+}

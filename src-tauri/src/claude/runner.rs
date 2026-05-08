@@ -143,7 +143,6 @@ impl Runner {
     }
 
     /// SIGINT to subprocess; keeps it alive for next turn.
-    #[allow(dead_code)]
     pub async fn interrupt(&mut self) -> Result<(), String> {
         let pid = self.child.as_ref().and_then(|c| c.id()).ok_or("no subprocess")?;
         #[cfg(unix)]
@@ -161,7 +160,6 @@ impl Runner {
     }
 
     /// Kill subprocess and clear state. Next `send` respawns.
-    #[allow(dead_code)]
     pub async fn reset(&mut self) -> Result<(), String> {
         if let Some(mut c) = self.child.take() {
             let _ = c.kill().await;
