@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import React from 'react'
 import { useLinkIndex, findHeaderRename } from './useLinkIndex'
 import type { LinkIndex } from '../types'
-import { MockDir } from '../../../shared/testUtils/fsMock'
+import { MockDir, MockFile, MockFileHandle } from '../../../shared/testUtils/fsMock'
+import { StubRepositoryProvider } from '../../../shell/RepositoryContext'
+import type { Repositories } from '../../../shell/RepositoryContext'
+import type { DocumentRepository, LinkIndexRepository } from '../../../domain/repositories'
+import { FileSystemError } from '../../../domain/errors'
 
 // Covers DOC-4.10-01 through 4.10-12. See test-cases/04-document.md §4.10.
 
@@ -16,13 +21,106 @@ async function seedFile(root: MockDir, path: string, content: string) {
   fh.file.data = content
 }
 
-function asRoot(dir: MockDir): FileSystemDirectoryHandle {
-  return dir as unknown as FileSystemDirectoryHandle
+/**
+ * DocumentRepository backed by a MockDir tree.
+ * read/write walk the tree by path segments.
+ */
+function makeDocumentRepo(dir: MockDir): DocumentRepository {
+  async function read(path: string): Promise<string> {
+    const parts = path.split('/')
+    let node: MockDir = dir
+    for (const part of parts.slice(0, -1)) {
+      if (!node.dirs.has(part)) throw new FileSystemError('not-found', `${part} not found`)
+      node = node.dirs.get(part)!
+    }
+    const name = parts[parts.length - 1]
+    if (!node.files.has(name)) throw new FileSystemError('not-found', `${name} not found`)
+    return node.files.get(name)!.file.data
+  }
+
+  async function write(path: string, content: string): Promise<void> {
+    const parts = path.split('/')
+    let node: MockDir = dir
+    for (const part of parts.slice(0, -1)) {
+      if (!node.dirs.has(part)) {
+        const sub = new MockDir(part)
+        node.dirs.set(part, sub)
+      }
+      node = node.dirs.get(part)!
+    }
+    const name = parts[parts.length - 1]
+    if (node.files.has(name)) {
+      node.files.get(name)!.file.data = content
+    } else {
+      node.files.set(name, new MockFileHandle(name, new MockFile(content)))
+    }
+  }
+
+  return { read, write }
+}
+
+const LINKS_PATH = '.archdesigner/_links.json'
+
+/**
+ * LinkIndexRepository backed by the same MockDir.
+ * Reads/writes .archdesigner/_links.json through the document repo.
+ */
+function makeLinkIndexRepo(documentRepo: DocumentRepository): LinkIndexRepository {
+  return {
+    async load() {
+      let text: string
+      try {
+        text = await documentRepo.read(LINKS_PATH)
+      } catch {
+        throw new FileSystemError('not-found', `${LINKS_PATH} not found`)
+      }
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        throw new FileSystemError('malformed', `${LINKS_PATH} is not valid JSON`)
+      }
+      if (!parsed || typeof parsed !== 'object' || !('documents' in parsed) || !('backlinks' in parsed)) {
+        throw new FileSystemError('malformed', `${LINKS_PATH} missing required fields`)
+      }
+      return parsed as LinkIndex
+    },
+    async save(index: LinkIndex) {
+      const stamped = { ...index, updatedAt: new Date().toISOString() }
+      await documentRepo.write(LINKS_PATH, JSON.stringify(stamped))
+    },
+    async readDocContent(docPath: string) {
+      return documentRepo.read(docPath)
+    },
+  }
+}
+
+function makeRepos(dir: MockDir): Repositories {
+  const docRepo = makeDocumentRepo(dir)
+  return {
+    attachment: null,
+    attachmentLinks: null,
+    diagram: null,
+    document: docRepo,
+    linkIndex: makeLinkIndexRepo(docRepo),
+    svg: null,
+    svgRefs: null,
+    tab: null,
+    tabRefs: null,
+    vaultConfig: null,
+    vaultIndex: null,
+  }
 }
 
 let root: MockDir
 
 beforeEach(() => { root = new MockDir() })
+
+function makeWrapper(dir: MockDir) {
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(StubRepositoryProvider, { value: makeRepos(dir), children })
+  }
+}
 
 describe('loadIndex', () => {
   it('DOC-4.10-01: reads .archdesigner/_links.json and returns parsed LinkIndex', async () => {
@@ -41,10 +139,10 @@ describe('loadIndex', () => {
     }
     await seedFile(root, '.archdesigner/_links.json', JSON.stringify(stored))
 
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let loaded: LinkIndex | null = null
     await act(async () => {
-      loaded = await result.current.loadIndex(asRoot(root))
+      loaded = await result.current.loadIndex()
     })
     expect(loaded!.documents['a.md'].outboundLinks[0].targetPath).toBe('b.md')
     await waitFor(() => {
@@ -53,10 +151,10 @@ describe('loadIndex', () => {
   })
 
   it('DOC-4.10-02: missing file returns an empty index without throwing', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let loaded: LinkIndex | null = null
     await act(async () => {
-      loaded = await result.current.loadIndex(asRoot(root))
+      loaded = await result.current.loadIndex()
     })
     expect(loaded!.documents).toEqual({})
     expect(loaded!.backlinks).toEqual({})
@@ -64,10 +162,10 @@ describe('loadIndex', () => {
 
   it('DOC-4.10-03: malformed JSON returns an empty index', async () => {
     await seedFile(root, '.archdesigner/_links.json', '{not json')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let loaded: LinkIndex | null = null
     await act(async () => {
-      loaded = await result.current.loadIndex(asRoot(root))
+      loaded = await result.current.loadIndex()
     })
     expect(loaded!.documents).toEqual({})
   })
@@ -75,10 +173,10 @@ describe('loadIndex', () => {
   it('returns empty index when JSON is valid but missing required shape', async () => {
     // Valid JSON, but no "documents"/"backlinks" keys → invalid shape → empty.
     await seedFile(root, '.archdesigner/_links.json', '{"unrelated":1}')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let loaded: LinkIndex | null = null
     await act(async () => {
-      loaded = await result.current.loadIndex(asRoot(root))
+      loaded = await result.current.loadIndex()
     })
     expect(loaded!.documents).toEqual({})
   })
@@ -86,7 +184,7 @@ describe('loadIndex', () => {
 
 describe('saveIndex (DOC-4.10-04)', () => {
   it('writes a timestamped JSON to .archdesigner/_links.json', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const fresh: LinkIndex = {
       updatedAt: '', documents: { 'a.md': { outboundLinks: [], sectionLinks: [], headers: [] } }, backlinks: {},
     }
@@ -94,7 +192,7 @@ describe('saveIndex (DOC-4.10-04)', () => {
       // saveIndex is called via loadIndex / updateDocumentLinks, but also exposed
       // indirectly — here we exercise it by routing through updateDocumentLinks
       // which wraps saveIndex.
-      await result.current.updateDocumentLinks(asRoot(root), 'a.md', '', fresh)
+      await result.current.updateDocumentLinks('a.md', '', fresh)
     })
     const text = root.dirs.get('.archdesigner')!.files.get('_links.json')!.file.data
     const parsed = JSON.parse(text)
@@ -105,12 +203,11 @@ describe('saveIndex (DOC-4.10-04)', () => {
 
 describe('updateDocumentLinks (DOC-4.10-05/06/07)', () => {
   it('parses wiki-links from content into outboundLinks + sectionLinks', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const markdown = 'See [[other]] and [[target#sec]] in [[diag.json]].'
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.updateDocumentLinks(
-        asRoot(root), 'src/doc.md', markdown,
+      index = await result.current.updateDocumentLinks('src/doc.md', markdown,
       )
     })
     const entry = index!.documents['src/doc.md']
@@ -126,11 +223,10 @@ describe('updateDocumentLinks (DOC-4.10-05/06/07)', () => {
   })
 
   it('typeResolves to "diagram" for .json and "document" for everything else', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.updateDocumentLinks(
-        asRoot(root), 'a.md', '[[b.md]] [[c.json]] [[d]]',
+      index = await result.current.updateDocumentLinks('a.md', '[[b.md]] [[c.json]] [[d]]',
       )
     })
     const types = Object.fromEntries(
@@ -142,11 +238,10 @@ describe('updateDocumentLinks (DOC-4.10-05/06/07)', () => {
   })
 
   it('DOC-4.10-06: rebuilds backlinks from the new outbound/section data', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.updateDocumentLinks(
-        asRoot(root), 'a.md', 'go to [[b]] or [[c#sec]]',
+      index = await result.current.updateDocumentLinks('a.md', 'go to [[b]] or [[c#sec]]',
       )
     })
     expect(index!.backlinks['b.md'].linkedFrom).toEqual([{ sourcePath: 'a.md' }])
@@ -158,7 +253,7 @@ describe('updateDocumentLinks (DOC-4.10-05/06/07)', () => {
 
 describe('removeDocumentFromIndex (DOC-4.10-08)', () => {
   it('removes the doc entry and rebuilds backlinks so orphaned entries disappear', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -173,7 +268,7 @@ describe('removeDocumentFromIndex (DOC-4.10-08)', () => {
     }
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.removeDocumentFromIndex(asRoot(root), 'a.md', seeded)
+      index = await result.current.removeDocumentFromIndex('a.md', seeded)
     })
     expect(index!.documents['a.md']).toBeUndefined()
     // b.md should no longer have a backlink from a.md.
@@ -183,7 +278,7 @@ describe('removeDocumentFromIndex (DOC-4.10-08)', () => {
 
 describe('renameDocumentInIndex (DOC-4.10-09)', () => {
   it('moves the doc entry and updates all references (outbound + section)', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -198,8 +293,7 @@ describe('renameDocumentInIndex (DOC-4.10-09)', () => {
     }
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.renameDocumentInIndex(
-        asRoot(root), 'old.md', 'new.md', seeded,
+      index = await result.current.renameDocumentInIndex('old.md', 'new.md', seeded,
       )
     })
     expect(index!.documents['new.md']).toBeDefined()
@@ -214,18 +308,18 @@ describe('renameDocumentInIndex (DOC-4.10-09)', () => {
 describe('rename → save → reload round-trip (LINK-5.4-04)', () => {
   it('LINK-5.4-04: index on disk reflects rename after renameDocumentInIndex', async () => {
     // Instance A: populate then rename.
-    const { result: a } = renderHook(() => useLinkIndex())
+    const { result: a } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     await act(async () => {
-      await a.current.updateDocumentLinks(asRoot(root), 'ref.md', '[[target]]')
+      await a.current.updateDocumentLinks('ref.md', '[[target]]')
     })
     await act(async () => {
-      await a.current.renameDocumentInIndex(asRoot(root), 'target.md', 'target2.md')
+      await a.current.renameDocumentInIndex('target.md', 'target2.md')
     })
 
     // Instance B: fresh load from disk — simulates app reload.
-    const { result: b } = renderHook(() => useLinkIndex())
+    const { result: b } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let loaded: LinkIndex | null = null
-    await act(async () => { loaded = await b.current.loadIndex(asRoot(root)) })
+    await act(async () => { loaded = await b.current.loadIndex() })
 
     expect(loaded!.backlinks['target2.md']).toBeDefined()
     expect(loaded!.backlinks['target.md']).toBeUndefined()
@@ -235,15 +329,13 @@ describe('rename → save → reload round-trip (LINK-5.4-04)', () => {
 
 describe('getBacklinksFor (DOC-4.10-10)', () => {
   it('returns the list of sources for the given target path', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     await act(async () => {
-      await result.current.updateDocumentLinks(
-        asRoot(root), 'src1.md', '[[target]]',
+      await result.current.updateDocumentLinks('src1.md', '[[target]]',
       )
     })
     await act(async () => {
-      await result.current.updateDocumentLinks(
-        asRoot(root), 'src2.md', '[[target]]',
+      await result.current.updateDocumentLinks('src2.md', '[[target]]',
       )
     })
     await waitFor(() => {
@@ -253,7 +345,7 @@ describe('getBacklinksFor (DOC-4.10-10)', () => {
   })
 
   it('returns empty array when no backlinks exist', () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     expect(result.current.getBacklinksFor('anything.md')).toEqual([])
   })
 })
@@ -262,10 +354,10 @@ describe('fullRebuild (DOC-4.10-11/12)', () => {
   it('populates the index from every doc in the vault', async () => {
     await seedFile(root, 'a.md', '[[b]]')
     await seedFile(root, 'b.md', '[[a]]')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.fullRebuild(asRoot(root), ['a.md', 'b.md'])
+      index = await result.current.fullRebuild(['a.md', 'b.md'])
     })
     expect(index!.documents['a.md'].outboundLinks[0].targetPath).toBe('b.md')
     expect(index!.documents['b.md'].outboundLinks[0].targetPath).toBe('a.md')
@@ -276,14 +368,14 @@ describe('fullRebuild (DOC-4.10-11/12)', () => {
   it('DOC-4.10-12: running fullRebuild twice yields identical document/backlink content', async () => {
     await seedFile(root, 'a.md', '[[b]]')
     await seedFile(root, 'b.md', '')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
 
     let first: LinkIndex | null = null, second: LinkIndex | null = null
     await act(async () => {
-      first = await result.current.fullRebuild(asRoot(root), ['a.md', 'b.md'])
+      first = await result.current.fullRebuild(['a.md', 'b.md'])
     })
     await act(async () => {
-      second = await result.current.fullRebuild(asRoot(root), ['a.md', 'b.md'])
+      second = await result.current.fullRebuild(['a.md', 'b.md'])
     })
     expect(second!.documents).toEqual(first!.documents)
     expect(second!.backlinks).toEqual(first!.backlinks)
@@ -292,10 +384,10 @@ describe('fullRebuild (DOC-4.10-11/12)', () => {
 
   it('skips unreadable files silently', async () => {
     await seedFile(root, 'ok.md', '[[x]]')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.fullRebuild(asRoot(root), ['ok.md', 'missing.md'])
+      index = await result.current.fullRebuild(['ok.md', 'missing.md'])
     })
     expect(index!.documents['ok.md']).toBeDefined()
     expect(index!.documents['missing.md']).toBeUndefined()
@@ -315,9 +407,9 @@ describe('fullRebuild — .alphatex tabs (TAB-011)', () => {
     await seedFile(root, 'notes/song-history.md', '# History');
     await seedFile(root, 'diagrams/chord-tree.json', '{"title":"chords","layers":[],"nodes":[],"connections":[]}');
 
-    const { result } = renderHook(() => useLinkIndex());
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) });
     const index = await act(async () =>
-      result.current.fullRebuild(asRoot(root), [
+      result.current.fullRebuild([
         'songs/wonderwall.alphatex',
         'notes/song-history.md',
         'diagrams/chord-tree.json',
@@ -337,9 +429,9 @@ describe('fullRebuild — .alphatex tabs (TAB-011)', () => {
       `// references: [[real.md]]\n`,
     );
 
-    const { result } = renderHook(() => useLinkIndex());
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) });
     const index = await act(async () =>
-      result.current.fullRebuild(asRoot(root), ['a.alphatex']),
+      result.current.fullRebuild(['a.alphatex']),
     );
 
     expect(index.documents['a.alphatex'].outboundLinks).toEqual([
@@ -357,9 +449,9 @@ describe('fullRebuild — .alphatex tabs (TAB-011)', () => {
       'See [[/songs/wonderwall.alphatex]] for the tab.',
     );
 
-    const { result } = renderHook(() => useLinkIndex());
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) });
     const index = await act(async () =>
-      result.current.fullRebuild(asRoot(root), [
+      result.current.fullRebuild([
         'songs/wonderwall.alphatex',
         'notes/about.md',
       ]),
@@ -414,10 +506,10 @@ describe('findHeaderRename', () => {
 describe('useLinkIndex.headers', () => {
   it('populates headers from doc content', async () => {
     await seedFile(root, 'a.md', '# A\n## B Section')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.fullRebuild(asRoot(root), ['a.md'])
+      index = await result.current.fullRebuild(['a.md'])
     })
     expect(index!.documents['a.md'].headers).toEqual([
       { id: 'a', text: 'A', level: 1 },
@@ -428,7 +520,7 @@ describe('useLinkIndex.headers', () => {
 
 describe('header auto-refactor (Task 8)', () => {
   it('auto-updates the in-memory index entry on header rename', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -447,8 +539,7 @@ describe('header auto-refactor (Task 8)', () => {
     }
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.updateDocumentLinks(
-        asRoot(root), 'doc-b.md', '## New Section\n', seeded,
+      index = await result.current.updateDocumentLinks('doc-b.md', '## New Section\n', seeded,
       )
     })
     expect(index!.documents['doc-a.md'].sectionLinks).toEqual([
@@ -466,7 +557,7 @@ describe('header auto-refactor (Task 8)', () => {
     // Seed both files on disk so updateDocumentLinks can read & rewrite.
     await seedFile(root, 'doc-a.md', 'see [[doc-b.md#old-section]]')
     await seedFile(root, 'doc-b.md', '## Old Section\n\nbody')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -485,8 +576,7 @@ describe('header auto-refactor (Task 8)', () => {
     }
     let index: LinkIndex | null = null
     await act(async () => {
-      index = await result.current.updateDocumentLinks(
-        asRoot(root), 'doc-b.md', '## New Section\n\nbody', seeded,
+      index = await result.current.updateDocumentLinks('doc-b.md', '## New Section\n\nbody', seeded,
       )
     })
     // In-memory index reflects the rename.
@@ -501,7 +591,7 @@ describe('header auto-refactor (Task 8)', () => {
   it('preserves alias text when rewriting wiki-link anchors on rename', async () => {
     await seedFile(root, 'doc-a.md', 'see [[doc-b.md#old-section | the original]]')
     await seedFile(root, 'doc-b.md', '## Old Section\n\nbody')
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -519,8 +609,7 @@ describe('header auto-refactor (Task 8)', () => {
       backlinks: {},
     }
     await act(async () => {
-      await result.current.updateDocumentLinks(
-        asRoot(root), 'doc-b.md', '## New Section\n\nbody', seeded,
+      await result.current.updateDocumentLinks('doc-b.md', '## New Section\n\nbody', seeded,
       )
     })
     const onDisk = root.files.get('doc-a.md')!.file.data
@@ -528,7 +617,7 @@ describe('header auto-refactor (Task 8)', () => {
   })
 
   it('surfaces broken-anchor banner state when a heading is deleted', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -552,8 +641,7 @@ describe('header auto-refactor (Task 8)', () => {
     // Edit doc-b.md: drop 'Deleted Section', keep the others. Multi-removed +
     // zero-added falls through to the deletions branch in findHeaderRename.
     await act(async () => {
-      await result.current.updateDocumentLinks(
-        asRoot(root), 'doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
+      await result.current.updateDocumentLinks('doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
       )
     })
     await waitFor(() => {
@@ -566,7 +654,7 @@ describe('header auto-refactor (Task 8)', () => {
   })
 
   it('brokenAnchorState is cleared when clearBrokenAnchorState is called', async () => {
-    const { result } = renderHook(() => useLinkIndex())
+    const { result } = renderHook(() => useLinkIndex(), { wrapper: makeWrapper(root) })
     const seeded: LinkIndex = {
       updatedAt: '',
       documents: {
@@ -588,8 +676,7 @@ describe('header auto-refactor (Task 8)', () => {
       backlinks: {},
     }
     await act(async () => {
-      await result.current.updateDocumentLinks(
-        asRoot(root), 'doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
+      await result.current.updateDocumentLinks('doc-b.md', '## Kept 1\n\n## Kept 2\n', seeded,
       )
     })
     await waitFor(() => {

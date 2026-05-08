@@ -6,9 +6,8 @@ import type { LinkIndex, LinkIndexEntry, OutboundLink } from "../types";
 import { parseWikiLinks, resolveWikiLinkPath, updateWikiLinkAnchors } from "../utils/wikiLinkParser";
 import { extractHeaders, type HeaderInfo } from "../utils/extractHeaders";
 import { emitCrossReferences, type CrossReference } from "../../../shared/utils/graphifyBridge";
-import { createLinkIndexRepository } from "../../../infrastructure/linkIndexRepo";
 import { readOrNull } from "../../../domain/repositoryHelpers";
-import { readTextFile, writeTextFile } from "../../../shared/hooks/fileExplorerHelpers";
+import { useRepositories } from "../../../shell/RepositoryContext";
 
 function emptyIndex(): LinkIndex {
   return { updatedAt: new Date().toISOString(), documents: {}, backlinks: {} };
@@ -141,6 +140,12 @@ export interface BrokenAnchorState {
 }
 
 export function useLinkIndex() {
+  const repos = useRepositories();
+  // Keep refs to repos so callbacks don't capture stale closures when
+  // the repos bag re-memoizes (e.g. after a vault switch).
+  const reposRef = useRef(repos);
+  reposRef.current = repos;
+
   const [linkIndex, setLinkIndex] = useState<LinkIndex>(emptyIndex);
   const [brokenAnchorState, setBrokenAnchorState] = useState<BrokenAnchorState | null>(null);
   // Always-current ref so write callbacks never read stale closure state.
@@ -150,8 +155,9 @@ export function useLinkIndex() {
   const linkIndexRef = useRef(linkIndex);
   linkIndexRef.current = linkIndex;
 
-  const loadIndex = useCallback(async (rootHandle: FileSystemDirectoryHandle) => {
-    const repo = createLinkIndexRepository(rootHandle);
+  const loadIndex = useCallback(async () => {
+    const repo = reposRef.current.linkIndex;
+    if (!repo) return emptyIndex();
     // Missing index is not an error — the app starts with an empty index
     // and rebuilds on demand. Other failures (permission / malformed /
     // unknown) also fall back to empty here rather than blocking app
@@ -181,10 +187,10 @@ export function useLinkIndex() {
   }, []);
 
   const saveIndex = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     index: LinkIndex,
   ) => {
-    const repo = createLinkIndexRepository(rootHandle);
+    const repo = reposRef.current.linkIndex;
+    if (!repo) return;
     const updated = { ...index, updatedAt: new Date().toISOString() };
     await repo.save(updated);
     // Update the ref immediately after the disk write so any callback that
@@ -196,13 +202,13 @@ export function useLinkIndex() {
   }, []);
 
   const updateDocumentLinks = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     docPath: string,
     markdownContent: string,
     currentIndex?: LinkIndex,
   ) => {
     const index = currentIndex ?? { ...linkIndexRef.current };
     const docDir = getDocDir(docPath);
+    const documentRepo = reposRef.current.document;
 
     // Task 8: detect heading rename/delete BEFORE the entry is overwritten.
     const prevHeaders = index.documents[docPath]?.headers ?? [];
@@ -239,14 +245,10 @@ export function useLinkIndex() {
       for (const r of renames) renameRecord[r.from] = r.to;
       for (const sourcePath of consumingPaths) {
         try {
-          const parts = sourcePath.split("/");
-          let dh: FileSystemDirectoryHandle = rootHandle;
-          for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
-          const fh = await dh.getFileHandle(parts[parts.length - 1]);
-          const oldContent = await readTextFile(fh);
+          const oldContent = await documentRepo!.read(sourcePath);
           const newContent = updateWikiLinkAnchors(oldContent, docPath, renameRecord);
           if (newContent !== oldContent) {
-            await writeTextFile(rootHandle, sourcePath, newContent);
+            await documentRepo!.write(sourcePath, newContent);
             const sourceDocDir = getDocDir(sourcePath);
             const fresh = buildDocumentEntry(newContent, sourceDocDir);
             index.documents[sourcePath] = {
@@ -281,8 +283,13 @@ export function useLinkIndex() {
 
     index.documents[docPath] = buildDocumentEntry(markdownContent, docDir);
     rebuildBacklinks(index);
-    await saveIndex(rootHandle, index);
-    emitCrossReferences(rootHandle, collectCrossReferences(index));
+    await saveIndex(index);
+    if (documentRepo) {
+      void emitCrossReferences(
+        (path, content) => documentRepo.write(path, content),
+        collectCrossReferences(index),
+      );
+    }
 
     if (deletions.length > 0) {
       setBrokenAnchorState({ docPath, deletedIds: deletions, affectedRefs });
@@ -296,19 +303,17 @@ export function useLinkIndex() {
   }, []);
 
   const removeDocumentFromIndex = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     docPath: string,
     currentIndex?: LinkIndex,
   ) => {
     const index = currentIndex ?? { ...linkIndexRef.current };
     delete index.documents[docPath];
     rebuildBacklinks(index);
-    await saveIndex(rootHandle, index);
+    await saveIndex(index);
     return index;
   }, [saveIndex]);
 
   const renameDocumentInIndex = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     oldPath: string,
     newPath: string,
     currentIndex?: LinkIndex,
@@ -327,7 +332,7 @@ export function useLinkIndex() {
       );
     }
     rebuildBacklinks(index);
-    await saveIndex(rootHandle, index);
+    await saveIndex(index);
     return index;
   }, [saveIndex]);
 
@@ -340,10 +345,11 @@ export function useLinkIndex() {
   }, [linkIndex]);
 
   const fullRebuild = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     allDocPaths: string[],
   ) => {
-    const repo = createLinkIndexRepository(rootHandle);
+    const repo = reposRef.current.linkIndex;
+    const documentRepo = reposRef.current.document;
+    if (!repo) return emptyIndex();
     const index = emptyIndex();
     for (const docPath of allDocPaths) {
       try {
@@ -362,8 +368,13 @@ export function useLinkIndex() {
       }
     }
     rebuildBacklinks(index);
-    await saveIndex(rootHandle, index);
-    emitCrossReferences(rootHandle, collectCrossReferences(index));
+    await saveIndex(index);
+    if (documentRepo) {
+      void emitCrossReferences(
+        (path, content) => documentRepo.write(path, content),
+        collectCrossReferences(index),
+      );
+    }
     return index;
   }, [saveIndex]);
 
@@ -371,20 +382,25 @@ export function useLinkIndex() {
    *  attachments change (on load or save). `docFilenames` is the list of
    *  `.md` paths currently attached to the diagram's entities. */
   const updateDiagramLinks = useCallback(async (
-    rootHandle: FileSystemDirectoryHandle,
     diagramPath: string,
     docFilenames: string[],
     currentIndex?: LinkIndex,
   ) => {
     const index = currentIndex ?? { ...linkIndexRef.current };
+    const documentRepo = reposRef.current.document;
     index.documents[diagramPath] = {
       outboundLinks: docFilenames.map((f) => ({ targetPath: f, type: "document" as const })),
       sectionLinks: [],
       headers: [],
     };
     rebuildBacklinks(index);
-    await saveIndex(rootHandle, index);
-    emitCrossReferences(rootHandle, collectCrossReferences(index));
+    await saveIndex(index);
+    if (documentRepo) {
+      void emitCrossReferences(
+        (path, content) => documentRepo.write(path, content),
+        collectCrossReferences(index),
+      );
+    }
     return index;
   }, [saveIndex]);
 

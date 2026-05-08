@@ -10,6 +10,22 @@ A catalogue of every user-facing capability and internal sub-system in the Knowl
 
 ---
 
+## 0. Desktop Shell (MVP-1a)
+
+Tauri 2 native wrapper that hosts the existing Next.js app as a desktop application with Rust-backed filesystem access instead of the File System Access API.
+
+- ⚙️ Tauri 2 desktop shell hosting the existing Next.js app — `src-tauri/`.
+- ⚙️ Rust-backed vault filesystem adapter exposing 12 VFS commands (`vault_pick`, `vault_set_root`, `vault_read_text`, `vault_write_text`, `vault_read_json`, `vault_write_json`, `vault_read_bytes`, `vault_write_bytes`, `vault_list`, `vault_rename`, `vault_delete`, `vault_exists`) — `src-tauri/src/vault/`.
+- ⚙️ Tagged-union `VaultError` translated to existing `FileSystemError` for consumer ergonomic continuity — `src-tauri/src/vault/error.rs` + `src/app/knowledge_base/infrastructure/tauriBridge.ts`.
+- ⚙️ Per-repo Tauri implementations replacing FSA factories at the `RepositoryProvider` seam — `src/app/knowledge_base/infrastructure/*RepoTauri.ts`.
+- ⚙️ New `VaultIndexRepository` for vault-level structural operations (scan / rename / delete / exists / createFolder) consolidating the abstraction-debt cleanup that surfaced during MVP-1a — `src/app/knowledge_base/domain/repositories.ts`.
+- ⚙️ Native vault picker via `tauri-plugin-dialog`, replacing `showDirectoryPicker` — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`.
+- ⚙️ Path-traversal safety (`vault::path::resolve`) + atomic writes (write-tmp → fsync → rename) on every Rust write path.
+
+(File watching, settings persistence, vault switcher UI, uninitialized-folder splash, GitHub Pages workflow removal, FSA infrastructure deletion, and CI on `macos-latest` are deferred to MVP-1b/c/d.)
+
+---
+
 ## 1. App Shell & Layout
 
 Top-level chrome that hosts every other feature.

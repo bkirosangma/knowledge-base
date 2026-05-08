@@ -10,19 +10,21 @@
  *    functions of `TreeNode[]`.
  * 2. **FileSystemDirectoryHandle navigation** — `resolveParentHandle`,
  *    `copyDirContents`. Async walkers over the File System Access API.
+ *    TODO MVP-1d: delete resolveParentHandle + copyDirContents with FSA.
  * 3. **File I/O** — `readTextFile`, `writeTextFile`, `getSubdirectoryHandle`
  *    (already re-exported so any caller importing them from the hook file
  *    continues to work — see `useFileExplorer.ts` for the re-export).
+ *    TODO MVP-1d: delete FSA I/O helpers when FSA layer is removed.
  */
 
 import type { DiagramData } from "../utils/types";
 import type { TreeNode } from "../utils/fileTree";
+import type { DocumentRepository } from "../../domain/repositories";
 import { updateWikiLinkPaths } from "../../features/document/utils/wikiLinkParser";
 
 /** Minimal surface of `useLinkIndex` needed for wiki-link propagation helpers. */
 export interface LinkPropagator {
   renameDocumentInIndex(
-    rootHandle: FileSystemDirectoryHandle,
     oldPath: string,
     newPath: string,
   ): Promise<unknown>;
@@ -96,7 +98,8 @@ export function collectAllFilePaths(nodes: TreeNode[]): Set<string> {
   return result;
 }
 
-/** Resolve parent dir handle from a path. Empty string = root. */
+/** Resolve parent dir handle from a path. Empty string = root.
+ *  TODO MVP-1d: delete with FSA layer. */
 export async function resolveParentHandle(
   rootHandle: FileSystemDirectoryHandle,
   parentPath: string,
@@ -122,7 +125,8 @@ export function findChildren(tree: TreeNode[], folderPath: string): TreeNode[] {
   return nodes;
 }
 
-/** Recursively copy all contents from one directory to another. */
+/** Recursively copy all contents from one directory to another.
+ *  TODO MVP-1d: delete with FSA layer. */
 export async function copyDirContents(
   src: FileSystemDirectoryHandle,
   dest: FileSystemDirectoryHandle,
@@ -144,7 +148,7 @@ export async function copyDirContents(
   }
 }
 
-/* ── File I/O ── */
+/* ── File I/O (FSA) — TODO MVP-1d: delete below with FSA layer ── */
 
 export async function readTextFile(handle: FileSystemFileHandle): Promise<string> {
   const file = await handle.getFile();
@@ -185,23 +189,21 @@ export async function getSubdirectoryHandle(
  * Throws if the index update fails (caller decides whether to reportError).
  * Per-backlink file errors are swallowed so one unreadable file can't block
  * the rest.
+ *
+ * Uses `DocumentRepository` for file reads/writes — no FSA handles needed.
  */
 export async function propagateRename(
-  rootHandle: FileSystemDirectoryHandle,
+  documentRepo: DocumentRepository,
   oldPath: string,
   newPath: string,
   lm: LinkPropagator,
 ): Promise<void> {
-  await lm.renameDocumentInIndex(rootHandle, oldPath, newPath);
+  await lm.renameDocumentInIndex(oldPath, newPath);
   for (const bl of lm.getBacklinksFor(oldPath)) {
     try {
-      const parts = bl.sourcePath.split("/");
-      let dh: FileSystemDirectoryHandle = rootHandle;
-      for (const part of parts.slice(0, -1)) dh = await dh.getDirectoryHandle(part);
-      const fh = await dh.getFileHandle(parts[parts.length - 1]);
-      const content = await readTextFile(fh);
+      const content = await documentRepo.read(bl.sourcePath);
       const updated = updateWikiLinkPaths(content, oldPath, newPath);
-      if (updated !== content) await writeTextFile(rootHandle, bl.sourcePath, updated);
+      if (updated !== content) await documentRepo.write(bl.sourcePath, updated);
     } catch { /* skip unreadable/unwritable backlink files */ }
   }
 }
@@ -211,9 +213,11 @@ export async function propagateRename(
  * Computes old→new path mapping, then calls `propagateRename` for each
  * moved `.md`/`.json` file. Per-file index errors are swallowed so one
  * failure doesn't block the rest.
+ *
+ * Uses `DocumentRepository` for file reads/writes — no FSA handles needed.
  */
 export async function propagateMoveLinks(
-  rootHandle: FileSystemDirectoryHandle,
+  documentRepo: DocumentRepository,
   sourcePath: string,
   targetFolderPath: string,
   tree: TreeNode[],
@@ -226,7 +230,7 @@ export async function propagateMoveLinks(
   for (const oldFilePath of oldPaths) {
     const newFilePath = isFile ? newBase : oldFilePath.replace(sourcePath + "/", newBase + "/");
     try {
-      await propagateRename(rootHandle, oldFilePath, newFilePath, lm);
+      await propagateRename(documentRepo, oldFilePath, newFilePath, lm);
     } catch { /* skip: one file's index failure doesn't block the rest */ }
   }
 }
@@ -235,6 +239,7 @@ export async function propagateMoveLinks(
  * Rename the undo-history sidecar that lives alongside a diagram file.
  * The sidecar is a hidden dotfile: `foo.json` → `.foo.history.json`.
  * Best-effort: silently does nothing if the sidecar is absent or the rename fails.
+ * TODO MVP-1d: delete with FSA layer (history sidecar goes away).
  */
 export async function renameSidecar(
   parentHandle: FileSystemDirectoryHandle,

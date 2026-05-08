@@ -12,25 +12,27 @@ import type {
   SVGRepository,
   TabRepository,
   VaultConfigRepository,
+  VaultIndexRepository,
 } from "../domain/repositories";
 import type { SvgRefsRepository } from "../domain/svgRefs";
 import type { TabRefsRepository } from "../domain/tabRefs";
-import { createAttachmentLinksRepository } from "../infrastructure/attachmentLinksRepo";
-import { createAttachmentRepository } from "../infrastructure/attachmentRepo";
-import { createDiagramRepository } from "../infrastructure/diagramRepo";
-import { createDocumentRepository } from "../infrastructure/documentRepo";
-import { createLinkIndexRepository } from "../infrastructure/linkIndexRepo";
-import { createSVGRepository } from "../infrastructure/svgRepo";
-import { createSvgRefsRepository } from "../infrastructure/svgRefsRepo";
-import { createTabRepository } from "../infrastructure/tabRepo";
-import { createTabRefsRepository } from "../infrastructure/tabRefsRepo";
-import { createVaultConfigRepository } from "../infrastructure/vaultConfigRepo";
+import { createAttachmentLinksRepositoryTauri } from "../infrastructure/attachmentLinksRepoTauri";
+import { createAttachmentRepositoryTauri } from "../infrastructure/attachmentRepoTauri";
+import { createDiagramRepositoryTauri } from "../infrastructure/diagramRepoTauri";
+import { createDocumentRepositoryTauri } from "../infrastructure/documentRepoTauri";
+import { createLinkIndexRepositoryTauri } from "../infrastructure/linkIndexRepoTauri";
+import { createSVGRepositoryTauri } from "../infrastructure/svgRepoTauri";
+import { createSvgRefsRepositoryTauri } from "../infrastructure/svgRefsRepoTauri";
+import { createTabRepositoryTauri } from "../infrastructure/tabRepoTauri";
+import { createTabRefsRepositoryTauri } from "../infrastructure/tabRefsRepoTauri";
+import { createVaultConfigRepositoryTauri } from "../infrastructure/vaultConfigRepoTauri";
+import { createVaultIndexRepositoryTauri } from "../infrastructure/vaultIndexRepoTauri";
 
 /**
  * Bag of repositories provided to the knowledge-base component tree. Each
- * member is `null` while no directory handle is active (pre-picker, post-
- * `clearSavedHandle`) — consumers null-check before use, matching the shape
- * of every previous inline `createXRepository(rootHandle)` callsite.
+ * member is `null` while no vault path is active (pre-picker state) —
+ * consumers null-check before use, matching the shape of every previous
+ * inline `createXRepository(rootHandle)` callsite.
  */
 export interface Repositories {
   attachment: AttachmentRepository | null;
@@ -43,6 +45,7 @@ export interface Repositories {
   tab: TabRepository | null;
   tabRefs: TabRefsRepository | null;
   vaultConfig: VaultConfigRepository | null;
+  vaultIndex: VaultIndexRepository | null;
 }
 
 const EMPTY_REPOS: Repositories = {
@@ -56,43 +59,43 @@ const EMPTY_REPOS: Repositories = {
   tab: null,
   tabRefs: null,
   vaultConfig: null,
+  vaultIndex: null,
 };
 
 export const RepositoryContext = createContext<Repositories | null>(null);
 
 /**
  * Mount beneath `useFileExplorer()`'s consumer in `knowledgeBase.tsx`. The
- * provider re-memoizes the four repos whenever `rootHandle` (the reactive
- * companion to `useFileExplorer.dirHandleRef`) changes — so the pre-picker
- * null state, picker acquisition, and `clearSavedHandle` all flow through
- * the same subscription.
+ * provider re-memoizes the bag of repos whenever the active `vaultPath`
+ * changes — so the pre-picker null state, picker acquisition, and any
+ * future "switch vault" action all flow through the same subscription.
  *
  * Tests can bypass this provider by wrapping components in their own
- * provider with a stub `Repositories` value, avoiding the FSA MockDir tree
- * when the component under test only needs repo I/O.
+ * provider with a stub `Repositories` value (see `StubRepositoryProvider`).
  */
 export function RepositoryProvider({
-  rootHandle,
+  vaultPath,
   children,
 }: {
-  rootHandle: FileSystemDirectoryHandle | null;
+  vaultPath: string | null;
   children: ReactNode;
 }) {
   const value = useMemo<Repositories>(() => {
-    if (!rootHandle) return EMPTY_REPOS;
+    if (!vaultPath) return EMPTY_REPOS;
     return {
-      attachment: createAttachmentRepository(rootHandle),
-      attachmentLinks: createAttachmentLinksRepository(rootHandle),
-      diagram: createDiagramRepository(rootHandle),
-      document: createDocumentRepository(rootHandle),
-      linkIndex: createLinkIndexRepository(rootHandle),
-      svg: createSVGRepository(rootHandle),
-      svgRefs: createSvgRefsRepository(rootHandle),
-      tab: createTabRepository(rootHandle),
-      tabRefs: createTabRefsRepository(rootHandle),
-      vaultConfig: createVaultConfigRepository(rootHandle),
+      attachment: createAttachmentRepositoryTauri(),
+      attachmentLinks: createAttachmentLinksRepositoryTauri(),
+      diagram: createDiagramRepositoryTauri(),
+      document: createDocumentRepositoryTauri(),
+      linkIndex: createLinkIndexRepositoryTauri(),
+      svg: createSVGRepositoryTauri(),
+      svgRefs: createSvgRefsRepositoryTauri(),
+      tab: createTabRepositoryTauri(),
+      tabRefs: createTabRefsRepositoryTauri(),
+      vaultConfig: createVaultConfigRepositoryTauri(),
+      vaultIndex: createVaultIndexRepositoryTauri(),
     };
-  }, [rootHandle]);
+  }, [vaultPath]);
 
   return (
     <RepositoryContext.Provider value={value}>

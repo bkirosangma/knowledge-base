@@ -35,8 +35,7 @@ export interface SVGEditorViewProps {
   // Needed for the local DocumentPicker
   allDocPaths?: string[];
   getDocumentsForEntity?: (entityType: string, entityId: string) => { filename: string }[];
-  rootHandle?: FileSystemDirectoryHandle | null;
-  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
+  onCreateDocument?: (path: string) => Promise<void>;
 }
 
 function fileNameWithoutExtension(path: string): string {
@@ -57,7 +56,6 @@ export default function SVGEditorView({
   onPreviewDocument,
   allDocPaths,
   getDocumentsForEntity,
-  rootHandle,
   onCreateDocument,
 }: SVGEditorViewProps) {
   const canvasRef = useRef<SVGCanvasHandle | null>(null);
@@ -222,9 +220,9 @@ export default function SVGEditorView({
             setPickerOpen(false);
           }}
           onCreate={
-            rootHandle && onCreateDocument
+            onCreateDocument
               ? async (path) => {
-                  await onCreateDocument(rootHandle, path);
+                  await onCreateDocument(path);
                   onAttachDocument(path);
                   setPickerOpen(false);
                 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createDiagramRepository } from "../../../infrastructure/diagramRepo";
+import { useRepositories } from "../../../shell/RepositoryContext";
 import { fnv1a } from "../../../shared/utils/historyPersistence";
 import { loadDiagramFromData } from "../../../shared/utils/persistence";
 import { hasDocuments as hasDocsFor, getDocumentsForEntity as getDocsForEntity } from "../utils/entityAttachments";
@@ -69,7 +69,7 @@ interface DiagramControllerInputs {
   documents: DocumentMeta[];
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
-  onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
+  onCreateDocument: (path: string) => Promise<void>;
   onMigrateLegacyDocuments?: (filePath: string, docs: DocumentMeta[]) => Promise<void>;
   backlinks?: { sourcePath: string; section?: string }[];
   onDiagramBridge: (bridge: import("../types").DiagramBridge) => void;
@@ -282,12 +282,15 @@ export function useDiagramController(input: DiagramControllerInputs) {
   scheduleRecordRef.current = scheduleRecord;
 
   // ─── File watcher ────────────────────────────────────────────────
+  const repos = useRepositories();
+  const reposRef = useRef(repos);
+  reposRef.current = repos;
   const getJsonFromDisk = useCallback(async () => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle || !activeFile) return null;
+    if (!activeFile) return null;
+    const diagramRepo = reposRef.current.diagram;
+    if (!diagramRepo) return null;
     try {
-      const repo = createDiagramRepository(rootHandle);
-      const raw = await repo.read(activeFile);
+      const raw = await diagramRepo.read(activeFile);
       const json = JSON.stringify(raw, null, 2);
       const data = loadDiagramFromData(raw);
       const snapshot: DiagramSnapshot = {
@@ -298,7 +301,7 @@ export function useDiagramController(input: DiagramControllerInputs) {
     } catch {
       return null;
     }
-  }, [activeFile, fileExplorer.dirHandleRef]);
+  }, [activeFile]);
   const updateDiskChecksum = useCallback((c: string) => { history.diskChecksumRef.current = c; }, [history.diskChecksumRef]);
   const { conflictSnapshot, handleReloadFromDisk, handleKeepEdits } = useDiagramFileWatcher({
     activeFile, dirty: isDirty, diskChecksumRef: history.diskChecksumRef,

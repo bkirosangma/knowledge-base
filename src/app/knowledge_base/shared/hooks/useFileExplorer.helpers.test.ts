@@ -13,6 +13,46 @@ import {
 } from './fileExplorerHelpers'
 import { MockDir, MockFile, MockFileHandle } from '../testUtils/fsMock'
 import type { TreeNode } from '../utils/fileTree'
+import type { DocumentRepository } from '../../domain/repositories'
+
+/**
+ * Build a `DocumentRepository` stub backed by a `MockDir`.
+ * `read` walks the MockDir tree and returns the file text.
+ * `write` walks the tree (creating dirs/files as needed) and sets file data.
+ */
+function makeDocumentRepo(dir: MockDir): DocumentRepository {
+  async function readFile(path: string): Promise<string> {
+    const parts = path.split('/')
+    let node: MockDir = dir
+    for (const part of parts.slice(0, -1)) {
+      if (!node.dirs.has(part)) throw new Error(`NotFoundError: ${part}`)
+      node = node.dirs.get(part)!
+    }
+    const name = parts[parts.length - 1]
+    if (!node.files.has(name)) throw new Error(`NotFoundError: ${name}`)
+    return node.files.get(name)!.file.data
+  }
+
+  async function writeFile(path: string, content: string): Promise<void> {
+    const parts = path.split('/')
+    let node: MockDir = dir
+    for (const part of parts.slice(0, -1)) {
+      if (!node.dirs.has(part)) {
+        const sub = new MockDir(part)
+        node.dirs.set(part, sub)
+      }
+      node = node.dirs.get(part)!
+    }
+    const name = parts[parts.length - 1]
+    if (node.files.has(name)) {
+      node.files.get(name)!.file.data = content
+    } else {
+      node.files.set(name, new MockFileHandle(name, new MockFile(content)))
+    }
+  }
+
+  return { read: readFile, write: writeFile }
+}
 
 // Covers HOOK-6.5-06 (resolveParentHandle — tested via writeTextFile/getSubdirectoryHandle)
 // plus the exported FS-access helpers. Bulk of useFileExplorer (IDB + showDirectoryPicker
@@ -141,8 +181,8 @@ describe('propagateRename (HOOK-6.2-09)', () => {
   it('calls renameDocumentInIndex with old and new paths', async () => {
     const dir = new MockDir()
     const lm = makeLinkManager()
-    await propagateRename(asRoot(dir), 'a.md', 'b.md', lm)
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'a.md', 'b.md')
+    await propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('a.md', 'b.md')
   })
 
   it('rewrites wiki-links in each backlink file', async () => {
@@ -151,7 +191,7 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     const lm = makeLinkManager({
       getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'ref.md' }]),
     })
-    await propagateRename(asRoot(dir), 'a.md', 'b.md', lm)
+    await propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)
     expect(dir.files.get('ref.md')!.file.data).toBe('see [[b]] for details')
   })
 
@@ -160,18 +200,19 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     const lm = makeLinkManager({
       getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'missing.md' }]),
     })
-    await expect(propagateRename(asRoot(dir), 'a.md', 'b.md', lm)).resolves.toBeUndefined()
+    await expect(propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)).resolves.toBeUndefined()
   })
 
   it('does not write the backlink file when content is unchanged', async () => {
     const dir = new MockDir()
     dir.files.set('ref.md', new MockFileHandle('ref.md', new MockFile('no links here')))
-    const spy = vi.spyOn(dir.files.get('ref.md')!, 'createWritable')
+    const repo = makeDocumentRepo(dir)
+    const writeSpy = vi.spyOn(repo, 'write')
     const lm = makeLinkManager({
       getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'ref.md' }]),
     })
-    await propagateRename(asRoot(dir), 'a.md', 'b.md', lm)
-    expect(spy).not.toHaveBeenCalled()
+    await propagateRename(repo, 'a.md', 'b.md', lm)
+    expect(writeSpy).not.toHaveBeenCalled()
   })
 
   it('throws when renameDocumentInIndex throws', async () => {
@@ -179,7 +220,7 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     const lm = makeLinkManager({
       renameDocumentInIndex: vi.fn().mockRejectedValue(new Error('disk full')),
     })
-    await expect(propagateRename(asRoot(dir), 'a.md', 'b.md', lm)).rejects.toThrow('disk full')
+    await expect(propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)).rejects.toThrow('disk full')
   })
 
   it('handles nested backlink paths', async () => {
@@ -190,7 +231,7 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     const lm = makeLinkManager({
       getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'sub/ref.md' }]),
     })
-    await propagateRename(asRoot(dir), 'a.md', 'b.md', lm)
+    await propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)
     expect(sub.files.get('ref.md')!.file.data).toBe('[[b]] link')
   })
 
@@ -203,10 +244,10 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     const lm = makeLinkManager({
       getBacklinksFor: vi.fn().mockReturnValue([{ sourcePath: 'b.md' }]),
     })
-    await propagateRename(asRoot(dir), 'a.md', 'a2.md', lm)
+    await propagateRename(makeDocumentRepo(dir), 'a.md', 'a2.md', lm)
     expect(dir.files.get('b.md')!.file.data).toBe('also [[a2]] is relevant')
     expect(dir.files.get('a.md')!.file.data).toBe('see [[b]] for context')
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'a.md', 'a2.md')
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('a.md', 'a2.md')
   })
 })
 
@@ -236,32 +277,32 @@ describe('propagateMoveLinks (HOOK-6.2-11)', () => {
     dir.files.set('doc.md', new MockFileHandle('doc.md', new MockFile('hello')))
     const lm = makeLinkManager()
     const tree = makeTree(['doc.md'])
-    await propagateMoveLinks(asRoot(dir), 'doc.md', 'archive', tree, lm)
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'doc.md', 'archive/doc.md')
+    await propagateMoveLinks(makeDocumentRepo(dir), 'doc.md', 'archive', tree, lm)
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('doc.md', 'archive/doc.md')
   })
 
   it('propagates rename for a single .json file move', async () => {
     const dir = new MockDir()
     const lm = makeLinkManager()
     const tree = makeTree(['arch.json'])
-    await propagateMoveLinks(asRoot(dir), 'arch.json', 'diagrams', tree, lm)
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'arch.json', 'diagrams/arch.json')
+    await propagateMoveLinks(makeDocumentRepo(dir), 'arch.json', 'diagrams', tree, lm)
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('arch.json', 'diagrams/arch.json')
   })
 
   it('propagates rename for all files inside a moved folder', async () => {
     const dir = new MockDir()
     const lm = makeLinkManager()
     const tree = makeTree(['services/auth.md', 'services/db.json'])
-    await propagateMoveLinks(asRoot(dir), 'services', 'archive', tree, lm)
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'services/auth.md', 'archive/services/auth.md')
-    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith(asRoot(dir), 'services/db.json', 'archive/services/db.json')
+    await propagateMoveLinks(makeDocumentRepo(dir), 'services', 'archive', tree, lm)
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('services/auth.md', 'archive/services/auth.md')
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('services/db.json', 'archive/services/db.json')
   })
 
   it('is a no-op for an empty folder', async () => {
     const dir = new MockDir()
     const lm = makeLinkManager()
     const tree = makeTree([]) // folder exists but has no files
-    await propagateMoveLinks(asRoot(dir), 'empty-folder', 'archive', tree, lm)
+    await propagateMoveLinks(makeDocumentRepo(dir), 'empty-folder', 'archive', tree, lm)
     expect(lm.renameDocumentInIndex).not.toHaveBeenCalled()
   })
 
@@ -273,7 +314,7 @@ describe('propagateMoveLinks (HOOK-6.2-11)', () => {
         .mockResolvedValue(undefined),
     })
     const tree = makeTree(['svc/a.md', 'svc/b.md'])
-    await expect(propagateMoveLinks(asRoot(dir), 'svc', 'archive', tree, lm)).resolves.toBeUndefined()
+    await expect(propagateMoveLinks(makeDocumentRepo(dir), 'svc', 'archive', tree, lm)).resolves.toBeUndefined()
     expect(lm.renameDocumentInIndex).toHaveBeenCalledTimes(2)
   })
 })

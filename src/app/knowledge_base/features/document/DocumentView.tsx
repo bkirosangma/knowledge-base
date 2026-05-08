@@ -31,7 +31,6 @@ export interface DocumentViewProps {
    *  scrolls the matching heading into view on mount. Sourced from the
    *  pane's `PaneEntry.anchor`. */
   anchor?: string | null;
-  dirHandleRef: React.RefObject<FileSystemDirectoryHandle | null>;
   onDocBridge?: (bridge: DocumentPaneBridge | null) => void;
   linkManager: ReturnType<typeof useLinkIndex>;
   tree: TreeNode[];
@@ -51,7 +50,6 @@ export interface DocumentViewProps {
 export default function DocumentView({
   filePath,
   anchor,
-  dirHandleRef,
   onDocBridge,
   linkManager,
   tree,
@@ -126,11 +124,10 @@ export default function DocumentView({
   const indexedOnOpenRef = useRef<string | null>(null);
   useEffect(() => { indexedOnOpenRef.current = null; }, [filePath]);
   useEffect(() => {
-    const dh = dirHandleRef.current;
-    if (!filePath || !dh || !content || loadedPath !== filePath) return;
+    if (!filePath || !content || loadedPath !== filePath) return;
     if (indexedOnOpenRef.current === filePath) return;
     indexedOnOpenRef.current = filePath;
-    linkManager.updateDocumentLinks(dh, filePath, content).catch(() => {});
+    linkManager.updateDocumentLinks(filePath, content).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, content, loadedPath]);
 
@@ -190,8 +187,7 @@ export default function DocumentView({
     if (historyInitedPathRef.current === filePath) return;
     historyInitedPathRef.current = filePath;
     (async () => {
-      const dh = dirHandleRef.current ?? null;
-      await history.initHistory(content, dh, filePath);
+      await history.initHistory(content, null, filePath);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, loadedPath, content]);

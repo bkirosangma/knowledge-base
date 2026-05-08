@@ -11,9 +11,7 @@
 import type { DocFields, DocKind } from "../features/search/VaultIndex";
 import { tokenize } from "../features/search/tokenizer";
 import type { DiagramData } from "../shared/utils/types";
-import { createDocumentRepository } from "./documentRepo";
-import { createDiagramRepository } from "./diagramRepo";
-import { createTabRepository } from "./tabRepo";
+import type { DocumentRepository, DiagramRepository, TabRepository } from "../domain/repositories";
 import { parseAlphatexHeader, type AlphatexHeader } from "./alphatexHeader";
 import { readOrNull } from "../domain/repositoryHelpers";
 
@@ -23,28 +21,40 @@ export interface SearchableDoc {
   fields: DocFields;
 }
 
-/** Read `path` from `rootHandle` and return the data the search worker
- *  needs to (re)index it. Returns null for non-indexable extensions or
- *  when the file is missing/malformed. */
+/**
+ * Shape of the repo bag that `readForSearchIndex` needs. Avoids importing
+ * the full `Repositories` type (which includes 10 other repos).
+ */
+export interface SearchRepos {
+  document: DocumentRepository;
+  diagram: DiagramRepository;
+  tab: TabRepository;
+}
+
+/** Read `path` via the appropriate typed repo and return the data the
+ *  search worker needs to (re)index it. Returns null for non-indexable
+ *  extensions or when the file is missing/malformed. */
 export async function readForSearchIndex(
-  rootHandle: FileSystemDirectoryHandle,
+  documentRepo: DocumentRepository,
   path: string,
 ): Promise<SearchableDoc | null> {
   if (path.endsWith(".md")) {
-    const docRepo = createDocumentRepository(rootHandle);
-    const body = await readOrNull(() => docRepo.read(path));
+    const body = await readOrNull(() => documentRepo.read(path));
     if (body === null) return null;
     return { path, kind: "doc", fields: { body } };
   }
   if (path.endsWith(".json")) {
-    const diagramRepo = createDiagramRepository(rootHandle);
-    const data = await readOrNull(() => diagramRepo.read(path));
-    if (data === null) return null;
-    return { path, kind: "diagram", fields: diagramFields(data) };
+    const text = await readOrNull(() => documentRepo.read(path));
+    if (text === null) return null;
+    try {
+      const data = JSON.parse(text) as DiagramData;
+      return { path, kind: "diagram", fields: diagramFields(data) };
+    } catch {
+      return null;
+    }
   }
   if (path.endsWith(".alphatex")) {
-    const tabRepo = createTabRepository(rootHandle);
-    const text = await readOrNull(() => tabRepo.read(path));
+    const text = await readOrNull(() => documentRepo.read(path));
     if (text === null) return null;
     return { path, kind: "tab", fields: tabFields(parseAlphatexHeader(text)) };
   }
@@ -62,13 +72,12 @@ export async function readForSearchIndex(
  *  searchable fields, but the user "expected" a label to land on a
  *  node, so any token hit is enough. */
 export async function findFirstNodeMatching(
-  rootHandle: FileSystemDirectoryHandle,
+  diagramRepo: DiagramRepository,
   diagramPath: string,
   query: string,
 ): Promise<string | null> {
   const tokens = tokenize(query);
   if (tokens.length === 0) return null;
-  const diagramRepo = createDiagramRepository(rootHandle);
   const data = await readOrNull(() => diagramRepo.read(diagramPath));
   if (!data) return null;
   return firstNodeMatchingTokens(data, tokens);

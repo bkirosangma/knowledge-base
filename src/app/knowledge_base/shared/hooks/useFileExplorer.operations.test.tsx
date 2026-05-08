@@ -1,51 +1,199 @@
 // Covers FS-2.3-22/23 (createFile), FS-2.3-25..29 (renameFile),
 // FS-2.3-30..34 (deleteFile), FS-2.3-35 (duplicateFile), FS-2.3-36/37 (moveItem).
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+//
+// Migrated from FSA MockDir + showDirectoryPicker to StubRepositoryProvider
+// + mock repos backed by MockDir (Task 27b).
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
-import 'fake-indexeddb/auto'
-import { IDBFactory } from 'fake-indexeddb'
 import { useFileExplorer } from './useFileExplorer'
 import { ShellErrorProvider } from '../../shell/ShellErrorContext'
+import { StubRepositoryProvider } from '../../shell/RepositoryContext'
+import type { Repositories } from '../../shell/RepositoryContext'
 import { MockDir, MockFile, MockFileHandle } from '../testUtils/fsMock'
+import { scanTree } from '../utils/fileTree'
+import { writeTextFile } from './fileExplorerHelpers'
+import * as tauriBridgeModule from '../../infrastructure/tauriBridge'
+import type { DiagramData } from '../utils/types'
 
 function asRoot(dir: MockDir): FileSystemDirectoryHandle {
   return dir as unknown as FileSystemDirectoryHandle
 }
 
-function wrapper({ children }: { children: ReactNode }) {
-  return createElement(ShellErrorProvider, null, children)
+/** Build a Repositories bag whose FS operations are backed by MockDir. */
+function mockReposFor(root: MockDir): Repositories {
+  return {
+    attachment: null,
+    attachmentLinks: null,
+    linkIndex: null,
+    svgRefs: null,
+    tabRefs: null,
+    vaultConfig: null,
+    vaultIndex: {
+      scan: () => scanTree(asRoot(root), ''),
+      rename: async (from: string, to: string) => {
+        // Simple rename: only handles flat file moves for these tests
+        const fromParts = from.split('/')
+        const toParts = to.split('/')
+        const fromName = fromParts.pop()!
+        const toName = toParts.pop()!
+        const fromParent = resolveDir(root, fromParts)
+        const toParent = resolveDir(root, toParts)
+        if (!fromParent || !toParent) throw new Error(`rename: path not found: ${from} → ${to}`)
+        if (fromParent.files.has(fromName)) {
+          const fh = fromParent.files.get(fromName)!
+          toParent.files.set(toName, new MockFileHandle(toName, fh.file))
+          fromParent.files.delete(fromName)
+        } else if (fromParent.dirs.has(fromName)) {
+          const dir = fromParent.dirs.get(fromName)!
+          toParent.dirs.set(toName, dir)
+          fromParent.dirs.delete(fromName)
+        } else {
+          throw new Error(`rename: not found: ${from}`)
+        }
+      },
+      delete: async (path: string) => {
+        const parts = path.split('/')
+        const name = parts.pop()!
+        const parent = resolveDir(root, parts)
+        if (!parent) throw new Error(`delete: parent not found: ${path}`)
+        parent.files.delete(name)
+        parent.dirs.delete(name)
+      },
+      exists: async (path: string) => {
+        const parts = path.split('/')
+        const name = parts.pop()!
+        const parent = resolveDir(root, parts)
+        if (!parent) return false
+        return parent.files.has(name) || parent.dirs.has(name)
+      },
+      createFolder: async (path: string) => {
+        const parts = path.split('/')
+        let cur = root
+        for (const seg of parts) {
+          if (!cur.dirs.has(seg)) cur.dirs.set(seg, new MockDir(seg))
+          cur = cur.dirs.get(seg)!
+        }
+      },
+    },
+    diagram: {
+      read: async (p: string) => {
+        const fh = resolveFH(root, p)
+        if (!fh) throw new Error(`diagram.read: not found: ${p}`)
+        return JSON.parse(fh.file.data) as DiagramData
+      },
+      write: async (p: string, data: DiagramData) => {
+        await writeTextFile(asRoot(root), p, JSON.stringify(data, null, 2))
+      },
+    },
+    document: {
+      read: async (p: string) => {
+        const fh = resolveFH(root, p)
+        if (!fh) throw new Error(`document.read: not found: ${p}`)
+        return fh.file.data
+      },
+      write: async (p: string, content: string) => {
+        await writeTextFile(asRoot(root), p, content)
+      },
+    },
+    svg: {
+      read: async (p: string) => {
+        const fh = resolveFH(root, p)
+        if (!fh) throw new Error(`svg.read: not found: ${p}`)
+        return fh.file.data
+      },
+      write: async (p: string, content: string) => {
+        await writeTextFile(asRoot(root), p, content)
+      },
+    },
+    tab: {
+      read: async (p: string) => {
+        const fh = resolveFH(root, p)
+        if (!fh) throw new Error(`tab.read: not found: ${p}`)
+        return fh.file.data
+      },
+      write: async (p: string, content: string) => {
+        await writeTextFile(asRoot(root), p, content)
+      },
+    },
+  } as unknown as Repositories
 }
 
-function stubPicker(handle: FileSystemDirectoryHandle) {
-  Object.defineProperty(window, 'showDirectoryPicker', {
-    value: vi.fn().mockResolvedValue(handle),
-    configurable: true,
-    writable: true,
-  })
+/** Resolve a directory by path segments from root. Returns undefined if missing. */
+function resolveDir(root: MockDir, parts: string[]): MockDir | undefined {
+  let cur: MockDir = root
+  for (const seg of parts) {
+    if (!seg) continue
+    if (!cur.dirs.has(seg)) return undefined
+    cur = cur.dirs.get(seg)!
+  }
+  return cur
+}
+
+/** Resolve a file handle by path. */
+function resolveFH(root: MockDir, path: string): MockFileHandle | undefined {
+  const parts = path.split('/')
+  const name = parts.pop()!
+  const dir = resolveDir(root, parts)
+  return dir?.files.get(name)
+}
+
+const MOCK_VAULT = '/mock/vault'
+
+/** Stub tauriBridge.pick to return MOCK_VAULT. */
+function stubPick() {
+  vi.spyOn(tauriBridgeModule.tauriBridge, 'pick').mockResolvedValue(MOCK_VAULT)
+  vi.spyOn(tauriBridgeModule.tauriBridge, 'setRoot').mockResolvedValue(undefined)
+}
+
+const EMPTY_REPOS: Repositories = {
+  attachment: null, attachmentLinks: null, diagram: null, document: null,
+  linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null,
+  vaultConfig: null, vaultIndex: null,
+}
+
+function makeWrapper(root: MockDir) {
+  const repos = mockReposFor(root)
+  return function wrapper({ children }: { children: ReactNode }) {
+    return createElement(
+      StubRepositoryProvider,
+      { value: repos, children: createElement(ShellErrorProvider, null, children) },
+    )
+  }
+}
+
+function makeEmptyWrapper() {
+  return function wrapper({ children }: { children: ReactNode }) {
+    return createElement(
+      StubRepositoryProvider,
+      { value: EMPTY_REPOS, children: createElement(ShellErrorProvider, null, children) },
+    )
+  }
 }
 
 async function setupWithRoot(root: MockDir) {
-  stubPicker(asRoot(root))
+  stubPick()
+  const wrapper = makeWrapper(root)
   const { result } = renderHook(() => useFileExplorer(), { wrapper })
   await act(async () => { await result.current.openFolder() })
+  // rescan triggered by openFolder vaultPath effect — give it a tick
+  await act(async () => {})
   return result
 }
 
 beforeEach(() => {
-  globalThis.indexedDB = new IDBFactory()
   localStorage.clear()
 })
 
 afterEach(() => {
-  delete (window as unknown as Record<string, unknown>)['showDirectoryPicker']
+  vi.restoreAllMocks()
 })
 
 // ── createFile (FS-2.3-22/23) ────────────────────────────────────────────────
 
 describe('FS-2.3-22: createFile default name', () => {
-  it('returns null when no directory handle is open', async () => {
-    const { result } = renderHook(() => useFileExplorer(), { wrapper })
+  it('returns null when no vault is open', async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper: makeEmptyWrapper() })
     let got: unknown = 'sentinel'
     await act(async () => { got = await result.current.createFile('') })
     expect(got).toBeNull()
@@ -149,8 +297,8 @@ describe('FS-2.3-25..29: renameFile', () => {
 // ── deleteFile (FS-2.3-30..34) ───────────────────────────────────────────────
 
 describe('FS-2.3-30..34: deleteFile', () => {
-  it('FS-2.3-30: returns false when no directory handle is open', async () => {
-    const { result } = renderHook(() => useFileExplorer(), { wrapper })
+  it('FS-2.3-30: returns false when no vault is open', async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper: makeEmptyWrapper() })
     let got: boolean = true
     await act(async () => { got = await result.current.deleteFile('some.json') })
     expect(got).toBe(false)
@@ -222,8 +370,8 @@ describe('FS-2.3-35: duplicateFile', () => {
     expect(root.files.has('arch-copy.json')).toBe(true)
   })
 
-  it('returns null when no handle is open', async () => {
-    const { result } = renderHook(() => useFileExplorer(), { wrapper })
+  it('returns null when no vault is open', async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper: makeEmptyWrapper() })
     let got: unknown = 'sentinel'
     await act(async () => { got = await result.current.duplicateFile('arch.json') })
     expect(got).toBeNull()
@@ -233,8 +381,8 @@ describe('FS-2.3-35: duplicateFile', () => {
 // ── createSVG (FS-2.3-51..54) ───────────────────────────────────────────────
 
 describe('FS-2.3-51: createSVG default name', () => {
-  it('FS-2.3-51: returns null when no directory handle is open', async () => {
-    const { result } = renderHook(() => useFileExplorer(), { wrapper })
+  it('FS-2.3-51: returns null when no vault is open', async () => {
+    const { result } = renderHook(() => useFileExplorer(), { wrapper: makeEmptyWrapper() })
     let got: unknown = 'sentinel'
     await act(async () => { got = await result.current.createSVG('') })
     expect(got).toBeNull()

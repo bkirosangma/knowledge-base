@@ -7,6 +7,7 @@ import { ShellErrorProvider } from '../../shell/ShellErrorContext'
 import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
 import { ToastProvider } from '../../shell/ToastContext'
 import { PROPERTIES_COLLAPSED_KEY } from '../../shared/constants/paneStorage'
+import { StubRepositoryProvider } from '../../shell/RepositoryContext'
 
 // Characterization-layer smoke tests for DiagramView. The component is too
 // intertwined with Canvas + 20 hooks to exercise every interaction here;
@@ -85,15 +86,21 @@ function baseProps(
 
 function renderDV(props: React.ComponentProps<typeof DiagramView>) {
   return render(
-    <ShellErrorProvider>
-      <ToastProvider>
-        <FileWatcherProvider>
-          <FooterProvider>
-            <DiagramView {...props} />
-          </FooterProvider>
-        </FileWatcherProvider>
-      </ToastProvider>
-    </ShellErrorProvider>,
+    <StubRepositoryProvider value={{
+      attachment: null, attachmentLinks: null, diagram: null, document: null,
+      linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null,
+      vaultConfig: null, vaultIndex: null,
+    }}>
+      <ShellErrorProvider>
+        <ToastProvider>
+          <FileWatcherProvider>
+            <FooterProvider>
+              <DiagramView {...props} />
+            </FooterProvider>
+          </FileWatcherProvider>
+        </ToastProvider>
+      </ShellErrorProvider>
+    </StubRepositoryProvider>,
   )
 }
 
@@ -118,15 +125,21 @@ describe('DiagramView — smoke', () => {
     const { rerender } = renderDV(props)
     expect(() =>
       rerender(
-        <ShellErrorProvider>
-          <ToastProvider>
-            <FileWatcherProvider>
-              <FooterProvider>
-                <DiagramView {...baseProps({ activeFile: 'flow.json' })} />
-              </FooterProvider>
-            </FileWatcherProvider>
-          </ToastProvider>
-        </ShellErrorProvider>,
+        <StubRepositoryProvider value={{
+          attachment: null, attachmentLinks: null, diagram: null, document: null,
+          linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null,
+          vaultConfig: null, vaultIndex: null,
+        }}>
+          <ShellErrorProvider>
+            <ToastProvider>
+              <FileWatcherProvider>
+                <FooterProvider>
+                  <DiagramView {...baseProps({ activeFile: 'flow.json' })} />
+                </FooterProvider>
+              </FileWatcherProvider>
+            </ToastProvider>
+          </ShellErrorProvider>
+        </StubRepositoryProvider>,
       ),
     ).not.toThrow()
   })

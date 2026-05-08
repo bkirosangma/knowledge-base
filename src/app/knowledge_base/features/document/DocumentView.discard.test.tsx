@@ -79,7 +79,6 @@ function renderDocView(
   docRepo: DocumentRepository,
   extra?: { onDocBridge?: (b: DocumentPaneBridge | null) => void },
 ) {
-  const dirHandleRef = { current: null } as React.RefObject<FileSystemDirectoryHandle | null>
   const stubLinkManager = {
     linkIndex: { updatedAt: '', documents: {}, backlinks: {} },
     loadIndex: vi.fn(),
@@ -96,14 +95,13 @@ function renderDocView(
   return render(
     <StubShellErrorProvider value={stubShellErrorValue}>
       <StubRepositoryProvider
-        value={{ attachment: null, attachmentLinks: null, document: docRepo, diagram: null, linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null, vaultConfig: null }}
+        value={{ attachment: null, attachmentLinks: null, document: docRepo, diagram: null, linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null, vaultConfig: null, vaultIndex: null }}
       >
         <FileWatcherProvider>
           <ToastProvider>
             <DocumentView
               focused
               filePath="test.md"
-              dirHandleRef={dirHandleRef}
               linkManager={stubLinkManager as ReturnType<typeof useLinkIndex>}
               tree={[]}
               onNavigateLink={vi.fn()}

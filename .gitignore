@@ -65,3 +65,7 @@ CLAUDE.md
 .claude
 .superpowers
 design_audit
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/

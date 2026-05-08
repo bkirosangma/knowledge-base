@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useRef } from 'react'
 import { useOfflineCache, KB_CACHE_PREFIX, cacheKeyForPath } from './useOfflineCache'
 import type { TreeNode } from './useFileExplorer'
 
@@ -37,8 +36,7 @@ describe('useOfflineCache (smoke)', () => {
     const tree: TreeNode[] = []
     expect(() => {
       renderHook(() => {
-        const ref = useRef<FileSystemDirectoryHandle | null>(null)
-        useOfflineCache({ rootHandleRef: ref, tree })
+        useOfflineCache({ tree })
       })
     }).not.toThrow()
   })
@@ -52,8 +50,7 @@ describe('useOfflineCache (smoke)', () => {
 
     const tree: TreeNode[] = []
     renderHook(() => {
-      const ref = useRef<FileSystemDirectoryHandle | null>(null)
-      useOfflineCache({ rootHandleRef: ref, tree })
+      useOfflineCache({ tree })
     })
 
     // Cache should NOT have been opened — rootHandle is null.

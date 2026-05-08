@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { topLevelFolder } from "./useGraphData";
 import type { GraphData, GraphNode, GraphLink } from "./useGraphData";
+import { useRepositories } from "../../../shell/RepositoryContext";
+import type { FileSystemError } from "../../../domain/errors";
 
 export type GraphifyStatus = "idle" | "loading" | "loaded" | "missing" | "error";
 
@@ -75,15 +77,23 @@ function transformGraphifyData(raw: RawGraphifyData): GraphData {
   return { nodes, links };
 }
 
+/**
+ * Load and parse the graphify graph for the old ForceGraph view.
+ * `vaultPath` is used as a stable trigger — re-fetches when the vault changes.
+ * Uses `repos.document.read` (path-agnostic) to read graphify-out/graph.json.
+ */
 export function useGraphifyData(
-  dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>,
+  vaultPath: string | null,
   enabled: boolean,
 ): { data: GraphData; status: GraphifyStatus } {
+  const repos = useRepositories();
+  const reposRef = useRef(repos);
+  reposRef.current = repos;
+
   const [status, setStatus] = useState<GraphifyStatus>("idle");
   const [data, setData] = useState<GraphData>(EMPTY_DATA);
-  // Track which handle we last loaded for, so switching vaults re-fetches.
-  const lastHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const lastEnabledRef = useRef(false);
+  const lastVaultPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -93,22 +103,22 @@ export function useGraphifyData(
       return;
     }
 
-    const rootHandle = dirHandleRef.current;
-    if (!rootHandle) return;
+    if (!vaultPath) return;
 
     // Skip if nothing changed
-    if (lastEnabledRef.current && lastHandleRef.current === rootHandle) return;
+    if (lastEnabledRef.current && lastVaultPathRef.current === vaultPath) return;
     lastEnabledRef.current = true;
-    lastHandleRef.current = rootHandle;
+    lastVaultPathRef.current = vaultPath;
+
+    const documentRepo = reposRef.current.document;
+    if (!documentRepo) return;
 
     let cancelled = false;
     setStatus("loading");
 
     (async () => {
       try {
-        const graphifyDir = await rootHandle.getDirectoryHandle("graphify-out");
-        const fileHandle = await graphifyDir.getFileHandle("graph.json");
-        const text = await (await fileHandle.getFile()).text();
+        const text = await documentRepo.read("graphify-out/graph.json");
         const raw = JSON.parse(text) as RawGraphifyData;
         if (!cancelled) {
           setData(transformGraphifyData(raw));
@@ -116,7 +126,8 @@ export function useGraphifyData(
         }
       } catch (e) {
         if (cancelled) return;
-        if (e instanceof DOMException && e.name === "NotFoundError") {
+        const fsErr = e as Partial<FileSystemError>;
+        if (fsErr.kind === "not-found") {
           setStatus("missing");
         } else {
           setStatus("error");
@@ -126,7 +137,7 @@ export function useGraphifyData(
     })();
 
     return () => { cancelled = true; };
-  }, [enabled, dirHandleRef]);
+  }, [enabled, vaultPath]);
 
   return { data, status };
 }

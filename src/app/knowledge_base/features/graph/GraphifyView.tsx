@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic";
 import { BrainCircuit, ChevronRight, FileText, Filter, Folder, Search } from "lucide-react";
 import { useRawGraphify, type RawGraphifyNode, type CommunityInfo } from "./hooks/useRawGraphify";
-import { readVaultConfig, updateVaultConfig } from "../document/utils/vaultConfig";
+import { useRepositories } from "../../shell/RepositoryContext";
 import { DEFAULT_PHYSICS, type PhysicsConfig } from "./graphifyPhysics";
 import { Tooltip } from "../../shared/components/Tooltip";
 
@@ -20,12 +20,14 @@ const GraphifyCanvas = dynamic(() => import("./components/GraphifyCanvas"), {
 
 export interface GraphifyViewProps {
   focused: boolean;
-  dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>;
+  /** Active vault path — used as stable trigger for graph re-fetch and config ops. */
+  vaultPath: string | null;
   /** Opens a vault file in the OPPOSITE pane. */
   onSelectNode: (filePath: string) => void;
 }
 
-export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyViewProps) {
+export default function GraphifyView({ vaultPath, onSelectNode }: GraphifyViewProps) {
+  const repos = useRepositories();
   // Read theme from the nearest [data-theme] ancestor set by knowledgeBase.tsx.
   // MutationObserver reacts instantly when the user toggles the global theme,
   // avoiding the prop-drilling problem (renderPane is defined outside ThemeProvider).
@@ -43,7 +45,7 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
     return () => obs.disconnect();
   }, []);
 
-  const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(dirHandleRef, theme);
+  const { data, hyperedges, communities, nodeColorMap, nodeSourceMap, nodeDegreeMap, status } = useRawGraphify(vaultPath, theme);
 
   const [search, setSearch] = useState("");
   const [selectedNode, setSelectedNode] = useState<RawGraphifyNode | null>(null);
@@ -149,20 +151,20 @@ export default function GraphifyView({ dirHandleRef, onSelectNode }: GraphifyVie
   // Load saved physics once the vault is open.
   useEffect(() => {
     if (status !== "loaded") return;
-    const root = dirHandleRef.current;
-    if (!root) return;
-    readVaultConfig(root)
+    const vaultConfigRepo = repos.vaultConfig;
+    if (!vaultConfigRepo) return;
+    vaultConfigRepo.read()
       .then(cfg => { if (cfg.graphifyPhysics) setPhysics({ ...DEFAULT_PHYSICS, ...cfg.graphifyPhysics }); })
       .catch(() => {});
-  // dirHandleRef is a stable ref — status is the correct trigger.
+  // repos.vaultConfig is stable once the vault is open — status is the correct trigger.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   const handlePhysicsChange = useCallback((c: PhysicsConfig) => {
     setPhysics(c);
-    const root = dirHandleRef.current;
-    if (root) updateVaultConfig(root, { graphifyPhysics: c }).catch(() => {});
-  }, [dirHandleRef]);
+    repos.vaultConfig?.update({ graphifyPhysics: c }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Search results — match label or source_file
   const searchResults: RawGraphifyNode[] = search.trim()

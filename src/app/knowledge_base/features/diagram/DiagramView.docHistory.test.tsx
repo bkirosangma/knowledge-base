@@ -8,6 +8,7 @@ import { FileWatcherProvider } from '../../shared/context/FileWatcherContext'
 import { ToastProvider } from '../../shell/ToastContext'
 import type { DiagramSnapshot } from '../../shared/hooks/useDiagramHistory'
 import type { AttachmentLink } from '../../domain/attachmentLinks'
+import { StubRepositoryProvider } from '../../shell/RepositoryContext'
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -136,15 +137,21 @@ function makeProps(
 
 function renderDV(props: React.ComponentProps<typeof DiagramView>) {
   return render(
-    <ShellErrorProvider>
-      <ToastProvider>
-        <FileWatcherProvider>
-          <FooterProvider>
-            <DiagramView {...props} />
-          </FooterProvider>
-        </FileWatcherProvider>
-      </ToastProvider>
-    </ShellErrorProvider>,
+    <StubRepositoryProvider value={{
+      attachment: null, attachmentLinks: null, diagram: null, document: null,
+      linkIndex: null, svg: null, svgRefs: null, tab: null, tabRefs: null,
+      vaultConfig: null, vaultIndex: null,
+    }}>
+      <ShellErrorProvider>
+        <ToastProvider>
+          <FileWatcherProvider>
+            <FooterProvider>
+              <DiagramView {...props} />
+            </FooterProvider>
+          </FileWatcherProvider>
+        </ToastProvider>
+      </ShellErrorProvider>
+    </StubRepositoryProvider>,
   )
 }
 
