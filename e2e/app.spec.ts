@@ -62,29 +62,26 @@ test('SHELL-1.1-03: root shell uses full-height flex column layout', async ({ pa
   expect(Math.round(box!.height)).toBe(viewport.height)
 })
 
-test('first-run hero renders when no folder is open', async ({ page }) => {
+test('NoVaultCTA renders when no folder is open', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-testid="knowledge-base"]').waitFor()
 
-  // KB-012: when no vault has ever been opened, knowledgeBase.tsx
-  // surfaces the FirstRunHero as the right-pane content. The "No file
-  // open" empty state still exists for the post-vault-open path
-  // (covered by FirstRunHero.test.tsx + firstRunHero.spec.ts). The
-  // explorer's own "No folder open" message + "Open Folder" button
+  // SHELL-1.17-06: when no vault has ever been opened, knowledgeBase.tsx
+  // surfaces the NoVaultCTA as the right-pane content. The "No file
+  // open" empty state still exists for the post-vault-open path.
+  // The explorer's own "No folder open" message + "Open Folder" button
   // remain on the left sidebar.
-  await expect(page.getByTestId('first-run-hero')).toBeVisible()
-  await expect(page.getByTestId('first-run-open-folder')).toBeVisible()
-  await expect(page.getByTestId('first-run-sample-vault')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open Folder' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /no vault open/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /open vault/i })).toBeVisible()
 })
 
-test('Open Folder button is a real clickable control', async ({ page }) => {
+test('Open Vault button is a real clickable control', async ({ page }) => {
   await page.goto('/')
-  const btn = page.getByRole('button', { name: 'Open Folder' })
+  const btn = page.getByRole('button', { name: /open vault/i })
   await btn.waitFor()
   await expect(btn).toBeEnabled()
-  // Deliberately NOT clicked — Chromium's directory picker can't be driven
-  // from Playwright without a page-injected File System Access mock.
+  // Deliberately NOT clicked — Tauri's native folder picker can't be driven
+  // from Playwright without a Tauri mock.
 })
 
 test('top-level Header renders only the Split toggle before any file is open', async ({ page }) => {

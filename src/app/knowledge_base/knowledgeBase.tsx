@@ -3,7 +3,6 @@ import type { ExplorerFilter, DocumentMeta } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
-import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
 import { BrokenAnchorBanner } from "./shared/components/BrokenAnchorBanner";
 import { useFileExplorer } from "./shared/hooks/useFileExplorer";
@@ -139,6 +138,24 @@ export function buildExportTabCommands(args: {
       run: () => args.getActiveExport()?.exportPdf(),
     },
   ];
+}
+
+export function NoVaultCTA({ onOpenVault }: { onOpenVault: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
+      <h2 className="text-lg font-semibold">No vault open</h2>
+      <p className="text-sm text-muted-foreground max-w-prose">
+        Open an existing knowledge-base vault to get started, or use the vault switcher in the header to pick one.
+      </p>
+      <button
+        type="button"
+        onClick={onOpenVault}
+        className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        Open Vault
+      </button>
+    </div>
+  );
 }
 
 function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null) => void }) {
@@ -1367,7 +1384,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   }, [fileExplorer, docManager, linkManager, handleOpenDocument, handleDiagramBridge, handleSVGEditorBridge, handleNavigateWikiLink, handleCreateAndAttach, focusMode, isMobile, handleLeftDocDirty, handleRightDocDirty, reportError]);
 
   // ─── Empty state when no file is open ───
-  // FirstRunHero takes over only when no vault is open; the explorer's
+  // NoVaultCTA takes over only when no vault is open; the explorer's
   // own "No folder open" sidebar UI is left alone.
   const noVaultOpen = !fileExplorer.directoryName && fileExplorer.tree.length === 0;
   const handleEmptyStateNewNote = useCallback(async () => {
@@ -1375,10 +1392,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     if (created) handleSelectFile(created);
   }, [fileExplorer, handleSelectFile]);
   const emptyState = noVaultOpen ? (
-    <FirstRunHero
-      onOpenFolder={fileExplorer.openFolder}
-      onOpenWithSeed={fileExplorer.openFolderWithSeed}
-    />
+    <NoVaultCTA onOpenVault={fileExplorer.openFolder} />
   ) : (
     <EmptyState
       recents={recentFiles}
