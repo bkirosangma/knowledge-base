@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { SlashCommand } from "../slash/slashCommands";
+import { VaultFilePickerModal } from "./VaultFilePickerModal";
 
 interface Props {
   command: SlashCommand;
@@ -9,12 +10,11 @@ interface Props {
 
 export function SkillCard({ command, onRun }: Props) {
   const [arg, setArg] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Subcommands that accept no argument run directly.
   const noArg = command.id === "validate";
-
-  // Subcommands that need a vault file — Task 7 replaces this stub.
   const needsFilePicker = command.id === "edit" || command.id === "transform";
+  const extensions = command.id === "edit" ? [".json"] : [];
 
   return (
     <form
@@ -42,15 +42,31 @@ export function SkillCard({ command, onRun }: Props) {
         />
       )}
       {needsFilePicker && (
-        <span data-testid="placeholder-file-picker" className="text-xs italic text-mute">
-          (file picker — wired in Task 7)
-        </span>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            data-testid={`skill-card-${command.id}-picker-trigger`}
+            className="rounded border border-line bg-surface px-2 py-1 text-xs text-left text-ink-2 hover:bg-surface-2"
+            onClick={() => setPickerOpen(true)}
+          >
+            {arg ? <span className="font-mono">{arg}</span> : "Pick a file…"}
+          </button>
+          <VaultFilePickerModal
+            open={pickerOpen}
+            extensions={extensions}
+            title={command.id === "edit" ? "Pick a diagram (.json) to edit" : "Pick a file to transform"}
+            onPick={(path) => {
+              setPickerOpen(false);
+              if (path) setArg(path);
+            }}
+          />
+        </div>
       )}
       <div className="flex justify-end">
         <button
           type="submit"
           className="cursor-pointer rounded bg-accent px-3 py-1 text-xs text-white hover:bg-accent/80 disabled:opacity-40"
-          disabled={!noArg && !needsFilePicker && !arg.trim()}
+          disabled={!noArg && !arg.trim()}
         >
           Run
         </button>

@@ -1,5 +1,14 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
+
+// VaultFilePickerModal imports tauriBridge at module load time; mock it so
+// vitest doesn't try to invoke Tauri's invoke() during render.
+vi.mock("../../../infrastructure/tauriBridge", () => ({
+  tauriBridge: {
+    list: vi.fn(() => Promise.resolve([])),
+  },
+}));
+
 import { SkillCard } from "./SkillCard";
 import { SLASH_COMMANDS } from "../slash/slashCommands";
 
@@ -28,8 +37,13 @@ describe("SkillCard", () => {
     expect(onRun).toHaveBeenCalledWith("/kb document raga theory");
   });
 
-  it("SKILLS-13.3-10: edit / transform cards show file-picker placeholder (Task 7 replaces)", () => {
+  it("SKILLS-13.3-10: edit / transform cards show 'Pick a file…' picker trigger", () => {
     render(<SkillCard command={find("edit")} onRun={vi.fn()} />);
-    expect(screen.getByTestId("placeholder-file-picker")).toBeInTheDocument();
+    expect(screen.getByTestId("skill-card-edit-picker-trigger")).toHaveTextContent("Pick a file…");
+  });
+
+  it("SKILLS-13.3-11: edit card disables Run until a file is picked", () => {
+    render(<SkillCard command={find("edit")} onRun={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
   });
 });
