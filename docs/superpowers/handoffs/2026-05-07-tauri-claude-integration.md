@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-08 (MVP-1b file watcher merged — native `notify`-based debounced watcher (~200 ms), `vault_change` events, `FileWatcherContext` body-swapped to event-driven. PR #PENDING on `feat/tauri-mvp1b-file-watcher`. Next action: write and dispatch MVP-1c plan.)
+**Last updated:** 2026-05-08 (MVP-1b file watcher merged — native `notify`-based debounced watcher (~200 ms), `vault_change` events, `FileWatcherContext` body-swapped to event-driven. PR #150 on `feat/tauri-mvp1b-file-watcher`. Next action: write and dispatch MVP-1c plan.)
 
 ---
 
@@ -106,7 +106,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | MVP | Plan file | Status |
 |---|---|---|
 | **MVP-1a** | Tauri scaffold + Rust VFS adapter | `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` | ✅ Merged via PR #149 (`844a474` on `main`). |
-| **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | 🚧 PR opened: #PENDING on `feat/tauri-mvp1b-file-watcher`. |
+| **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | 🚧 PR opened: #150 on `feat/tauri-mvp1b-file-watcher`. |
 | **MVP-1c** | Settings, vault management, basic init | _not yet written; due after MVP-1b merges_ | ⏳ Not started. |
 | **MVP-1d** | Cleanup, bundle, CI | _not yet written; due after MVP-1c merges_ | ⏳ Not started. |
 | **MVP-2** | Claude subprocess integration | _not yet written; due after MVP-1d merges_ | ⏳ Not started. |
@@ -117,7 +117,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 ### Implementation
 
 - **MVP-1a (merged via PR #149, `844a474` on `main`)** — Tauri 2 desktop shell hosting the existing Next.js app; Rust vault adapter (12 commands) under `src-tauri/src/vault/`; per-repo Tauri implementations under `src/app/knowledge_base/infrastructure/*RepoTauri.ts`; `RepositoryProvider` swapped from `rootHandle` → `vaultPath`; `useFileExplorer` swapped from `showDirectoryPicker` → `vault_pick`; FSA-availability gate removed from `knowledgeBase.tsx`; CI's Playwright `e2e` job parked until MVP-4.
-- **MVP-1b (PR #PENDING, on `feat/tauri-mvp1b-file-watcher`)** — Rust `notify`-debouncer-full watcher (200 ms coalesce); `vault_watch_start`/`vault_watch_stop` commands; `vault_change` events with `{ kind, path, oldPath? }` payload (POSIX-relative paths); `FileWatcherContext` body-swapped to event-driven; canonicalize symmetry between `vault_set_root` and `Watcher::start`.
+- **MVP-1b (PR #150, on `feat/tauri-mvp1b-file-watcher`)** — Rust `notify`-debouncer-full watcher (200 ms coalesce); `vault_watch_start`/`vault_watch_stop` commands; `vault_change` events with `{ kind, path, oldPath? }` payload (POSIX-relative paths); `FileWatcherContext` body-swapped to event-driven; canonicalize symmetry between `vault_set_root` and `Watcher::start`.
 
 ---
 
@@ -171,7 +171,7 @@ Map of files introduced or touched by the migration, by MVP. Update as code arri
 - **Provider seam** — `src/app/knowledge_base/shell/RepositoryContext.tsx` (`rootHandle` → `vaultPath`).
 - **Vault picker hook** — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts` (`vault_pick` instead of `showDirectoryPicker`).
 
-**Landed (MVP-1b, PR #PENDING):**
+**Landed (MVP-1b, PR #150):**
 
 - **File watcher (Rust)** — `src-tauri/src/vault/watcher.rs` (new); `notify` + `notify-debouncer-full` deps in `src-tauri/Cargo.toml`; 2 new commands (`vault_watch_start`, `vault_watch_stop`); `vault_change` events with `{ kind, path, oldPath? }` payload (POSIX-relative paths). `WatcherState = Arc<Watcher>` registered in `src-tauri/src/main.rs` alongside existing `VaultState`. Total: 14 commands (12 from MVP-1a + 2 new).
 - **File watcher (frontend)** — `src/app/knowledge_base/shared/context/FileWatcherContext.tsx` (body swap to `listen('vault_change', ...)`; same public API; new required prop `vaultPath: string | null`).
@@ -224,7 +224,7 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 ## Next Action
 
-**MVP-1b PR is open (#PENDING). Once it merges: run the Post-merge cleanup protocol, then write and dispatch the MVP-1c plan.**
+**MVP-1b PR is open (#150). Once it merges: run the Post-merge cleanup protocol, then write and dispatch the MVP-1c plan.**
 
 **After MVP-1b merges (post-merge cleanup first):**
 
