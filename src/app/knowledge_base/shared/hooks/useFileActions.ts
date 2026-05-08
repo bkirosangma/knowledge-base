@@ -5,7 +5,7 @@ import { loadDefaults, loadDiagramFromData, serializeNodes } from "../utils/pers
 import type { DiagramSnapshot } from "./useDiagramHistory";
 import type { useFileExplorer } from "./useFileExplorer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "../constants";
-import { createDiagramRepository } from "../../infrastructure/diagramRepo";
+import { createDiagramRepositoryTauri } from "../../infrastructure/diagramRepoTauri";
 
 interface ConfirmAction {
   type: "delete-file" | "delete-folder" | "discard";
@@ -107,11 +107,8 @@ export function useFileActions(
       await currentStateRef.current.onMigrateLegacyDocuments(fileName, docsToMigrate);
       data.documents = [];
       // Rewrite the on-disk diagram so subsequent loads skip migration.
-      const rootHandle = fileExplorer.dirHandleRef.current;
-      if (rootHandle) {
-        const repo = createDiagramRepository(rootHandle);
-        await repo.write(fileName, data);
-      }
+      const repo = createDiagramRepositoryTauri();
+      await repo.write(fileName, data);
     }
 
     const diagram = loadDiagramFromData(data);
@@ -128,7 +125,7 @@ export function useFileActions(
       flows: diskData.flows ?? [],
     }, fileExplorer.dirHandleRef.current, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
-  }, [fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, fileExplorer.dirHandleRef, applyDiagramToState, history.initHistory, isRestoringRef]);
+  }, [fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, applyDiagramToState, history.initHistory, isRestoringRef]);
 
   const handleSave = useCallback(async () => {
     const s = currentStateRef.current;

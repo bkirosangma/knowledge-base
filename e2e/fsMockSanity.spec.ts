@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test'
 import { installMockFS } from './fixtures/fsMock'
 
+// TypeScript lib.dom doesn't ship the async iterator over FSA directory entries.
+// This is part of the standard FSA spec, so augment here.
+declare global {
+  interface FileSystemDirectoryHandle {
+    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+  }
+}
+
 test('sanity: addInitScript installs window.showDirectoryPicker', async ({ page }) => {
   await page.addInitScript(installMockFS)
   await page.goto('/')

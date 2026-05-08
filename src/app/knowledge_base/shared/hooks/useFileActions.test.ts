@@ -5,10 +5,10 @@ import { useFileActions } from './useFileActions'
 import { SKIP_DISCARD_CONFIRM_KEY } from '../constants'
 import type { DocumentMeta } from '../utils/types'
 
-// Mock createDiagramRepository so the migration rewrite does not touch real FSA.
+// Mock createDiagramRepositoryTauri so the migration rewrite does not touch the real Tauri bridge.
 const mockDiagramRepoWrite = vi.fn(async () => {})
-vi.mock('../../infrastructure/diagramRepo', () => ({
-  createDiagramRepository: () => ({ write: mockDiagramRepoWrite }),
+vi.mock('../../infrastructure/diagramRepoTauri', () => ({
+  createDiagramRepositoryTauri: () => ({ write: mockDiagramRepoWrite }),
 }))
 
 // Covers HOOK-6.2-01 through 6.2-08 + 6.2-10/11. Wiki-link propagation on

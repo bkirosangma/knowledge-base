@@ -16,6 +16,14 @@
  *     `lastModified` from `File.lastModified` (best-effort; swallowed on error).
  */
 
+// TypeScript lib.dom doesn't ship the async iterator over FSA directory entries.
+// This is part of the standard FSA spec, so augment here.
+declare global {
+  interface FileSystemDirectoryHandle {
+    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+  }
+}
+
 const HIDDEN_FOLDER_NAMES = new Set(["memory"]);
 const HIDDEN_FILE_NAMES = new Set(["CLAUDE.md", "MEMORY.md", "AGENTS.md"]);
 
