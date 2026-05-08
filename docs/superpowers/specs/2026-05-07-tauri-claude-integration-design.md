@@ -403,7 +403,7 @@ The repo already keeps `<project>/skills/knowledge-base/` as the version-control
 ```jsonc
 {
   "bundle": {
-    "resources": ["../skills/knowledge-base/**"]
+    "resources": ["../skills/knowledge-base/**/*"]
   }
 }
 ```

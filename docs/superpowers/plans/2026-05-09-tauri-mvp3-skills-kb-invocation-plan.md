@@ -60,7 +60,7 @@ These are the plan-level decisions § 11.4 of the spec invites. They are **pinne
 - `src-tauri/src/lib.rs` — register `mod skill;`.
 - `src-tauri/src/main.rs` — register the two new commands in the `invoke_handler!` macro.
 - `src-tauri/Cargo.toml` — no new top-level deps (uses existing `dirs`, `tokio`, `serde`, `thiserror`).
-- `src-tauri/tauri.conf.json` — add `bundle.resources: ["../skills/knowledge-base/**"]`.
+- `src-tauri/tauri.conf.json` — add `bundle.resources: ["../skills/knowledge-base/**/*"]`.
 
 ### Added (frontend)
 
@@ -133,7 +133,7 @@ ls skills/knowledge-base/commands/     # subcommand .md files exist
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
-    "resources": ["../skills/knowledge-base/**"],
+    "resources": ["../skills/knowledge-base/**/*"],
     "icon": [ /* ... */ ],
     "category": "Productivity",
     "shortDescription": "Knowledge Base desktop app"
@@ -141,7 +141,7 @@ ls skills/knowledge-base/commands/     # subcommand .md files exist
 }
 ```
 
-The `"../skills/knowledge-base/**"` glob is relative to `src-tauri/`. Tauri's bundle tooling resolves it at build time and copies into `Knowledge Base.app/Contents/Resources/_up_/skills/knowledge-base/` for macOS bundles, mirroring the path structure with the `_up_` prefix Tauri uses for parent-of-srcTauri resources.
+The `"../skills/knowledge-base/**/*"` glob is relative to `src-tauri/`. Tauri's bundle tooling (using Rust `globset`) requires `**/*` to match files recursively — bare `**` matches directory components only and raises a hard build error (`glob pattern ... path not found or didn't match any files`), confirmed empirically during Task 1 implementation. Tauri's bundler resolves this at build time and copies into `Knowledge Base.app/Contents/Resources/_up_/skills/knowledge-base/` for macOS bundles, mirroring the path structure with the `_up_` prefix Tauri uses for parent-of-srcTauri resources.
 
 > **Bootstrap timing note (for reviewers):** Spec § 8.1 frames the install as "on app boot (after vault load, before chat is usable)". This plan fires the install lazily on first `ClaudeChatDrawer` mount. The chat surface is unusable before that point (drawer is closed-by-default per launch from MVP-2), so the user-visible timing is equivalent. Calling out explicitly so reviewers don't ask whether this is a deviation.
 
