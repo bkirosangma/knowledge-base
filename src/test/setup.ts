@@ -26,3 +26,9 @@ if (!Element.prototype.getClientRects) {
 if (!Range.prototype.getBoundingClientRect) {
   Range.prototype.getBoundingClientRect = emptyRect
 }
+
+// JSDOM does not implement Element.prototype.scrollIntoView; stub it so
+// components that auto-scroll (e.g. MessageList) don't throw during tests.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function () {}
+}
