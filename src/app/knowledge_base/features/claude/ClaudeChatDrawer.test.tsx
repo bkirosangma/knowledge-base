@@ -10,6 +10,11 @@ vi.mock("./hooks/useClaudeStatus", () => ({
   useClaudeStatus: vi.fn(),
 }));
 
+vi.mock("../../infrastructure/settingsStore", () => ({
+  getClaudePermissionMode: vi.fn().mockResolvedValue("acceptEdits"),
+  setClaudePermissionMode: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { useChat } from "./ChatContext";
 import { useClaudeStatus } from "./hooks/useClaudeStatus";
 import { ClaudeChatDrawer } from "./ClaudeChatDrawer";

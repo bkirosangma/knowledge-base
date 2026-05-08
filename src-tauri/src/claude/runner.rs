@@ -12,6 +12,11 @@ pub struct Runner {
     turn: u64,
     /// Accept-edits or default. Set at spawn time; changing requires reset.
     permission_mode: String,
+    /// Vault root the live subprocess was spawned with. When the requested
+    /// vault_root differs (vault switch), the subprocess is killed and
+    /// respawned so Claude reads the new vault's CLAUDE.md, .claude/skills,
+    /// graphify output, etc.
+    vault_root: Option<PathBuf>,
 }
 
 impl Runner {
@@ -22,19 +27,37 @@ impl Runner {
             crash: CrashTracker::new(),
             turn: 0,
             permission_mode: "acceptEdits".into(),
+            vault_root: None,
         }
     }
 
-    /// Spawn or reuse the subprocess.
+    /// Spawn or reuse the subprocess. If the vault_root or permission_mode
+    /// has changed since the live subprocess was spawned, the subprocess is
+    /// killed and respawned (turn counter + crash tracker preserved).
     /// `app` is captured by the stdout-drain task to emit events.
     pub async fn ensure_alive(&mut self, app: AppHandle, vault_root: PathBuf, permission_mode: String)
         -> Result<(), String>
     {
-        if self.child.as_mut().map_or(false, |c| c.try_wait().ok().flatten().is_none()) {
+        let alive = self.child.as_mut().map_or(false, |c| c.try_wait().ok().flatten().is_none());
+        let vault_changed = self.vault_root.as_ref().map_or(true, |v| v != &vault_root);
+        let mode_changed = self.permission_mode != permission_mode;
+
+        if alive && !vault_changed && !mode_changed {
             return Ok(());
         }
 
+        // Vault or mode changed — kill the existing subprocess so we respawn
+        // with the new working directory / flags. Turn counter + crash
+        // tracker stay intact (this isn't an unexpected exit).
+        if alive {
+            if let Some(mut c) = self.child.take() {
+                let _ = c.kill().await;
+            }
+            self.stdin = None;
+        }
+
         self.permission_mode = permission_mode.clone();
+        self.vault_root = Some(vault_root.clone());
 
         let mut cmd = Command::new("claude");
         cmd.arg("-p")
@@ -166,6 +189,7 @@ impl Runner {
         }
         self.stdin = None;
         self.turn = 0;
+        self.vault_root = None;
         self.crash.reset();
         Ok(())
     }

@@ -26,11 +26,11 @@ export function Composer({ onSend, onInterrupt, isStreaming }: ComposerProps) {
   }, [submit]);
 
   return (
-    <div className="flex items-end gap-2 border-t border-white/10 bg-bg-accent p-2">
+    <div className="flex items-end gap-2 border-t border-line bg-surface-2 p-2">
       <textarea
         ref={taRef}
         aria-label="Message Claude"
-        className="flex-1 resize-none rounded-md bg-transparent px-2 py-1 text-sm text-white outline-none placeholder:text-mute min-h-9 max-h-32"
+        className="flex-1 resize-none rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink outline-none placeholder:text-mute min-h-9 max-h-32 focus:border-accent"
         placeholder="Message Claude…"
         value={value}
         onChange={(e) => setValue(e.target.value)}

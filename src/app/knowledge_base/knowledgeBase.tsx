@@ -1754,6 +1754,18 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
  */
 function KnowledgeBaseWithProvider() {
   const [vaultPath, setVaultPath] = useState<string | null>(null);
+
+  // Suppress the WebView default for Escape so it doesn't exit fullscreen.
+  // Other app-level Escape handlers (drawer close, modal close, etc.) still
+  // fire — we only block the default action, not propagation.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <RepositoryProvider vaultPath={vaultPath}>
       <FileWatcherProvider vaultPath={vaultPath}>

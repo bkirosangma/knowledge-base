@@ -4,11 +4,11 @@ export function SetupScreen() {
   const { refresh } = useClaudeStatus();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm">
-      <h2 className="text-base font-semibold text-white">Install Claude</h2>
+      <h2 className="text-base font-semibold text-ink">Install Claude</h2>
       <p className="text-mute">
-        The <code className="rounded bg-black/30 px-1">claude</code> CLI isn&apos;t on your PATH.
+        The <code className="rounded bg-surface-2 border border-line px-1 text-ink-2">claude</code> CLI isn&apos;t on your PATH.
       </p>
-      <pre className="overflow-x-auto rounded-md border border-white/10 bg-black/30 p-2 text-xs text-white">
+      <pre className="overflow-x-auto rounded-md border border-line bg-surface-2 p-2 text-xs text-ink-2">
         curl -fsSL https://claude.ai/install.sh | sh
       </pre>
       <p className="text-xs text-mute">

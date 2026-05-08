@@ -16,14 +16,14 @@ export function MessageList({ turns }: MessageListProps) {
 
   if (turns.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-sm text-mute">
+      <div className="flex flex-1 min-h-0 items-center justify-center px-4 text-sm text-mute">
         Start a conversation with Claude. Vault context is delivered via the working directory.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 overflow-y-auto p-3">
+    <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 p-3">
       {turns.map((t, i) => (
         <MessageBubble key={`${t.turn}-${t.role}-${i}`} role={t.role} text={t.text}>
           {t.toolUses.map((u, j) => (
