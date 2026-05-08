@@ -17,6 +17,7 @@
 import type { LinkIndex } from "../features/document/types";
 import type { VaultConfig, DiagramData } from "../shared/utils/types";
 import type { AttachmentLink } from "./attachmentLinks";
+import type { TreeNode } from "../shared/utils/fileTree";
 
 /**
  * Abstraction over the on-disk wiki-link index (`.archdesigner/_links.json`)
@@ -149,4 +150,24 @@ export interface AttachmentLinksRepository {
   read(): Promise<AttachmentLink[]>;
   /** Replace the entire stored set with `rows`. Creates `.kb/` if absent. */
   write(rows: AttachmentLink[]): Promise<void>;
+}
+
+/**
+ * Vault-level structural operations: tree scan, rename, delete, exists,
+ * createFolder. Decouples consumers from the underlying filesystem driver
+ * (FSA vs Tauri).
+ */
+export interface VaultIndexRepository {
+  /** Recursive scan of the vault root. Returns a sorted tree (files first,
+   *  then folders; alphabetical within each group). Throws `FileSystemError`
+   *  on failure. */
+  scan(): Promise<TreeNode[]>;
+  /** Rename or move a vault-relative file or directory. */
+  rename(from: string, to: string): Promise<void>;
+  /** Delete a vault-relative path (recursive for directories). */
+  delete(path: string): Promise<void>;
+  /** Check whether a vault-relative path exists. */
+  exists(path: string): Promise<boolean>;
+  /** Create an empty directory (and any missing parents). */
+  createFolder(path: string): Promise<void>;
 }

@@ -153,7 +153,7 @@ describe('scanTree — nested traversal (FS-2.1-10)', () => {
 })
 
 describe('scanTree — per-entry metadata (FS-2.1-11)', () => {
-  it('FS-2.1-11: every file entry has name, path, type, fileType, handle, lastModified', async () => {
+  it('FS-2.1-11: every file entry has name, path, type, fileType, lastModified', async () => {
     const root = new MockDir()
     seedFile(root, 'diagram.json', 42)
     seedFile(root, 'doc.md', 100)
@@ -167,7 +167,8 @@ describe('scanTree — per-entry metadata (FS-2.1-11)', () => {
       fileType: 'diagram',
       lastModified: 42,
     })
-    expect(diagram.handle).toBeDefined()
+    // handle/dirHandle intentionally removed in Task 27a — consumers use
+    // useRepositories() for I/O
 
     const doc = tree.find((n) => n.name === 'doc.md')!
     expect(doc.fileType).toBe('document')
@@ -190,13 +191,13 @@ describe('scanTree — per-entry metadata (FS-2.1-11)', () => {
     expect(tab.lastModified).toBe(20)
   })
 
-  it('folder entry carries dirHandle + children', async () => {
+  it('folder entry carries children (dirHandle removed in Task 27a)', async () => {
     const root = new MockDir()
     seedFile(root, 'notes/a.md')
     const tree = await scanTree(asRoot(root), '')
     const notes = tree.find((n) => n.name === 'notes')!
     expect(notes.type).toBe('folder')
-    expect(notes.dirHandle).toBeDefined()
+    // dirHandle intentionally removed — consumers use useRepositories() for I/O
     expect(notes.children?.map((c) => c.name)).toEqual(['a.md'])
   })
 })
@@ -245,7 +246,7 @@ describe('scanTree — system file/folder filtering (FS-2.1-12)', () => {
 // ── flattenTree ────────────────────────────────────────────────────────────
 
 describe('flattenTree', () => {
-  it('maps every file path to its file handle', async () => {
+  it('maps every path (files and folders) into the flat map', async () => {
     const root = new MockDir()
     seedFile(root, 'notes/a.md')
     seedFile(root, 'b.md')
@@ -253,10 +254,8 @@ describe('flattenTree', () => {
     const tree = await scanTree(asRoot(root), '')
     const flat = flattenTree(tree)
     expect([...flat.keys()].sort()).toEqual(['b.md', 'notes', 'notes/a.md'])
-
-    expect(flat.get('b.md')?.handle).toBeDefined()
-    expect(flat.get('notes/a.md')?.handle).toBeDefined()
-    expect(flat.get('notes')?.dirHandle).toBeDefined()
+    // handle/dirHandle intentionally removed in Task 27a — values are now {}
+    // Full migration of callers happens in Tasks 27b/28a/b/c.
   })
 
   it('empty tree produces empty map', () => {

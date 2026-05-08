@@ -73,4 +73,31 @@ describe("RepositoryProvider", () => {
     });
     expect(result.current.svgRefs).toBeNull();
   });
+
+  it("RepositoryProvider exposes vaultIndex when a vaultPath is mounted", () => {
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider vaultPath="/tmp/test-vault">
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.vaultIndex).not.toBeNull();
+    expect(typeof result.current.vaultIndex?.scan).toBe("function");
+    expect(typeof result.current.vaultIndex?.rename).toBe("function");
+    expect(typeof result.current.vaultIndex?.delete).toBe("function");
+    expect(typeof result.current.vaultIndex?.exists).toBe("function");
+    expect(typeof result.current.vaultIndex?.createFolder).toBe("function");
+  });
+
+  it("RepositoryProvider sets vaultIndex = null when no vaultPath is mounted", () => {
+    const { result } = renderHook(() => useRepositories(), {
+      wrapper: ({ children }) => (
+        <RepositoryProvider vaultPath={null}>
+          {children}
+        </RepositoryProvider>
+      ),
+    });
+    expect(result.current.vaultIndex).toBeNull();
+  });
 });

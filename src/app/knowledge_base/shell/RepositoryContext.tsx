@@ -12,6 +12,7 @@ import type {
   SVGRepository,
   TabRepository,
   VaultConfigRepository,
+  VaultIndexRepository,
 } from "../domain/repositories";
 import type { SvgRefsRepository } from "../domain/svgRefs";
 import type { TabRefsRepository } from "../domain/tabRefs";
@@ -25,6 +26,7 @@ import { createSvgRefsRepositoryTauri } from "../infrastructure/svgRefsRepoTauri
 import { createTabRepositoryTauri } from "../infrastructure/tabRepoTauri";
 import { createTabRefsRepositoryTauri } from "../infrastructure/tabRefsRepoTauri";
 import { createVaultConfigRepositoryTauri } from "../infrastructure/vaultConfigRepoTauri";
+import { createVaultIndexRepositoryTauri } from "../infrastructure/vaultIndexRepoTauri";
 
 /**
  * Bag of repositories provided to the knowledge-base component tree. Each
@@ -43,6 +45,7 @@ export interface Repositories {
   tab: TabRepository | null;
   tabRefs: TabRefsRepository | null;
   vaultConfig: VaultConfigRepository | null;
+  vaultIndex: VaultIndexRepository | null;
 }
 
 const EMPTY_REPOS: Repositories = {
@@ -56,6 +59,7 @@ const EMPTY_REPOS: Repositories = {
   tab: null,
   tabRefs: null,
   vaultConfig: null,
+  vaultIndex: null,
 };
 
 export const RepositoryContext = createContext<Repositories | null>(null);
@@ -89,6 +93,7 @@ export function RepositoryProvider({
       tab: createTabRepositoryTauri(),
       tabRefs: createTabRefsRepositoryTauri(),
       vaultConfig: createVaultConfigRepositoryTauri(),
+      vaultIndex: createVaultIndexRepositoryTauri(),
     };
   }, [vaultPath]);
 

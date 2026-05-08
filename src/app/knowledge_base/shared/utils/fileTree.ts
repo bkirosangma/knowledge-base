@@ -2,7 +2,7 @@
  * Vault tree construction helpers.  Extracted from `useFileExplorer` so they
  * can be unit-tested without a rendered hook.  `scanTree` recursively walks
  * a `FileSystemDirectoryHandle` and returns a sorted tree of `TreeNode`s;
- * `flattenTree` converts that tree into a path → handle lookup map.
+ * `flattenTree` converts that tree into a path → entry lookup map.
  *
  * Rules the scanner enforces (covered by `fileTree.test.ts`):
  *   - Only `.md`, `.json`, `.svg`, and `.alphatex` files appear in the tree.
@@ -10,11 +10,10 @@
  *   - System files (`CLAUDE.md`, `MEMORY.md`, `AGENTS.md`) are excluded.
  *   - Dot-prefixed folders (`.archdesigner`, `.claude`, etc.) and the
  *     `memory` folder are excluded.
- *   - Entries are sorted: folders first, then files, each group alphabetical.
+ *   - Entries are sorted: files first, then folders, each group alphabetical.
  *   - Every file carries `fileType` (`"diagram"` for `.json`, `"document"`
- *     for `.md`, `"svg"` for `.svg`, `"tab"` for `.alphatex`), the raw
- *     `FileSystemFileHandle`, and `lastModified` from `File.lastModified`
- *     (best-effort; swallowed on error).
+ *     for `.md`, `"svg"` for `.svg`, `"tab"` for `.alphatex`) and
+ *     `lastModified` from `File.lastModified` (best-effort; swallowed on error).
  */
 
 const HIDDEN_FOLDER_NAMES = new Set(["memory"]);
@@ -28,9 +27,9 @@ export interface TreeNode {
   /** Derived from extension; only set on files. */
   fileType?: "diagram" | "document" | "svg" | "tab";
   children?: TreeNode[];
-  handle?: FileSystemFileHandle;
-  dirHandle?: FileSystemDirectoryHandle;
   lastModified?: number;
+  // handle and dirHandle intentionally removed — consumers use useRepositories()
+  // for I/O. Tasks 27b/28a/b/c migrate the existing consumers.
 }
 
 export async function scanTree(
@@ -54,7 +53,6 @@ export async function scanTree(
         name: entry.name,
         path,
         type: "folder",
-        dirHandle,
         children,
         lastModified: maxMod || undefined,
       });
@@ -87,7 +85,6 @@ export async function scanTree(
         path,
         type: "file",
         fileType,
-        handle: fileHandle,
         lastModified,
       });
     }
@@ -98,6 +95,13 @@ export async function scanTree(
   return [...files, ...folders];
 }
 
+/**
+ * Converts a tree into a flat path → entry-kind map.
+ *
+ * NOTE: handle/dirHandle were removed from TreeNode in Task 27a. Callers that
+ * read `.handle` or `.dirHandle` from this map's values will now receive
+ * `undefined`. Full migration of those callers happens in Tasks 27b/28a/b/c.
+ */
 export function flattenTree(
   nodes: TreeNode[],
 ): Map<string, { handle?: FileSystemFileHandle; dirHandle?: FileSystemDirectoryHandle }> {
@@ -108,9 +112,9 @@ export function flattenTree(
   function walk(items: TreeNode[]) {
     for (const item of items) {
       if (item.type === "file") {
-        map.set(item.path, { handle: item.handle });
+        map.set(item.path, {});
       } else {
-        map.set(item.path, { dirHandle: item.dirHandle });
+        map.set(item.path, {});
         if (item.children) walk(item.children);
       }
     }
