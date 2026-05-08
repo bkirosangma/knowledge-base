@@ -1,33 +1,35 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { FileSystemError } from "../domain/errors";
+
+const bridge = vi.hoisted(() => ({
+  exists: vi.fn(),
+  readJson: vi.fn(),
+  writeJson: vi.fn(),
+  readText: vi.fn(),
+}));
+vi.mock("./tauriBridge", () => ({ tauriBridge: bridge }));
+
 import { createLinkIndexRepositoryTauri } from "./linkIndexRepoTauri";
 
-// Mock tauriBridge at module load time via hoisted vi.mock.
-vi.mock("./tauriBridge", () => ({
-  tauriBridge: {
-    exists: vi.fn(),
-    readJson: vi.fn(),
-    writeJson: vi.fn(),
-    readText: vi.fn(),
-  },
-}));
-
-// Import after mock is set up.
-import { tauriBridge } from "./tauriBridge";
+const STORE = ".archdesigner/_links.json";
 
 describe("linkIndexRepoTauri", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  afterEach(() => {
+    bridge.exists.mockReset();
+    bridge.readJson.mockReset();
+    bridge.writeJson.mockReset();
+    bridge.readText.mockReset();
   });
 
   describe("load()", () => {
     it("throws FileSystemError with kind 'not-found' if the file does not exist", async () => {
-      vi.mocked(tauriBridge.exists).mockResolvedValue(false);
+      bridge.exists.mockResolvedValue(false);
 
       const repo = createLinkIndexRepositoryTauri();
 
-      await expect(repo.load()).rejects.toThrow(FileSystemError);
       const err = await repo.load().catch((e) => e);
+      expect(err).toBeInstanceOf(FileSystemError);
       expect(err.kind).toBe("not-found");
     });
 
@@ -42,60 +44,57 @@ describe("linkIndexRepoTauri", () => {
         updatedAt: "2026-05-08T00:00:00Z",
       };
 
-      vi.mocked(tauriBridge.exists).mockResolvedValue(true);
-      vi.mocked(tauriBridge.readJson).mockResolvedValue(validIndex);
+      bridge.exists.mockResolvedValue(true);
+      bridge.readJson.mockResolvedValue(validIndex);
 
       const repo = createLinkIndexRepositoryTauri();
       const result = await repo.load();
 
       expect(result).toEqual(validIndex);
-      expect(vi.mocked(tauriBridge.exists)).toHaveBeenCalledWith(".archdesigner/_links.json");
-      expect(vi.mocked(tauriBridge.readJson)).toHaveBeenCalledWith(".archdesigner/_links.json");
+      expect(bridge.exists).toHaveBeenCalledWith(STORE);
+      expect(bridge.readJson).toHaveBeenCalledWith(STORE);
     });
 
     it("throws FileSystemError with kind 'malformed' if documents field is missing", async () => {
-      vi.mocked(tauriBridge.exists).mockResolvedValue(true);
-      vi.mocked(tauriBridge.readJson).mockResolvedValue({
+      bridge.exists.mockResolvedValue(true);
+      bridge.readJson.mockResolvedValue({
         backlinks: {},
         updatedAt: "2026-05-08T00:00:00Z",
       });
 
       const repo = createLinkIndexRepositoryTauri();
-
-      await expect(repo.load()).rejects.toThrow(FileSystemError);
       const err = await repo.load().catch((e) => e);
+      expect(err).toBeInstanceOf(FileSystemError);
       expect(err.kind).toBe("malformed");
     });
 
     it("throws FileSystemError with kind 'malformed' if backlinks field is missing", async () => {
-      vi.mocked(tauriBridge.exists).mockResolvedValue(true);
-      vi.mocked(tauriBridge.readJson).mockResolvedValue({
+      bridge.exists.mockResolvedValue(true);
+      bridge.readJson.mockResolvedValue({
         documents: {},
         updatedAt: "2026-05-08T00:00:00Z",
       });
 
       const repo = createLinkIndexRepositoryTauri();
-
-      await expect(repo.load()).rejects.toThrow(FileSystemError);
       const err = await repo.load().catch((e) => e);
+      expect(err).toBeInstanceOf(FileSystemError);
       expect(err.kind).toBe("malformed");
     });
 
     it("throws FileSystemError with kind 'malformed' if the parsed JSON is null", async () => {
-      vi.mocked(tauriBridge.exists).mockResolvedValue(true);
-      vi.mocked(tauriBridge.readJson).mockResolvedValue(null);
+      bridge.exists.mockResolvedValue(true);
+      bridge.readJson.mockResolvedValue(null);
 
       const repo = createLinkIndexRepositoryTauri();
-
-      await expect(repo.load()).rejects.toThrow(FileSystemError);
       const err = await repo.load().catch((e) => e);
+      expect(err).toBeInstanceOf(FileSystemError);
       expect(err.kind).toBe("malformed");
     });
   });
 
   describe("save()", () => {
     it("stamps updatedAt and writes to the store", async () => {
-      vi.mocked(tauriBridge.writeJson).mockResolvedValue(undefined);
+      bridge.writeJson.mockResolvedValue(undefined);
 
       const repo = createLinkIndexRepositoryTauri();
       const index = {
@@ -107,9 +106,12 @@ describe("linkIndexRepoTauri", () => {
       await repo.save(index);
       const afterTime = new Date();
 
-      expect(vi.mocked(tauriBridge.writeJson)).toHaveBeenCalledOnce();
-      const [path, written] = vi.mocked(tauriBridge.writeJson).mock.calls[0];
-      expect(path).toBe(".archdesigner/_links.json");
+      expect(bridge.writeJson).toHaveBeenCalledOnce();
+      const [path, written] = bridge.writeJson.mock.calls[0] as [
+        string,
+        { updatedAt: string; documents: unknown; backlinks: unknown },
+      ];
+      expect(path).toBe(STORE);
       expect(written).toHaveProperty("updatedAt");
       expect(written.documents).toEqual(index.documents);
       expect(written.backlinks).toEqual(index.backlinks);
@@ -120,48 +122,45 @@ describe("linkIndexRepoTauri", () => {
     });
 
     it("propagates errors from tauriBridge.writeJson", async () => {
-      const testError = new Error("write failed");
-      vi.mocked(tauriBridge.writeJson).mockRejectedValue(testError);
+      bridge.writeJson.mockRejectedValue(new Error("write failed"));
 
       const repo = createLinkIndexRepositoryTauri();
-      const index = {
-        documents: {},
-        backlinks: {},
-      };
-
-      await expect(repo.save(index)).rejects.toThrow("write failed");
+      await expect(
+        repo.save({ documents: {}, backlinks: {} }),
+      ).rejects.toThrow("write failed");
     });
   });
 
   describe("readDocContent()", () => {
     it("reads and returns document content by path", async () => {
       const content = "# My Document\n\nSome content here.";
-      vi.mocked(tauriBridge.readText).mockResolvedValue(content);
+      bridge.readText.mockResolvedValue(content);
 
       const repo = createLinkIndexRepositoryTauri();
       const result = await repo.readDocContent("docs/example.md");
 
       expect(result).toBe(content);
-      expect(vi.mocked(tauriBridge.readText)).toHaveBeenCalledWith("docs/example.md");
+      expect(bridge.readText).toHaveBeenCalledWith("docs/example.md");
     });
 
     it("works with nested paths", async () => {
-      const content = "diagram content";
-      vi.mocked(tauriBridge.readText).mockResolvedValue(content);
+      bridge.readText.mockResolvedValue("diagram content");
 
       const repo = createLinkIndexRepositoryTauri();
       await repo.readDocContent("diagrams/folder/my-diagram.json");
 
-      expect(vi.mocked(tauriBridge.readText)).toHaveBeenCalledWith("diagrams/folder/my-diagram.json");
+      expect(bridge.readText).toHaveBeenCalledWith(
+        "diagrams/folder/my-diagram.json",
+      );
     });
 
     it("propagates errors from tauriBridge.readText", async () => {
-      const testError = new Error("read failed");
-      vi.mocked(tauriBridge.readText).mockRejectedValue(testError);
+      bridge.readText.mockRejectedValue(new Error("read failed"));
 
       const repo = createLinkIndexRepositoryTauri();
-
-      await expect(repo.readDocContent("missing.md")).rejects.toThrow("read failed");
+      await expect(repo.readDocContent("missing.md")).rejects.toThrow(
+        "read failed",
+      );
     });
   });
 });
