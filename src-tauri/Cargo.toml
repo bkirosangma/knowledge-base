@@ -22,7 +22,10 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-tokio = { version = "1", features = ["fs", "io-util", "rt-multi-thread", "macros", "sync"] }
+tokio = { version = "1", features = ["fs", "io-util", "rt-multi-thread", "macros", "sync", "process", "time"] }
+which = "6"
+dirs = "5"
+libc = "0.2"
 # Exact pins: plan validated against these versions; bump deliberately in MVP-1d cleanup.
 notify = "=6.1.1"
 notify-debouncer-full = "=0.3.2"

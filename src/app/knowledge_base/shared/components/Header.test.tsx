@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+
+// VaultSwitcher (rendered inside Header) calls getClaudePermissionMode on mount,
+// which goes through tauriBridge.invoke. Stub the settings calls to avoid the
+// unhandled rejection in the Tauri-less JSDOM test environment.
+vi.mock('../../infrastructure/settingsStore', () => ({
+  getClaudePermissionMode: vi.fn().mockResolvedValue('acceptEdits'),
+  setClaudePermissionMode: vi.fn().mockResolvedValue(undefined),
+}))
+
 import Header from './Header'
 
 // Covers SHELL-1.2-18/19 (split toggle) + SHELL-1.12 dirty-stack indicator.

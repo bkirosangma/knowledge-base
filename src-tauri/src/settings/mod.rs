@@ -1,4 +1,4 @@
 pub mod commands;
 pub mod store;
 
-pub use store::Settings;
+pub use store::{ClaudeSettings, Settings};

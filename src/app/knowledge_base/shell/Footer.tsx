@@ -7,13 +7,16 @@ import { useToolbarContext, GRAPH_SENTINEL } from "./ToolbarContext";
 import type { PaneEntry } from "./PaneManager";
 import ConfirmPopover from "../shared/components/explorer/ConfirmPopover";
 import { useFileWatcher } from "../shared/context/FileWatcherContext";
+import { ClaudeStatusLine } from "./footer/ClaudeStatusLine";
+import { ChatToggleButton } from "./footer/ChatToggleButton";
 
 interface FooterProps {
   focusedEntry: PaneEntry | null;
   isSplit: boolean;
+  vaultName: string;
 }
 
-export default function Footer({ focusedEntry, isSplit }: FooterProps) {
+export default function Footer({ focusedEntry, isSplit, vaultName }: FooterProps) {
   const { leftInfo, rightInfo } = useFooterContext();
   const { focusedPane } = useToolbarContext();
   const [resetConfirmPos, setResetConfirmPos] = useState<{ x: number; y: number } | null>(null);
@@ -34,6 +37,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
     <div data-print-hide="true" className="flex-shrink-0 bg-surface/80 backdrop-blur-sm border-t border-line px-4 py-1 z-20">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 min-w-0">
+          <ChatToggleButton />
           {filename && (
             <div className="flex items-center gap-1.5 text-[11px] text-mute font-mono min-w-0">
               {sideLabel && (
@@ -58,6 +62,7 @@ export default function Footer({ focusedEntry, isSplit }: FooterProps) {
               </span>
             </>
           )}
+          <ClaudeStatusLine vaultName={vaultName} />
           <LastSyncedChip />
           <button
             onClick={(e) => setResetConfirmPos({ x: e.clientX, y: e.clientY })}

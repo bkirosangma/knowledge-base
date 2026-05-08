@@ -44,6 +44,8 @@ import { readOrNull } from "./domain/repositoryHelpers";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
+import { ChatProvider } from "./features/claude/ChatContext";
+import { ClaudeChatDrawer } from "./features/claude/ClaudeChatDrawer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { Command, CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
@@ -293,6 +295,20 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   const allPaths = useAllPaths(fileExplorer.tree);
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
+
+  // Vault-switch wrappers: clear panes before the root swap, otherwise the
+  // panes still hold filePaths from the prior vault and useDocumentContent
+  // hits FileNotFound on the new vault's repo. useFileExplorer can't see
+  // panes — keeping the responsibility here, where both are visible.
+  const handleOpenFolder = useCallback(async () => {
+    panes.closeAll();
+    await fileExplorer.openFolder();
+  }, [panes, fileExplorer]);
+
+  const handleSwitchVault = useCallback(async (path: string) => {
+    panes.closeAll();
+    await fileExplorer.switchVault(path);
+  }, [panes, fileExplorer]);
 
   // Quiet rescan on watcher tick — `watcherRescan` (not `refresh`) skips
   // the loading flash and permission re-check on every poll.
@@ -1392,7 +1408,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     if (created) handleSelectFile(created);
   }, [fileExplorer, handleSelectFile]);
   const emptyState = noVaultOpen ? (
-    <NoVaultCTA onOpenVault={fileExplorer.openFolder} />
+    <NoVaultCTA onOpenVault={handleOpenFolder} />
   ) : (
     <EmptyState
       recents={recentFiles}
@@ -1438,14 +1454,14 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
                 currentVaultName={folderName}
                 recents={recents}
                 isUninitialised
-                onOpenVault={fileExplorer.openFolder}
-                onSwitchVault={fileExplorer.switchVault}
+                onOpenVault={handleOpenFolder}
+                onSwitchVault={handleSwitchVault}
                 onInitializeVault={() => void initializeCurrentVault()}
               />
               <UninitializedVaultSplash
                 folderName={folderName}
                 onInitialize={() => void initializeCurrentVault()}
-                onPickDifferent={fileExplorer.openFolder}
+                onPickDifferent={handleOpenFolder}
               />
             </div>
           </>
@@ -1482,7 +1498,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           leftPaneFile={panes.leftPane?.filePath ?? null}
           rightPaneFile={panes.rightPane?.filePath ?? null}
           dirtyFiles={fileExplorer.dirtyFiles}
-          onOpenFolder={fileExplorer.openFolder}
+          onOpenFolder={handleOpenFolder}
           onSelectFile={handleSelectFile}
           onCreateFile={async (parentPath) => {
             const result = await fileExplorer.createFile(parentPath);
@@ -1562,8 +1578,8 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         currentVaultName={fileExplorer.directoryName}
         recents={recents}
         isUninitialised={false}
-        onOpenVault={fileExplorer.openFolder}
-        onSwitchVault={fileExplorer.switchVault}
+        onOpenVault={handleOpenFolder}
+        onSwitchVault={handleSwitchVault}
         onInitializeVault={() => undefined}
       />
 
@@ -1578,7 +1594,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       )}
 
       {/* Explorer + Viewport + Properties */}
-      <div className="flex-1 flex min-h-0">
+      {/* `relative` anchors the absolute-positioned ClaudeChatDrawer
+          (mounted as a sibling of PaneManager below) so it overlays the
+          main content area from the bottom without resizing the panes. */}
+      <div className="relative flex-1 flex min-h-0">
         {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
             36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
@@ -1596,7 +1615,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             leftPaneFile={panes.leftPane?.filePath ?? null}
             rightPaneFile={panes.rightPane?.filePath ?? null}
             dirtyFiles={fileExplorer.dirtyFiles}
-            onOpenFolder={fileExplorer.openFolder}
+            onOpenFolder={handleOpenFolder}
             onSelectFile={handleSelectFile}
             onCreateFile={async (parentPath) => {
               const result = await fileExplorer.createFile(parentPath);
@@ -1650,11 +1669,16 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           renderPane={renderPane}
           emptyState={emptyState}
         />
+
+        {/* Claude chat drawer — absolute-positioned, opens upward from the
+            bottom over the main content. Default-closed; toggled from the
+            footer button. State lives in ChatProvider (above this tree). */}
+        <ClaudeChatDrawer />
       </div>
 
       {/* Footer unmounts in Focus Mode so document content fills the
           full vertical space. */}
-      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} />}
+      {!focusMode && <Footer focusedEntry={panes.activeEntry} isSplit={panes.isSplit} vaultName={fileExplorer.directoryName ?? ""} />}
 
       {/* ⌘K Command Palette — overlays the entire viewport */}
       <CommandPalette searchFn={searchManager.search} onSearchPick={handleSearchPick} />
@@ -1730,10 +1754,29 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
  */
 function KnowledgeBaseWithProvider() {
   const [vaultPath, setVaultPath] = useState<string | null>(null);
+
+  // Suppress the WebView default for Escape so it doesn't exit fullscreen.
+  // Other app-level Escape handlers (drawer close, modal close, etc.) still
+  // fire — we only block the default action, not propagation.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <RepositoryProvider vaultPath={vaultPath}>
       <FileWatcherProvider vaultPath={vaultPath}>
-        <KnowledgeBaseInner onVaultPath={setVaultPath} />
+        {/* ChatProvider lives here — above KnowledgeBaseInner so chat
+            session state (turns, drawer open/closed, drawer height)
+            survives the inner shell's re-renders, and so the footer's
+            toggle button + the drawer overlay both consume the same
+            provider via useChat(). */}
+        <ChatProvider>
+          <KnowledgeBaseInner onVaultPath={setVaultPath} />
+        </ChatProvider>
       </FileWatcherProvider>
     </RepositoryProvider>
   );

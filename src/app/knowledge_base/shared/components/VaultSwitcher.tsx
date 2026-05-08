@@ -1,7 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ChevronDown, FolderOpen } from "lucide-react";
+import {
+  getClaudePermissionMode,
+  setClaudePermissionMode,
+  type ClaudePermissionMode,
+} from "../../infrastructure/settingsStore";
 
 interface Props {
   currentVaultName: string;
@@ -23,6 +28,19 @@ export function VaultSwitcher({
   const [open, setOpen] = React.useState(false);
   const close = () => setOpen(false);
   const ref = React.useRef<HTMLDivElement>(null);
+
+  const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>("acceptEdits");
+
+  useEffect(() => {
+    void getClaudePermissionMode().then(setPermissionMode);
+  }, []);
+
+  const togglePermissionMode = useCallback(async () => {
+    const next: ClaudePermissionMode =
+      permissionMode === "acceptEdits" ? "default" : "acceptEdits";
+    setPermissionMode(next);
+    await setClaudePermissionMode(next);
+  }, [permissionMode]);
 
   // Close on Escape
   React.useEffect(() => {
@@ -92,6 +110,16 @@ export function VaultSwitcher({
               ))}
             </div>
           )}
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full border-t border-line px-3 py-2 text-left hover:bg-surface-2 transition-colors"
+            onClick={() => void togglePermissionMode()}
+            aria-label="Toggle Claude permission mode"
+          >
+            <span className="text-mute">Permission:</span>{" "}
+            <span className="font-mono text-xs text-white">{permissionMode}</span>
+          </button>
           {isUninitialised && (
             <button
               type="button"

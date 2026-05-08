@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use knowledge_base_lib::claude::{commands as claude_commands, ClaudeState};
 use knowledge_base_lib::settings::commands as settings_commands;
 use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
 use std::sync::Arc;
@@ -12,6 +13,7 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(vault)
         .manage(watcher)
+        .manage(ClaudeState::new())
         .invoke_handler(tauri::generate_handler![
             commands::vault_pick,
             commands::vault_set_root,
@@ -29,6 +31,10 @@ fn main() {
             commands::vault_watch_stop,
             settings_commands::settings_read,
             settings_commands::settings_write,
+            claude_commands::claude_status,
+            claude_commands::claude_send,
+            claude_commands::claude_interrupt,
+            claude_commands::claude_reset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

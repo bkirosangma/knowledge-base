@@ -5,8 +5,14 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 import { FileSystemError } from "../domain/errors";
+import type {
+  ClaudeEvent,
+  ClaudeStatus,
+  ClaudeUserMessage,
+} from "../features/claude/types";
 
 interface RawVaultError {
   kind:
@@ -68,6 +74,13 @@ async function call<T>(
   }
 }
 
+async function listenEvent<T>(
+  eventName: string,
+  handler: (payload: T) => void,
+): Promise<() => void> {
+  return listen<T>(eventName, (event) => handler(event.payload));
+}
+
 export const tauriBridge = {
   pick(): Promise<string | null> {
     return call<string | null>("vault_pick", {}, "");
@@ -113,5 +126,30 @@ export const tauriBridge = {
   },
   watchStop(): Promise<void> {
     return call<void>("vault_watch_stop", {}, "");
+  },
+
+  // -- Claude --
+
+  /** Probe the Claude binary; safe to call repeatedly (no subprocess spawn). */
+  claudeStatus(): Promise<ClaudeStatus> {
+    return call<ClaudeStatus>("claude_status", {}, "");
+  },
+  /** Push one user message onto the long-lived subprocess stdin. Spawns lazily on first call. */
+  claudeSend(message: ClaudeUserMessage): Promise<void> {
+    return call<void>("claude_send", { message }, "");
+  },
+  /** SIGINT the subprocess, cancelling in-flight generation. Process stays alive. */
+  claudeInterrupt(): Promise<void> {
+    return call<void>("claude_interrupt", {}, "");
+  },
+  /** Kill the subprocess and reset session state. Next claudeSend respawns. */
+  claudeReset(): Promise<void> {
+    return call<void>("claude_reset", {}, "");
+  },
+  /** Subscribe to claude_event payloads. Returns an unsubscribe function. */
+  subscribeClaudeEvent(
+    handler: (event: ClaudeEvent) => void,
+  ): Promise<() => void> {
+    return listenEvent<ClaudeEvent>("claude_event", handler);
   },
 };

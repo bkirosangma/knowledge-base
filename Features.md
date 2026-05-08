@@ -85,6 +85,9 @@ Top-level chrome that hosts every other feature.
 - ✅ **Diagram stats** — world dimensions (`W x H px`), patch count, current zoom %.
 - ✅ **Last synced chip** (KB-041) — small monospace pill reading `Last synced N s ago`, sourced from `useFileWatcher().lastSyncedAt` and re-rendered every second so users can trust the watcher cadence. Hidden in focus mode (Footer is unmounted).
 - ✅ **Reset App button** — clears localStorage and reloads the window (destructive — confirm path worth testing).
+- ✅ **Claude status line** (MVP-2 Task 4) — right-aligned monospace chip showing `claude: idle · vault: <name>` (mute), `claude: not installed` (amber), or `claude: api-key billing (not subscription)` (amber). Sourced from `useClaudeStatus()` (IPC round-trip to Rust `claude_status` command) and `useClaudeUsage()` (stub; Task 15 wires real accumulation). Suppresses `vault:` segment when no vault is open. `src/app/knowledge_base/shell/footer/ClaudeStatusLine.tsx`.
+- ✅ **Chat toggle button** (MVP-2 Task 12) — left-most footer slot, MessageCircle icon. Toggles `<ClaudeChatDrawer>` open/closed via `useChat()`. Pulses (`animate-pulse`) when streaming and the drawer is closed, so the user notices background progress; static once the drawer is open. `src/app/knowledge_base/shell/footer/ChatToggleButton.tsx`.
+- ✅ **Claude chat drawer** (MVP-2 Task 12) — bottom-anchored overlay (`absolute inset-x-0 bottom-0 z-30`) mounted as a sibling of `<PaneManager>` inside a `relative` wrapper, so panes stay full-size and interactive while the drawer slides up over them. Default-closed each launch (open/closed state is not persisted; height is, via `ui.claudeChat.height`). Hosts `<DrawerResizeHandle>` (top-edge drag), an optional error banner driven by `useClaudeSession().errorMessage`, the `<MessageList>` of accumulated turns, and the `<Composer>`. Escape closes; clicks outside the drawer do not. State (turns, drawer open/height) lives in `<ChatProvider>` mounted at `KnowledgeBaseWithProvider`, so drawer + footer toggle share session state and turns survive open/close. `src/app/knowledge_base/features/claude/ClaudeChatDrawer.tsx`, `features/claude/ChatContext.tsx`.
 
 ### 1.4 Pane Manager & Split Pane
 `src/app/knowledge_base/shell/PaneManager.tsx`, `shared/components/SplitPane.tsx`
@@ -603,7 +606,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 |---|---|
 | **localStorage** (per-scope) | Explorer sort prefs, filter, collapse state; split ratio; pane layout; "Don't ask me again" flags; diagram drafts; per-diagram viewport; doc-properties collapse state. |
 | **IndexedDB** (`knowledge-base` / `handles`) | File System Access API directory handle (+ scope ID). |
-| **`tauri-plugin-store` JSON file** (app config dir, MVP-1c) | Last-opened vault path, MRU-5 recents list, `claudeChatHeight`. Managed by `src-tauri/src/settings/` + `src/app/knowledge_base/infrastructure/settingsStore.ts`. |
+| **`tauri-plugin-store` JSON file** (app config dir, MVP-1c) | Last-opened vault path, MRU-5 recents list, `ui.claudeChat.height` (px, default 320), `claude.permissionMode` (`"acceptEdits" \| "default"`, default `"acceptEdits"`). Managed by `src-tauri/src/settings/` + `src/app/knowledge_base/infrastructure/settingsStore.ts`. |
 | **Disk (vault)** | `*.json` diagrams, `*.md` documents, `.<name>.history.json` sidecars, `.archdesigner/config.json`, `.archdesigner/_links.json`, `.archdesigner/cross-references.json`, `.kb/attachment-links.json`. |
 
 ### 7.1 Workspace-Scoped Attachment Links Store
@@ -808,6 +811,55 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 - ⚙️ **`useTabExport` hook** (`features/tab/hooks/useTabExport.ts`) — owns FSA `showSaveFilePicker` calls, filename derivation (via `deriveExportBaseName` — strips path segments + trailing `.alphatex`), AbortController for WAV cancel, error reporting via `useShellErrors().reportError`. AbortError from picker is silent (user cancelled). Cancel during render is silent.
 - ⚙️ **`TabExportHandle` ref bridge** (`knowledgeBase.tabRouting.helper.tsx` + `features/tab/TabView.tsx` + `knowledgeBase.tsx`) — `TabView` publishes the active session's three export callables upward via `onTabExportReady` callback flowing through `TabPaneContext`; `KnowledgeBaseInner` stashes them in per-side `leftTabExportRef` / `rightTabExportRef`; palette commands read `panes.focusedSide` to dispatch to the focused pane's handle.
 - ⚙️ **Bravura music font** (`public/font/Bravura.{woff2,woff,otf,svg,eot}` + `settings.core.fontDirectory = "/font/"`) — alphaTab's print popup needs the music font to render glyphs (closes parked-item #14).
+
+---
+
+## 11.x Claude Chat Surface (MVP-2)
+
+Bottom-overlay conversational AI panel that runs a long-lived `claude -p` subprocess via a Tauri sidecar and streams structured events to the front-end via an IPC channel.
+
+### 11.x.1 Drawer chrome & state
+- ✅ **Bottom-overlay `<ClaudeChatDrawer>`** — `absolute inset-x-0 bottom-0 z-30`, sibling of `<PaneManager>` so panes stay full-size. Default-closed each launch; height persisted via `ui.claudeChat.height` (default 320 px). Escape closes; clicks outside the drawer do not. `src/app/knowledge_base/features/claude/ClaudeChatDrawer.tsx`.
+- ✅ **`<DrawerResizeHandle>`** — top-edge drag bar that fires `onResize(newHeight)`; height floor-clamped to 180 px. `features/claude/components/DrawerResizeHandle.tsx`.
+- ✅ **`useDrawerState` hook** — manages `isOpen` (default false) + `height` (default 320, loaded from / persisted to `settingsStore`). `features/claude/hooks/useDrawerState.ts`.
+- ✅ **`<ChatProvider>` + `useChat()`** — context provider mounted at `KnowledgeBaseWithProvider` so the footer toggle and the drawer share the same session state. `features/claude/ChatContext.tsx`.
+- ✅ **Error banner** — `useClaudeSession().errorMessage` (e.g. crash string) renders as an amber strip inside the drawer header.
+
+### 11.x.2 Message rendering
+- ✅ **`<MessageList>`** — vertically scrolling list of `Turn` objects; auto-scrolls to bottom on new content. `features/claude/components/MessageList.tsx`.
+- ✅ **`<MessageBubble>`** — renders "You" (user) or "Claude" (assistant) label plus text content with preserved newlines. `features/claude/components/MessageBubble.tsx`.
+- ✅ **`<PartialMessageStream>`** — live streaming cursor (blinking `▊`) shown while the assistant turn is in-flight; hidden once `message_end` lands. `features/claude/components/PartialMessageStream.tsx`.
+- ✅ **`<ToolUseBlock>`** — collapsible block inside the assistant bubble showing tool name; expands on click to reveal JSON input (and output when present). `features/claude/components/ToolUseBlock.tsx`.
+
+### 11.x.3 Composer
+- ✅ **`<Composer>`** — auto-growing textarea + send/stop button. Enter sends (trims whitespace, disables on empty). Shift+Enter inserts newline. Send button replaced by stop button during streaming. `features/claude/components/Composer.tsx`.
+
+### 11.x.4 Session reducer & IPC
+- ✅ **`useClaudeSession` hook** — FSM reducer over `ClaudeEvent` variants (`message_start`, `partial_text`, `tool_use`, `message_end`, `crashed`). Accumulates turns; tracks streaming state; exposes `send`, `interrupt`, `reset`. `features/claude/hooks/useClaudeSession.ts`.
+- ✅ **4 Tauri IPC commands** — `claude_send`, `claude_interrupt`, `claude_reset`, `claude_status`. Backed by `src-tauri/src/claude/` module.
+- ✅ **`claude_event` channel** — Tauri async channel pushed by the Rust subprocess I/O reader; front-end `useClaudeSession` subscribes via `listen("claude_event", …)`.
+- ✅ **Long-lived `claude -p` subprocess (Rust)** — spawned lazily on first `claude_send`; stdout/stderr parsed as NDJSON and forwarded as `ClaudeEvent`s.
+
+### 11.x.5 Crash recovery
+- ✅ **Rolling-window crash counter** — three unexpected exits within 60 s halts auto-respawn and surfaces a `crashed` errorMessage. One or two crashes in the window trigger a transparent respawn on the next `claude_send`. `src-tauri/src/claude/manager.rs`.
+
+### 11.x.6 Status line
+- ✅ **`<ClaudeStatusLine>`** — right-aligned monospace chip in the Footer showing idle / not-installed / api-key-warning / active-session states with tabular-nums to prevent digit jitter. Also renders the crashed-state banner with a Retry button (calls `reset`). `shell/footer/ClaudeStatusLine.tsx`.
+- ✅ **`useClaudeStatus` hook** — IPC round-trip to `claude_status`; returns `ClaudeStatusResult`. `features/claude/hooks/useClaudeStatus.ts`.
+- ✅ **`useClaudeUsage` hook** — accumulates token / cost totals from `message_end` events for the status chip. `features/claude/hooks/useClaudeUsage.ts`.
+
+### 11.x.7 SetupScreen + api-key banner
+- ✅ **`<SetupScreen>`** — shown inside the drawer when `claude_status` reports binary missing; displays `curl … install.sh` snippet and a Refresh button that re-runs `claude_status`. `features/claude/components/SetupScreen.tsx`.
+
+### 11.x.8 Permission mode toggle
+- ✅ **VaultSwitcher permission-mode toggle** (MVP-2 Task 17) — dropdown menu item in `<VaultSwitcher>` showing the current mode (`acceptEdits` / `default`); toggling calls `setClaudePermissionMode` and re-reads the persisted value. Default is `acceptEdits`. `shared/components/VaultSwitcher.tsx`, `infrastructure/settingsStore.ts`.
+
+### 11.x.9 Deferred / explicit anti-goals (MVP-3+)
+- ❌ `/kb` slash-command palette — type `/` in Composer to attach diagrams or documents as context. Deferred to MVP-3.
+- ❌ "Attach this document/diagram to context" UI — explicit context-attachment affordance outside the slash-command palette. Deferred.
+- ❌ Saved chats / chat history persistence — turns do not survive app restarts. Deferred.
+- ❌ In-pane permission-prompt UI — `create_file` / `edit_file` tool-use blocks with Accept/Reject controls inline. Deferred.
+- ❌ User-configured `statusLine.command` — custom shell command shown in the footer status chip. Deferred.
 
 ---
 

@@ -60,7 +60,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" as const },
     });
     const { result } = renderHook(() => useFileExplorer(), { wrapper });
     await waitFor(() => expect(result.current.vaultPath).toBe("/Users/x/v"));
@@ -71,7 +71,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: null, recents: [] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" as const },
     });
     const { result } = renderHook(() => useFileExplorer(), { wrapper });
     await waitFor(() => expect(settingsStore.getSettings).toHaveBeenCalled());
@@ -83,7 +83,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/gone", recents: ["/gone"] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" as const },
     });
     vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockRejectedValueOnce(
       new Error("canonicalize: NotFound"),
@@ -97,7 +97,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: null, recents: [] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" as const },
     });
     vi.mocked(tauriBridgeModule.tauriBridge.pick).mockResolvedValueOnce("/Users/x/new");
     vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockResolvedValueOnce();
