@@ -290,7 +290,6 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   const { scan } = useBackgroundScanner({
     tree: fileExplorer.tree,
     openFilePath,
-    dirHandleRef: fileExplorer.dirHandleRef,
     dirtyFiles: fileExplorer.dirtyFiles,
   });
   useEffect(() => {

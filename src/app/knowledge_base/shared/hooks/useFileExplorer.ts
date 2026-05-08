@@ -657,11 +657,6 @@ export function useFileExplorer() {
   // TODO 28a: remove rootHandle from this return once knowledgeBase.tsx stops reading it.
   const rootHandle = null as unknown as (FileSystemDirectoryHandle | null);
 
-  // dirHandleRef is kept as a stub (always null current) so consumers in
-  // knowledgeBase.tsx/DiagramOverlays/etc. (Task 28a/b) still compile.
-  // TODO 28a: remove dirHandleRef from this return once all consumers are migrated.
-  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
-
   return {
     directoryName: tree.length > 0 || vaultPath ? directoryName : null,
     rootHandle,
@@ -696,8 +691,6 @@ export function useFileExplorer() {
     handleFallbackInput,
     inputRef,
     setActiveFile,
-    /** @deprecated Use vaultPathRef instead. Kept for Task-28a/b migration. */
-    dirHandleRef,
     clearSavedHandle,
   };
 }

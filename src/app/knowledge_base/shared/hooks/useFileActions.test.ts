@@ -59,7 +59,6 @@ function setup(opts: SetupOpts = {}) {
 
   const fileExplorer = {
     activeFile: opts.activeFile ?? null,
-    dirHandleRef: { current: {} as FileSystemDirectoryHandle },
     selectFile: vi.fn(async (path: string) => {
       track('selectFile')(path)
       return selectFileReturn
@@ -429,7 +428,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
       return useFileActions(
         {
           activeFile: null,
-          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+
           selectFile: vi.fn(async (_path: string) => ({
             data: dataWithLegacyDocs,
             diskJson: JSON.stringify(dataWithLegacyDocs),
@@ -494,7 +493,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
       return useFileActions(
         {
           activeFile: null,
-          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+
           selectFile: vi.fn(async (_path: string) => ({
             data: dataWithLegacyDocs,
             diskJson: JSON.stringify(diagramData('on-disk')),
@@ -546,7 +545,7 @@ describe('HOOK-6.2-13: lazy migration of legacy data.documents on load', () => {
       return useFileActions(
         {
           activeFile: null,
-          dirHandleRef: { current: {} as FileSystemDirectoryHandle },
+
           selectFile: vi.fn(async (_path: string) => ({
             data: diagramData('migrated'),
             diskJson: JSON.stringify(diagramData('migrated')),

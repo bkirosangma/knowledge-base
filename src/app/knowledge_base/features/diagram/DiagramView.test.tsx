@@ -34,8 +34,6 @@ function stubFileExplorer() {
     dirtyFiles: new Set<string>(),
     pendingFile: null,
     inputRef: { current: null },
-    // dirHandleRef must be a ref shape, not a fn
-    dirHandleRef: { current: null },
     // callbacks read by useFileActions and DiagramView
     markDirty: vi.fn(),
     selectFile: vi.fn(async () => null),
