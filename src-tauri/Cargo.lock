@@ -1705,6 +1705,7 @@ name = "knowledge-base"
 version = "0.1.0"
 dependencies = [
  "dirs 5.0.1",
+ "libc",
  "notify",
  "notify-debouncer-full",
  "serde",
