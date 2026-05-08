@@ -1,4 +1,5 @@
 use crate::claude::{status, types::{ClaudeStatus, ClaudeUserMessage}, ClaudeState};
+use crate::settings::commands::read_settings;
 use crate::vault::VaultState;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
@@ -21,12 +22,11 @@ pub async fn claude_send(
         .await
         .clone()
         .ok_or("no vault mounted; open a vault before sending")?;
-    // Task 8 will read this from settings; hardcoded for now.
-    let permission_mode = "acceptEdits".to_string();
+    let permission_mode = read_settings(&app).await?.claude.permission_mode;
     let mut runner = state.0.lock().await;
     // Ensure subprocess is alive (lazy spawn) before sending. send() also
-    // respawns on crash; this guard is the seam Task 8 uses to thread the
-    // user-selected permission mode through on first spawn.
+    // respawns on crash; this guard re-reads the user-selected permission_mode
+    // each time the subprocess needs to be (re)spawned.
     runner
         .ensure_alive(app.clone(), vault_root.clone(), permission_mode)
         .await?;

@@ -13,7 +13,7 @@ const invokeMock = vi.hoisted(() =>
         return {
           vault: { lastPath: null, recents: [] },
           ui: { claudeChat: { height: 320 } },
-          claude: {},
+          claude: { permissionMode: "acceptEdits" },
         };
       }
       return state.storeState;
@@ -35,6 +35,9 @@ import {
   pushRecent,
   getRecents,
   setClaudeChatHeight,
+  getClaudeChatHeight,
+  getClaudePermissionMode,
+  setClaudePermissionMode,
   RECENTS_MAX,
 } from "./settingsStore";
 
@@ -49,7 +52,7 @@ describe("settingsStore.getSettings", () => {
     expect(s).toEqual({
       vault: { lastPath: null, recents: [] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" },
     });
     expect(invokeMock).toHaveBeenCalledWith("settings_read", {});
   });
@@ -58,7 +61,7 @@ describe("settingsStore.getSettings", () => {
     state.storeState = {
       vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
       ui: { claudeChat: { height: 480 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" },
     };
     const s = await getSettings();
     expect(s.vault.lastPath).toBe("/Users/x/v");
@@ -88,7 +91,7 @@ describe("settingsStore mutations", () => {
     state.storeState = {
       vault: { lastPath: "/old", recents: [] },
       ui: { claudeChat: { height: 320 } },
-      claude: {},
+      claude: { permissionMode: "acceptEdits" },
     };
     await clearLastPath();
     expect(invokeMock).toHaveBeenCalledWith(
@@ -126,6 +129,71 @@ describe("settingsStore mutations", () => {
       expect.objectContaining({
         settings: expect.objectContaining({
           ui: expect.objectContaining({ claudeChat: { height: 456 } }),
+        }),
+      }),
+    );
+  });
+
+  // SETTINGS-8-01
+  it("getClaudeChatHeight returns 320 by default", async () => {
+    const h = await getClaudeChatHeight();
+    expect(h).toBe(320);
+  });
+
+  // SETTINGS-8-02
+  it("getClaudeChatHeight returns the stored value when present", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeChat: { height: 500 } },
+      claude: { permissionMode: "acceptEdits" },
+    };
+    const h = await getClaudeChatHeight();
+    expect(h).toBe(500);
+  });
+
+  // SETTINGS-8-03
+  it("getClaudePermissionMode returns acceptEdits by default", async () => {
+    const mode = await getClaudePermissionMode();
+    expect(mode).toBe("acceptEdits");
+  });
+
+  // SETTINGS-8-04
+  it("getClaudePermissionMode returns default when stored as default", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeChat: { height: 320 } },
+      claude: { permissionMode: "default" },
+    };
+    const mode = await getClaudePermissionMode();
+    expect(mode).toBe("default");
+  });
+
+  // SETTINGS-8-05
+  it("setClaudePermissionMode(default) writes the value to settings", async () => {
+    await setClaudePermissionMode("default");
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          claude: expect.objectContaining({ permissionMode: "default" }),
+        }),
+      }),
+    );
+  });
+
+  // SETTINGS-8-06
+  it("setClaudePermissionMode(acceptEdits) writes the value to settings", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeChat: { height: 320 } },
+      claude: { permissionMode: "default" },
+    };
+    await setClaudePermissionMode("acceptEdits");
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          claude: expect.objectContaining({ permissionMode: "acceptEdits" }),
         }),
       }),
     );

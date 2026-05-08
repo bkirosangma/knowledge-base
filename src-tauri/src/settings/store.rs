@@ -23,13 +23,24 @@ pub struct UiSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct ClaudeSettings {
+    #[serde(default = "default_permission_mode")]
+    pub permission_mode: String,
+}
+
+fn default_permission_mode() -> String {
+    "acceptEdits".into()
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     #[serde(default)]
     pub vault: VaultSettings,
     #[serde(default)]
     pub ui: UiSettings,
     #[serde(default)]
-    pub claude: serde_json::Map<String, serde_json::Value>,
+    pub claude: ClaudeSettings,
 }
 
 impl Default for ClaudeChatSettings {
@@ -38,12 +49,10 @@ impl Default for ClaudeChatSettings {
     }
 }
 
-impl Default for Settings {
+impl Default for ClaudeSettings {
     fn default() -> Self {
         Self {
-            vault: VaultSettings::default(),
-            ui: UiSettings::default(),
-            claude: serde_json::Map::new(),
+            permission_mode: "acceptEdits".into(),
         }
     }
 }
@@ -71,7 +80,9 @@ mod tests {
             ui: UiSettings {
                 claude_chat: ClaudeChatSettings { height: 480 },
             },
-            claude: serde_json::Map::new(),
+            claude: ClaudeSettings {
+                permission_mode: "default".into(),
+            },
         };
         let json = serde_json::to_value(&s).unwrap();
         let back: Settings = serde_json::from_value(json).unwrap();
@@ -85,5 +96,24 @@ mod tests {
         assert_eq!(s.vault.last_path, Some("/v".into()));
         assert_eq!(s.vault.recents, Vec::<String>::new());
         assert_eq!(s.ui.claude_chat.height, 320);
+    }
+
+    #[test]
+    fn claude_settings_default_to_accept_edits_when_missing() {
+        // Verifies migration: existing settings.json without a "claude" key
+        // deserialise cleanly to permission_mode = "acceptEdits".
+        let s: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(s.claude.permission_mode, "acceptEdits");
+
+        // Also verify empty claude object fills in the default.
+        let s2: Settings = serde_json::from_str(r#"{"claude":{}}"#).unwrap();
+        assert_eq!(s2.claude.permission_mode, "acceptEdits");
+    }
+
+    #[test]
+    fn claude_settings_serialise_to_camel_case() {
+        let s = Settings::default();
+        let json = serde_json::to_value(&s).unwrap();
+        assert_eq!(json["claude"]["permissionMode"], "acceptEdits");
     }
 }
