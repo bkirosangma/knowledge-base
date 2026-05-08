@@ -46,6 +46,31 @@ pub async fn write_text_atomic(
     Ok(())
 }
 
+/// Read and parse a JSON file at vault-relative `rel`.
+pub async fn read_json(
+    rel: &str,
+    root: &Path,
+) -> Result<serde_json::Value, VaultError> {
+    let text = read_text(rel, root).await?;
+    serde_json::from_str(&text).map_err(|e| VaultError::Parse {
+        path: rel.to_string(),
+        message: e.to_string(),
+    })
+}
+
+/// Atomically write `value` as pretty-printed JSON to vault-relative `rel`.
+pub async fn write_json_atomic(
+    rel: &str,
+    value: &serde_json::Value,
+    root: &Path,
+) -> Result<(), VaultError> {
+    let text = serde_json::to_string_pretty(value).map_err(|e| VaultError::Parse {
+        path: rel.to_string(),
+        message: e.to_string(),
+    })?;
+    write_text_atomic(rel, &text, root).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,5 +113,26 @@ mod tests {
         let td = TempDir::new().unwrap();
         let err = read_text("../escape.md", td.path()).await.unwrap_err();
         assert!(matches!(err, VaultError::PathEscape { .. }));
+    }
+
+    #[tokio::test]
+    async fn round_trips_json() {
+        let td = TempDir::new().unwrap();
+        let value = serde_json::json!({ "name": "alpha", "n": 42 });
+        write_json_atomic("config.json", &value, td.path())
+            .await
+            .unwrap();
+        let got = read_json("config.json", td.path()).await.unwrap();
+        assert_eq!(got, value);
+    }
+
+    #[tokio::test]
+    async fn read_json_returns_parse_error_on_garbage() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("config.json", "not json", td.path())
+            .await
+            .unwrap();
+        let err = read_json("config.json", td.path()).await.unwrap_err();
+        assert!(matches!(err, VaultError::Parse { .. }));
     }
 }
