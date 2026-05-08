@@ -10,8 +10,16 @@ interface MessageListProps {
 
 export function MessageList({ turns }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
+  // Jump instantly on the first render after mount (drawer open with prior
+  // turns) so users don't see a smooth-scroll animation. Subsequent turn
+  // updates use smooth scroll for nicer streaming UX.
+  const firstScroll = useRef(true);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    endRef.current?.scrollIntoView({
+      behavior: firstScroll.current ? "auto" : "smooth",
+      block: "end",
+    });
+    firstScroll.current = false;
   }, [turns]);
 
   if (turns.length === 0) {
