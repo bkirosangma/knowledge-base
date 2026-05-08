@@ -3,7 +3,6 @@ import type { ExplorerFilter, DocumentMeta } from "./shared/utils/types";
 import ExplorerPanel from "./shared/components/explorer/ExplorerPanel";
 import ConfirmPopover from "./shared/components/explorer/ConfirmPopover";
 import Header from "./shared/components/Header";
-import UnsupportedBrowserCard from "./shared/components/UnsupportedBrowserCard";
 import FirstRunHero from "./shared/components/FirstRunHero";
 import EmptyState from "./shared/components/EmptyState";
 import { BrokenAnchorBanner } from "./shared/components/BrokenAnchorBanner";
@@ -216,12 +215,8 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   const searchManager = useVaultSearch();
   // Viewport detection drives mobile shell branching.
   const { isMobile } = useViewport();
-  // Initial state assumes supported so SSR/client first paint match;
-  // the effect flips it on Firefox/Safari to swap in UnsupportedBrowserCard.
-  const [isFsAccessSupported, setIsFsAccessSupported] = useState<boolean>(true);
-  useEffect(() => {
-    setIsFsAccessSupported("showDirectoryPicker" in window);
-  }, []);
+  // (Removed: FSA-availability guard — Tauri replaces FSA. UnsupportedBrowserCard
+  // and its render branch deleted as part of MVP-1d cleanup.)
   // Offline cache for last 10 recents (best-effort).
   useOfflineCache({ tree: fileExplorer.tree }); // TODO MVP-1d: remove this callsite entirely
   // Cached flatten of every vault path; stable across non-tree renders so
@@ -1354,15 +1349,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     {(themeCtx) => (
     <>
     <ServiceWorkerRegister />
-    {!isFsAccessSupported ? (
-      <div
-        data-testid="knowledge-base"
-        data-theme={themeCtx.theme}
-        className="w-full h-screen bg-surface-2 font-sans flex items-center justify-center p-8 overflow-hidden"
-      >
-        <UnsupportedBrowserCard />
-      </div>
-    ) : isMobile ? (
+    {isMobile ? (
       <div
         data-testid="knowledge-base"
         data-theme={themeCtx.theme}
