@@ -18,6 +18,7 @@ import {
 } from "./fileExplorerHelpers";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { readOrNull } from "../../domain/repositoryHelpers";
+import * as settingsStore from "../../infrastructure/settingsStore";
 export type { TreeNode };
 
 // Re-export file-I/O helpers for callers that import them from this module.
@@ -73,39 +74,27 @@ export function useFileExplorer() {
     if (activeFile) localStorage.setItem(ACTIVE_FILE_KEY, activeFile);
   }, [activeFile]);
 
-  // Restore from persisted vault path on mount.
-  // TODO MVP-1c: re-enable via tauri-plugin-store (replace localStorage with store).
+  // Restore from persisted vault path on mount via tauri-plugin-store.
   const restoredRef = useRef(false);
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
-
-    // TODO MVP-1c: load persisted vaultPath from tauri-plugin-store here.
-    // const storedPath = await store.get("vaultPath");
-    // if (storedPath) { setVaultPath(storedPath); tauriBridge.setRoot(storedPath); }
-    //
-    // Previously this block called dirHandle.restoreSavedHandle() via IndexedDB.
-    // That IDB restore path is commented out because Tauri uses tauri-plugin-store,
-    // not the browser's IndexedDB, for handle persistence.
-    // Code left here as a migration landmark for MVP-1c.
-    //
-    // const restored = await dirHandle.restoreSavedHandle();
-    // if (!restored) return;
-    // try {
-    //   setIsLoading(true);
-    //   const nodes = await scanTree(restored.handle, "");
-    //   setTree(nodes);
-    //   cleanupOrphanedData(collectAllFilePaths(nodes));
-    //   drafts.refreshDrafts();
-    //   setIsLoading(false);
-    //   const lastFile = localStorage.getItem(ACTIVE_FILE_KEY);
-    //   const flat = flattenTree(nodes);
-    //   if (lastFile && flat.has(lastFile)) {
-    //     setPendingFile(lastFile);
-    //   }
-    // } catch {
-    //   await dirHandle.clearSavedHandle();
-    // }
+    void (async () => {
+      const settings = await settingsStore.getSettings();
+      const lastPath = settings.vault.lastPath;
+      if (!lastPath) return;
+      try {
+        // vault_set_root canonicalizes the path; a deleted/moved directory
+        // surfaces here as a rejection, not a silent succeed-with-stale-root.
+        await tauriBridge.setRoot(lastPath);
+        setVaultPath(lastPath);
+        const name = lastPath.split("/").pop() ?? lastPath.split("\\").pop() ?? lastPath;
+        setDirectoryName(name);
+      } catch (e) {
+        reportError(e, "Restoring last vault");
+        await settingsStore.clearLastPath();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,13 +151,13 @@ export function useFileExplorer() {
       setVaultPath(picked);
       const name = picked.split("/").pop() ?? picked.split("\\").pop() ?? picked;
       setDirectoryName(name);
-      localStorage.setItem(DIR_NAME_KEY, name);
       setActiveFile(null);
+      await settingsStore.setLastPath(picked);
+      await settingsStore.pushRecent(picked);
       // rescan will fire via the vaultPath effect above, but repos won't be
       // populated yet — knowledgeBase.tsx must re-render with the new vaultPath
       // first (via RepositoryProvider). The effect handles the scan once repos
       // are live.
-      // TODO MVP-1c: persist picked path via tauri-plugin-store.
     } catch (e) {
       reportError(e, "Opening vault folder");
     } finally {
