@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the Knowledge Base desktop window. Grants the main window: core defaults (path, event listen/emit, window, webview, app, image, resources, menu, tray); dialog plugin (used by vault_pick); store plugin (used by settings_read/settings_write).",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "store:default"
+  ]
+}
