@@ -44,6 +44,15 @@
 - **SHELL-1.2-27** ✅ **Title text prepends "•" when dirty (KB-032 non-color signal)** — `PaneHeader` renders the title as `• {title}` whenever `isDirty && (onSave || onDiscard)`. Clean files and panes without Save/Discard render the bare title. Survives "disable browser CSS color" because the bullet glyph lives in text content, not styling. WCAG 1.4.1. _(unit: `PaneHeader.test.tsx`)_
 - **SHELL-1.2-28** ✅ **Dirty dot announces "Modified" to screen readers (KB-032)** — the orange dot now carries `role="img"` + `aria-label="Modified"` so SR users get the state independently of the colour cue. WCAG 1.4.1. _(unit: `PaneHeader.test.tsx`)_
 
+### Vault Switcher (MVP-1c)
+
+- **SHELL-1.2-29** ✅ **Switcher trigger shows current vault basename** — `[data-testid="vault-switcher-trigger"]` renders the `path.basename(vaultPath)` of the open vault; renders "No vault open" when `vaultPath` is null. _(unit: `VaultSwitcher.test.tsx`)_
+- **SHELL-1.2-30** ✅ **Switcher → Open Vault drives picker → switchVault** — clicking the **Open Vault…** entry calls the bridge picker; on a successful path return the dropdown calls `useFileExplorer.switchVault(path)`. _(unit: `VaultSwitcher.test.tsx`)_
+- **SHELL-1.2-31** ✅ **Switcher → recent path switches without picker** — clicking a recents entry calls `switchVault(path)` directly (no picker invocation). _(unit: `VaultSwitcher.test.tsx`)_
+- **SHELL-1.2-32** ✅ **Switcher → Initialize Vault calls `vaultConfig.init`** — clicking **Initialize Vault…** calls `vaultConfigRepo.init(name)`; on success the dropdown closes and `vaultStatus` re-evaluates so the splash dismisses. _(unit: `VaultSwitcher.test.tsx`)_
+- **SHELL-1.2-33** ✅ **Switcher dismisses on outside click and Escape** — clicking outside the dropdown or pressing `Escape` closes it without firing any action. _(unit: `VaultSwitcher.test.tsx`)_
+- **SHELL-1.2-34** ✅ **switchVault prompts confirm when files are dirty** — `useFileExplorer.switchVault(path)` calls `window.confirm` if any file in `dirtyFiles` is unsaved; cancelling aborts the switch with state untouched. Confirming proceeds with the new vault path and updates `settingsStore.lastPath` + `pushRecent`. _(unit: `useFileExplorer.switchVault.test.tsx`)_
+
 ## 1.3 Footer
 
 - **SHELL-1.3-01** ✅ **Single-view filename** — `isSplit=false` → filename from `focusedEntry.filePath.split("/").pop` with no `[Left]`/`[Right]` prefix.
@@ -173,6 +182,7 @@ See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/
 - **SHELL-1.10-13** ✅ **`useFileWatcher` throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-14** ✅ **`watchStop` called on unmount** — when `FileWatcherProvider` unmounts, `tauriBridge.watchStop()` is called to tear down the Rust watcher. _(FileWatcherContext.test.tsx)_
 - **SHELL-1.10-15** ❌ **UI reacts to disk change within ~1 s (e2e)** — full end-to-end: open Tauri shell, create/edit/delete a file on disk from a separate terminal, observe the UI tree updating within ~1 s. Deferred to MVP-4 (requires `tauri-plugin-webdriver`).
+- **SHELL-1.10-16** ✅ **Watcher post-processes `Modified` → `Deleted` when file is gone (MVP-1c)** — `src-tauri/src/vault/watcher.rs::postprocess_existence` runs in the dispatcher worker on each `Modified` event; if `tokio::fs::metadata(absolute_path)` returns an error (file no longer exists on disk), the kind is rewritten to `Deleted` before the `vault_change` event is emitted. Closes half of the macOS FSEvents kind-mapping gap (`tokio::fs::remove_file` emitting `Modified(Data)` instead of `Deleted`). _(Rust unit: `src-tauri/src/vault/watcher.rs` `tests::postprocess_*`)_
 
 ## 1.11 Command Registry & Palette
 
@@ -264,3 +274,13 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.16-03** ✅ **Tooltip is wired via `aria-describedby`** — the wrapped trigger gets `aria-describedby="<bubble-id>"`, the bubble carries `id="<bubble-id>" role="tooltip"`, and the bubble text matches the `label` prop. _(unit: `Tooltip.test.tsx`)_
 - **SHELL-1.16-04** ❌ **Disabled trigger suppresses the bubble** — when the wrapped `<button disabled>` is in the DOM, `:hover` / `:focus-visible` do not show the bubble (CSS `:has(:disabled)` rule). _(visual; matches the kb-table-toolbar pattern)_
 - **SHELL-1.16-05** ✅ **Existing `aria-describedby` on the trigger is preserved** — if the child element already has `aria-describedby="x"`, the wrapper concatenates the new id rather than overwriting it (`aria-describedby="x <bubble-id>"`). _(unit: `Tooltip.test.tsx`)_
+
+## 1.17 Uninitialized Vault Splash (MVP-1c)
+
+> Init-guard added in MVP-1c. When `vaultStatus === "uninitialized"` (a folder is picked but has no `.archdesigner/config.json`), `KnowledgeBaseInner` renders `UninitializedVaultSplash` in place of the explorer + panes so the app interior is blocked until the vault is initialized. See [`src/app/knowledge_base/shared/components/UninitializedVaultSplash.tsx`](../src/app/knowledge_base/shared/components/UninitializedVaultSplash.tsx).
+
+- **SHELL-1.17-01** ✅ **Splash renders when `vaultStatus === "uninitialized"`** — `KnowledgeBaseInner` swaps the explorer + panes for `<UninitializedVaultSplash>` whenever the picked folder has no `.archdesigner/config.json`. _(unit: `knowledgeBase.initGuard.test.tsx`)_
+- **SHELL-1.17-02** ✅ **Splash is hidden when `vaultStatus === "ready"`** — when the vault config is present and valid, the splash does not render and the normal app interior is visible. _(unit: `knowledgeBase.initGuard.test.tsx`)_
+- **SHELL-1.17-03** ✅ **Initialize button calls `vaultConfigRepo.init`** — clicking the splash's **Initialize Vault** button calls `vaultConfigRepo.init(name)` for the open folder. _(unit: `UninitializedVaultSplash.test.tsx`)_
+- **SHELL-1.17-04** ✅ **Splash dismisses on successful init** — after a successful `init`, the host re-evaluates `vaultStatus` and the splash unmounts; the explorer + panes mount in its place. _(unit: `knowledgeBase.initGuard.test.tsx`)_
+- **SHELL-1.17-05** ✅ **"Open a different folder" re-runs the picker** — clicking the secondary action calls the bridge picker so the user can choose another folder without initializing the current one. _(unit: `UninitializedVaultSplash.test.tsx`)_
