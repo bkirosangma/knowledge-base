@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use knowledge_base_lib::claude::ClaudeState;
 use knowledge_base_lib::settings::commands as settings_commands;
 use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
 use std::sync::Arc;
@@ -12,6 +13,7 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(vault)
         .manage(watcher)
+        .manage(ClaudeState::new())
         .invoke_handler(tauri::generate_handler![
             commands::vault_pick,
             commands::vault_set_root,
