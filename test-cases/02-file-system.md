@@ -24,6 +24,8 @@
 
 ## 2.2 Vault Configuration
 
+> "Initialize with full template" path (MVP-3 Task 9) — see SKILLS-13.5 in [`test-cases/13-skills.md`](13-skills.md).
+
 - **FS-2.2-01** ✅ **`initVault` creates config** — creates `.archdesigner/` (via `getDirectoryHandle(…, {create:true})`) then writes `config.json` pretty-printed (2-space indent) with `version: "1.0"`, the given `name`, and ISO `created`/`lastOpened` timestamps.
 - **FS-2.2-02** ✅ **`readVaultConfig` returns parsed config** — after `initVault`, reads the same `VaultConfig` shape back.
 - **FS-2.2-03** ✅ **`readVaultConfig` returns null for non-vault** — `.archdesigner/` missing OR present but without `config.json` → returns `null` without throwing.
