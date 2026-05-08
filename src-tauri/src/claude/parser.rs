@@ -28,7 +28,13 @@ pub fn parse_line(line: &str, current_turn: u64) -> Option<ClaudeEvent> {
 fn parse_stream_event(event: &Value, current_turn: u64) -> Option<ClaudeEvent> {
     let inner_type = event.get("type")?.as_str()?;
     match inner_type {
-        "message_start" => Some(ClaudeEvent::MessageStart { turn: current_turn }),
+        "message_start" => {
+            let model = event
+                .pointer("/message/model")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            Some(ClaudeEvent::MessageStart { turn: current_turn, model })
+        }
         "content_block_delta" => {
             // delta.type === "text_delta" → text chunk.
             // delta.type === "input_json_delta" → tool input delta (ignore for MVP-2; tool_use comes from assistant line).
@@ -138,7 +144,23 @@ mod tests {
     fn parses_stream_event_message_start() {
         let line = r#"{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-opus-4-7"}}}"#;
         let e = parse_line(line, 1);
-        assert!(matches!(e, Some(ClaudeEvent::MessageStart { turn: 1 })));
+        match e {
+            Some(ClaudeEvent::MessageStart { turn, model }) => {
+                assert_eq!(turn, 1);
+                assert_eq!(model.as_deref(), Some("claude-opus-4-7"));
+            }
+            other => panic!("unexpected: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_message_start_with_no_model() {
+        let line = r#"{"type":"stream_event","event":{"type":"message_start"}}"#;
+        let e = parse_line(line, 1);
+        match e {
+            Some(ClaudeEvent::MessageStart { turn: 1, model: None }) => {}
+            other => panic!("unexpected: {:?}", other),
+        }
     }
 
     #[test]

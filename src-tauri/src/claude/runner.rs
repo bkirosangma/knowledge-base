@@ -76,7 +76,7 @@ impl Runner {
             let mut current_turn = turn_at_spawn;
             while let Ok(Some(line)) = reader.next_line().await {
                 if let Some(event) = parser::parse_line(&line, current_turn) {
-                    if let ClaudeEvent::MessageStart { turn } = event {
+                    if let ClaudeEvent::MessageStart { turn, .. } = event {
                         current_turn = turn;
                     }
                     let _ = app_out.emit("claude_event", event);

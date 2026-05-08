@@ -56,6 +56,7 @@ function reducer(state: SessionState, action: Action): SessionState {
                 text: "",
                 toolUses: [],
                 isStreaming: true,
+                model: e.model,
               },
             ],
           };

@@ -18,7 +18,7 @@ export interface TokenUsage {
 }
 
 export type ClaudeEvent =
-  | { kind: "message_start"; turn: number }
+  | { kind: "message_start"; turn: number; model?: string }
   | { kind: "partial_text"; turn: number; delta: string }
   | { kind: "tool_use"; turn: number; tool: string; input: unknown }
   | { kind: "tool_result"; turn: number; tool: string; output: unknown }
@@ -35,4 +35,6 @@ export interface ChatTurn {
   toolUses: Array<{ tool: string; input: unknown; output?: unknown }>;
   isStreaming: boolean;
   endedAt?: number;
+  /** Present on assistant turns when message_start carried a model name. */
+  model?: string;
 }
