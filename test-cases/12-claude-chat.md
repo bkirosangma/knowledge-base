@@ -2,10 +2,10 @@
 
 ## CHAT-12.1 — drawer open/close + state
 
-- CHAT-12.1-01: ❌ When the user clicks the chat toggle button, the drawer slides up over PaneManager.
-- CHAT-12.1-02: ❌ When the drawer is open and Escape is pressed, the drawer closes.
+- CHAT-12.1-01: 🟡 When the user clicks the chat toggle button, the drawer slides up over PaneManager. (unit: ChatToggleButton.test "toggles drawer when clicked"; ClaudeChatDrawer.test "renders message list + composer when open")
+- CHAT-12.1-02: 🟡 When the drawer is open and Escape is pressed, the drawer closes. (unit: ClaudeChatDrawer.test "closes on Escape")
 - CHAT-12.1-03: ❌ When the drawer is open and a click lands outside the drawer, the drawer stays open.
-- CHAT-12.1-04: ❌ When the app launches, the drawer is closed (open/closed state is not persisted).
+- CHAT-12.1-04: 🟡 When the app launches, the drawer is closed (open/closed state is not persisted). (unit: useDrawerState defaults to isOpen=false; ClaudeChatDrawer.test "renders nothing when closed")
 - CHAT-12.1-05: ❌ When the user resizes the drawer via the top-edge handle, the new height persists across launches.
 - CHAT-12.1-06: ❌ When the user clicks the toggle while a response is streaming and the drawer is closed, the drawer opens with streaming visible.
 

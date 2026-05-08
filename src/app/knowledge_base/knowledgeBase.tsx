@@ -44,6 +44,8 @@ import { readOrNull } from "./domain/repositoryHelpers";
 import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
+import { ChatProvider } from "./features/claude/ChatContext";
+import { ClaudeChatDrawer } from "./features/claude/ClaudeChatDrawer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { Command, CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
@@ -1592,7 +1594,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       )}
 
       {/* Explorer + Viewport + Properties */}
-      <div className="flex-1 flex min-h-0">
+      {/* `relative` anchors the absolute-positioned ClaudeChatDrawer
+          (mounted as a sibling of PaneManager below) so it overlays the
+          main content area from the bottom without resizing the panes. */}
+      <div className="relative flex-1 flex min-h-0">
         {/* Left sidebar: Explorer (fully hidden in Focus Mode — even the
             36px collapsed bar is gone so reading lines aren't cramped). */}
         <div
@@ -1664,6 +1669,11 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           renderPane={renderPane}
           emptyState={emptyState}
         />
+
+        {/* Claude chat drawer — absolute-positioned, opens upward from the
+            bottom over the main content. Default-closed; toggled from the
+            footer button. State lives in ChatProvider (above this tree). */}
+        <ClaudeChatDrawer />
       </div>
 
       {/* Footer unmounts in Focus Mode so document content fills the
@@ -1747,7 +1757,14 @@ function KnowledgeBaseWithProvider() {
   return (
     <RepositoryProvider vaultPath={vaultPath}>
       <FileWatcherProvider vaultPath={vaultPath}>
-        <KnowledgeBaseInner onVaultPath={setVaultPath} />
+        {/* ChatProvider lives here — above KnowledgeBaseInner so chat
+            session state (turns, drawer open/closed, drawer height)
+            survives the inner shell's re-renders, and so the footer's
+            toggle button + the drawer overlay both consume the same
+            provider via useChat(). */}
+        <ChatProvider>
+          <KnowledgeBaseInner onVaultPath={setVaultPath} />
+        </ChatProvider>
       </FileWatcherProvider>
     </RepositoryProvider>
   );

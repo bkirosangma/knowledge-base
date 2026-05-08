@@ -11,6 +11,10 @@ vi.mock('./footer/ClaudeStatusLine', () => ({
   ClaudeStatusLine: () => null,
 }))
 
+vi.mock('../features/claude/ChatContext', () => ({
+  useChat: () => ({ toggle: vi.fn(), isOpen: false, isStreaming: false }),
+}))
+
 // Covers SHELL-1.3-01 through 1.3-08. 1.3-05/06 (live updates) are integration-level
 // and covered by Canvas/useZoom tests in later buckets.
 

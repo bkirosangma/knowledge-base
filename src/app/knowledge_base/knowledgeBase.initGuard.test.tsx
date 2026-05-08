@@ -20,6 +20,15 @@ const bridge = vi.hoisted(() => ({
   delete: vi.fn().mockResolvedValue(undefined),
   watchStart: vi.fn().mockResolvedValue(undefined),
   watchStop: vi.fn().mockResolvedValue(undefined),
+  // Claude subprocess bridge — ChatProvider (mounted at the
+  // KnowledgeBaseWithProvider scope) instantiates useClaudeSession,
+  // which subscribes to claude_event on mount and exposes
+  // send/interrupt/reset. None of this test's assertions exercise it,
+  // but the bridge must expose the surface or mount throws.
+  subscribeClaudeEvent: vi.fn().mockResolvedValue(() => undefined),
+  claudeSend: vi.fn().mockResolvedValue(undefined),
+  claudeInterrupt: vi.fn().mockResolvedValue(undefined),
+  claudeReset: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("./infrastructure/tauriBridge", () => ({ tauriBridge: bridge }));
 
@@ -48,6 +57,7 @@ vi.mock("./infrastructure/settingsStore", () => ({
   pushRecent: vi.fn(async () => undefined),
   clearLastPath: vi.fn(async () => undefined),
   setClaudeChatHeight: vi.fn(async () => undefined),
+  getClaudeChatHeight: vi.fn(async () => 320),
 }));
 
 import KnowledgeBase from "./knowledgeBase";
