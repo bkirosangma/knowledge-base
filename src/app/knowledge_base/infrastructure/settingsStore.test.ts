@@ -28,7 +28,15 @@ const invokeMock = vi.hoisted(() =>
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-import { getSettings } from "./settingsStore";
+import {
+  getSettings,
+  setLastPath,
+  clearLastPath,
+  pushRecent,
+  getRecents,
+  setClaudeChatHeight,
+  RECENTS_MAX,
+} from "./settingsStore";
 
 describe("settingsStore.getSettings", () => {
   beforeEach(() => {
@@ -55,5 +63,71 @@ describe("settingsStore.getSettings", () => {
     const s = await getSettings();
     expect(s.vault.lastPath).toBe("/Users/x/v");
     expect(s.ui.claudeChat.height).toBe(480);
+  });
+});
+
+describe("settingsStore mutations", () => {
+  beforeEach(() => {
+    state.storeState = null;
+    invokeMock.mockClear();
+  });
+
+  it("setLastPath writes a settings object with vault.lastPath set", async () => {
+    await setLastPath("/Users/x/v");
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          vault: expect.objectContaining({ lastPath: "/Users/x/v" }),
+        }),
+      }),
+    );
+  });
+
+  it("clearLastPath nulls vault.lastPath", async () => {
+    state.storeState = {
+      vault: { lastPath: "/old", recents: [] },
+      ui: { claudeChat: { height: 320 } },
+      claude: {},
+    };
+    await clearLastPath();
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          vault: expect.objectContaining({ lastPath: null }),
+        }),
+      }),
+    );
+  });
+
+  it("pushRecent prepends, dedups, and caps at RECENTS_MAX", async () => {
+    await pushRecent("/a");
+    await pushRecent("/b");
+    await pushRecent("/c");
+    await pushRecent("/a"); // dedup → moves to front
+    let recents = await getRecents();
+    expect(recents).toEqual(["/a", "/c", "/b"]);
+
+    for (let i = 0; i < RECENTS_MAX + 2; i++) {
+      await pushRecent(`/p${i}`);
+    }
+    recents = await getRecents();
+    expect(recents).toHaveLength(RECENTS_MAX);
+    // Most-recent (highest index) at the front.
+    expect(recents[0]).toBe(`/p${RECENTS_MAX + 1}`);
+    expect(recents).not.toContain("/a"); // pushed out by the cap
+  });
+
+  it("setClaudeChatHeight writes ui.claudeChat.height", async () => {
+    await setClaudeChatHeight(456);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "settings_write",
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          ui: expect.objectContaining({ claudeChat: { height: 456 } }),
+        }),
+      }),
+    );
   });
 });
