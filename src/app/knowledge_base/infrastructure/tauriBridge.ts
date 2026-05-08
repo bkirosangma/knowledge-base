@@ -99,4 +99,13 @@ export const tauriBridge = {
   exists(path: string): Promise<boolean> {
     return call<boolean>("vault_exists", { path }, path);
   },
+  writeBytes(path: string, bytes: ArrayBuffer): Promise<void> {
+    const arr = Array.from(new Uint8Array(bytes));
+    return call<void>("vault_write_bytes", { path, bytes: arr }, path);
+  },
+  readBytes(path: string): Promise<ArrayBuffer> {
+    return call<number[]>("vault_read_bytes", { path }, path).then((arr) =>
+      new Uint8Array(arr).buffer,
+    );
+  },
 };

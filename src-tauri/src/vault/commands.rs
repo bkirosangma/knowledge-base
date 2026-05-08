@@ -107,3 +107,22 @@ pub async fn vault_exists(
     let root = state.root_or_error().await?;
     io::exists(&path, &root).await
 }
+
+#[tauri::command]
+pub async fn vault_read_bytes(
+    path: String,
+    state: State<'_, VaultState>,
+) -> Result<Vec<u8>, VaultError> {
+    let root = state.root_or_error().await?;
+    io::read_bytes(&path, &root).await
+}
+
+#[tauri::command]
+pub async fn vault_write_bytes(
+    path: String,
+    bytes: Vec<u8>,
+    state: State<'_, VaultState>,
+) -> Result<(), VaultError> {
+    let root = state.root_or_error().await?;
+    io::write_bytes_atomic(&path, &bytes, &root).await
+}

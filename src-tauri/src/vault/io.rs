@@ -159,6 +159,46 @@ pub async fn exists(rel: &str, root: &Path) -> Result<bool, VaultError> {
         .map_err(|e| VaultError::io(rel, e))?)
 }
 
+/// Read raw bytes at vault-relative `rel`.
+pub async fn read_bytes(rel: &str, root: &Path) -> Result<Vec<u8>, VaultError> {
+    let abs = resolve(rel, root)?;
+    fs::read(&abs).await.map_err(|e| VaultError::io(rel, e))
+}
+
+/// Atomically write raw bytes to vault-relative `rel`. Creates parent
+/// directories as needed.
+pub async fn write_bytes_atomic(
+    rel: &str,
+    bytes: &[u8],
+    root: &Path,
+) -> Result<(), VaultError> {
+    let abs = resolve(rel, root)?;
+    if let Some(parent) = abs.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| VaultError::io(rel, e))?;
+    }
+    let tmp = abs.with_extension(
+        abs.extension()
+            .map(|e| format!("{}.tmp", e.to_string_lossy()))
+            .unwrap_or_else(|| "tmp".to_string()),
+    );
+    fs::write(&tmp, bytes)
+        .await
+        .map_err(|e| VaultError::io(rel, e))?;
+    let f = fs::OpenOptions::new()
+        .write(true)
+        .open(&tmp)
+        .await
+        .map_err(|e| VaultError::io(rel, e))?;
+    f.sync_all().await.map_err(|e| VaultError::io(rel, e))?;
+    drop(f);
+    fs::rename(&tmp, &abs)
+        .await
+        .map_err(|e| VaultError::io(rel, e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +324,14 @@ mod tests {
         write_text_atomic("a.md", "x", td.path()).await.unwrap();
         assert!(exists("a.md", td.path()).await.unwrap());
         assert!(!exists("b.md", td.path()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn round_trips_bytes() {
+        let td = TempDir::new().unwrap();
+        let bytes = vec![0u8, 1, 2, 3, 255];
+        write_bytes_atomic("bin/x.dat", &bytes, td.path()).await.unwrap();
+        let got = read_bytes("bin/x.dat", td.path()).await.unwrap();
+        assert_eq!(got, bytes);
     }
 }

@@ -19,6 +19,8 @@ fn main() {
             commands::vault_rename,
             commands::vault_delete,
             commands::vault_exists,
+            commands::vault_read_bytes,
+            commands::vault_write_bytes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
