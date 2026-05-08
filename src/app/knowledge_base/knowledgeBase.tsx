@@ -54,6 +54,9 @@ import { useViewport } from "./shared/hooks/useViewport";
 import { useOfflineCache } from "./shared/hooks/useOfflineCache";
 import MobileShell from "./shell/MobileShell";
 import ServiceWorkerRegister from "./shell/ServiceWorkerRegister";
+import { UninitializedVaultSplash } from "./shared/components/UninitializedVaultSplash";
+import * as settingsStore from "./infrastructure/settingsStore";
+import type { VaultConfig } from "./shared/utils/types";
 
 /**
  * Returns a new Set with `path` added/removed, or the same Set when the
@@ -152,6 +155,58 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   useEffect(() => {
     onVaultPath(fileExplorer.vaultPath);
   }, [fileExplorer.vaultPath, onVaultPath]);
+
+  // ─── Init-guard: derive vault status from (vaultPath, vaultConfig.read()) ───
+  // `undefined` = read in flight; `null` = read resolved with not-found
+  // (folder is not yet a vault) — surfaces the splash.
+  const [vaultConfig, setVaultConfig] = useState<VaultConfig | null | undefined>(undefined);
+  useEffect(() => {
+    if (!fileExplorer.vaultPath || !repos.vaultConfig) {
+      setVaultConfig(undefined);
+      return;
+    }
+    let cancelled = false;
+    setVaultConfig(undefined);
+    void readOrNull(() => repos.vaultConfig!.read())
+      .then((cfg) => {
+        if (!cancelled) setVaultConfig(cfg);
+      })
+      .catch(() => {
+        // A non-not-found read failure (corrupt JSON, permission, etc.)
+        // falls through to the splash so the user can re-init or pick a
+        // different folder rather than getting stuck on a loading null.
+        if (!cancelled) setVaultConfig(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileExplorer.vaultPath, repos.vaultConfig]);
+
+  const vaultStatus: "no-vault" | "loading" | "uninitialised" | "ready" =
+    !fileExplorer.vaultPath
+      ? "no-vault"
+      : vaultConfig === undefined
+        ? "loading"
+        : vaultConfig === null
+          ? "uninitialised"
+          : "ready";
+
+  // Recents — refreshed on every vault switch so the Header dropdown is
+  // never stale. Empty list while no vault is mounted.
+  const [recents, setRecents] = useState<string[]>([]);
+  useEffect(() => {
+    void settingsStore.getRecents().then(setRecents);
+  }, [fileExplorer.vaultPath]);
+
+  // Initialize the current folder in-place: writes `.archdesigner/config.json`
+  // and re-reads so the gate flips uninitialised → ready without a remount.
+  const initializeCurrentVault = useCallback(async () => {
+    if (!fileExplorer.vaultPath || !repos.vaultConfig) return;
+    const name = fileExplorer.directoryName ?? "vault";
+    await repos.vaultConfig.init(name);
+    const cfg = await repos.vaultConfig.read().catch(() => null);
+    setVaultConfig(cfg);
+  }, [fileExplorer.vaultPath, fileExplorer.directoryName, repos.vaultConfig]);
 
   // Workspace-scoped attachment-links repo — reads from the context bag.
   // repos.attachmentLinks is non-null once vaultPath is set (same lifecycle
@@ -1344,6 +1399,51 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     ? renderPane(panes.activeEntry, true, panes.focusedSide)
     : null;
 
+  // While the vault config read is in flight, render nothing — the read
+  // resolves within one tick so a spinner would flash. (No theme context
+  // needed for null.)
+  if (vaultStatus === "loading") return null;
+
+  // Folder is mounted but lacks `.archdesigner/config.json` — gate the
+  // entire app behind the splash so the user can either initialize this
+  // folder or pick a different one.
+  if (vaultStatus === "uninitialised") {
+    const folderName = fileExplorer.directoryName ?? "this folder";
+    return (
+      <ThemedShell>
+        {(themeCtx) => (
+          <>
+            <ServiceWorkerRegister />
+            <div
+              data-testid="knowledge-base"
+              data-theme={themeCtx.theme}
+              className="w-full h-screen bg-surface-2 font-sans flex flex-col overflow-hidden relative"
+            >
+              <Header
+                isSplit={false}
+                dirtyFiles={headerDirtyFiles}
+                theme={themeCtx.theme}
+                onToggleTheme={themeCtx.toggleTheme}
+                onToggleSplit={() => undefined}
+                currentVaultName={folderName}
+                recents={recents}
+                isUninitialised
+                onOpenVault={fileExplorer.openFolder}
+                onSwitchVault={fileExplorer.switchVault}
+                onInitializeVault={() => void initializeCurrentVault()}
+              />
+              <UninitializedVaultSplash
+                folderName={folderName}
+                onInitialize={() => void initializeCurrentVault()}
+                onPickDifferent={fileExplorer.openFolder}
+              />
+            </div>
+          </>
+        )}
+      </ThemedShell>
+    );
+  }
+
   return (
     <ThemedShell>
     {(themeCtx) => (
@@ -1449,6 +1549,12 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             }
           }
         }}
+        currentVaultName={fileExplorer.directoryName}
+        recents={recents}
+        isUninitialised={false}
+        onOpenVault={fileExplorer.openFolder}
+        onSwitchVault={fileExplorer.switchVault}
+        onInitializeVault={() => undefined}
       />
 
       {linkManager.brokenAnchorState !== null && linkManager.brokenAnchorState.affectedRefs.length > 0 && (
