@@ -108,4 +108,18 @@ describe("ClaudeChatDrawer", () => {
     render(<ClaudeChatDrawer />);
     expect(screen.getByText(/billed per token/i)).toBeInTheDocument();
   });
+
+  it("CHAT-12.9-01: Skills header button opens the SkillsSheet", async () => {
+    vi.mocked(useChat).mockReturnValue({
+      isOpen: true, height: 320, turns: [], isStreaming: false,
+      send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
+      setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
+      usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+    } as unknown as ReturnType<typeof useChat>);
+    render(<ClaudeChatDrawer />);
+    // Sheet should be closed initially
+    expect(screen.queryByRole("dialog", { name: "Skills" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open Skills sheet" }));
+    expect(screen.getByRole("dialog", { name: "Skills" })).toBeInTheDocument();
+  });
 });

@@ -63,3 +63,7 @@
 - CHAT-12.8-01: 🟡 Default `claude.permissionMode` is `acceptEdits`. (unit: VaultSwitcher.test "displays the current permission mode (acceptEdits by default)")
 - CHAT-12.8-02: 🟡 Toggling permission mode in the VaultSwitcher dropdown persists across launches. (unit: VaultSwitcher.test "toggles from acceptEdits to default and persists")
 - CHAT-12.8-03: 🟡 Drawer height persists across launches under `ui.claudeChat.height`. (unit: useDrawerState.test "persists height on setHeight")
+
+## CHAT-12.9 — skills header button
+
+- CHAT-12.9-01: 🟡 Clicking the "Skills" button in the drawer header opens the SkillsSheet overlay. (unit: ClaudeChatDrawer.test "CHAT-12.9-01: Skills header button opens the SkillsSheet")
