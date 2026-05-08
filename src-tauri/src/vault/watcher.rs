@@ -315,4 +315,24 @@ mod tests {
         );
         assert_eq!(out[0].path, "a/b/c.md");
     }
+
+    use std::sync::Arc as TestArc; // alias because production uses `Arc` too
+
+    /// Idempotency at the state-machine level: `stop` without prior `start` is a no-op.
+    /// This test exercises only `Watcher::stop` — which doesn't take an AppHandle —
+    /// and is sufficient because `stop`'s logic is `take()`-and-abort, with no
+    /// dependence on whether `start` ever ran.
+    #[tokio::test]
+    async fn stop_without_start_is_a_noop() {
+        let watcher = Watcher::default();
+        watcher.stop().await; // must not panic
+        watcher.stop().await; // double-stop must not panic
+    }
+
+    /// `Arc<Watcher>` is the production state shape. Confirm it cheaply.
+    #[test]
+    fn watcher_default_is_arc_clonable() {
+        let w = TestArc::new(Watcher::default());
+        let _w2 = TestArc::clone(&w);
+    }
 }
