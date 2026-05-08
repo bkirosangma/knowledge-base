@@ -22,6 +22,14 @@ import type { TreeNode } from "../utils/fileTree";
 import type { DocumentRepository } from "../../domain/repositories";
 import { updateWikiLinkPaths } from "../../features/document/utils/wikiLinkParser";
 
+// TypeScript lib.dom doesn't ship the async iterator over FSA directory entries.
+// This is part of the standard FSA spec, so augment here.
+declare global {
+  interface FileSystemDirectoryHandle {
+    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+  }
+}
+
 /** Minimal surface of `useLinkIndex` needed for wiki-link propagation helpers. */
 export interface LinkPropagator {
   renameDocumentInIndex(

@@ -28,6 +28,11 @@ declare global {
       /** Make the next `createWritable().close()` throw a permission error. */
       failNextWrite: () => void
     }
+    showDirectoryPicker(options?: { mode?: "read" | "readwrite" }): Promise<FileSystemDirectoryHandle>;
+  }
+
+  interface FileSystemDirectoryHandle {
+    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
   }
 }
 
