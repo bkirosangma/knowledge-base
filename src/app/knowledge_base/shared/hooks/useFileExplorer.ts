@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import type { DiagramData, NodeData, LayerDef, Connection, LineCurveAlgorithm, FlowDef } from "../utils/types";
-import { loadDraft, createEmptyDiagram, saveDraft, clearViewport, migrateViewport, cleanupOrphanedData } from "../utils/persistence";
+import { loadDraft, createEmptyDiagram, saveDraft, clearViewport, migrateViewport } from "../utils/persistence";
 import { useDrafts } from "./useDrafts";
 import { flattenTree, type TreeNode } from "../utils/fileTree";
 import { useRepositories } from "../../shell/RepositoryContext";
@@ -11,12 +11,10 @@ import {
   isDiagramData,
   uniqueName,
   collectFilePaths,
-  collectAllFilePaths,
   findChildren,
   readTextFile,
   writeTextFile,
   getSubdirectoryHandle,
-  renameSidecar,
 } from "./fileExplorerHelpers";
 import { useShellErrors } from "../../shell/ShellErrorContext";
 import { readOrNull } from "../../domain/repositoryHelpers";
