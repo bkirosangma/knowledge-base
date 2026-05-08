@@ -81,7 +81,14 @@ jobs:
   tauri-build:
     name: Tauri debug bundle (macOS)
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+
+    # Verifies the Rust crate compiles against the real macOS bundle surface.
+    # Typecheck + Vitest run in the `checks` job above (Ubuntu) — duplicating
+    # them here costs ~3 min for no extra signal on a TypeScript/Vitest stack.
+    # `@tauri-apps/cli` is pulled by `npm install` (a precompiled per-platform
+    # binary, not a cargo crate), so we don't need `cargo install tauri-cli`
+    # (~7 min from-source build) — `npm run tauri` invokes that binary directly.
 
     steps:
       - uses: actions/checkout@v4
@@ -101,17 +108,8 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
-
       - name: Install dependencies
         run: npm install --prefer-offline
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Unit + integration tests
-        run: npm run test:run
-
       - name: Build Tauri (debug, no-bundle)
-        run: cargo tauri build --debug --no-bundle
+        run: npm run tauri -- build --debug --no-bundle
