@@ -17,7 +17,7 @@ interface ConfirmAction {
 type FileExplorer = ReturnType<typeof useFileExplorer>;
 
 interface History {
-  initHistory: (diskJson: string, snapshot: DiagramSnapshot, dirHandle: FileSystemDirectoryHandle | null, fileName: string) => Promise<void>;
+  initHistory: (diskJson: string, snapshot: DiagramSnapshot, fileName: string | null) => Promise<void>;
   onSave: (json: string) => void;
   goToSaved: () => DiagramSnapshot | null;
 }
@@ -123,7 +123,7 @@ export function useFileActions(
       layerManualSizes: diskData.layerManualSizes ?? {},
       lineCurve: diskData.lineCurve ?? "orthogonal",
       flows: diskData.flows ?? [],
-    }, fileExplorer.dirHandleRef.current, fileName);
+    }, fileName);
     requestAnimationFrame(() => { isRestoringRef.current = false; });
   }, [fileExplorer.selectFile, fileExplorer.saveFile, fileExplorer.activeFile, applyDiagramToState, history.initHistory, isRestoringRef]);
 
