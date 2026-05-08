@@ -155,7 +155,9 @@ impl Watcher {
                         continue;
                     }
                 };
-                for change in to_vault_changes(events, &root_for_task) {
+                let translated = to_vault_changes(events, &root_for_task);
+                let changes = postprocess_existence(&translated, &root_for_task).await;
+                for change in changes {
                     if let Err(e) = app_handle.emit("vault_change", change) {
                         eprintln!("[vault watcher] emit failed: {e}");
                     }
@@ -177,6 +179,44 @@ impl Watcher {
             inner.forwarder.abort();
         }
     }
+}
+
+/// Walk a freshly-translated batch and rewrite `Modified` events whose paths
+/// no longer exist on disk into `Deleted`. Works around a notify 6.1.1 +
+/// macOS-FSEvents quirk where `unlink(2)` surfaces as `Modify(Data(Content))`
+/// rather than `Remove`. Created/Renamed/already-Deleted events pass through
+/// unchanged. Permission-denied or other I/O errors leave the kind alone —
+/// only the unambiguous `NotFound` signal triggers a rewrite.
+///
+/// Visibility is `pub` (not `pub(crate)`) because `tests/watcher_integration.rs`
+/// compiles as a separate crate and calls this directly to verify the
+/// FSEvents-on-delete fix end-to-end (the integration tests build their own
+/// debouncer rather than going through `Watcher::start`, so the worker's
+/// post-process is never reached along that path).
+pub async fn postprocess_existence(
+    events: &[VaultChangeEvent],
+    root: &std::path::Path,
+) -> Vec<VaultChangeEvent> {
+    let mut out = Vec::with_capacity(events.len());
+    for e in events {
+        if e.kind != ChangeKind::Modified {
+            out.push(e.clone());
+            continue;
+        }
+        let abs = root.join(&e.path);
+        match tokio::fs::metadata(&abs).await {
+            Ok(_) => out.push(e.clone()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                out.push(VaultChangeEvent {
+                    kind: ChangeKind::Deleted,
+                    path: e.path.clone(),
+                    old_path: e.old_path.clone(),
+                });
+            }
+            Err(_) => out.push(e.clone()), // permission errors etc. — leave untouched
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -334,5 +374,77 @@ mod tests {
     fn watcher_default_is_arc_clonable() {
         let w = TestArc::new(Watcher::default());
         let _w2 = TestArc::clone(&w);
+    }
+
+    #[tokio::test]
+    async fn rewrites_modified_to_deleted_when_path_is_gone() {
+        use tempfile::TempDir;
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().to_path_buf();
+        // Path that does not exist on disk.
+        let absent = root.join("ghost.md");
+
+        let translated = vec![VaultChangeEvent {
+            kind: ChangeKind::Modified,
+            path: "ghost.md".to_string(),
+            old_path: None,
+        }];
+
+        let post = postprocess_existence(&translated, &root).await;
+        assert_eq!(post.len(), 1);
+        assert_eq!(
+            post[0].kind,
+            ChangeKind::Deleted,
+            "expected re-emit as Deleted"
+        );
+        let _ = absent; // sanity: silences unused-binding lint without dead_code attr
+    }
+
+    #[tokio::test]
+    async fn keeps_modified_when_path_still_exists() {
+        use tempfile::TempDir;
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().to_path_buf();
+        let p = root.join("real.md");
+        tokio::fs::write(&p, b"hi").await.unwrap();
+
+        let translated = vec![VaultChangeEvent {
+            kind: ChangeKind::Modified,
+            path: "real.md".to_string(),
+            old_path: None,
+        }];
+
+        let post = postprocess_existence(&translated, &root).await;
+        assert_eq!(post.len(), 1);
+        assert_eq!(post[0].kind, ChangeKind::Modified);
+    }
+
+    #[tokio::test]
+    async fn does_not_touch_created_or_renamed_or_already_deleted() {
+        use tempfile::TempDir;
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().to_path_buf();
+        let translated = vec![
+            VaultChangeEvent {
+                kind: ChangeKind::Created,
+                path: "absent-create.md".into(),
+                old_path: None,
+            },
+            VaultChangeEvent {
+                kind: ChangeKind::Deleted,
+                path: "absent-delete.md".into(),
+                old_path: None,
+            },
+            VaultChangeEvent {
+                kind: ChangeKind::Renamed,
+                path: "absent-rename-to.md".into(),
+                old_path: Some("absent-rename-from.md".into()),
+            },
+        ];
+        let post = postprocess_existence(&translated, &root).await;
+        assert_eq!(post.len(), 3);
+        assert_eq!(post[0].kind, ChangeKind::Created);
+        assert_eq!(post[1].kind, ChangeKind::Deleted);
+        assert_eq!(post[2].kind, ChangeKind::Renamed);
     }
 }

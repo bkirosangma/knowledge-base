@@ -140,6 +140,19 @@ function resolveFH(root: MockDir, path: string): MockFileHandle | undefined {
 
 const MOCK_VAULT = '/mock/vault'
 
+vi.mock('../../infrastructure/settingsStore', () => ({
+  getSettings: vi.fn(async () => ({
+    vault: { lastPath: null, recents: [] },
+    ui: { claudeChat: { height: 320 } },
+    claude: {},
+  })),
+  setLastPath: vi.fn(async () => undefined),
+  pushRecent: vi.fn(async () => undefined),
+  clearLastPath: vi.fn(async () => undefined),
+  getRecents: vi.fn(async () => []),
+  setClaudeChatHeight: vi.fn(async () => undefined),
+}))
+
 /** Stub tauriBridge.pick to return MOCK_VAULT. */
 function stubPick() {
   vi.spyOn(tauriBridgeModule.tauriBridge, 'pick').mockResolvedValue(MOCK_VAULT)

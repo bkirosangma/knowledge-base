@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-08 (MVP-1b file watcher merged — native `notify`-based debounced watcher (~200 ms), `vault_change` events, `FileWatcherContext` body-swapped to event-driven. PR #150 on `feat/tauri-mvp1b-file-watcher`. Next action: write and dispatch MVP-1c plan.)
+**Last updated:** 2026-05-08 (MVP-1c implementation complete on `feat/tauri-mvp1c-settings-vaults` — settings store, vault switcher, init splash, FSEvents `Modified`→`Deleted` post-process all landed across Tasks 1–12; doc updates ride this commit. Task 14 opens the PR. Next action after PR merges: run the **Post-merge cleanup protocol**, then write and dispatch the MVP-1d plan.)
 
 ---
 
@@ -89,7 +89,7 @@ ls docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md
 ls docs/superpowers/plans/2026-05-07-tauri-*.md 2>/dev/null
 ```
 
-This puts you on the latest `main`, lists open PRs, shows recent merge commits, and lists the spec + per-MVP plan files (MVP-1a + MVP-1b plans exist today — later MVPs get their plans written when their turn comes).
+This puts you on the latest `main`, lists open PRs, shows recent merge commits, and lists the spec + per-MVP plan files (MVP-1a + MVP-1b + MVP-1c plans exist today — later MVPs get their plans written when their turn comes).
 
 ---
 
@@ -106,8 +106,8 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | MVP | Plan file | Status |
 |---|---|---|
 | **MVP-1a** | Tauri scaffold + Rust VFS adapter | `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` | ✅ Merged via PR #149 (`844a474` on `main`). |
-| **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | 🚧 PR opened: #150 on `feat/tauri-mvp1b-file-watcher`. |
-| **MVP-1c** | Settings, vault management, basic init | _not yet written; due after MVP-1b merges_ | ⏳ Not started. |
+| **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | ✅ Merged via PR #150 (`03c2919` on `main`). |
+| **MVP-1c** | Settings, vault management, basic init | `docs/superpowers/plans/2026-05-08-tauri-mvp1c-settings-vaults-plan.md` | 🚧 All 13 implementation tasks complete on `feat/tauri-mvp1c-settings-vaults`; PR pending Task 14 (PR #151). |
 | **MVP-1d** | Cleanup, bundle, CI | _not yet written; due after MVP-1c merges_ | ⏳ Not started. |
 | **MVP-2** | Claude subprocess integration | _not yet written; due after MVP-1d merges_ | ⏳ Not started. |
 | **MVP-3** | Skill bootstrap + `/kb` invocation | _not yet written; due after MVP-2 merges_ | ⏳ Not started. |
@@ -118,6 +118,7 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 - **MVP-1a (merged via PR #149, `844a474` on `main`)** — Tauri 2 desktop shell hosting the existing Next.js app; Rust vault adapter (12 commands) under `src-tauri/src/vault/`; per-repo Tauri implementations under `src/app/knowledge_base/infrastructure/*RepoTauri.ts`; `RepositoryProvider` swapped from `rootHandle` → `vaultPath`; `useFileExplorer` swapped from `showDirectoryPicker` → `vault_pick`; FSA-availability gate removed from `knowledgeBase.tsx`; CI's Playwright `e2e` job parked until MVP-4.
 - **MVP-1b (PR #150, on `feat/tauri-mvp1b-file-watcher`)** — Rust `notify`-debouncer-full watcher (200 ms coalesce); `vault_watch_start`/`vault_watch_stop` commands; `vault_change` events with `{ kind, path, oldPath? }` payload (POSIX-relative paths); `FileWatcherContext` body-swapped to event-driven; canonicalize symmetry between `vault_set_root` and `Watcher::start`.
+- **MVP-1c (PR #151, on `feat/tauri-mvp1c-settings-vaults`)** — `tauri-plugin-store` integration (Rust `src-tauri/src/settings/{mod,store,commands}.rs` + TS `settingsStore.ts` facade); last-vault auto-restore on launch + MRU-5 recents; Header `VaultSwitcher` dropdown (Open Vault / Recents / Initialize Vault) with click-outside + Escape dismissal; `UninitializedVaultSplash` gating `KnowledgeBaseInner` until `vaultConfig.init` runs; `useFileExplorer.switchVault(path)` with dirty-confirm; watcher post-process rewrites `Modified` → `Deleted` when the file is gone (closes half of the macOS FSEvents kind-mapping gap).
 
 ---
 
@@ -177,9 +178,18 @@ Map of files introduced or touched by the migration, by MVP. Update as code arri
 - **File watcher (frontend)** — `src/app/knowledge_base/shared/context/FileWatcherContext.tsx` (body swap to `listen('vault_change', ...)`; same public API; new required prop `vaultPath: string | null`).
 - **Bridge additions** — `src/app/knowledge_base/infrastructure/tauriBridge.ts` gains `watchStart(vaultPath)` / `watchStop()` wrappers using the existing `call()` helper.
 
+**Landed (MVP-1c, PR #151):**
+
+- **Settings module (Rust)** — `src-tauri/src/settings/{mod,store,commands}.rs` (new); `tauri-plugin-store` registered in `src-tauri/src/main.rs`; typed `Settings { last_path, recents, claude_chat_height }`; 2 new commands (`settings_get`, `settings_set`). Total: 16 commands (14 from MVP-1b + 2 new).
+- **Settings facade (frontend)** — `src/app/knowledge_base/infrastructure/settingsStore.ts` (new) — `getSettings`, `setLastPath`, `clearLastPath`, `pushRecent` (dedup + MRU cap 5), `getRecents`, `setClaudeChatHeight` over `invoke()`.
+- **Vault switcher** — `src/app/knowledge_base/shared/components/VaultSwitcher.tsx` (new) + `VaultSwitcher.test.tsx`; mounted in `src/app/knowledge_base/shared/components/Header.tsx`. Dropdown with **Open Vault** / **Recent Vaults** / **Initialize Vault**; click-outside + Escape dismissal.
+- **Uninitialized-vault splash** — `src/app/knowledge_base/shared/components/UninitializedVaultSplash.tsx` (new) + `UninitializedVaultSplash.test.tsx`; rendered by `KnowledgeBaseInner` in place of the explorer + panes when `vaultStatus === "uninitialized"`. Init-guard wired in `src/app/knowledge_base/knowledgeBase.tsx`; tested by `knowledgeBase.initGuard.test.tsx`.
+- **`useFileExplorer` boot + switchVault** — boot path replaced with `settingsStore.lastPath` (no more `localStorage` boot scope); new `switchVault(path)` API with `window.confirm` dirty-guard. Tested by `useFileExplorer.boot.test.tsx` and `useFileExplorer.switchVault.test.tsx`.
+- **Watcher post-process (Rust)** — `src-tauri/src/vault/watcher.rs::postprocess_existence` rewrites `Modified` → `Deleted` when `tokio::fs::metadata(absolute_path)` shows the file is gone. Closes half of the macOS FSEvents kind-mapping gap (the rename-cookie half stays deferred to MVP-4).
+- **Features.md / test-cases** — Features.md §0 deferred-line scoped down; §1.2 Header gains Vault switcher bullet; §1.5 Contexts gains the watcher post-process bullet; §2.2 gains the splash + path-persistence bullets; §7 persistence table gains the `tauri-plugin-store` row. Test cases SHELL-1.2-29..34 (switcher), SHELL-1.10-16 (post-process), SHELL-1.17-01..05 (splash), FS-2.10-01..06 (path persistence) added.
+
 **Deferred / future MVPs:**
 
-- **Vault config helpers** — `src/app/knowledge_base/features/document/utils/vaultConfig.ts` (used by MVP-1c basic-init button).
 - **Footer** — `src/app/knowledge_base/shell/Footer.tsx` (gains `ClaudeStatusLine` + chat toggle icon in MVP-2).
 - **Bundled skill source** — `<project>/skills/knowledge-base/` (resource-bundled by MVP-3 build wiring).
 - **Test cases** — `test-cases/01-app-shell.md`, `02-file-system.md`, `04-document.md`, `05-links-and-graph.md`, `06-shared-hooks.md`, `06-svg-editor.md`, `07-persistence.md`, `11-tabs.md` (MVP-5 sweep targets).
@@ -206,7 +216,7 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 ## Open follow-up items
 
-- **macOS FSEvents kind-mapping gap (deferred to MVP-1c/MVP-4) (2026-05-08).** During MVP-1b Task 4 we discovered that `notify 6.1.1` + macOS FSEvents emits the "wrong" `ChangeKind` for several user actions: `tokio::fs::write` on an existing file → `Created` instead of `Modified`; `remove_file` → `Modified(Data)` instead of `Deleted`; `rename(a, b)` → only `Created(b.md)` with no source event. Real product impact: subscribers that try to re-read on `Modified` may hit `NotFound` for a deleted file, and tree-view consumers that reference the old rename source will see stale entries until the next full rescan. MVP-1b's integration tests therefore assert "any event for the affected path" rather than the exact kind. Plan-level fixes for MVP-1c or MVP-4: (a) post-process `Modified` events with an existence check and re-emit as `Deleted` if the file is gone, (b) explore a `notify` configuration that exposes FSEvents rename cookies, or (c) keep current behavior and document for downstream consumers. Also: production `Watcher::start` now primes the FileIdMap cache via `cache().add_root()` to enable rename stitching for pre-existing files on macOS/Windows; previously only the integration test did this. A `#[cfg(target_os = "linux")]` companion test that strictly asserts the paired-rename shape with `old_path == "a.md"` is deferred to MVP-4's cross-platform CI.
+- **macOS FSEvents kind-mapping gap — `Modified`→`Deleted` half RESOLVED in MVP-1c (Task 10); rename-cookie half deferred to MVP-4 (updated 2026-05-08).** During MVP-1b Task 4 we discovered that `notify 6.1.1` + macOS FSEvents emits the "wrong" `ChangeKind` for several user actions: `tokio::fs::write` on an existing file → `Created` instead of `Modified`; `remove_file` → `Modified(Data)` instead of `Deleted`; `rename(a, b)` → only `Created(b.md)` with no source event. Real product impact: subscribers that try to re-read on `Modified` may hit `NotFound` for a deleted file, and tree-view consumers that reference the old rename source will see stale entries until the next full rescan. MVP-1b's integration tests therefore assert "any event for the affected path" rather than the exact kind. **Status:** ✅ MVP-1c Task 10 landed the post-process for the `Modified`→`Deleted` half (`postprocess_existence` in `src-tauri/src/vault/watcher.rs` runs `tokio::fs::metadata` on each `Modified` event in the worker and re-emits as `Deleted` when the file is gone). 🚧 The rename-cookie half — investigating `notify` config that exposes FSEvents rename cookies, or otherwise stitching rename source/target — stays deferred to MVP-4's cross-platform CI. Production `Watcher::start` already primes the FileIdMap cache via `cache().add_root()` (landed in MVP-1b) to enable rename stitching for pre-existing files on macOS/Windows. A `#[cfg(target_os = "linux")]` companion test that strictly asserts the paired-rename shape with `old_path == "a.md"` is also deferred to MVP-4.
 - **CI `e2e` job disabled in MVP-1a (2026-05-08).** Repository layer now routes through `@tauri-apps/api/core`'s `invoke()`, but the Playwright suite still boots `npm run dev` in vanilla Chromium with the FSA-shaped `e2e/fixtures/fsMock.ts`, so every spec throws `TypeError: Cannot read properties of undefined (reading 'invoke')`. The `e2e` block in `.github/workflows/ci.yml` is replaced with a comment pointing at MVP-4. **MVP-4 must restore this job** when it wires `tauri-plugin-webdriver` (spec § 9) — port the original steps from `.github/workflows/ci.yml` at commit `ad26115` (the last commit on `feat/tauri-mvp1a-scaffold` before the disable).
 - **MVP-1a Tasks 27/28 re-scoped (2026-05-08).** Discovered during execution that ~30 consumer callsites bypass the typed `Repository` abstraction by reading `useFileExplorer.dirHandleRef.current` directly. Re-shaped Task 27 → 27a (new `VaultIndexRepository`) + 27b (hook migration to typed repos), and Task 28 → 28a (knowledgeBase.tsx consumers) + 28b (DiagramOverlays / GraphifyView / linkManager / useOfflineCache) + 28c (final FSA-prop cleanup pass). Spec § 11.5 has the rationale; plan tasks 27a/b/28a/b/c are the canonical execution path. Original Task 27/28 sections in the plan are preserved as historical reference but not executed.
 - **`useOfflineCache` is browser-deploy-specific** (PWA Cache API). Becomes a no-op in Tauri mode for MVP-1a (Task 28b); slated for full removal in MVP-1d.
@@ -224,30 +234,28 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 ## Next Action
 
-**MVP-1b PR is open (#150). Once it merges: run the Post-merge cleanup protocol, then write and dispatch the MVP-1c plan.**
+**MVP-1c PR #151 is open. Once it merges: run the Post-merge cleanup protocol, then write and dispatch the MVP-1d plan.**
 
-**After MVP-1b merges (post-merge cleanup first):**
+```bash
+cd "/Users/kiro/My Projects/knowledge-base"
+git checkout feat/tauri-mvp1c-settings-vaults
+git log --oneline -5            # Tasks 1–13 should be present
+gh pr view --web                  # PR opened by Task 14
+```
+
+**On merge:**
+
+1. Run the **Post-merge cleanup protocol** above (sync `main`, delete the merged local branch, prune origin, cut `feat/tauri-mvp1d-cleanup-bundle` from `main`).
+2. Write the MVP-1d plan from spec § 6.4. Cleanup targets: FSA `*Repo.ts` deletion + `idbHandles.ts` deletion + `types/file-system.d.ts` deletion + GitHub Pages workflow removal + the additional MVP-1d targets surfaced during MVP-1a (see **Open follow-up items**: `vaultIndexRepoFsa.ts`, `useOfflineCache.ts`, `historyPersistence.ts`, remaining FSA helpers in `fileExplorerHelpers.ts`).
+3. Update this doc on the new branch BEFORE the first task commit (per the Doc-update protocol). Commit it with the first MVP-1d task — never as a doc-only PR.
+4. Dispatch MVP-1d execution via `superpowers:subagent-driven-development`.
+
+If you're starting cold:
 
 ```bash
 cd "/Users/kiro/My Projects/knowledge-base"
 git checkout main && git pull --ff-only
-git branch -D feat/tauri-mvp1b-file-watcher   # safe once remote is gone (see Project conventions)
-git remote prune origin
-git checkout -b feat/tauri-mvp1c-settings-vaults
+gh pr list --state open
 ```
 
-**Then write the MVP-1c plan:**
-
-1. Read the spec section: `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md` § 6.3 (Settings, vault management, basic init).
-2. Write the MVP-1c plan at `docs/superpowers/plans/2026-05-08-tauri-mvp1c-settings-vaults-plan.md` using the same structure as the MVP-1b plan (task list with inputs/outputs/tests/review checklist).
-3. Commit the plan on `feat/tauri-mvp1c-settings-vaults` alongside a handoff doc update (flip this Next Action to "dispatch MVP-1c").
-4. Dispatch MVP-1c execution via `superpowers:subagent-driven-development` — do not ask "subagent or inline?".
-
-**Key MVP-1c scope (from spec § 6.3):**
-
-- Vault switching: `vault_watch_stop` on old path, `vault_watch_start` on new path, broadcast to subscribers.
-- Settings persistence: read/write a `~/.config/knowledge-base/settings.json` (or `$APPDATA` equivalent) via Tauri path API.
-- Basic init button: calls `initVault` (already exists in `vaultConfig.ts`) via a Tauri command, so a brand-new folder becomes a vault in one click.
-- Address the macOS FSEvents kind-mapping gap noted in **Open follow-up items** — at minimum: post-process `Modified` events with an existence check and re-emit as `Deleted` if the file is gone.
-
-If you're starting cold: `cd "/Users/kiro/My Projects/knowledge-base" && git checkout feat/tauri-mvp1c-settings-vaults` then read the spec § 6.3 from the top.
+If the MVP-1c PR is still open: skim review comments, request review per `superpowers:requesting-code-review`, and wait for the merge before touching the next MVP. If it has merged already: run the **Post-merge cleanup protocol** and proceed to step 2 above.

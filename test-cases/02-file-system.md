@@ -198,3 +198,14 @@ Collapsible "Recents" group above the file tree showing the last 10 opened files
 - **EXPL-2.9-01** 🧪 **Unsaved group shows dirty files** — after making an edit in a diagram, the file appears in the "Unsaved changes" group. _(e2e: `e2e/explorerSearch.spec.ts`)_
 - **EXPL-2.9-02** ❌ **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(Playwright)_
 - **EXPL-2.9-03** ❌ **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(Playwright)_
+
+## 2.10 Vault Path Persistence (MVP-1c)
+
+OS-side persistence of the last-opened vault path and the MRU-5 recents list via `tauri-plugin-store`. The Rust side (`src-tauri/src/settings/{mod,store,commands}.rs`) registers the plugin and exposes `settings_get` / `settings_set`; the TS facade (`src/app/knowledge_base/infrastructure/settingsStore.ts`) wraps `invoke()` with `getSettings`, `setLastPath`, `clearLastPath`, `pushRecent`, `getRecents`, and `setClaudeChatHeight`.
+
+- **FS-2.10-01** ✅ **Boot restores last vault from `settingsStore.lastPath`** — on launch, `useFileExplorer` calls `settingsStore.getSettings()` and, when `lastPath` is non-null, mounts the vault at that path (via `vault_set_root`) without showing the picker. _(unit: `useFileExplorer.boot.test.tsx`)_
+- **FS-2.10-02** ✅ **`pushRecent` deduplicates by path** — pushing a path that already exists in the list moves it to the head instead of adding a duplicate; the resulting list contains the path exactly once. _(unit: `settingsStore.test.ts`)_
+- **FS-2.10-03** ✅ **`pushRecent` caps the recents list at 5 (MRU)** — pushing a 6th distinct path drops the oldest entry; the list never exceeds 5. _(unit: `settingsStore.test.ts`)_
+- **FS-2.10-04** ✅ **Successful `vault_pick` updates `lastPath` + recents** — after a successful pick, the boot path persists via `setLastPath(path)` and is pushed onto the recents list via `pushRecent(path)` so the next launch auto-restores. _(unit: `useFileExplorer.boot.test.tsx`)_
+- **FS-2.10-05** ✅ **`switchVault(path)` updates `lastPath` + recents** — non-picker vault switches (recents entry, programmatic) call `setLastPath` and `pushRecent` on success. _(unit: `useFileExplorer.switchVault.test.tsx`)_
+- **FS-2.10-06** ✅ **`getSettings` returns defaults when the store is empty** — first-launch read returns `{ lastPath: null, recents: [], claudeChatHeight: <default> }` instead of throwing. _(unit: `settingsStore.test.ts`)_

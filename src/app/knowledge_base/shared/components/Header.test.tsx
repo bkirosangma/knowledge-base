@@ -74,3 +74,33 @@ describe('Header — dirty-stack indicator', () => {
     expect(screen.getByRole('status').textContent).toBe('1 unsaved')
   })
 })
+
+describe('Header — VaultSwitcher mount', () => {
+  it("renders VaultSwitcher when a vault is open", () => {
+    render(
+      <Header
+        currentVaultName="my-vault"
+        recents={[]}
+        isUninitialised={false}
+        onOpenVault={() => undefined}
+        onSwitchVault={() => undefined}
+        onInitializeVault={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /my-vault/i })).toBeInTheDocument();
+  });
+
+  it("renders no VaultSwitcher when no vault is open", () => {
+    render(
+      <Header
+        currentVaultName={null}
+        recents={[]}
+        isUninitialised={false}
+        onOpenVault={() => undefined}
+        onSwitchVault={() => undefined}
+        onInitializeVault={() => undefined}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /vault/i })).not.toBeInTheDocument();
+  });
+})

@@ -139,8 +139,10 @@ async fn modify_emits_modified() {
 // notify 6.1.1 + macOS FSEvents: removing a file emits ITEM_MODIFIED |
 // ITEM_REMOVED flags, but the debouncer's event merging results in only a
 // Modify(Data(Content)) event in the final batch — Remove is never surfaced.
-// The strict-kind assertion was relaxed because of macOS-FSEvents-specific
-// event remapping — a real product gap deferred to MVP-1c/MVP-4.
+// MVP-1c's `postprocess_existence` post-processes that batch with a
+// `tokio::fs::metadata` existence check so a `Modified` for a missing path
+// is rewritten back to `Deleted`. This test feeds the translated batch
+// through the same post-process and asserts the corrected kind.
 #[tokio::test(flavor = "multi_thread")]
 async fn delete_emits_deleted() {
     let tmp = TempDir::new().unwrap();
@@ -155,12 +157,18 @@ async fn delete_emits_deleted() {
     drain_startup(&mut rx).await;
 
     tokio::fs::remove_file(root.join("a.md")).await.unwrap();
-    let events = collect(&mut rx, &root).await;
-    // macOS-FSEvents quirk: file removal surfaces as Modified(Data(Content))
-    // instead of Deleted. Real product gap; subscribers handling Modified
-    // for a now-missing file should be hardened in MVP-1c/MVP-4. Here we
-    // assert only that *some* event arrived for a.md.
-    assert_any_event_for(&events, "a.md");
+    let raw = collect(&mut rx, &root).await;
+    // The production worker chains translation → existence-check post-process
+    // before emit; integration tests must do the same so they assert the
+    // user-observable contract (Deleted for a missing file).
+    let events = knowledge_base_lib::vault::watcher::postprocess_existence(&raw, &root).await;
+    assert!(
+        events
+            .iter()
+            .any(|e| e.kind == ChangeKind::Deleted && e.path == "a.md"),
+        "expected Deleted for a.md after post-process, got {:?}",
+        events,
+    );
 }
 
 // notify 6.1.1 + macOS FSEvents: rename emits only Create(File) for the

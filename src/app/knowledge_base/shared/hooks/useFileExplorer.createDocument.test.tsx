@@ -140,6 +140,19 @@ function makeWrapper(root: MockDir) {
   }
 }
 
+vi.mock('../../infrastructure/settingsStore', () => ({
+  getSettings: vi.fn(async () => ({
+    vault: { lastPath: null, recents: [] },
+    ui: { claudeChat: { height: 320 } },
+    claude: {},
+  })),
+  setLastPath: vi.fn(async () => undefined),
+  pushRecent: vi.fn(async () => undefined),
+  clearLastPath: vi.fn(async () => undefined),
+  getRecents: vi.fn(async () => []),
+  setClaudeChatHeight: vi.fn(async () => undefined),
+}))
+
 beforeEach(() => {
   localStorage.clear()
   vi.spyOn(tauriBridgeModule.tauriBridge, 'pick').mockResolvedValue(MOCK_VAULT)

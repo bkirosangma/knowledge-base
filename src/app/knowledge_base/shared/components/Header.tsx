@@ -3,6 +3,7 @@ import { Columns2, Moon, Sun } from "lucide-react";
 import { useCommandRegistry } from "../context/CommandRegistry";
 import type { Theme } from "../hooks/useTheme";
 import { Tooltip } from "./Tooltip";
+import { VaultSwitcher } from "./VaultSwitcher";
 
 interface HeaderProps {
   /** Whether split mode is on. */
@@ -25,6 +26,25 @@ interface HeaderProps {
    * unit tests rendering Header without theme wiring).
    */
   onToggleTheme?: () => void;
+  /**
+   * Display name (basename) of the currently open vault. `null` → no vault is
+   * open; the VaultSwitcher is hidden so the header reflects the empty-shell
+   * state (boot before user picks, or after a vault failed to open).
+   */
+  currentVaultName?: string | null;
+  /** Recent vault paths shown under the switcher's "Recent" submenu. */
+  recents?: string[];
+  /**
+   * Whether the current vault is uninitialised — drives the "Initialize Vault…"
+   * menu item visibility inside the switcher.
+   */
+  isUninitialised?: boolean;
+  /** Open the OS folder picker to choose a new vault. */
+  onOpenVault?: () => void;
+  /** Switch to one of the recent vault paths without re-prompting the user. */
+  onSwitchVault?: (path: string) => void;
+  /** Initialise the current folder as a vault (creates `.knowledgebase/`). */
+  onInitializeVault?: () => void;
 }
 
 /**
@@ -39,6 +59,12 @@ export default function Header({
   dirtyFiles,
   theme,
   onToggleTheme,
+  currentVaultName,
+  recents = [],
+  isUninitialised = false,
+  onOpenVault,
+  onSwitchVault,
+  onInitializeVault,
 }: HeaderProps) {
   const { setOpen } = useCommandRegistry();
 
@@ -50,22 +76,35 @@ export default function Header({
 
   return (
     <div data-print-hide="true" className="flex-shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2 bg-surface border-b border-line z-20">
-      {/* Left column — dirty-stack indicator (right-aligned next to chip).
-       *  KB-035: wrapper is a polite status live region so the empty→
-       *  "N unsaved" transition is announced. Wrapper is always mounted
-       *  even when count is 0, so the announcement fires on every change.
+      {/* Left column — VaultSwitcher (when a vault is open) + dirty-stack
+       *  indicator (right-aligned next to chip). KB-035: dirty-stack wrapper is
+       *  a polite status live region so the empty→ "N unsaved" transition is
+       *  announced. Wrapper is always mounted even when count is 0, so the
+       *  announcement fires on every change.
        */}
-      <div role="status" aria-live="polite" className="flex items-center justify-end">
-        {dirtyCount > 0 && (
-          <span
-            data-testid="dirty-stack-indicator"
-            title={`Unsaved changes:\n${dirtyList.join("\n")}`}
-            aria-label={`${dirtyCount} unsaved file${dirtyCount === 1 ? "" : "s"}`}
-            className="bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium leading-none"
-          >
-            {dirtyCount} unsaved
-          </span>
-        )}
+      <div className="flex items-center justify-end gap-2">
+        {currentVaultName && onOpenVault && onSwitchVault && onInitializeVault ? (
+          <VaultSwitcher
+            currentVaultName={currentVaultName}
+            recents={recents ?? []}
+            isUninitialised={!!isUninitialised}
+            onOpenVault={onOpenVault}
+            onSwitchVault={onSwitchVault}
+            onInitializeVault={onInitializeVault}
+          />
+        ) : null}
+        <div role="status" aria-live="polite" className="flex items-center justify-end">
+          {dirtyCount > 0 && (
+            <span
+              data-testid="dirty-stack-indicator"
+              title={`Unsaved changes:\n${dirtyList.join("\n")}`}
+              aria-label={`${dirtyCount} unsaved file${dirtyCount === 1 ? "" : "s"}`}
+              className="bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium leading-none"
+            >
+              {dirtyCount} unsaved
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Centre column — ⌘K trigger chip */}
