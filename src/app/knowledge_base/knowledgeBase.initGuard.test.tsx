@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 // Mock the Tauri-repo factories so vaultConfig.read() is the only knob the
 // test cares about. tauriBridge.setRoot drives the boot path
@@ -108,6 +109,45 @@ describe("KnowledgeBase init-guard", () => {
     // Sanity: real desktop tree mounted (Header rendered the vault name).
     await waitFor(() =>
       expect(document.querySelector('[data-testid="knowledge-base"]')).not.toBeNull(),
+    );
+  });
+
+  it("SKILLS-13.5-02: 'Initialize with full template' runs basic init then sends /kb init", async () => {
+    // First call → not-found (splash shows). After initializeCurrentVault,
+    // the second readJson call must return a valid config so the gate flips.
+    let callCount = 0;
+    bridge.readJson.mockImplementation(async (path: string) => {
+      if (path === ".archdesigner/config.json") {
+        callCount += 1;
+        if (callCount === 1) {
+          throw new FileSystemError("not-found", "config missing");
+        }
+        return VALID_CONFIG;
+      }
+      return null;
+    });
+    bridge.claudeSend.mockReset().mockResolvedValue(undefined);
+
+    render(<KnowledgeBase />);
+
+    // Wait for the splash to appear.
+    await screen.findByText(/empty is not yet a knowledge-base vault/i);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /initialize with full template/i }),
+    );
+
+    // Basic init wrote the config file.
+    await waitFor(() =>
+      expect(bridge.writeJson).toHaveBeenCalledWith(
+        ".archdesigner/config.json",
+        expect.objectContaining({ version: "1.0" }),
+      ),
+    );
+
+    // Claude send was invoked with the /kb init command.
+    await waitFor(() =>
+      expect(bridge.claudeSend).toHaveBeenCalledWith({ text: "/kb init" }),
     );
   });
 });
