@@ -16,7 +16,7 @@ describe("useClaudeUsage", () => {
     vi.mocked(useChat).mockReturnValue({
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
       turns: [],
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     const { result } = renderHook(() => useClaudeUsage());
     expect(result.current).toEqual({
       model: null,
@@ -46,7 +46,7 @@ describe("useClaudeUsage", () => {
           model: "sonnet-4-6",
         },
       ],
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     const { result } = renderHook(() => useClaudeUsage());
     expect(result.current.model).toBe("sonnet-4-6");
     expect(result.current.inputTokens).toBe(12400);
@@ -66,7 +66,7 @@ describe("useClaudeUsage", () => {
           isStreaming: false,
         },
       ],
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     const { result } = renderHook(() => useClaudeUsage());
     expect(result.current.model).toBeNull();
   });
@@ -75,7 +75,7 @@ describe("useClaudeUsage", () => {
     vi.mocked(useChat).mockReturnValue({
       usage: { inputTokens: 10, outputTokens: 5, costUsd: undefined },
       turns: [],
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     const { result } = renderHook(() => useClaudeUsage());
     expect(result.current.costUsd).toBe(0);
   });

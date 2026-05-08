@@ -12,21 +12,21 @@ import { ChatToggleButton } from "./ChatToggleButton";
 describe("ChatToggleButton", () => {
   it("toggles drawer when clicked", async () => {
     const toggle = vi.fn();
-    vi.mocked(useChat).mockReturnValue({ toggle, isOpen: false, isStreaming: false } as any);
+    vi.mocked(useChat).mockReturnValue({ toggle, isOpen: false, isStreaming: false } as unknown as ReturnType<typeof useChat>);
     render(<ChatToggleButton />);
     await userEvent.click(screen.getByRole("button", { name: /chat/i }));
     expect(toggle).toHaveBeenCalled();
   });
 
   it("pulses while streaming and closed", () => {
-    vi.mocked(useChat).mockReturnValue({ toggle: vi.fn(), isOpen: false, isStreaming: true } as any);
+    vi.mocked(useChat).mockReturnValue({ toggle: vi.fn(), isOpen: false, isStreaming: true } as unknown as ReturnType<typeof useChat>);
     const { container } = render(<ChatToggleButton />);
     const icon = container.querySelector("svg");
     expect(icon).toHaveClass("animate-pulse");
   });
 
   it("does not pulse when drawer open even if streaming", () => {
-    vi.mocked(useChat).mockReturnValue({ toggle: vi.fn(), isOpen: true, isStreaming: true } as any);
+    vi.mocked(useChat).mockReturnValue({ toggle: vi.fn(), isOpen: true, isStreaming: true } as unknown as ReturnType<typeof useChat>);
     const { container } = render(<ChatToggleButton />);
     const icon = container.querySelector("svg");
     expect(icon).not.toHaveClass("animate-pulse");

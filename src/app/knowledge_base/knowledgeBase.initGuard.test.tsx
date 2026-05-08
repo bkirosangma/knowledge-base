@@ -58,6 +58,8 @@ vi.mock("./infrastructure/settingsStore", () => ({
   clearLastPath: vi.fn(async () => undefined),
   setClaudeChatHeight: vi.fn(async () => undefined),
   getClaudeChatHeight: vi.fn(async () => 320),
+  getClaudePermissionMode: vi.fn(async () => "acceptEdits"),
+  setClaudePermissionMode: vi.fn(async () => undefined),
 }));
 
 import KnowledgeBase from "./knowledgeBase";

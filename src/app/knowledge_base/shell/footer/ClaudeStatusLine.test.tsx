@@ -24,7 +24,7 @@ const mockedStatus = vi.mocked(useClaudeStatus);
 const mockedUsage = vi.mocked(useClaudeUsage);
 
 beforeEach(() => {
-  mockedChat.mockReturnValue({ errorMessage: null, reset: vi.fn() } as any);
+  mockedChat.mockReturnValue({ errorMessage: null, reset: vi.fn() } as unknown as ReturnType<typeof useChat>);
 });
 
 describe("ClaudeStatusLine", () => {
@@ -81,7 +81,7 @@ describe("ClaudeStatusLine", () => {
     mockedChat.mockReturnValue({
       errorMessage: "Claude crashed: subprocess exited",
       reset,
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     mockedStatus.mockReturnValue({
       status: { binary: "found", version: "2.1.129", auth: "oauth" },
       refresh: vi.fn(),
@@ -100,7 +100,7 @@ describe("ClaudeStatusLine", () => {
     mockedChat.mockReturnValue({
       errorMessage: "Claude crashed: subprocess exited",
       reset: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     mockedStatus.mockReturnValue({
       status: { binary: "missing", auth: "unknown" },
       refresh: vi.fn(),

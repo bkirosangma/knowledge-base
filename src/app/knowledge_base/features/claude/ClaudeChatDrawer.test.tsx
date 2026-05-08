@@ -28,7 +28,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
       setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     const { container } = render(<ClaudeChatDrawer />);
     expect(container).toBeEmptyDOMElement();
   });
@@ -39,7 +39,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
       setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     render(<ClaudeChatDrawer />);
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
@@ -51,7 +51,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close,
       setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     render(<ClaudeChatDrawer />);
     await userEvent.keyboard("{Escape}");
     expect(close).toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
       setHeight: vi.fn(), errorMessage: "boom", open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     render(<ClaudeChatDrawer />);
     expect(screen.getByText(/boom/)).toBeInTheDocument();
   });
@@ -74,7 +74,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
       setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     vi.mocked(useClaudeStatus).mockReturnValue({
       status: { binary: "missing", auth: "unknown" },
       refresh: vi.fn(),
@@ -91,7 +91,7 @@ describe("ClaudeChatDrawer", () => {
       send: vi.fn(), interrupt: vi.fn(), reset: vi.fn(), close: vi.fn(),
       setHeight: vi.fn(), errorMessage: null, open: vi.fn(), toggle: vi.fn(),
       usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-    } as any);
+    } as unknown as ReturnType<typeof useChat>);
     vi.mocked(useClaudeStatus).mockReturnValue({
       status: { binary: "found", version: "2.1.129", auth: "api_key" },
       refresh: vi.fn(),
