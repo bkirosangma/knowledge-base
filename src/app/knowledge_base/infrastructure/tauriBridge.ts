@@ -62,6 +62,12 @@ export interface VaultDirEntry {
   path: string;
 }
 
+export interface SkillStatus {
+  installed: boolean;
+  targetPath: string;
+  bundledPath: string;
+}
+
 async function call<T>(
   cmd: string,
   args: Record<string, unknown>,
@@ -151,5 +157,16 @@ export const tauriBridge = {
     handler: (event: ClaudeEvent) => void,
   ): Promise<() => void> {
     return listenEvent<ClaudeEvent>("claude_event", handler);
+  },
+
+  // -- Skills --
+
+  /** Query whether a named skill is installed at its target path. */
+  skillStatus(name: string): Promise<SkillStatus> {
+    return call<SkillStatus>("skill_status", { name }, "");
+  },
+  /** Copy a bundled skill into the target path. No-op if already installed. */
+  skillInstallFromBundle(name: string): Promise<void> {
+    return call<void>("skill_install_from_bundle", { name }, "");
   },
 };

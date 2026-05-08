@@ -10,6 +10,10 @@ vi.mock("./hooks/useClaudeStatus", () => ({
   useClaudeStatus: vi.fn(),
 }));
 
+vi.mock("./hooks/useSkillBootstrap", () => ({
+  useSkillBootstrap: vi.fn().mockReturnValue({ justInstalled: false, done: true, error: null }),
+}));
+
 vi.mock("../../infrastructure/settingsStore", () => ({
   getClaudePermissionMode: vi.fn().mockResolvedValue("acceptEdits"),
   setClaudePermissionMode: vi.fn().mockResolvedValue(undefined),
