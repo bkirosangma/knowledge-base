@@ -120,6 +120,45 @@ pub async fn list(dir: &str, root: &Path) -> Result<Vec<DirEntry>, VaultError> {
     Ok(out)
 }
 
+/// Rename a vault-relative file or directory.
+pub async fn rename(from: &str, to: &str, root: &Path) -> Result<(), VaultError> {
+    let from_abs = resolve(from, root)?;
+    let to_abs = resolve(to, root)?;
+    if let Some(parent) = to_abs.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| VaultError::io(to, e))?;
+    }
+    fs::rename(&from_abs, &to_abs)
+        .await
+        .map_err(|e| VaultError::io(from, e))
+}
+
+/// Delete a vault-relative file or directory (recursive for directories).
+pub async fn delete(rel: &str, root: &Path) -> Result<(), VaultError> {
+    let abs = resolve(rel, root)?;
+    let metadata = fs::metadata(&abs)
+        .await
+        .map_err(|e| VaultError::io(rel, e))?;
+    if metadata.is_dir() {
+        fs::remove_dir_all(&abs)
+            .await
+            .map_err(|e| VaultError::io(rel, e))
+    } else {
+        fs::remove_file(&abs)
+            .await
+            .map_err(|e| VaultError::io(rel, e))
+    }
+}
+
+/// Check whether a vault-relative path exists. Path traversal still rejects.
+pub async fn exists(rel: &str, root: &Path) -> Result<bool, VaultError> {
+    let abs = resolve(rel, root)?;
+    Ok(fs::try_exists(&abs)
+        .await
+        .map_err(|e| VaultError::io(rel, e))?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +250,39 @@ mod tests {
         let td = TempDir::new().unwrap();
         let err = list("nope", td.path()).await.unwrap_err();
         assert!(matches!(err, VaultError::NotFound { .. }));
+    }
+
+    #[tokio::test]
+    async fn renames_file_creating_parents() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("a.md", "x", td.path()).await.unwrap();
+        rename("a.md", "docs/b.md", td.path()).await.unwrap();
+        assert!(!td.path().join("a.md").exists());
+        assert!(td.path().join("docs/b.md").exists());
+    }
+
+    #[tokio::test]
+    async fn deletes_file() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("a.md", "x", td.path()).await.unwrap();
+        delete("a.md", td.path()).await.unwrap();
+        assert!(!td.path().join("a.md").exists());
+    }
+
+    #[tokio::test]
+    async fn deletes_directory_recursively() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("d/x.md", "x", td.path()).await.unwrap();
+        write_text_atomic("d/y.md", "y", td.path()).await.unwrap();
+        delete("d", td.path()).await.unwrap();
+        assert!(!td.path().join("d").exists());
+    }
+
+    #[tokio::test]
+    async fn exists_reports_present_and_absent() {
+        let td = TempDir::new().unwrap();
+        write_text_atomic("a.md", "x", td.path()).await.unwrap();
+        assert!(exists("a.md", td.path()).await.unwrap());
+        assert!(!exists("b.md", td.path()).await.unwrap());
     }
 }
