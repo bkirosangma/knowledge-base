@@ -13,7 +13,6 @@ export interface HistoryFileSync<T> extends HistoryCore<T> {
   initHistory(
     fileContent: string,
     initialSnapshot: T,
-    dirHandle: FileSystemDirectoryHandle | null,
     filePath: string | null,
   ): Promise<void>;
   onFileSave(fileContent: string): void;
@@ -22,7 +21,6 @@ export interface HistoryFileSync<T> extends HistoryCore<T> {
 }
 
 export function useHistoryFileSync<T>(): HistoryFileSync<T> {
-  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const activeFileRef = useRef<string | null>(null);
   const checksumRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -31,12 +29,11 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const handle = dirHandleRef.current;
       const file = activeFileRef.current;
       const c = coreRef.current;
-      if (!handle || !file || !c) return;
+      if (!file || !c) return;
       const { entries, currentIndex, savedIndex } = c.getLatestState();
-      writeHistoryFile(handle, file, {
+      writeHistoryFile(file, {
         checksum: checksumRef.current,
         currentIndex,
         savedIndex,
@@ -51,15 +48,13 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
   const initHistory = useCallback(async (
     fileContent: string,
     initialSnapshot: T,
-    dirHandle: FileSystemDirectoryHandle | null,
     filePath: string | null,
   ) => {
-    dirHandleRef.current = dirHandle;
     activeFileRef.current = filePath;
     const checksum = fnv1a(fileContent);
     checksumRef.current = checksum;
 
-    if (!dirHandle || !filePath) {
+    if (!filePath) {
       const entry: HistoryEntry<T> = {
         id: 0,
         description: "File loaded",
@@ -70,7 +65,7 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
       return;
     }
 
-    const histFile = await readHistoryFile<T>(dirHandle, filePath);
+    const histFile = await readHistoryFile<T>(filePath);
     if (histFile && histFile.checksum === checksum && histFile.entries.length > 0) {
       core.initEntries(
         histFile.entries,
@@ -97,7 +92,6 @@ export function useHistoryFileSync<T>(): HistoryFileSync<T> {
   const clearHistory = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
-    dirHandleRef.current = null;
     activeFileRef.current = null;
     checksumRef.current = "";
     core.clear();
