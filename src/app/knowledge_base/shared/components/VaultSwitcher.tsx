@@ -22,9 +22,30 @@ export function VaultSwitcher({
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const close = () => setOpen(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  // Close on Escape
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [open]);
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         className="flex items-center gap-1 rounded px-2 py-1 hover:bg-surface-2 transition-colors"

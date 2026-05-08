@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VaultSwitcher } from "./VaultSwitcher";
 
@@ -52,5 +52,26 @@ describe("VaultSwitcher", () => {
     await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
     await userEvent.click(screen.getByRole("menuitem", { name: /\/Users\/x\/b/ }));
     expect(onSwitchVault).toHaveBeenCalledWith("/Users/x/b");
+  });
+
+  it("closes the menu when clicking outside", async () => {
+    render(
+      <>
+        <button type="button">outside</button>
+        <VaultSwitcher {...baseProps} />
+      </>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
+    expect(screen.getByRole("menuitem", { name: /open vault/i })).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("button", { name: /outside/i }));
+    expect(screen.queryByRole("menuitem", { name: /open vault/i })).not.toBeInTheDocument();
+  });
+
+  it("closes the menu when Escape is pressed", async () => {
+    render(<VaultSwitcher {...baseProps} />);
+    await userEvent.click(screen.getByRole("button", { name: /my-vault/i }));
+    expect(screen.getByRole("menuitem", { name: /open vault/i })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menuitem", { name: /open vault/i })).not.toBeInTheDocument();
   });
 });
