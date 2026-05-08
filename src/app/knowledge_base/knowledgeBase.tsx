@@ -294,6 +294,20 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   const panes = usePaneManager();
   const { subscribe, unsubscribe, refresh: watcherRefresh } = useFileWatcher();
 
+  // Vault-switch wrappers: clear panes before the root swap, otherwise the
+  // panes still hold filePaths from the prior vault and useDocumentContent
+  // hits FileNotFound on the new vault's repo. useFileExplorer can't see
+  // panes — keeping the responsibility here, where both are visible.
+  const handleOpenFolder = useCallback(async () => {
+    panes.closeAll();
+    await fileExplorer.openFolder();
+  }, [panes, fileExplorer]);
+
+  const handleSwitchVault = useCallback(async (path: string) => {
+    panes.closeAll();
+    await fileExplorer.switchVault(path);
+  }, [panes, fileExplorer]);
+
   // Quiet rescan on watcher tick — `watcherRescan` (not `refresh`) skips
   // the loading flash and permission re-check on every poll.
   useEffect(() => {
@@ -1392,7 +1406,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     if (created) handleSelectFile(created);
   }, [fileExplorer, handleSelectFile]);
   const emptyState = noVaultOpen ? (
-    <NoVaultCTA onOpenVault={fileExplorer.openFolder} />
+    <NoVaultCTA onOpenVault={handleOpenFolder} />
   ) : (
     <EmptyState
       recents={recentFiles}
@@ -1438,14 +1452,14 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
                 currentVaultName={folderName}
                 recents={recents}
                 isUninitialised
-                onOpenVault={fileExplorer.openFolder}
-                onSwitchVault={fileExplorer.switchVault}
+                onOpenVault={handleOpenFolder}
+                onSwitchVault={handleSwitchVault}
                 onInitializeVault={() => void initializeCurrentVault()}
               />
               <UninitializedVaultSplash
                 folderName={folderName}
                 onInitialize={() => void initializeCurrentVault()}
-                onPickDifferent={fileExplorer.openFolder}
+                onPickDifferent={handleOpenFolder}
               />
             </div>
           </>
@@ -1482,7 +1496,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           leftPaneFile={panes.leftPane?.filePath ?? null}
           rightPaneFile={panes.rightPane?.filePath ?? null}
           dirtyFiles={fileExplorer.dirtyFiles}
-          onOpenFolder={fileExplorer.openFolder}
+          onOpenFolder={handleOpenFolder}
           onSelectFile={handleSelectFile}
           onCreateFile={async (parentPath) => {
             const result = await fileExplorer.createFile(parentPath);
@@ -1562,8 +1576,8 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         currentVaultName={fileExplorer.directoryName}
         recents={recents}
         isUninitialised={false}
-        onOpenVault={fileExplorer.openFolder}
-        onSwitchVault={fileExplorer.switchVault}
+        onOpenVault={handleOpenFolder}
+        onSwitchVault={handleSwitchVault}
         onInitializeVault={() => undefined}
       />
 
@@ -1596,7 +1610,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             leftPaneFile={panes.leftPane?.filePath ?? null}
             rightPaneFile={panes.rightPane?.filePath ?? null}
             dirtyFiles={fileExplorer.dirtyFiles}
-            onOpenFolder={fileExplorer.openFolder}
+            onOpenFolder={handleOpenFolder}
             onSelectFile={handleSelectFile}
             onCreateFile={async (parentPath) => {
               const result = await fileExplorer.createFile(parentPath);

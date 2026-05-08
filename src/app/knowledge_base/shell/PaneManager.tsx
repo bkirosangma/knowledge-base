@@ -118,6 +118,16 @@ export function usePaneManager() {
     }
   }, [isSplit, focusedSide, rightPane]);
 
+  // Close every pane and forget the last-closed buffer. Used on vault
+  // open/switch so panes from the prior vault don't try to read files
+  // that don't exist in the new vault.
+  const closeAll = useCallback(() => {
+    setLeftPane(null);
+    setRightPane(null);
+    setFocusedSide("left");
+    setLastClosedPane(null);
+  }, []);
+
   const focusedPane = useMemo<FocusedPane>(
     () => (isSplit ? focusedSide : "single"),
     [isSplit, focusedSide],
@@ -139,6 +149,7 @@ export function usePaneManager() {
     enterSplit,
     exitSplit,
     closeFocusedPane,
+    closeAll,
     renamePanePath,
     restoreLayout,
     lastClosedPane,
