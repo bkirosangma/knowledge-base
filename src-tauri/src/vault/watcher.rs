@@ -139,6 +139,11 @@ impl Watcher {
             .watch(&root, RecursiveMode::Recursive)
             .map_err(|e| format!("watch failed: {e}"))?;
 
+        // Prime the FileIdMap cache for rename-pair stitching on macOS/Windows.
+        // Without this, renames of pre-existing files in the vault never
+        // produce a paired Renamed event (only a Created for the destination).
+        debouncer.cache().add_root(&root, RecursiveMode::Recursive);
+
         let app_handle = app.clone();
         let root_for_task = root.clone();
         let forwarder = tokio::spawn(async move {

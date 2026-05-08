@@ -166,11 +166,15 @@ async fn delete_emits_deleted() {
 // notify 6.1.1 + macOS FSEvents: rename emits only Create(File) for the
 // destination path. No Remove for the source, no Modify(Name(Both)) rename
 // event. FSEvents doesn't emit rename cookies in this configuration so the
-// debouncer cannot stitch rename pairs. The strict-kind assertion was relaxed
-// because of macOS-FSEvents-specific event remapping — a real product gap
-// deferred to MVP-1c/MVP-4.
+// debouncer cannot stitch rename pairs. The assertion therefore verifies only
+// that *some* event surfaces the destination path:
+//   - Linux/inotify: fires `saw_paired_rename` (old_path + new_path both present).
+//   - macOS FSEvents (notify 6.1.1): fires only `saw_dest_only` — old_path
+//     verification is deferred to MVP-4's cross-platform CI.
+// The strict-kind assertion was relaxed because of macOS-FSEvents-specific
+// event remapping — a real product gap deferred to MVP-1c/MVP-4.
 #[tokio::test(flavor = "multi_thread")]
-async fn rename_emits_renamed_with_old_and_new_paths() {
+async fn rename_emits_at_least_destination_path() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path().canonicalize().unwrap();
     let (_d, mut rx) = make_watcher(&root);
@@ -210,4 +214,6 @@ async fn rename_emits_renamed_with_old_and_new_paths() {
         "expected paired-rename, remove+create, or dest-only event, got {:?}",
         events,
     );
+    // TODO(mvp-4): add #[cfg(target_os = "linux")] companion test that strictly
+    // asserts the paired-rename shape with old_path == "a.md".
 }
