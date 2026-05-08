@@ -198,3 +198,7 @@ for f in test-cases/0*-*.md; do
   printf "%-28s ✅%3d  🟡%3d  🧪%3d  ❌%3d  🚫%3d\n" "$name" "$ok" "$partial" "$e2e" "$gap" "$waived"
 done
 ```
+
+---
+
+**Note (2026-05-08):** With MVP-1a's Tauri shell merged, vault paths are typed strings rather than File System Access handles, so scenarios previously blocked by the directory picker are testable in principle. The actual e2e wiring (`tauri-plugin-webdriver` + `ClaudeRunner` stub) lands in MVP-4; the systematic promotion sweep across `❌` cases is MVP-5.
