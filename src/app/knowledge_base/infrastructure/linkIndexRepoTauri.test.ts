@@ -98,7 +98,8 @@ describe("linkIndexRepoTauri", () => {
 
       const repo = createLinkIndexRepositoryTauri();
       const index = {
-        documents: { "doc1.md": { outbound: [], inbound: [], mtime: 1000 } },
+        updatedAt: '',
+        documents: { "doc1.md": { outboundLinks: [], sectionLinks: [], headers: [] } },
         backlinks: {},
       };
 
@@ -126,7 +127,7 @@ describe("linkIndexRepoTauri", () => {
 
       const repo = createLinkIndexRepositoryTauri();
       await expect(
-        repo.save({ documents: {}, backlinks: {} }),
+        repo.save({ updatedAt: '', documents: {}, backlinks: {} }),
       ).rejects.toThrow("write failed");
     });
   });

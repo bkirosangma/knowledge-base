@@ -23,10 +23,9 @@ export interface TabPaneContext {
   onPreviewDocument?: (path: string) => void;
   onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
-  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
+  onCreateDocument?: (path: string) => Promise<unknown>;
   getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
   allDocPaths?: string[];
-  rootHandle?: FileSystemDirectoryHandle | null;
   onMigrateAttachments?: (filePath: string, migrations: { from: string; to: string }[]) => void;
   onTabExportReady?: (handle: TabExportHandle | null) => void;
   detachAttachmentsFor?: (matcher: (r: AttachmentLink) => boolean) => { detached: number };
@@ -67,7 +66,6 @@ export interface BuildTabPaneContextArgs {
   onCreateDocument: TabPaneContext["onCreateDocument"];
   getDocumentsForEntity: TabPaneContext["getDocumentsForEntity"];
   allDocPaths: TabPaneContext["allDocPaths"];
-  rootHandle: TabPaneContext["rootHandle"];
   onMigrateAttachments: TabPaneContext["onMigrateAttachments"];
   onTabExportReady?: TabPaneContext["onTabExportReady"];
   detachAttachmentsFor?: TabPaneContext["detachAttachmentsFor"];
@@ -88,7 +86,6 @@ export function buildTabPaneContext(args: BuildTabPaneContextArgs): TabPaneConte
     onCreateDocument: args.onCreateDocument,
     getDocumentsForEntity: args.getDocumentsForEntity,
     allDocPaths: args.allDocPaths,
-    rootHandle: args.rootHandle,
     onMigrateAttachments: args.onMigrateAttachments,
     onTabExportReady: args.onTabExportReady,
     detachAttachmentsFor: args.detachAttachmentsFor,

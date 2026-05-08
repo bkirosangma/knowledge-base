@@ -374,11 +374,11 @@ describe("vaultConfigRepoTauri", () => {
       bridge.writeJson.mockResolvedValue(undefined);
       const repo = createVaultConfigRepositoryTauri();
 
-      const updated = await repo.update({ theme: null });
+      const updated = await repo.update({ theme: undefined });
 
       const [, value] = bridge.writeJson.mock.calls[0];
-      expect(value.theme).toBeNull();
-      expect(updated.theme).toBeNull();
+      expect(value.theme).toBeUndefined();
+      expect(updated.theme).toBeUndefined();
     });
 
     it("throws when readJson fails", async () => {

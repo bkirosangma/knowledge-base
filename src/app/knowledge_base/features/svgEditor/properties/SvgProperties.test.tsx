@@ -40,6 +40,7 @@ function renderProps({
         attachment: null, attachmentLinks: null, diagram: null,
         document: null, linkIndex: null, svg: null, svgRefs: repo,
         tab: null, tabRefs: null, vaultConfig: null,
+        vaultIndex: null,
       }}>
         <SvgProperties
           filePath={filePath}
@@ -103,6 +104,7 @@ describe("SvgProperties", () => {
           attachment: null, attachmentLinks: null, diagram: null,
           document: null, linkIndex: null, svg: null, svgRefs: repo,
           tab: null, tabRefs: null, vaultConfig: null,
+          vaultIndex: null,
         }}>
           <SvgProperties filePath="a.svg" collapsed={false} onToggleCollapse={onToggle} />
         </StubRepositoryProvider>
@@ -120,6 +122,7 @@ describe("SvgProperties", () => {
           attachment: null, attachmentLinks: null, diagram: null,
           document: null, linkIndex: null, svg: null, svgRefs: repo,
           tab: null, tabRefs: null, vaultConfig: null,
+          vaultIndex: null,
         }}>
           <SvgProperties
             filePath="diagrams/logo.svg"
@@ -148,6 +151,7 @@ describe("SvgProperties", () => {
           attachment: null, attachmentLinks: null, diagram: null,
           document: null, linkIndex: null, svg: null, svgRefs: repo,
           tab: null, tabRefs: null, vaultConfig: null,
+          vaultIndex: null,
         }}>
           <SvgProperties
             filePath="diagrams/logo.svg"

@@ -92,10 +92,8 @@ describe("tabRefsRepoTauri", () => {
         trackRefs: [],
         sources: [
           {
-            id: "src-1",
             url: "https://example.com/tab",
             title: "Tab Source",
-            fetchedAt: new Date().toISOString(),
           },
         ],
       };
@@ -117,9 +115,9 @@ describe("tabRefsRepoTauri", () => {
         trackRefs: [],
         attachedTo: [
           {
-            id: "node-1",
-            entityType: "node",
-            entityId: "abc123",
+            type: "node",
+            id: "abc123",
+            documentPath: "placeholder.md",
           },
         ],
       };
@@ -225,17 +223,15 @@ describe("tabRefsRepoTauri", () => {
         trackRefs: [],
         sources: [
           {
-            id: "src-1",
             url: "https://example.com/tab",
             title: "Tab",
-            fetchedAt: new Date().toISOString(),
           },
         ],
         attachedTo: [
           {
-            id: "node-1",
-            entityType: "node",
-            entityId: "abc123",
+            type: "node",
+            id: "abc123",
+            documentPath: "placeholder.md",
           },
         ],
       };

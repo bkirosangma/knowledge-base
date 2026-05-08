@@ -25,6 +25,7 @@ function makeWrapper(repo: TabRefsRepository) {
         attachment: null, attachmentLinks: null, diagram: null,
         document: null, linkIndex: null, svg: null, svgRefs: null,
         tab: null, tabRefs: repo, vaultConfig: null,
+        vaultIndex: null,
       }}>
         {children}
       </StubRepositoryProvider>

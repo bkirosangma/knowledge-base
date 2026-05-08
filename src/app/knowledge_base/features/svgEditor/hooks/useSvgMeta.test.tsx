@@ -30,6 +30,7 @@ function makeWrapper(repo: SvgRefsRepository) {
         attachment: null, attachmentLinks: null, diagram: null,
         document: null, linkIndex: null, svg: null, svgRefs: repo,
         tab: null, tabRefs: null, vaultConfig: null,
+        vaultIndex: null,
       }}>
         {children}
       </StubRepositoryProvider>

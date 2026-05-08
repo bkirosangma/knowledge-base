@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const bridge = vi.hoisted(() => ({
   writeBytes: vi.fn(),
+  readBytes: vi.fn(),
   exists: vi.fn(),
 }));
 vi.mock("./tauriBridge", () => ({ tauriBridge: bridge }));
@@ -11,6 +12,7 @@ import { createAttachmentRepositoryTauri } from "./attachmentRepoTauri";
 describe("attachmentRepoTauri", () => {
   afterEach(() => {
     bridge.writeBytes.mockReset();
+    bridge.readBytes.mockReset();
     bridge.exists.mockReset();
   });
 

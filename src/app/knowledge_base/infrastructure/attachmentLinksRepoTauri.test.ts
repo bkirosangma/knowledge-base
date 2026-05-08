@@ -8,6 +8,7 @@ const bridge = vi.hoisted(() => ({
 vi.mock("./tauriBridge", () => ({ tauriBridge: bridge }));
 
 import { createAttachmentLinksRepositoryTauri } from "./attachmentLinksRepoTauri";
+import type { AttachmentLink } from "../domain/attachmentLinks";
 
 const STORE = ".kb/attachment-links.json";
 
@@ -115,7 +116,7 @@ describe("attachmentLinksRepoTauri", () => {
   it("write forwards rows to tauriBridge.writeJson", async () => {
     bridge.writeJson.mockResolvedValue(undefined);
     const repo = createAttachmentLinksRepositoryTauri();
-    const rows = [
+    const rows: AttachmentLink[] = [
       { docPath: "docs/test.md", entityType: "node", entityId: "n1" },
       { docPath: "docs/other.md", entityType: "connection", entityId: "c1" },
     ];

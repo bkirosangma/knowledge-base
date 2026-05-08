@@ -15,17 +15,21 @@ export interface CrossReference {
   targetType: "document" | "diagram" | "tab";
 }
 
+/**
+ * Emit cross-references via a write callback. The callback writes text to
+ * a vault-relative path — callers pass `repos.document.write` or
+ * `tauriBridge.writeText`. Using a callback keeps this utility independent
+ * of both FSA and the Tauri bridge.
+ */
 export async function emitCrossReferences(
-  dirHandle: FileSystemDirectoryHandle,
+  writeText: (path: string, content: string) => Promise<void>,
   references: CrossReference[],
 ): Promise<void> {
   try {
-    // Ensure .archdesigner directory exists
-    const configDir = await dirHandle.getDirectoryHandle(".archdesigner", { create: true });
-    const fileHandle = await configDir.getFileHandle("cross-references.json", { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify({ version: 1, references }, null, 2));
-    await writable.close();
+    await writeText(
+      ".archdesigner/cross-references.json",
+      JSON.stringify({ version: 1, references }, null, 2),
+    );
   } catch {
     // Silently fail — graphify integration is best-effort
     console.warn("Failed to emit cross-references for graphify");

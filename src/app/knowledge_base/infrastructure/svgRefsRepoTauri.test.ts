@@ -40,10 +40,8 @@ describe("svgRefsRepoTauri", () => {
         version: 1,
         sources: [
           {
-            id: "src-1",
             url: "https://example.com/doc",
             title: "Example Doc",
-            fetchedAt: new Date().toISOString(),
           },
         ],
       };
@@ -87,10 +85,8 @@ describe("svgRefsRepoTauri", () => {
         version: 1,
         sources: [
           {
-            id: "src-1",
             url: "https://example.com",
             title: "Source",
-            fetchedAt: new Date().toISOString(),
           },
         ],
       };
@@ -124,17 +120,15 @@ describe("svgRefsRepoTauri", () => {
         version: 1,
         sources: [
           {
-            id: "src-1",
             url: "https://example.com",
             title: "Doc",
-            fetchedAt: new Date().toISOString(),
           },
         ],
         attachedTo: [
           {
-            id: "node-1",
-            entityType: "node",
-            entityId: "abc123",
+            type: "node",
+            id: "abc123",
+            documentPath: "placeholder.md",
           },
         ],
       };

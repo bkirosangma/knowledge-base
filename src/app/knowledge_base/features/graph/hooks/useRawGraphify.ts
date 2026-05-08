@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRepositories } from "../../../shell/RepositoryContext";
+import type { FileSystemError } from "../../../domain/errors";
 
 export type GraphifyStatus = "idle" | "loading" | "loaded" | "missing" | "error";
 
@@ -82,37 +84,43 @@ interface RawCommunity {
   sortIndex: number;
 }
 
+/**
+ * Load and parse the graphify knowledge graph. Uses `repos.document.read`
+ * (path-agnostic) to read `graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md`.
+ * The vault is considered "active" when `repos.document !== null`; the
+ * `vaultPath` parameter is used purely as a stable trigger that changes
+ * when the user opens a different vault.
+ */
 export function useRawGraphify(
-  dirHandleRef: React.MutableRefObject<FileSystemDirectoryHandle | null>,
+  vaultPath: string | null,
   theme: "light" | "dark" = "dark",
 ): GraphifyResult {
+  const repos = useRepositories();
+  const reposRef = useRef(repos);
+  reposRef.current = repos;
+
   const [status, setStatus] = useState<GraphifyStatus>("idle");
   const [data, setData] = useState<RawGraphifyData>(EMPTY);
   const [hyperedges, setHyperedges] = useState<RawHyperedge[]>([]);
   const [rawCommunities, setRawCommunities] = useState<RawCommunity[]>([]);
   const [nodeSourceMap, setNodeSourceMap] = useState<Map<string, string>>(new Map());
   const [nodeDegreeMap, setNodeDegreeMap] = useState<Map<string, number>>(new Map());
-  const lastHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
 
   useEffect(() => {
-    const rootHandle = dirHandleRef.current;
-    if (!rootHandle) return;
-    if (lastHandleRef.current === rootHandle) return;
-    lastHandleRef.current = rootHandle;
+    if (!vaultPath) return;
+    const documentRepo = reposRef.current.document;
+    if (!documentRepo) return;
 
     let cancelled = false;
     setStatus("loading");
 
     (async () => {
       try {
-        const graphifyDir = await rootHandle.getDirectoryHandle("graphify-out");
-
         // Read community names from GRAPH_REPORT.md (LLM-generated per community)
         // Format: ### Community {id} - "{name}"
         const reportNameMap = new Map<number, string>();
         try {
-          const reportHandle = await graphifyDir.getFileHandle("GRAPH_REPORT.md");
-          const reportText = await (await reportHandle.getFile()).text();
+          const reportText = await documentRepo.read("graphify-out/GRAPH_REPORT.md");
           const re = /^###\s+Community\s+(\d+)\s+-\s+"([^"]+)"/gm;
           let m: RegExpExecArray | null;
           while ((m = re.exec(reportText)) !== null) {
@@ -122,8 +130,7 @@ export function useRawGraphify(
           // GRAPH_REPORT.md missing — fall back to deriving names from nodes
         }
 
-        const fileHandle = await graphifyDir.getFileHandle("graph.json");
-        const text = await (await fileHandle.getFile()).text();
+        const text = await documentRepo.read("graphify-out/graph.json");
         const raw = JSON.parse(text) as RawGraphifyData;
         if (cancelled) return;
 
@@ -175,7 +182,9 @@ export function useRawGraphify(
         setStatus("loaded");
       } catch (e) {
         if (cancelled) return;
-        if (e instanceof DOMException && e.name === "NotFoundError") {
+        // FileSystemError with kind "not-found" → graphify-out doesn't exist yet
+        const fsErr = e as Partial<FileSystemError>;
+        if (fsErr.kind === "not-found") {
           setStatus("missing");
         } else {
           setStatus("error");
@@ -188,11 +197,9 @@ export function useRawGraphify(
       }
     })();
 
-    return () => { cancelled = true; lastHandleRef.current = null; };
-  // dirHandleRef is a ref — its .current changes won't trigger re-runs,
-  // but the dep on dirHandleRef itself means this fires once on mount.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirHandleRef]);
+    return () => { cancelled = true; };
+    // vaultPath changes when the user opens a different vault — re-fetch.
+  }, [vaultPath]);
 
   // Derive theme-reactive colors from raw community data without reloading.
   const isDark = theme === "dark";

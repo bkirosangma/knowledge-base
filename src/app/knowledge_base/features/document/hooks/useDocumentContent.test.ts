@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { useDocumentContent } from './useDocumentContent'
-import { MockDir } from '../../../shared/testUtils/fsMock'
-import { RepositoryProvider, StubRepositoryProvider, type Repositories } from '../../../shell/RepositoryContext'
+import { MockDir, MockFile, MockFileHandle } from '../../../shared/testUtils/fsMock'
+import { StubRepositoryProvider, type Repositories } from '../../../shell/RepositoryContext'
 import { ShellErrorProvider, StubShellErrorProvider } from '../../../shell/ShellErrorContext'
 import { FileSystemError } from '../../../domain/errors'
 
@@ -29,20 +29,60 @@ let root: MockDir
 
 beforeEach(() => { root = new MockDir() })
 
-/** Render the hook under a RepositoryProvider bound to the mock root,
+/** Render the hook under a StubRepositoryProvider backed by MockDir,
  *  nested inside ShellErrorProvider so `useShellErrors` is available. */
 function renderDocContent(filePath: string | null) {
   const wrapper = ({ children }: { children: ReactNode }) => {
-    const inner = createElement(RepositoryProvider, {
-      rootHandle: root as unknown as FileSystemDirectoryHandle,
-      children,
-    })
+    const docRepo = makeDocumentRepo(root)
+    const stub: Repositories = {
+      attachment: null, attachmentLinks: null, diagram: null,
+      document: docRepo, linkIndex: null, svg: null, svgRefs: null,
+      tab: null, tabRefs: null, vaultConfig: null, vaultIndex: null,
+    }
+    const inner = createElement(StubRepositoryProvider, { value: stub, children })
     return createElement(ShellErrorProvider, { children: inner })
   }
   return renderHook(({ p }) => useDocumentContent(p), {
     initialProps: { p: filePath },
     wrapper,
   })
+}
+
+/**
+ * DocumentRepository backed by a MockDir tree.
+ * Used in renderDocContent — mirrors the pattern in useLinkIndex.test.ts.
+ */
+function makeDocumentRepo(dir: MockDir) {
+  return {
+    async read(path: string): Promise<string> {
+      const parts = path.split('/')
+      let node = dir
+      for (const part of parts.slice(0, -1)) {
+        if (!node.dirs.has(part)) throw new FileSystemError('not-found', `${part} not found`)
+        node = node.dirs.get(part)!
+      }
+      const name = parts[parts.length - 1]
+      if (!node.files.has(name)) throw new FileSystemError('not-found', `${name} not found`)
+      return node.files.get(name)!.file.data
+    },
+    async write(path: string, content: string): Promise<void> {
+      const parts = path.split('/')
+      let node = dir
+      for (const part of parts.slice(0, -1)) {
+        if (!node.dirs.has(part)) {
+          const sub = new MockDir(part)
+          node.dirs.set(part, sub)
+        }
+        node = node.dirs.get(part)!
+      }
+      const name = parts[parts.length - 1]
+      if (node.files.has(name)) {
+        node.files.get(name)!.file.data = content
+      } else {
+        node.files.set(name, new MockFileHandle(name, new MockFile(content)))
+      }
+    },
+  }
 }
 
 describe('useDocumentContent — initial state', () => {
@@ -241,6 +281,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       tab: null,
       tabRefs: null,
       vaultConfig: null,
+      vaultIndex: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
       const inner = createElement(StubRepositoryProvider, { value: stub, children })
@@ -328,6 +369,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       tab: null,
       tabRefs: null,
       vaultConfig: null,
+      vaultIndex: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
       const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
@@ -381,6 +423,7 @@ describe('useDocumentContent — seam (StubRepositoryProvider)', () => {
       tab: null,
       tabRefs: null,
       vaultConfig: null,
+      vaultIndex: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
       const innerProvider = createElement(StubRepositoryProvider, { value: stub, children })
@@ -432,6 +475,7 @@ describe('useDocumentContent — loadedPath field', () => {
       tab: null,
       tabRefs: null,
       vaultConfig: null,
+      vaultIndex: null,
     }
     const wrapper = ({ children }: { children: ReactNode }) => {
       const inner = createElement(StubRepositoryProvider, { value: stub, children })

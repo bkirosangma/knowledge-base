@@ -83,7 +83,7 @@ export interface DiagramOverlaysProps {
   onOpenDocument: (path: string, anchor?: string | null) => void;
   onAttachDocument: (docPath: string, entityType: string, entityId: string) => void;
   onDetachDocument: (docPath: string, entityType: string, entityId: string) => void;
-  onCreateDocument: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<void>;
+  onCreateDocument: (path: string) => Promise<void>;
   onCreateAndAttach: (flowId: string, filename: string, editNow: boolean, type: PreviewItemType) => Promise<void>;
 
   // useDiagramHistory result
@@ -511,16 +511,10 @@ export default function DiagramOverlays(props: DiagramOverlaysProps) {
           onAttach={(path) => {
             onAttachDocument(path, pickerTarget.type, pickerTarget.id);
           }}
-          onCreate={
-            fileExplorer.dirHandleRef.current
-              ? async (path) => {
-                  const rootHandle = fileExplorer.dirHandleRef.current;
-                  if (!rootHandle) return;
-                  await onCreateDocument(rootHandle, path);
+          onCreate={async (path) => {
+                  await onCreateDocument(path);
                   onAttachDocument(path, pickerTarget.type, pickerTarget.id);
-                }
-              : undefined
-          }
+                }}
           onClose={() => setPickerTarget(null)}
         />
       )}

@@ -130,7 +130,7 @@ export default function DocumentView({
     if (!filePath || !dh || !content || loadedPath !== filePath) return;
     if (indexedOnOpenRef.current === filePath) return;
     indexedOnOpenRef.current = filePath;
-    linkManager.updateDocumentLinks(dh, filePath, content).catch(() => {});
+    linkManager.updateDocumentLinks(filePath, content).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, content, loadedPath]);
 

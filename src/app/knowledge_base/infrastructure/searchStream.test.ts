@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { diagramFields, readForSearchIndex } from "./searchStream";
 import type { DiagramData } from "../shared/utils/types";
+import type { DocumentRepository } from "../domain/repositories";
+import { FileSystemError } from "../domain/errors";
 
 describe("diagramFields", () => {
   it("extracts title, layer titles, node labels (+ subs), and flow names", () => {
@@ -80,49 +82,26 @@ describe("diagramFields", () => {
   });
 });
 
-// Minimal mock of the FileSystemDirectoryHandle surface used by the
-// document + diagram repositories. Only `getFileHandle` and the file's
-// `text()` are exercised — `readTextFile` ultimately calls `getFile()
-// .then(f => f.text())`.
-interface MockFile {
-  text: () => Promise<string>;
-}
-interface MockFileHandle {
-  kind: "file";
-  getFile: () => Promise<MockFile>;
-}
-interface MockDirHandle {
-  getFileHandle: (name: string) => Promise<MockFileHandle>;
-  getDirectoryHandle: (name: string) => Promise<MockDirHandle>;
-}
-
-function makeFsRoot(files: Record<string, string>): FileSystemDirectoryHandle {
-  function makeDir(prefix: string): MockDirHandle {
-    return {
-      async getFileHandle(name: string) {
-        const path = prefix ? `${prefix}/${name}` : name;
-        const content = files[path];
-        if (content === undefined) {
-          const err = new Error(`Not found: ${path}`);
-          (err as Error & { name: string }).name = "NotFoundError";
-          throw err;
-        }
-        return {
-          kind: "file",
-          getFile: async () => ({ text: async () => content }),
-        };
-      },
-      async getDirectoryHandle(name: string) {
-        return makeDir(prefix ? `${prefix}/${name}` : name);
-      },
-    };
-  }
-  return makeDir("") as unknown as FileSystemDirectoryHandle;
+/**
+ * Build a DocumentRepository stub from a flat path→content record.
+ * `read` returns the content or throws FileSystemError("not-found").
+ * `write` is a no-op (search index tests don't need it).
+ */
+function makeDocumentRepo(files: Record<string, string>): DocumentRepository {
+  return {
+    async read(path: string): Promise<string> {
+      if (path in files) return files[path];
+      throw new FileSystemError("not-found", `Not found: ${path}`);
+    },
+    async write(_path: string, _content: string): Promise<void> {
+      // no-op for search index tests
+    },
+  };
 }
 
 describe("readForSearchIndex", () => {
   it("reads a markdown body", async () => {
-    const root = makeFsRoot({ "notes/a.md": "# Hello\n\nBody alpha." });
+    const root = makeDocumentRepo({ "notes/a.md": "# Hello\n\nBody alpha." });
     const out = await readForSearchIndex(root, "notes/a.md");
     expect(out).toEqual({
       path: "notes/a.md",
@@ -140,7 +119,7 @@ describe("readForSearchIndex", () => {
       ],
       connections: [],
     };
-    const root = makeFsRoot({ "d.json": JSON.stringify(data) });
+    const root = makeDocumentRepo({ "d.json": JSON.stringify(data) });
     const out = await readForSearchIndex(root, "d.json");
     expect(out?.kind).toBe("diagram");
     expect(out?.fields).toEqual({
@@ -152,12 +131,12 @@ describe("readForSearchIndex", () => {
   });
 
   it("returns null for unknown extensions", async () => {
-    const root = makeFsRoot({ "x.txt": "ignored" });
+    const root = makeDocumentRepo({ "x.txt": "ignored" });
     expect(await readForSearchIndex(root, "x.txt")).toBeNull();
   });
 
   it("returns null for missing files", async () => {
-    const root = makeFsRoot({});
+    const root = makeDocumentRepo({});
     expect(await readForSearchIndex(root, "missing.md")).toBeNull();
   });
 
@@ -172,7 +151,7 @@ describe("readForSearchIndex", () => {
       `\\lyrics "Today is gonna be the day"`,
       `. r.4 |`,
     ].join("\n");
-    const root = makeFsRoot({ "songs/wonderwall.alphatex": src });
+    const root = makeDocumentRepo({ "songs/wonderwall.alphatex": src });
     const out = await readForSearchIndex(root, "songs/wonderwall.alphatex");
     expect(out?.kind).toBe("tab");
     expect(out?.fields.title).toBe("Wonderwall");
@@ -184,7 +163,7 @@ describe("readForSearchIndex", () => {
   });
 
   it("indexes a .alphatex tab even when only \\title is present", async () => {
-    const root = makeFsRoot({ "minimal.alphatex": `\\title "X"\n. r.4 |` });
+    const root = makeDocumentRepo({ "minimal.alphatex": `\\title "X"\n. r.4 |` });
     const out = await readForSearchIndex(root, "minimal.alphatex");
     expect(out).toEqual({
       path: "minimal.alphatex",
@@ -194,7 +173,7 @@ describe("readForSearchIndex", () => {
   });
 
   it("returns null for an unreadable .alphatex file", async () => {
-    const root = makeFsRoot({});
+    const root = makeDocumentRepo({});
     expect(await readForSearchIndex(root, "missing.alphatex")).toBeNull();
   });
 });

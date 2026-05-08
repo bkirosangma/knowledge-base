@@ -223,7 +223,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     setIsFsAccessSupported("showDirectoryPicker" in window);
   }, []);
   // Offline cache for last 10 recents (best-effort).
-  useOfflineCache({ rootHandleRef: fileExplorer.dirHandleRef, tree: fileExplorer.tree });
+  useOfflineCache({ tree: fileExplorer.tree }); // TODO MVP-1d: remove this callsite entirely
   // Cached flatten of every vault path; stable across non-tree renders so
   // consumers (wiki-link router, DocumentView) skip a per-render walk.
   const allPaths = useAllPaths(fileExplorer.tree);
@@ -372,11 +372,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
 
     if (!oldPath.endsWith(".md") && !oldPath.endsWith(".json")) return;
 
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle) return;
+    if (!repos.document) return;
 
     try {
-      await propagateRename(rootHandle, oldPath, newPath, linkManager);
+      await propagateRename(repos.document, oldPath, newPath, linkManager);
     } catch (e) {
       reportError(e, `Updating link index after renaming ${oldPath}`);
     }
@@ -385,11 +384,11 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     searchManager.removePath(oldPath);
     void (async () => {
       try {
-        const item = await readForSearchIndex(rootHandle, newPath);
+        const item = await readForSearchIndex(repos.document!, newPath);
         if (item) searchManager.addDoc(item.path, item.kind, item.fields);
       } catch { /* swallowed — same policy as the bulk-index walk */ }
     })();
-  }, [fileExplorer.dirHandleRef, fileExplorer.renameFile, panes.renamePanePath, docManager, linkManager, reportError, searchManager]);
+  }, [fileExplorer.renameFile, panes.renamePanePath, docManager, linkManager, repos.document, reportError, searchManager]);
 
   /**
    * Detach all attachment rows scoped to `path` before the file is unlinked.
@@ -436,15 +435,13 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   );
 
   const handleDeleteFileWithLinks = useCallback(async (path: string, event: React.MouseEvent) => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-
     if (diagramBridgeRef.current) {
       // Detach attachment rows BEFORE the unlink so undo can restore them.
       await cleanupAttachmentsForPath(path);
 
       diagramBridgeRef.current.handleDeleteFile(path, event);
-      if (path.endsWith(".md") && fileExplorer.dirHandleRef.current) {
-        void linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current, path).catch(
+      if (path.endsWith(".md")) {
+        void linkManager.removeDocumentFromIndex(path).catch(
           (e) => reportError(e, `Updating link index after deleting ${path}`)
         );
       }
@@ -454,16 +451,15 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     } else {
       setShellConfirmAction({ type: "delete-file", path, x: event.clientX, y: event.clientY });
     }
-  }, [fileExplorer.dirHandleRef, linkManager, reportError, searchManager, cleanupAttachmentsForPath]);
+  }, [linkManager, reportError, searchManager, cleanupAttachmentsForPath]);
 
   const handleMoveItemWithLinks = useCallback(async (sourcePath: string, targetFolderPath: string) => {
     // Snapshot tree before the FS move triggers a rescan.
     const tree = fileExplorer.tree;
     await diagramBridgeRef.current?.handleMoveItem(sourcePath, targetFolderPath);
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle) return;
-    await propagateMoveLinks(rootHandle, sourcePath, targetFolderPath, tree, linkManager);
-  }, [fileExplorer.dirHandleRef, fileExplorer.tree, linkManager]);
+    if (!repos.document) return;
+    await propagateMoveLinks(repos.document, sourcePath, targetFolderPath, tree, linkManager);
+  }, [fileExplorer.tree, linkManager, repos.document]);
 
   // ─── Document read / reference / delete helpers (used by DiagramView) ───
   const readDocument = useCallback(async (docPath: string): Promise<string | null> => {
@@ -513,8 +509,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       }
     }
 
-    // TODO 28b: migrate removeDocumentFromIndex to take no rootHandle.
-    await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current as FileSystemDirectoryHandle, docPath);
+    await linkManager.removeDocumentFromIndex(docPath);
     await fileExplorer.deleteFile(docPath);
     docManager.removeDocument(docPath);
   }, [repos.document, fileExplorer, linkManager, docManager, reportError]);
@@ -530,15 +525,14 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         const newContent = stripWikiLinkAnchors(oldContent, docPath, deletedIds);
         if (newContent !== oldContent) {
           await repos.document.write(sourcePath, newContent);
-          // TODO 28b: migrate updateDocumentLinks to take no rootHandle.
-          await linkManager.updateDocumentLinks(fileExplorer.dirHandleRef.current as FileSystemDirectoryHandle, sourcePath, newContent);
+          await linkManager.updateDocumentLinks(sourcePath, newContent);
         }
       } catch (err) {
         reportError(err as Error, `Removing broken anchors in ${sourcePath}`);
       }
     }
     linkManager.clearBrokenAnchorState();
-  }, [repos.document, linkManager, fileExplorer.dirHandleRef, reportError]);
+  }, [repos.document, linkManager, reportError]);
 
   // ─── Document operations ───
   const handleOpenDocument = useCallback((path: string, anchor?: string | null) => {
@@ -556,19 +550,18 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     // the signature is widened so the data layer can branch later.
     _type: import("./features/diagram/components/AttachmentPreviewModal").PreviewItemType,
   ) => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle) return;
+    if (!repos.document) return;
     if (filename.includes("..") || filename.startsWith("/") || filename.includes("\0")) return;
     const diagramDir = diagramPath.split("/").slice(0, -1).join("/");
     const docPath = diagramDir ? `${diagramDir}/${filename}` : filename;
     try {
-      await docManager.createDocument(rootHandle, docPath);
+      await repos.document.write(docPath, "");
       docManager.attachDocument(docPath, "flow" as const, flowId);
       if (editNow) handleOpenDocument(docPath);
     } catch (e) {
       reportError(e, `Creating ${docPath}`);
     }
-  }, [fileExplorer.dirHandleRef, docManager, handleOpenDocument, reportError]);
+  }, [repos.document, docManager, handleOpenDocument, reportError]);
 
   const onMigrateLegacyDocuments = useCallback(
     async (_filePath: string, docs: DocumentMeta[]) => {
@@ -647,10 +640,9 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           const docBridge = panes.focusedSide === "right"
             ? rightDocBridgeRef.current : leftDocBridgeRef.current;
           if (docBridge?.dirty) {
-            const rootHandle = fileExplorer.dirHandleRef.current;
-            docBridge.save().then(() => {
-              if (rootHandle && docBridge.filePath) {
-                linkManager.updateDocumentLinks(rootHandle, docBridge.filePath, docBridge.content)
+              docBridge.save().then(() => {
+              if (docBridge.filePath) {
+                linkManager.updateDocumentLinks(docBridge.filePath, docBridge.content)
                   .catch((e) => reportError(e, `Updating link index for ${docBridge.filePath}`));
                 // Reindex with in-memory content — `save()` already persisted it.
                 searchManager.addDoc(docBridge.filePath, "doc", { body: docBridge.content });
@@ -665,7 +657,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [panes.activeEntry, panes.focusedSide, fileExplorer.dirHandleRef, linkManager]);
+  }, [panes.activeEntry, panes.focusedSide, linkManager]);
 
   // ─── ⌘K global handler — opens command palette ───
   const { setOpen: setPaletteOpen } = useCommandRegistry();
@@ -850,8 +842,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       } catch (e) {
         reportError(e, "Initializing vault config");
       }
-      // TODO 28b: migrate loadIndex to take no rootHandle.
-      await linkManager.loadIndex(fileExplorer.dirHandleRef.current as FileSystemDirectoryHandle);
+      await linkManager.loadIndex();
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileExplorer.directoryName]);
@@ -862,13 +853,12 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   // vault open, in the background, mirroring the Graph "Refresh" trigger.
   const indexRebuildVaultRef = useRef<string | null>(null);
   useEffect(() => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle || fileExplorer.tree.length === 0) return;
+    if (fileExplorer.tree.length === 0) return;
     if (indexRebuildVaultRef.current === fileExplorer.directoryName) return;
     indexRebuildVaultRef.current = fileExplorer.directoryName;
 
     const allPaths = collectAllPaths(fileExplorer.tree);
-    linkManager.fullRebuild(rootHandle, allPaths).catch((e) =>
+    linkManager.fullRebuild(allPaths).catch((e) =>
       reportError(e, "Hydrating link index on vault open")
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -880,17 +870,17 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   // first so paths from the previous vault don't carry over.
   const searchInitVaultRef = useRef<string | null>(null);
   useEffect(() => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle || fileExplorer.tree.length === 0 || !searchManager.ready) return;
+    if (fileExplorer.tree.length === 0 || !searchManager.ready || !repos.document) return;
     if (searchInitVaultRef.current === fileExplorer.directoryName) return;
     searchInitVaultRef.current = fileExplorer.directoryName;
 
+    const docRepo = repos.document;
     searchManager.clear();
     const paths = collectAllPaths(fileExplorer.tree);
     void (async () => {
       for (const path of paths) {
         try {
-          const item = await readForSearchIndex(rootHandle, path);
+          const item = await readForSearchIndex(docRepo, path);
           if (item) searchManager.addDoc(item.path, item.kind, item.fields);
         } catch {
           // Per-file failures are non-fatal; the rest of the vault still indexes.
@@ -954,12 +944,11 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   // with `PaneEntry.searchTarget` so DiagramView can centre + select on
   // mount. For doc hits it just opens the document.
   const handleSearchPick = useCallback(async (result: SearchResult, query: string) => {
-    const rootHandle = fileExplorer.dirHandleRef.current;
     if (result.kind === "diagram") {
       let nodeId: string | null = null;
-      if (rootHandle) {
+      if (repos.diagram) {
         try {
-          nodeId = await findFirstNodeMatching(rootHandle, result.path, query);
+          nodeId = await findFirstNodeMatching(repos.diagram, result.path, query);
         } catch {
           /* fall through with no centring intent */
         }
@@ -970,7 +959,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     } else {
       panesOpenFile(result.path, "document");
     }
-  }, [fileExplorer.dirHandleRef, panesOpenFile]);
+  }, [repos.diagram, panesOpenFile]);
 
   // Click-from-graph: open the file in the OPPOSITE pane so the graph is
   // never replaced. Reads `panes` via a ref at call time — depending on
@@ -1037,12 +1026,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     // handler at L240-250.
     handleSelectFile(tabPath);
 
-    const rootHandle = fileExplorer.dirHandleRef.current;
-    if (!rootHandle) return;
-
     void (async () => {
+      if (!repos.document) return;
       try {
-        const item = await readForSearchIndex(rootHandle, tabPath);
+        const item = await readForSearchIndex(repos.document, tabPath);
         if (item) searchManager.addDoc(item.path, item.kind, item.fields);
       } catch {
         // Same swallow policy as the rename re-index path.
@@ -1053,13 +1040,13 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       try {
         const allPaths = Object.keys(linkManager.linkIndex.documents);
         if (!allPaths.includes(tabPath)) allPaths.push(tabPath);
-        await linkManager.fullRebuild(rootHandle, allPaths);
+        await linkManager.fullRebuild(allPaths);
       } catch (e) {
         reportError(e, `Indexing wiki-links for ${tabPath}`);
       }
     })();
   }, [
-    fileExplorer.dirHandleRef,
+    repos.document,
     searchManager,
     linkManager,
     reportError,
@@ -1152,7 +1139,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
       return (
         <GraphifyView
           focused={focused}
-          dirHandleRef={fileExplorer.dirHandleRef}
+          vaultPath={fileExplorer.vaultPath}
           onSelectNode={handleSelectFromGraph}
         />
       );
@@ -1165,10 +1152,8 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           linkIndex={linkManager.linkIndex}
           onSelectNode={handleSelectFromGraph}
           onRefresh={async () => {
-            const rootHandle = fileExplorer.dirHandleRef.current;
-            if (!rootHandle) return;
             const allPaths = collectAllPaths(fileExplorer.tree);
-            await linkManager.fullRebuild(rootHandle, allPaths).catch((e) =>
+            await linkManager.fullRebuild(allPaths).catch((e) =>
               reportError(e, "Rebuilding graph index")
             );
           }}
@@ -1192,9 +1177,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             docManager.detachDocument(docPath, entityType, entityId);
           }}
           onCreateAndAttach={(flowId, filename, editNow, type) => handleCreateAndAttach(entry.filePath ?? '', flowId, filename, editNow, type)}
-          onCreateDocument={async (rootHandle, path) => {
+          onCreateDocument={async (path) => {
             try {
-              await docManager.createDocument(rootHandle, path);
+              if (!repos.document) return;
+              await repos.document.write(path, "");
             } catch (e) {
               reportError(e, `Creating ${path}`);
             }
@@ -1212,18 +1198,17 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           deleteDocumentWithCleanup={deleteDocumentWithCleanup}
           onBeforeDeleteFolder={cleanupAttachmentsForFolder}
           onAfterDiagramSaved={(diagramPath) => {
-            const rootHandle = fileExplorer.dirHandleRef.current;
-            if (!rootHandle) return;
             const docFilenames = docManager.documents.map((d) => d.filename);
-            linkManager.updateDiagramLinks(rootHandle, diagramPath, docFilenames).catch((e) =>
+            linkManager.updateDiagramLinks(diagramPath, docFilenames).catch((e) =>
               reportError(e, `Updating diagram links for ${diagramPath}`)
             );
             // Search reindex: re-read the diagram so new node labels /
             // layer titles / flow names enter the index. The bridge has
             // already written to disk by the time this fires.
             void (async () => {
+              if (!repos.document) return;
               try {
-                const item = await readForSearchIndex(rootHandle, diagramPath);
+                const item = await readForSearchIndex(repos.document, diagramPath);
                 if (item) searchManager.addDoc(item.path, item.kind, item.fields);
               } catch { /* see bulk-index policy */ }
             })();
@@ -1255,10 +1240,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           onPreviewDocument={(docPath: string) => handleOpenDocument(docPath)}
           allDocPaths={docManager.collectDocPaths(fileExplorer.tree)}
           getDocumentsForEntity={docManager.getDocumentsForEntity}
-          rootHandle={fileExplorer.dirHandleRef.current}
-          onCreateDocument={async (rootHandle: FileSystemDirectoryHandle, path: string) => {
+          onCreateDocument={async (path: string) => {
             try {
-              await docManager.createDocument(rootHandle, path);
+              if (!repos.document) return;
+              await repos.document.write(path, "");
             } catch (e) {
               reportError(e, `Creating ${path}`);
             }
@@ -1284,16 +1269,16 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         onDetachDocument: (docPath, entityType, entityId) => {
           docManager.detachDocument(docPath, entityType, entityId);
         },
-        onCreateDocument: async (rootHandle, path) => {
+        onCreateDocument: async (path) => {
           try {
-            await docManager.createDocument(rootHandle, path);
+            if (!repos.document) return;
+            await repos.document.write(path, "");
           } catch (e) {
             reportError(e, `Creating ${path}`);
           }
         },
         getDocumentsForEntity: docManager.getDocumentsForEntity,
         allDocPaths: docManager.collectDocPaths(fileExplorer.tree),
-        rootHandle: fileExplorer.dirHandleRef.current,
         onMigrateAttachments: (path, migrations) => {
           docManager.migrateAttachments(path, migrations);
         },
@@ -1324,10 +1309,9 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
         tree={fileExplorer.tree}
         onNavigateLink={handleNavigateWikiLink}
         onCreateDocument={async (path) => {
-          const rootHandle = fileExplorer.dirHandleRef.current;
-          if (!rootHandle) return;
+          if (!repos.document) return;
           try {
-            await docManager.createDocument(rootHandle, path);
+            await repos.document.write(path, "");
             handleOpenDocument(path);
           } catch (e) {
             reportError(e, `Creating ${path}`);
@@ -1408,13 +1392,10 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             const result = await fileExplorer.createFile(parentPath);
             if (result) {
               handleSelectFile(result.path);
-              const rootHandle = fileExplorer.dirHandleRef.current;
-              if (rootHandle) {
-                linkManager.updateDiagramLinks(rootHandle, result.path, []).catch(() => {});
-                // Register an empty entry so rename/delete have a path to
-                // reference before the user adds searchable content.
-                searchManager.addDoc(result.path, "diagram", {});
-              }
+              linkManager.updateDiagramLinks(result.path, []).catch(() => {});
+              // Register an empty entry so rename/delete have a path to
+              // reference before the user adds searchable content.
+              searchManager.addDoc(result.path, "diagram", {});
             }
             return result?.path ?? null;
           }}
@@ -1422,11 +1403,8 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
             const resultPath = await fileExplorer.createDocument(parentPath);
             if (resultPath) {
               handleSelectFile(resultPath);
-              const rootHandle = fileExplorer.dirHandleRef.current;
-              if (rootHandle) {
-                linkManager.updateDocumentLinks(rootHandle, resultPath, "").catch(() => {});
-                searchManager.addDoc(resultPath, "doc", { body: "" });
-              }
+              linkManager.updateDocumentLinks(resultPath, "").catch(() => {});
+              searchManager.addDoc(resultPath, "doc", { body: "" });
             }
             return resultPath;
           }}
@@ -1619,8 +1597,7 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
               await cleanupAttachmentsForPath(path);
               await fileExplorer.deleteFile(path);
               if (path.endsWith(".md")) {
-                // TODO 28b: migrate removeDocumentFromIndex to take no rootHandle.
-                await linkManager.removeDocumentFromIndex(fileExplorer.dirHandleRef.current as FileSystemDirectoryHandle, path).catch(
+                  await linkManager.removeDocumentFromIndex(path).catch(
                   (e) => reportError(e, `Updating link index after deleting ${path}`)
                 );
               }

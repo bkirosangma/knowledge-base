@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { useDocumentContent } from './useDocumentContent'
-import { MockDir } from '../../../shared/testUtils/fsMock'
-import { RepositoryProvider } from '../../../shell/RepositoryContext'
+import { MockDir, MockFile, MockFileHandle } from '../../../shared/testUtils/fsMock'
+import { StubRepositoryProvider, type Repositories } from '../../../shell/RepositoryContext'
+import { FileSystemError } from '../../../domain/errors'
 import { ShellErrorProvider } from '../../../shell/ShellErrorContext'
 import {
   saveDocumentDraft,
@@ -36,12 +37,47 @@ afterEach(() => {
   localStorage.clear()
 })
 
+function makeDocumentRepo(dir: MockDir) {
+  return {
+    async read(path: string): Promise<string> {
+      const parts = path.split('/')
+      let node = dir
+      for (const part of parts.slice(0, -1)) {
+        if (!node.dirs.has(part)) throw new FileSystemError('not-found', `${part} not found`)
+        node = node.dirs.get(part)!
+      }
+      const name = parts[parts.length - 1]
+      if (!node.files.has(name)) throw new FileSystemError('not-found', `${name} not found`)
+      return node.files.get(name)!.file.data
+    },
+    async write(path: string, fileContent: string): Promise<void> {
+      const parts = path.split('/')
+      let node = dir
+      for (const part of parts.slice(0, -1)) {
+        if (!node.dirs.has(part)) {
+          const sub = new MockDir(part)
+          node.dirs.set(part, sub)
+        }
+        node = node.dirs.get(part)!
+      }
+      const name = parts[parts.length - 1]
+      if (node.files.has(name)) {
+        node.files.get(name)!.file.data = fileContent
+      } else {
+        node.files.set(name, new MockFileHandle(name, new MockFile(fileContent)))
+      }
+    },
+  }
+}
+
 function renderDocContent(filePath: string | null) {
   const wrapper = ({ children }: { children: ReactNode }) => {
-    const inner = createElement(RepositoryProvider, {
-      rootHandle: root as unknown as FileSystemDirectoryHandle,
-      children,
-    })
+    const stub: Repositories = {
+      attachment: null, attachmentLinks: null, diagram: null,
+      document: makeDocumentRepo(root), linkIndex: null, svg: null, svgRefs: null,
+      tab: null, tabRefs: null, vaultConfig: null, vaultIndex: null,
+    }
+    const inner = createElement(StubRepositoryProvider, { value: stub, children })
     return createElement(ShellErrorProvider, { children: inner })
   }
   return renderHook(({ p }) => useDocumentContent(p), {

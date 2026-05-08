@@ -64,6 +64,7 @@ function makeWrapper(opts: HarnessOpts) {
     tab: null,
     tabRefs: null,
     vaultConfig: null,
+    vaultIndex: null,
   };
   const reportError = opts.reportError ?? vi.fn();
   const Wrapper = ({ children }: { children: ReactNode }) => {

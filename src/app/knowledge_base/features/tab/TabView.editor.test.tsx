@@ -100,6 +100,7 @@ function Wrap({
           svg: null,
           svgRefs: null,
           vaultConfig: null,
+          vaultIndex: null,
           tab: { read, write: vi.fn() },
           tabRefs: tabRefs as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         }}

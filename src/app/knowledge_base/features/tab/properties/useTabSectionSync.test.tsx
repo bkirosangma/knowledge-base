@@ -23,6 +23,7 @@ function makeWrapper(tabRefs: Repositories["tabRefs"] = null) {
   const stub: Repositories = {
     attachment: null, attachmentLinks: null, document: null, diagram: null,
     linkIndex: null, svg: null, svgRefs: null, vaultConfig: null,
+    vaultIndex: null,
     tab: null, tabRefs,
   };
   const Wrapper = ({ children }: { children: ReactNode }) =>

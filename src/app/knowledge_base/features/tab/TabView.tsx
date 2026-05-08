@@ -76,10 +76,9 @@ export interface TabViewProps {
   onPreviewDocument?: (path: string) => void;
   onDetachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
   onAttachDocument?: (docPath: string, entityType: "tab" | "tab-section" | "tab-track", entityId: string) => void;
-  onCreateDocument?: (rootHandle: FileSystemDirectoryHandle, path: string) => Promise<unknown>;
+  onCreateDocument?: (path: string) => Promise<unknown>;
   getDocumentsForEntity?: (entityType: string, entityId: string) => DocumentMeta[];
   allDocPaths?: string[];
-  rootHandle?: FileSystemDirectoryHandle | null;
   onMigrateAttachments?: (
     filePath: string,
     migrations: { from: string; to: string }[],
@@ -100,7 +99,6 @@ export function TabView({
   onCreateDocument,
   getDocumentsForEntity,
   allDocPaths,
-  rootHandle,
   onMigrateAttachments,
   onTabExportReady,
   detachAttachmentsFor,
@@ -496,9 +494,9 @@ export function TabView({
             onAttachDocument(path, pickerTarget.type, pickerTarget.id);
           }}
           onCreate={
-            rootHandle && onCreateDocument
+            onCreateDocument
               ? async (path) => {
-                  await onCreateDocument(rootHandle, path);
+                  await onCreateDocument(path);
                   onAttachDocument(path, pickerTarget.type, pickerTarget.id);
                 }
               : undefined
