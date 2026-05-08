@@ -284,3 +284,9 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.17-03** ✅ **Initialize button calls `vaultConfigRepo.init`** — clicking the splash's **Initialize Vault** button calls `vaultConfigRepo.init(name)` for the open folder. _(unit: `UninitializedVaultSplash.test.tsx`)_
 - **SHELL-1.17-04** ✅ **Splash dismisses on successful init** — after a successful `init`, the host re-evaluates `vaultStatus` and the splash unmounts; the explorer + panes mount in its place. _(unit: `knowledgeBase.initGuard.test.tsx`)_
 - **SHELL-1.17-05** ✅ **"Open a different folder" re-runs the picker** — clicking the secondary action calls the bridge picker so the user can choose another folder without initializing the current one. _(unit: `UninitializedVaultSplash.test.tsx`)_
+
+## 1.18 Tauri Build / CI (MVP-1d)
+
+> macOS Tauri debug build job added in MVP-1d (`.github/workflows/ci.yml` `tauri-build` job). Runs on `macos-latest`; executes `npm run build` (static export) then `cargo build --manifest-path src-tauri/Cargo.toml` to verify the Rust shell compiles against the front-end bundle on every PR.
+
+- **SHELL-1.18-01** ❌ **Tauri debug bundle builds in CI on macOS-latest** — the `tauri-build` job in `.github/workflows/ci.yml` completes green on a PR targeting `main`; both `npm run build` (static export to `out/`) and `cargo build` (Rust debug bundle) exit 0.

@@ -51,7 +51,6 @@ import CommandPalette from "./shared/components/CommandPalette";
 import { useRecentFiles } from "./shared/hooks/useRecentFiles";
 import { useTheme } from "./shared/hooks/useTheme";
 import { useViewport } from "./shared/hooks/useViewport";
-import { useOfflineCache } from "./shared/hooks/useOfflineCache";
 import MobileShell from "./shell/MobileShell";
 import ServiceWorkerRegister from "./shell/ServiceWorkerRegister";
 import { UninitializedVaultSplash } from "./shared/components/UninitializedVaultSplash";
@@ -272,8 +271,6 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
   const { isMobile } = useViewport();
   // (Removed: FSA-availability guard — Tauri replaces FSA. UnsupportedBrowserCard
   // and its render branch deleted as part of MVP-1d cleanup.)
-  // Offline cache for last 10 recents (best-effort).
-  useOfflineCache({ tree: fileExplorer.tree }); // TODO MVP-1d: remove this callsite entirely
   // Cached flatten of every vault path; stable across non-tree renders so
   // consumers (wiki-link router, DocumentView) skip a per-render walk.
   const allPaths = useAllPaths(fileExplorer.tree);
