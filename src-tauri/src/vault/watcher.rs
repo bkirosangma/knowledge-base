@@ -24,7 +24,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialises_with_camel_case_keys_and_lowercase_kind() {
+    fn serialises_with_camel_case_keys_and_snake_case_kind() {
         let evt = VaultChangeEvent {
             kind: ChangeKind::Renamed,
             path: "notes/b.md".into(),
