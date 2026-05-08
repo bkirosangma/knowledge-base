@@ -15,7 +15,7 @@ If the user says anything like *"continue from this doc"*, *"take the next task"
 3. Check open PRs (`gh pr list --state open`). If a Tauri-Claude-Integration PR is open, ask the user whether to wait or stack a follow-up branch.
 4. **If a previous MVP just merged**, run the **Post-merge cleanup protocol** below, *then* read the next MVP's plan and dispatch.
 5. Read the spec and the next MVP's plan file.
-6. **Branch first** (`git checkout -b feat/tauri-mvp<id>-<slug>` — see **Branch convention** below), then execute via subagents (`superpowers:subagent-driven-development`).
+6. **Branch first** (`git checkout -b feat/tauri-mvp<id>-<slug>` — see **Branch convention** below), then execute via subagents (`superpowers:subagent-driven-development`) — do not ask "subagent or inline?", that's the default.
 7. Honour every rule in **Project conventions** (branch-per-task, main protected, no worktrees, etc.).
 8. After the task / MVP merges, **update this doc** per the **Doc-update protocol** — same branch as the cleanup, same PR.
 
@@ -35,7 +35,11 @@ git pull --ff-only
 git log --oneline -3                     # verify the merge commit is present
 
 # 2. Delete the merged local branch.
+#    Try `-d` first; if it refuses (squash-merge case), confirm the remote is
+#    gone via `git branch -vv` showing `[origin/<branch>: gone]`, then use `-D`.
 git branch -d feat/tauri-mvp<id>-<slug>   # exact name from the PR you just merged
+# or, if the remote is verifiably gone (auto-deleted on merge):
+#   git branch -D feat/tauri-mvp<id>-<slug>
 
 # 3. Prune stale remote refs.
 git remote prune origin
@@ -195,6 +199,8 @@ These are non-negotiable; don't relitigate them mid-MVP.
 - **Don't skip hooks.** No `--no-verify` on commits, no `-c commit.gpgsign=false`. If a pre-commit hook fails, fix the root cause and create a NEW commit (never amend a hook-failed commit).
 - **POSIX-relative paths only across IPC** (spec § 6.5). Frontend never sees absolute paths.
 - **Cross-platform discipline** (spec § 5). Code is macOS-only-shipping but Linux-port-clean: `tauri::path::*` or `dirs` for OS paths, `Command::new("claude")` for binary lookup, no macOS-only Tauri plugins.
+- **Subagent-driven execution is the default** (added 2026-05-08 per user). When picking up the next MVP from this doc, dispatch via `superpowers:subagent-driven-development` immediately — do not pause to ask "subagent or inline?". The user will redirect if a different approach is wanted.
+- **`git branch -D` is permitted when the remote branch is gone** (added 2026-05-08 per user). Pre-condition: `git fetch --prune origin` (or the auto-prune that runs during `git pull`) shows the remote branch deleted (`[origin/<branch>: gone]` in `git branch -vv`, or absent from `git ls-remote origin <branch>`). When that's true, the local branch is a leftover of a squash-merge and `git branch -D feat/tauri-mvp<id>-<slug>` is safe and pre-authorized. Otherwise (remote still exists, no PR merged, or remote unverifiable) the original "no `-D` without explicit say-so" rule still stands.
 
 ---
 
