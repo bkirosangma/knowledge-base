@@ -19,6 +19,9 @@ pub enum ChangeKind {
     Renamed,
 }
 
+// Sentinel so the production module is non-empty until Task 3 lands more code.
+pub(crate) fn _root_marker(_: &PathBuf) {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -48,6 +51,3 @@ mod tests {
         assert_eq!(json, r#"{"kind":"created","path":"notes/c.md"}"#);
     }
 }
-
-// Sentinel so the production module is non-empty until Task 3 lands more code.
-pub(crate) fn _root_marker(_: &PathBuf) {}
