@@ -1,3 +1,5 @@
+import { tauriBridge } from "../../infrastructure/tauriBridge";
+
 export interface HistoryEntry<T> {
   id: number;
   description: string;
@@ -41,60 +43,29 @@ function historyFileNameLegacy(filePath: string): string {
   return dir ? `${dir}/${histName}` : histName;
 }
 
-export async function resolveParentHandle(
-  rootHandle: FileSystemDirectoryHandle,
-  filePath: string,
-): Promise<FileSystemDirectoryHandle> {
-  const parts = filePath.split("/").filter(Boolean);
-  parts.pop();
-  let current = rootHandle;
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part);
-  }
-  return current;
-}
-
 export async function readHistoryFile<T>(
-  rootHandle: FileSystemDirectoryHandle,
   filePath: string,
 ): Promise<HistoryFile<T> | null> {
   try {
-    const histPath = historyFileName(filePath);
-    const parentHandle = await resolveParentHandle(rootHandle, histPath);
-    const fileName = histPath.split("/").pop()!;
-    try {
-      const fileHandle = await parentHandle.getFileHandle(fileName);
-      const file = await fileHandle.getFile();
-      const text = await file.text();
-      return JSON.parse(text) as HistoryFile<T>;
-    } catch {
-      // Migration: fall back to legacy name for sidecars created before
-      // extension-specific naming was introduced to prevent .json/.md collision.
-      const legacyName = historyFileNameLegacy(filePath).split("/").pop()!;
-      const legacyHandle = await parentHandle.getFileHandle(legacyName);
-      const legacyFile = await legacyHandle.getFile();
-      const legacyText = await legacyFile.text();
-      return JSON.parse(legacyText) as HistoryFile<T>;
-    }
+    const text = await tauriBridge.readText(historyFileName(filePath));
+    return JSON.parse(text) as HistoryFile<T>;
   } catch {
-    return null;
+    try {
+      const legacyText = await tauriBridge.readText(historyFileNameLegacy(filePath));
+      return JSON.parse(legacyText) as HistoryFile<T>;
+    } catch {
+      return null;
+    }
   }
 }
 
 export async function writeHistoryFile<T>(
-  rootHandle: FileSystemDirectoryHandle,
   filePath: string,
   data: HistoryFile<T>,
 ): Promise<void> {
   try {
-    const histPath = historyFileName(filePath);
-    const parentHandle = await resolveParentHandle(rootHandle, histPath);
-    const fileName = histPath.split("/").pop()!;
-    const fileHandle = await parentHandle.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(data));
-    await writable.close();
+    await tauriBridge.writeText(historyFileName(filePath), JSON.stringify(data));
   } catch {
-    // Silently ignore write failures
+    // Silently ignore write failures — matches FSA-era behaviour.
   }
 }
