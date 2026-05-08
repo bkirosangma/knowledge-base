@@ -4,7 +4,6 @@ import {
   readTextFile,
   writeTextFile,
   getSubdirectoryHandle,
-  renameSidecar,
   propagateRename,
   propagateMoveLinks,
   type LinkPropagator,
@@ -128,40 +127,6 @@ describe('getSubdirectoryHandle', () => {
     // slashes and `//` collapse away.
     const result = await getSubdirectoryHandle(asRoot(root), '/a/b/', true)
     expect((result as unknown as MockDir).name).toBe('b')
-  })
-})
-
-describe('renameSidecar (HOOK-6.1-10)', () => {
-  it('migrates legacy sidecar (.old.history.json) to new name (.new.json.history.json)', async () => {
-    const dir = new MockDir()
-    dir.files.set('.old.history.json', new MockFileHandle('.old.history.json', new MockFile('{"entries":[]}')))
-    await renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'old.json', 'new.json')
-    expect(dir.files.has('.old.history.json')).toBe(false)
-    expect(dir.files.get('.new.json.history.json')!.file.data).toBe('{"entries":[]}')
-  })
-
-  it('is a no-op when no sidecar exists (new file, no history yet)', async () => {
-    const dir = new MockDir()
-    await expect(
-      renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'foo.json', 'bar.json')
-    ).resolves.toBeUndefined()
-    expect(dir.files.size).toBe(0)
-  })
-
-  it('preserves sidecar content exactly', async () => {
-    const histJson = JSON.stringify({ checksum: 'abc', currentIndex: 2, savedIndex: 1, entries: [1, 2, 3] })
-    const dir = new MockDir()
-    dir.files.set('.diagram.json.history.json', new MockFileHandle('.diagram.json.history.json', new MockFile(histJson)))
-    await renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'diagram.json', 'renamed.json')
-    expect(dir.files.get('.renamed.json.history.json')!.file.data).toBe(histJson)
-  })
-
-  it('works for files without the .json extension in the name', async () => {
-    const dir = new MockDir()
-    dir.files.set('.foo.history.json', new MockFileHandle('.foo.history.json', new MockFile('data')))
-    await renameSidecar(dir as unknown as FileSystemDirectoryHandle, 'foo', 'bar')
-    expect(dir.files.has('.foo.history.json')).toBe(false)
-    expect(dir.files.get('.bar.history.json')!.file.data).toBe('data')
   })
 })
 

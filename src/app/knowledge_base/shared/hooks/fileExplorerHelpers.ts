@@ -8,7 +8,7 @@
  * 1. **Tree / naming** — `isDiagramData`, `uniqueName`, `collectFilePaths`,
  *    `findChildren`. Pure functions of `TreeNode[]`.
  * 2. **File I/O (FSA)** — `readTextFile`, `writeTextFile`,
- *    `getSubdirectoryHandle`, `renameSidecar`. Still used in test fixtures;
+ *    `getSubdirectoryHandle`. Still used in test fixtures;
  *    will be retired when the FSA test layer is removed.
  * 3. **Link propagation** — `propagateRename`, `propagateMoveLinks`.
  *    Path-only; no FSA handles.
@@ -176,38 +176,4 @@ export async function propagateMoveLinks(
       await propagateRename(documentRepo, oldFilePath, newFilePath, lm);
     } catch { /* skip: one file's index failure doesn't block the rest */ }
   }
-}
-
-/**
- * Rename the undo-history sidecar that lives alongside a diagram file.
- * The sidecar is a hidden dotfile: `foo.json` → `.foo.history.json`.
- * Best-effort: silently does nothing if the sidecar is absent or the rename fails.
- * TODO MVP-1d: delete with FSA layer (history sidecar goes away).
- */
-export async function renameSidecar(
-  parentHandle: FileSystemDirectoryHandle,
-  oldFileName: string,
-  newFileName: string,
-): Promise<void> {
-  const newSidecar = `.${newFileName}.history.json`;
-  // Try new naming (with extension) first, then fall back to legacy naming.
-  const oldSidecarCandidates = [
-    `.${oldFileName}.history.json`,
-    `.${oldFileName.replace(/\.(json|md)$/, "")}.history.json`,
-  ];
-  for (const oldSidecar of oldSidecarCandidates) {
-    try {
-      const oldHandle = await parentHandle.getFileHandle(oldSidecar);
-      const content = await (await oldHandle.getFile()).text();
-      const newHandle = await parentHandle.getFileHandle(newSidecar, { create: true });
-      const writable = await newHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
-      await parentHandle.removeEntry(oldSidecar);
-      return;
-    } catch {
-      // Try next candidate
-    }
-  }
-  // No sidecar exists or rename failed — best-effort
 }
