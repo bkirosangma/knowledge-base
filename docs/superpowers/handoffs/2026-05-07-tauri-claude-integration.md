@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-08 (Spec + MVP-1a plan committed on `feat/tauri-claude-integration`. Spec covers all 5 MVPs at the feature level: MVP-1 Tauri shell migration with sub-MVPs 1a→1d, MVP-2 Claude subprocess integration, MVP-3 skill bootstrap + `/kb` invocation, MVP-4 test infrastructure, MVP-5 promotion of FSA-picker-blocked test cases. MVP-1a plan enumerates 30 tasks. Handoff doc created. No implementation has landed yet — next action is to kick off MVP-1a.)
+**Last updated:** 2026-05-08 (MVP-1a merged via PR #149 — Tauri 2 desktop shell + Rust VFS adapter shipped on `main` at commit `844a474`. CI's Playwright `e2e` job is parked until MVP-4 restores it on `tauri-plugin-webdriver`. Currently on `feat/tauri-mvp1b-file-watcher` with the MVP-1b plan written; next action is to execute the 14-task file-watcher plan via subagent-driven-development.)
 
 ---
 
@@ -85,7 +85,7 @@ ls docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md
 ls docs/superpowers/plans/2026-05-07-tauri-*.md 2>/dev/null
 ```
 
-This puts you on the latest `main`, lists open PRs, shows recent merge commits, and lists the spec + per-MVP plan files (only MVP-1a's plan exists today — subsequent MVPs get their plans written when their turn comes).
+This puts you on the latest `main`, lists open PRs, shows recent merge commits, and lists the spec + per-MVP plan files (MVP-1a + MVP-1b plans exist today — later MVPs get their plans written when their turn comes).
 
 ---
 
@@ -101,8 +101,8 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 | MVP | Plan file | Status |
 |---|---|---|
-| **MVP-1a** | Tauri scaffold + Rust VFS adapter | `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` | ⏳ Not started. |
-| **MVP-1b** | File watching | _not yet written; due after MVP-1a merges_ | ⏳ Not started. |
+| **MVP-1a** | Tauri scaffold + Rust VFS adapter | `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` | ✅ Merged via PR #149 (`844a474` on `main`). |
+| **MVP-1b** | File watching | `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` | 🚧 In progress on `feat/tauri-mvp1b-file-watcher`. |
 | **MVP-1c** | Settings, vault management, basic init | _not yet written; due after MVP-1b merges_ | ⏳ Not started. |
 | **MVP-1d** | Cleanup, bundle, CI | _not yet written; due after MVP-1c merges_ | ⏳ Not started. |
 | **MVP-2** | Claude subprocess integration | _not yet written; due after MVP-1d merges_ | ⏳ Not started. |
@@ -112,7 +112,8 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 
 ### Implementation
 
-No implementation has landed yet. First task: **MVP-1a**.
+- **MVP-1a (merged via PR #149, `844a474` on `main`)** — Tauri 2 desktop shell hosting the existing Next.js app; Rust vault adapter (12 commands) under `src-tauri/src/vault/`; per-repo Tauri implementations under `src/app/knowledge_base/infrastructure/*RepoTauri.ts`; `RepositoryProvider` swapped from `rootHandle` → `vaultPath`; `useFileExplorer` swapped from `showDirectoryPicker` → `vault_pick`; FSA-availability gate removed from `knowledgeBase.tsx`; CI's Playwright `e2e` job parked until MVP-4.
+- **MVP-1b (in progress on `feat/tauri-mvp1b-file-watcher`)** — file-watcher plan written; execution pending.
 
 ---
 
@@ -155,15 +156,25 @@ Each MVP merges via PR (main is protected) before the next begins. The spec bran
 
 ## Reference architecture
 
-_Empty until MVP-1a starts landing files. Once code begins arriving, this section becomes the map of new files / hooks / components introduced._
+Map of files introduced or touched by the migration, by MVP. Update as code arrives.
 
-Anchors that already exist in the codebase and the migration touches:
+**Landed (MVP-1a):**
 
-- **Repository interfaces** — `src/app/knowledge_base/domain/repositories.ts` (10 typed contracts; the seam for the Tauri swap; do not change shape).
-- **Existing FSA infrastructure** — `src/app/knowledge_base/infrastructure/*Repo.ts` (10 files, kept on disk through MVP-1a–1c, deleted in MVP-1d).
-- **Provider** — `src/app/knowledge_base/shell/RepositoryContext.tsx` (prop swap from `rootHandle` to `vaultPath` in MVP-1a).
-- **Vault picker / hook** — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts` (FSA picker swap in MVP-1a).
-- **File watcher** — `src/app/knowledge_base/shared/context/FileWatcherContext.tsx` (body swap to `notify`-backed events in MVP-1b).
+- **Rust shell** — `src-tauri/Cargo.toml`, `src-tauri/src/{main,lib}.rs`, `src-tauri/tauri.conf.json`, `src-tauri/build.rs`, `src-tauri/icons/**`.
+- **Vault adapter (Rust)** — `src-tauri/src/vault/{mod,commands,error,io,path}.rs`. 12 commands: `vault_pick`, `vault_set_root`, `vault_read_text`, `vault_write_text`, `vault_read_json`, `vault_write_json`, `vault_list`, `vault_rename`, `vault_delete`, `vault_exists`, `vault_read_bytes`, `vault_write_bytes`.
+- **Typed bridge** — `src/app/knowledge_base/infrastructure/tauriBridge.ts` (translates `VaultError` → `FileSystemError`).
+- **Per-repo Tauri implementations** — `src/app/knowledge_base/infrastructure/*RepoTauri.ts` (10 files: document, diagram, svg, tab, attachment, attachmentLinks, linkIndex, vaultConfig, svgRefs, tabRefs) plus `vaultIndexRepoTauri.ts` and the still-present `vaultIndexRepoFsa.ts` (latter deleted in MVP-1d).
+- **Provider seam** — `src/app/knowledge_base/shell/RepositoryContext.tsx` (`rootHandle` → `vaultPath`).
+- **Vault picker hook** — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts` (`vault_pick` instead of `showDirectoryPicker`).
+
+**MVP-1b targets (in progress):**
+
+- **File watcher (Rust)** — `src-tauri/src/vault/watcher.rs` (new), `notify` + `notify-debouncer-full` deps, 2 new commands (`vault_watch_start`, `vault_watch_stop`), `vault_change` events with `{ kind, path, oldPath? }` payload.
+- **File watcher (frontend)** — `src/app/knowledge_base/shared/context/FileWatcherContext.tsx` (body swap to `listen('vault_change', ...)`; same public API; new required prop `vaultPath: string | null`).
+- **Bridge additions** — `tauriBridge.watchStart()` / `tauriBridge.watchStop()`.
+
+**Deferred / future MVPs:**
+
 - **Vault config helpers** — `src/app/knowledge_base/features/document/utils/vaultConfig.ts` (used by MVP-1c basic-init button).
 - **Footer** — `src/app/knowledge_base/shell/Footer.tsx` (gains `ClaudeStatusLine` + chat toggle icon in MVP-2).
 - **Bundled skill source** — `<project>/skills/knowledge-base/` (resource-bundled by MVP-3 build wiring).
@@ -206,22 +217,22 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 ## Next Action
 
-**Kick off MVP-1a — Tauri scaffold + Rust VFS adapter.**
+**Kick off MVP-1b — Native debounced file watcher.**
 
-1. Read the plan: `docs/superpowers/plans/2026-05-07-tauri-mvp1a-scaffold-plan.md` (30 tasks).
-2. Skim the spec section it implements: `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md` § 6.1.
-3. Branch — **base off `feat/tauri-claude-integration`, not `main`** (one-time exception, see note below):
-
-   ```bash
-   git checkout feat/tauri-claude-integration
-   git pull --ff-only origin feat/tauri-claude-integration   # if you've never had it locally
-   git checkout -b feat/tauri-mvp1a-scaffold
-   ```
-
-   The spec, MVP-1a plan, and this handoff doc live as three commits on `feat/tauri-claude-integration` and have not yet reached `main`. Branching MVP-1a off the spec branch carries those commits into MVP-1a's PR so they merge to `main` alongside the first slice of implementation — the user's preference is to "ride with code" (no doc-only PRs).
-
+1. Read the plan: `docs/superpowers/plans/2026-05-08-tauri-mvp1b-file-watcher-plan.md` (14 tasks).
+2. Skim the spec section it implements: `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md` § 6.2.
+3. Branch is already created: `feat/tauri-mvp1b-file-watcher`, based on `main` at `844a474`.
 4. Execute via `superpowers:subagent-driven-development` — fresh subagent per task, two-stage review between tasks.
-5. After all 30 tasks pass review, follow the plan's Task 30 to push and open the PR.
-6. Once merged, run the **Post-merge cleanup protocol** above, then write the MVP-1b plan and start it. **From MVP-1b onward, base each new branch on `main`** (the meta commits are already there).
+5. After all 14 tasks pass review, follow the plan's Task 14 to push and open the PR.
+6. Once merged, run the **Post-merge cleanup protocol** above, then write the MVP-1c plan and start it.
 
-**Ship target for MVP-1a:** the app launches via `npx tauri dev`, the user picks a vault folder via the OS-native dialog, the existing knowledge-base UI loads, and basic editing flows (read/write/list/rename/delete) work via Rust commands instead of the File System Access API. File watching, settings persistence, vault switcher UI, and uninitialized-folder splash all stay deliberately deferred to subsequent sub-MVPs.
+**Ship target for MVP-1b:** the app's UI reacts to filesystem changes within ~1 s without a polling timer. Editing, creating, deleting, or renaming a file in the vault from outside the app surfaces the change in the UI. The 5 s/30 s polling cadence and idle/visibility/input plumbing in `FileWatcherContext` are gone; subscribers register the same way and `lastSyncedAt` continues to drive the "Last synced" chip.
+
+**Patterns from MVP-1a worth reusing:**
+
+- **Rust state via `Arc<…>` + `manage()`**: see `src-tauri/src/main.rs` for the existing pattern with `VaultState`. The new `WatcherState = Arc<Watcher>` follows the same shape.
+- **`call()` helper in `tauriBridge.ts`** (lines ~57–73): every `vault_*` command goes through it for unified `VaultError` translation. The two new `watchStart`/`watchStop` wrappers must use the same helper.
+- **TDD with `tempfile::TempDir`** in `src-tauri/src/vault/io.rs` tests: spin a temp vault root, exercise the function, assert. The watcher tests follow the same shape but with `tokio::time::sleep` to let events settle.
+- **Vitest with `vi.mock("@tauri-apps/api/core")`** in `tauriBridge.test.ts`: the new `FileWatcherContext.test.tsx` adds a sibling mock for `@tauri-apps/api/event`'s `listen`.
+
+If you're starting cold, `cd "/Users/kiro/My Projects/knowledge-base" && git checkout feat/tauri-mvp1b-file-watcher` then read the plan from the top.
