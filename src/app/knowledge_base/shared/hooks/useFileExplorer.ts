@@ -126,6 +126,19 @@ export function useFileExplorer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath]);
 
+  // Re-scan when repos.vaultIndex transitions from null → populated (after
+  // KnowledgeBaseWithProvider receives the new vaultPath and re-renders the
+  // RepositoryProvider). Without this, a vault pick sets vaultPath but the
+  // first rescan no-ops because repos.vaultIndex is still null at that point.
+  const prevVaultIndexRef = useRef<typeof repos.vaultIndex>(null);
+  useEffect(() => {
+    if (repos.vaultIndex && !prevVaultIndexRef.current && vaultPath) {
+      void rescan();
+    }
+    prevVaultIndexRef.current = repos.vaultIndex;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repos.vaultIndex]);
+
   // Ref tracks the last signature so watcherRescan can skip setTree when nothing changed.
   const prevTreeSigRef = useRef("");
 
