@@ -154,17 +154,25 @@ Shell-level amber banner shown after a save deletes one or more headings that ot
 
 ## 1.10 File Watcher
 
-Background polling primitive that manages a 5-second interval with named subscriber registry, with idle backoff to 30 s after 2 minutes of inactivity and round-robin subscriber staggering across 1-second slots (KB-041). See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx).
+> **MVP-1b (2026-05-08):** The polling-based implementation (5 s / 30 s adaptive cadence, idle/visibility/input backoff, round-robin stagger) is **retired**. `FileWatcherContext` is now event-driven: it listens for `vault_change` Tauri events emitted by the Rust `notify`-debouncer-full watcher (~200 ms coalesce window) and dispatches them to subscribers. The public API (`subscribe`, `unsubscribe`, `refresh`, `lastSyncedAt`) is preserved. Cases SHELL-1.10-01 through SHELL-1.10-09 below are **superseded** by the new event-driven spec. Cases specific to the polling implementation (5 s interval, idle backoff, stagger) are replaced — see new cases 10–15. Full e2e wiring (vault opened in Tauri, real disk changes observed) defers to MVP-4.
 
-- **SHELL-1.10-01** ✅ **Subscribers called on 5s interval** — after mounting `FileWatcherProvider`, registered subscribers fire every 5 seconds. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-02** ✅ **refresh() fires every subscriber on the same tick (no stagger)** — calling `refresh()` invokes all registered subscribers without waiting for the interval AND bypasses the 1-second slot stagger that applies to background polls. Verified with three subscribers: clicking refresh fires all three on the same tick. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-03** ✅ **unsubscribe removes subscriber** — calling `unsubscribe(id)` stops firing the subscriber for future ticks. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-04** ✅ **useFileWatcher throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-05** ✅ **Idle backoff to 30 s after 2 minutes (KB-041)** — with no `keydown`/`pointermove`/`scroll` for >120 s, the next poll is scheduled 30 seconds out instead of 5. Polling continues at 30 s cadence while idle. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-06** ✅ **Input resumes 5 s polling (KB-041)** — once idle and on the 30 s cadence, a `keydown`/`pointermove`/`scroll` event resets the cadence so the very next scheduled poll fires 5 seconds after the input. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-07** ✅ **Subscribers stagger across 1-second slots (KB-041)** — when a poll fires with N subscribers, only the slot-0 subscriber fires immediately; subsequent subscribers fire at +1 s, +2 s, … Verified with three subscribers: only one called at the poll instant, second one second later, third one second after that. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-08** ✅ **Stagger order rotates round-robin across cycles (KB-041)** — across two consecutive polls, the slot-0 subscriber rotates so no single subscriber is permanently last. With three subscribers (A, B, C): cycle 1 fires A→B→C, cycle 2 fires B→C→A. _(FileWatcherContext.test.tsx)_
-- **SHELL-1.10-09** ✅ **`lastSyncedAt` exposed and updates per cycle (KB-041)** — context value includes `lastSyncedAt: number`; initialised at mount time and reset to `Date.now()` after each completed poll cycle. _(FileWatcherContext.test.tsx)_
+See [`src/app/knowledge_base/shared/context/FileWatcherContext.tsx`](../src/app/knowledge_base/shared/context/FileWatcherContext.tsx), [`src-tauri/src/vault/watcher.rs`](../src-tauri/src/vault/watcher.rs).
+
+- **SHELL-1.10-01** 🚫 **Subscribers called on 5s interval** — superseded by MVP-1b event-driven model; 5 s polling is retired. _(was FileWatcherContext.test.tsx; old test deleted)_
+- **SHELL-1.10-02** 🚫 **refresh() fires every subscriber on the same tick (no stagger)** — stagger logic is retired; `refresh()` semantics preserved (fires all subscribers immediately) but the old stagger test is deleted. _(see SHELL-1.10-11)_
+- **SHELL-1.10-03** 🚫 **unsubscribe removes subscriber** — superseded; subscriber registry preserved but old polling-based test deleted. _(see SHELL-1.10-12)_
+- **SHELL-1.10-04** 🚫 **useFileWatcher throws outside provider** — superseded; hook guard preserved, old test deleted. _(see SHELL-1.10-13)_
+- **SHELL-1.10-05** 🚫 **Idle backoff to 30 s after 2 minutes (KB-041)** — polling backoff retired in MVP-1b; no replacement test. _(was FileWatcherContext.test.tsx)_
+- **SHELL-1.10-06** 🚫 **Input resumes 5 s polling (KB-041)** — polling cadence retired; no replacement test. _(was FileWatcherContext.test.tsx)_
+- **SHELL-1.10-07** 🚫 **Subscribers stagger across 1-second slots (KB-041)** — stagger logic retired in MVP-1b. _(was FileWatcherContext.test.tsx)_
+- **SHELL-1.10-08** 🚫 **Stagger order rotates round-robin across cycles (KB-041)** — stagger logic retired. _(was FileWatcherContext.test.tsx)_
+- **SHELL-1.10-09** ✅ **`lastSyncedAt` exposed and updates per event (KB-041)** — context value includes `lastSyncedAt: number`; initialised at mount time and reset to `Date.now()` each time a `vault_change` event is dispatched to subscribers. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-10** ✅ **`vault_change` event dispatches to subscribers** — when a `vault_change` event arrives, all registered subscribers are called with the `VaultChangeEvent` payload. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-11** ✅ **`refresh()` fires every subscriber immediately** — calling `refresh()` invokes all registered subscribers synchronously without waiting for an event. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-12** ✅ **`unsubscribe` removes subscriber** — after `unsubscribe(id)`, the subscriber is not called on subsequent events. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-13** ✅ **`useFileWatcher` throws outside provider** — calling `useFileWatcher()` without a wrapping `FileWatcherProvider` throws with a descriptive message. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-14** ✅ **`watchStop` called on unmount** — when `FileWatcherProvider` unmounts, `tauriBridge.watchStop()` is called to tear down the Rust watcher. _(FileWatcherContext.test.tsx)_
+- **SHELL-1.10-15** ❌ **UI reacts to disk change within ~1 s (e2e)** — full end-to-end: open Tauri shell, create/edit/delete a file on disk from a separate terminal, observe the UI tree updating within ~1 s. Deferred to MVP-4 (requires `tauri-plugin-webdriver`).
 
 ## 1.11 Command Registry & Palette
 

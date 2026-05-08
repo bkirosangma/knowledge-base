@@ -129,7 +129,7 @@ pub struct VaultChangeEvent {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum ChangeKind {
     Created,
     Modified,
@@ -142,7 +142,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialises_with_camel_case_keys_and_lowercase_kind() {
+    fn serialises_with_camel_case_keys_and_snake_case_kind() {
         let evt = VaultChangeEvent {
             kind: ChangeKind::Renamed,
             path: "notes/b.md".into(),
@@ -166,10 +166,9 @@ mod tests {
         assert_eq!(json, r#"{"kind":"created","path":"notes/c.md"}"#);
     }
 }
-
-// Sentinel so the production module is non-empty until Task 3 lands more code.
-pub(crate) fn _root_marker(_: &PathBuf) {}
 ```
+
+Place the `pub(crate) fn _root_marker(_: &PathBuf) {}` sentinel **above** the `#[cfg(test)] mod tests { … }` block (clippy's `items_after_test_module` lint fires on production items placed below a test module). The full layout, top-to-bottom, becomes: `use` imports → `VaultChangeEvent` struct → `ChangeKind` enum → sentinel `_root_marker` → `#[cfg(test)] mod tests`.
 
 - [ ] **Step 2: Wire the module**
 
@@ -214,7 +213,12 @@ use std::path::{Path, PathBuf};
 
 /// Translate a debounced batch into 0..N `VaultChangeEvent`s with vault-relative POSIX paths.
 /// Pure (no I/O, no Tauri).
-pub(crate) fn to_vault_changes(events: Vec<DebouncedEvent>, root: &Path) -> Vec<VaultChangeEvent> {
+///
+/// Visibility is `pub` (not `pub(crate)`) because Task 4's `tests/watcher_integration.rs`
+/// integration test compiles as a separate crate and would otherwise fail to link.
+/// Clippy's `dead_code` lint also fires on `pub(crate)` symbols whose only callers are
+/// `#[cfg(test)]` blocks under `cargo clippy --lib`.
+pub fn to_vault_changes(events: Vec<DebouncedEvent>, root: &Path) -> Vec<VaultChangeEvent> {
     let mut out = Vec::with_capacity(events.len());
     for ev in events {
         let Some(kind) = classify(&ev.event.kind) else { continue };
