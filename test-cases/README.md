@@ -121,20 +121,27 @@ Section numbering matches `Features.md` exactly. If `Features.md` gains a new se
 
 ## Current coverage snapshot
 
-_Snapshot at 2026-04-25 (feat/file-watching review fixes: ToastContext, ConflictBanner, useReadOnlyState→shared/hooks; 9 new ✅ cases added). Regenerate with the one-liner at the bottom of this section after each bucket lands._
+_Snapshot at 2026-05-09 (mvp-4 task 17: bookkeeping flips for the new test-infra proof set — TERM-14.7-01 🚫→✅, DOC-4.11-07 🟡→✅, LINK-5.4-01/LINK-5.1-01 citations appended). Regenerate with the one-liner at the bottom of this section after each bucket lands._
 
 | File | ✅ | 🟡 | 🧪 | ❌ | 🚫 | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| 01-app-shell.md | 59 | 12 | 3 | 1 | 5 | 80 |
-| 02-file-system.md | 79 | 8 | 0 | 3 | 5 | 95 |
-| 03-diagram.md | 178 | 35 | 0 | 37 | 3 | 253 |
-| 04-document.md | 170 | 34 | 3 | 9 | 32 | 248 |
-| 05-links-and-graph.md | 21 | 0 | 5 | 9 | 0 | 35 |
-| 06-shared-hooks.md | 104 | 0 | 0 | 0 | 0 | 104 |
-| 07-persistence.md | 36 | 7 | 0 | 1 | 7 | 51 |
-| **Total** | **647** | **96** | **11** | **60** | **52** | **866** |
+| 01-app-shell.md | 119 | 14 | 25 | 24 | 13 | 195 |
+| 02-file-system.md | 108 | 9 | 5 | 17 | 5 | 144 |
+| 03-diagram.md | 213 | 35 | 3 | 38 | 4 | 293 |
+| 04-document.md | 250 | 35 | 22 | 9 | 33 | 349 |
+| 05-links-and-graph.md | 58 | 0 | 9 | 9 | 14 | 90 |
+| 06-shared-hooks.md | 103 | 0 | 0 | 3 | 2 | 108 |
+| 07-persistence.md | 38 | 5 | 0 | 1 | 7 | 51 |
+| 08-search.md | 25 | 0 | 12 | 0 | 1 | 38 |
+| 09-export.md | 15 | 0 | 8 | 0 | 2 | 25 |
+| 10-first-run.md | 0 | 0 | 0 | 0 | 13 | 13 |
+| 11-tabs.md | 165 | 2 | 3 | 7 | 3 | 180 |
+| 12-claude-chat.md | 10 | 28 | 0 | 7 | 0 | 45 |
+| 13-skills.md | 41 | 0 | 0 | 0 | 0 | 41 |
+| 14-terminal.md | 26 | 0 | 0 | 0 | 0 | 26 |
+| **Total** | **1171** | **128** | **87** | **115** | **97** | **1598** |
 
-Covered (✅ + 🟡 + 🧪) = **754 / 866 (87%)**; open gaps (❌) = **60 (7%)**; consciously waived (🚫) = **52 (6%)**.
+Covered (✅ + 🟡 + 🧪) = **1386 / 1598 (87%)**; open gaps (❌) = **115 (7%)**; consciously waived (🚫) = **97 (6%)**.
 
 The 52 🚫 items break down into:
 - **JSDOM geometry blocked** (DOC-4.3-xx, DOC-4.5-xx, DOC-4.7-xx, DOC-4.12-xx) — Tiptap NodeView rendering, `editor.isActive()`, link popover geometry, and read-mode click navigation need a real browser.

@@ -9,11 +9,7 @@ pub fn locate_binary() -> Option<PathBuf> {
 
 /// Run `<bin> --version` and parse the leading semver token. Returns None on failure.
 pub async fn read_version(bin: &PathBuf) -> Option<String> {
-    let output = Command::new(bin)
-        .arg("--version")
-        .output()
-        .await
-        .ok()?;
+    let output = Command::new(bin).arg("--version").output().await.ok()?;
     if !output.status.success() {
         return None;
     }
@@ -75,7 +71,10 @@ mod tests {
 
     #[test]
     fn parse_version_line_strips_trailing_text() {
-        assert_eq!(parse_version_line("2.1.129 (Claude Code)\n").as_deref(), Some("2.1.129"));
+        assert_eq!(
+            parse_version_line("2.1.129 (Claude Code)\n").as_deref(),
+            Some("2.1.129")
+        );
     }
 
     #[test]

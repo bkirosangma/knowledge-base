@@ -285,7 +285,7 @@
 - **DOC-4.11-04** ✅ **Dirty flag cleared after save** — `save` sets `dirty = false` on success.
 - **DOC-4.11-05** ✅ **Dirty flag set on edit** — `updateContent(md)` sets content and flips `dirty = true`. Also covered end-to-end by `e2e/documentGoldenPath.spec.ts` (DOC-4.11-03).
 - **DOC-4.11-06** ✅ **Bridge exposes `save`, `dirty`, `filePath`, `content`** — `bridge.content` / `bridge.dirty` use ref-backed getters (reflect latest state without re-render); `bridge.save` mirrors the hook's `save`.
-- **DOC-4.11-07** 🟡 **`createDocument` writes new file with initial content** — trivially routes `writeTextFile(rootHandle, path, initialContent)`; asserted indirectly via the write helper's tests. Full path exercised in integration tests.
+- **DOC-4.11-07** ✅ **`createDocument` writes new file with initial content** — trivially routes `writeTextFile(rootHandle, path, initialContent)`; asserted indirectly via the write helper's tests. End-to-end path (explorer context menu → New → Document → file lands at `<vault>/untitled.md` on disk) covered by `e2e/document_create.spec.ts`. _(e2e: `e2e/document_create.spec.ts`)_
 - **DOC-4.11-08** ✅ **`attachDocument` records link to entity** — creates a new `DocumentMeta` (or appends to existing) with `{type, id}`; idempotent on duplicate pairs.
 - **DOC-4.11-09** ✅ **`detachDocument` removes link** — removes one `{type, id}` attachment; purges the `DocumentMeta` entirely when no attachments remain; no-op on unknown document.
 - **DOC-4.11-10** ✅ **`getDocumentsForEntity` filters by entity** — returns all `DocumentMeta` whose `attachedTo` includes the `(type, id)` pair.

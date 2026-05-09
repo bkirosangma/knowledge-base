@@ -48,15 +48,15 @@ pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(
 }
 
 #[tauri::command]
-pub async fn term_resize(
-    rows: u16,
-    cols: u16,
-    state: State<'_, TermState>,
-) -> Result<(), String> {
+pub async fn term_resize(rows: u16, cols: u16, state: State<'_, TermState>) -> Result<(), String> {
     let guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
-    let session = guard
-        .as_ref()
-        .ok_or_else(|| "no live term session".to_string())?;
+    // Silent no-op when no session — `useTerminalResize`'s ResizeObserver
+    // fires on mount before `term_open` lands; a missing PTY is benign here
+    // (the next `term_open` will use the right dims). `term_write` keeps the
+    // strict error to surface genuine data-loss bugs.
+    let Some(session) = guard.as_ref() else {
+        return Ok(());
+    };
     session
         .master
         .resize(portable_pty::PtySize {

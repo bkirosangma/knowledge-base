@@ -70,7 +70,8 @@ mod tests {
         // Path includes the "knowledge-base" component and is anchored at .claude/skills.
         let s = path.to_string_lossy();
         assert!(
-            s.ends_with(".claude/skills/knowledge-base") || s.ends_with(".claude\\skills\\knowledge-base"),
+            s.ends_with(".claude/skills/knowledge-base")
+                || s.ends_with(".claude\\skills\\knowledge-base"),
             "got: {s}"
         );
     }

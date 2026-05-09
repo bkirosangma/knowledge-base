@@ -29,6 +29,15 @@ pub enum TermEventPayload {
     Exit,
 }
 
+/// Internal messages produced by the reader task. The production `spawn`
+/// fans these out to `app.emit("term_event", ...)`; the debug-only
+/// `spawn_with_channel` sibling forwards Data bytes to an mpsc channel and
+/// drops Exit (tests close explicitly).
+pub(crate) enum EmitMsg {
+    Data(Vec<u8>),
+    Exit,
+}
+
 /// Spawn `zsh -i -l` in the given vault, auto-type `claude\n`, start the
 /// reader task. Caller must hold the TermState lock.
 pub fn spawn(
@@ -36,6 +45,40 @@ pub fn spawn(
     rows: u16,
     cols: u16,
     app: AppHandle,
+) -> Result<PtySession, String> {
+    spawn_inner(vault_root, rows, cols, move |msg| match msg {
+        EmitMsg::Data(bytes) => {
+            let _ = app.emit("term_event", TermEventPayload::Data { bytes });
+        }
+        EmitMsg::Exit => {
+            let _ = app.emit("term_event", TermEventPayload::Exit);
+        }
+    })
+}
+
+/// Debug-only sibling of `spawn` for Rust integration tests that cannot
+/// construct a real `AppHandle`. Forwards Data byte chunks to `tx`; drops
+/// Exit (tests own session lifetime via `close`).
+#[cfg(debug_assertions)]
+pub fn spawn_with_channel(
+    vault_root: PathBuf,
+    rows: u16,
+    cols: u16,
+    tx: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
+) -> Result<PtySession, String> {
+    spawn_inner(vault_root, rows, cols, move |msg| {
+        if let EmitMsg::Data(bytes) = msg {
+            let _ = tx.send(bytes);
+        }
+        // Exit: silently dropped — tests close the session explicitly.
+    })
+}
+
+fn spawn_inner(
+    vault_root: PathBuf,
+    rows: u16,
+    cols: u16,
+    emit: impl Fn(EmitMsg) + Send + 'static,
 ) -> Result<PtySession, String> {
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -77,25 +120,21 @@ pub fn spawn(
         .try_clone_reader()
         .map_err(|e| format!("try_clone_reader: {e}"))?;
 
-    let reader_app = app.clone();
     let reader_task = tokio::task::spawn_blocking(move || {
         let mut reader = reader;
         let mut buf = [0u8; 4096];
         loop {
             match std::io::Read::read(&mut reader, &mut buf) {
                 Ok(0) => {
-                    let _ = reader_app.emit("term_event", TermEventPayload::Exit);
+                    emit(EmitMsg::Exit);
                     break;
                 }
                 Ok(n) => {
-                    let payload = TermEventPayload::Data {
-                        bytes: buf[..n].to_vec(),
-                    };
-                    let _ = reader_app.emit("term_event", payload);
+                    emit(EmitMsg::Data(buf[..n].to_vec()));
                 }
                 Err(e) => {
                     eprintln!("term reader: {e}");
-                    let _ = reader_app.emit("term_event", TermEventPayload::Exit);
+                    emit(EmitMsg::Exit);
                     break;
                 }
             }

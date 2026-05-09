@@ -1,6 +1,10 @@
 name: CI
 
-# Gates every PR (and push to main) on typecheck + lint + test + build.
+# Gates every PR (and push to main) on four parallel jobs. The e2e job
+# was dropped in MVP-4 after tauri-plugin-webdriver 0.2.1 failed to bind
+# :4444 in 4 different headless-CI configurations (macOS WKWebView; Ubuntu
+# WebKitGTK + xvfb; +dbus; +AT-SPI). Tracking as MVP-4.x deferred — see
+# docs/superpowers/handoffs/2026-05-07-tauri-claude-integration.md.
 
 on:
   pull_request:
@@ -40,25 +44,10 @@ jobs:
       - name: Unit + integration tests
         run: npm run test:run
 
-  # E2E job intentionally disabled in MVP-1a.
-  #
-  # The repository layer migrated from the File System Access API to Tauri's
-  # `invoke()` (see `src/app/knowledge_base/infrastructure/tauriBridge.ts`).
-  # The Playwright suite still boots `npm run dev` in vanilla Chromium and
-  # uses the FSA-shaped `e2e/fixtures/fsMock.ts`, so every spec now fails
-  # with `TypeError: Cannot read properties of undefined (reading 'invoke')`.
-  #
-  # Restoring e2e is MVP-4's deliverable: spin Playwright against
-  # `cargo tauri dev` via `tauri-plugin-webdriver` with `KB_CLAUDE_MODE=stub`
-  # (spec `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md`
-  # § 9). When MVP-4 lands, restore this job (port the steps below from git
-  # history at commit ad26115^) and switch the `runs-on` + setup to whatever
-  # MVP-4 picks for its driver host.
-
   build:
     name: Production build
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -78,17 +67,68 @@ jobs:
       - name: Build
         run: npm run build
 
+  rust-checks:
+    name: Rust fmt · clippy · test (Ubuntu)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    # Owns the Rust quality + integration tier on Linux. Rust compiles 3-5x
+    # faster on Ubuntu than macOS, and the watcher_rename_paired test
+    # (#[cfg(target_os = "linux")]) actually runs here instead of compiling
+    # to nothing.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Tauri Linux deps + zsh
+        # gtk/gdk/glib/cairo/etc. are required just to LINK the crate —
+        # tauri-plugin-webdriver's transitive deps (gtk-sys, gdk-sys) pull
+        # them in even though we don't run the webview here. Same set the
+        # `e2e` job uses, minus xvfb (no runtime display needed for tests).
+        # zsh is required because PTY integration tests spawn `zsh -i -l`.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libxdo-dev \
+            libssl-dev \
+            zsh
+
+      - name: cargo fmt --check
+        run: cd src-tauri && cargo fmt -- --check
+
+      - name: cargo clippy --all-targets
+        # Non-blocking on warnings (5 pre-MVP-4 lints; promote to `-D warnings`
+        # once cleared). See ade2d24 for the list.
+        run: cd src-tauri && cargo clippy --all-targets
+
+      - name: cargo test
+        # Runs unit (78) + term_pty_integration (3) + term_vault_switch (1)
+        # + watcher_integration (4) + watcher_rename_paired (1, linux-only)
+        # = 87 tests on Ubuntu (vs 86 on macOS where rename-paired is gated).
+        run: cd src-tauri && cargo test
+
   tauri-build:
     name: Tauri debug bundle (macOS)
     runs-on: macos-latest
     timeout-minutes: 15
 
-    # Verifies the Rust crate compiles against the real macOS bundle surface.
-    # Typecheck + Vitest run in the `checks` job above (Ubuntu) — duplicating
-    # them here costs ~3 min for no extra signal on a TypeScript/Vitest stack.
-    # `@tauri-apps/cli` is pulled by `npm install` (a precompiled per-platform
-    # binary, not a cargo crate), so we don't need `cargo install tauri-cli`
-    # (~7 min from-source build) — `npm run tauri` invokes that binary directly.
+    # Verifies the Rust crate compiles against the real macOS bundle surface
+    # (the release target). Quality + integration tier (cargo fmt/clippy/test)
+    # runs on Ubuntu in `rust-checks` for speed; this job is purely the
+    # macOS compile-clean signal.
 
     steps:
       - uses: actions/checkout@v4
@@ -113,3 +153,4 @@ jobs:
 
       - name: Build Tauri (debug, no-bundle)
         run: npm run tauri -- build --debug --no-bundle
+
