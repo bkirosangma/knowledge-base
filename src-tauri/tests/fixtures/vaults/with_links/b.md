@@ -1,3 +1,3 @@
 # B
 
-This document is referenced by a.md.
+This document references [[a]].

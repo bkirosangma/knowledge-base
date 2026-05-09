@@ -1,3 +1,3 @@
 # A
 
-This document references [[b]].
+This document stands alone.
