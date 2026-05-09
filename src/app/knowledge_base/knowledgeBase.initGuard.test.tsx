@@ -61,6 +61,8 @@ vi.mock("./infrastructure/settingsStore", () => ({
   getClaudeDrawerHeight: vi.fn(async () => 320),
   getClaudePermissionMode: vi.fn(async () => "acceptEdits"),
   setClaudePermissionMode: vi.fn(async () => undefined),
+  getClaudeSurface: vi.fn(async () => "terminal"),
+  setClaudeSurface: vi.fn(async () => undefined),
 }));
 
 import KnowledgeBase from "./knowledgeBase";

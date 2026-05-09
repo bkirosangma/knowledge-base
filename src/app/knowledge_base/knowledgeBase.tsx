@@ -45,7 +45,7 @@ import Footer from "./shell/Footer";
 import PaneManager, { usePaneManager } from "./shell/PaneManager";
 import type { PaneEntry } from "./shell/PaneManager";
 import { ChatProvider, useChat } from "./features/claude/ChatContext";
-import { ClaudeChatDrawer } from "./features/claude/ClaudeChatDrawer";
+import { ClaudeDrawer } from "./features/claude/ClaudeDrawer";
 import { SKIP_DISCARD_CONFIRM_KEY } from "./shared/constants";
 import { Command, CommandRegistryProvider, useCommandRegistry, useRegisterCommands } from "./shared/context/CommandRegistry";
 import CommandPalette from "./shared/components/CommandPalette";
@@ -1680,10 +1680,11 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
           emptyState={emptyState}
         />
 
-        {/* Claude chat drawer — absolute-positioned, opens upward from the
+        {/* Claude drawer — absolute-positioned, opens upward from the
             bottom over the main content. Default-closed; toggled from the
-            footer button. State lives in ChatProvider (above this tree). */}
-        <ClaudeChatDrawer />
+            footer button. State lives in ChatProvider (above this tree).
+            Renders TerminalDrawer or ClaudeChatDrawer based on claude.surface. */}
+        <ClaudeDrawer vaultPath={fileExplorer.vaultPath} />
       </div>
 
       {/* Footer unmounts in Focus Mode so document content fills the
