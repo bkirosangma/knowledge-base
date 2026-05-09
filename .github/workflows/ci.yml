@@ -179,7 +179,7 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Install Tauri Linux deps + xvfb
+      - name: Install Tauri Linux deps + xvfb + dbus + a11y
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -190,7 +190,10 @@ jobs:
             libsoup-3.0-dev \
             libxdo-dev \
             libssl-dev \
-            xvfb
+            xvfb \
+            dbus-x11 \
+            at-spi2-core \
+            zsh
 
       - name: Install dependencies
         run: npm install --prefer-offline
@@ -210,11 +213,17 @@ jobs:
       # `tauri build --debug`. Building twice would not share artifacts.
       # The macOS `tauri-build` job verifies the release-shaped compile path.
 
-      - name: End-to-end tests (xvfb-wrapped)
+      - name: End-to-end tests (dbus + xvfb)
         env:
           KB_E2E_BACKEND: webdriver
+        # WebKitGTK requires a user dbus session to surface its a11y bus
+        # (AT-SPI). Hosted runners don't start one, so the webview blocks
+        # silently during init and tauri-plugin-webdriver never binds :4444.
+        # `dbus-run-session` spawns a temporary session bus for the wrapped
+        # process tree; xvfb-run nests inside it for the virtual display.
         run: |
-          xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24' \
+          dbus-run-session -- \
+            xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24' \
             npm run test:e2e
 
       - name: Upload Playwright report on failure
