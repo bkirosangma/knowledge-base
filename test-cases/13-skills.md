@@ -1,5 +1,7 @@
 # Test Cases — Skills
 
+> **Note (MVP-3.5):** Skill bootstrap fires regardless of which surface is active (terminal or chat). The cases below apply to both surfaces. Default surface is now the embedded terminal — see `test-cases/14-terminal.md`.
+
 > Mirrors §11.x (Claude Chat Surface, MVP-3 additions) of [Features.md](../Features.md). See [README.md](README.md) for ID scheme and coverage markers.
 
 Skill bootstrap (install-on-first-launch), `/kb` invocation surfaces (slash-command palette in the composer, Skills sheet, vault file picker), and the "Initialize with full template" action that the splash + vault-switcher dropdown surface. MVP-3 surface — see `Features.md` §11.x for the feature catalogue.

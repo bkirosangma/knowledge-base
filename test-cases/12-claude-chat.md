@@ -1,5 +1,7 @@
 # 12 — Claude Chat
 
+> **Note (MVP-3.5):** The chat surface is now the **secondary** surface. The default is the embedded terminal — see `test-cases/14-terminal.md` and `Features.md` §11.y. Cases below cover the chat surface in its parked state (still functional, accessible via the "Toggle Claude surface" command palette entry).
+
 ## CHAT-12.1 — drawer open/close + state
 
 - CHAT-12.1-01: 🟡 When the user clicks the chat toggle button, the drawer slides up over PaneManager. (unit: ChatToggleButton.test "toggles drawer when clicked"; ClaudeChatDrawer.test "renders message list + composer when open")

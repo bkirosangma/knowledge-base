@@ -21,6 +21,8 @@ Tauri 2 native wrapper that hosts the existing Next.js app as a desktop applicat
 - ⚙️ New `VaultIndexRepository` for vault-level structural operations (scan / rename / delete / exists / createFolder) consolidating the abstraction-debt cleanup that surfaced during MVP-1a — `src/app/knowledge_base/domain/repositories.ts`.
 - ⚙️ Native vault picker via `tauri-plugin-dialog`, replacing `showDirectoryPicker` — `src/app/knowledge_base/shared/hooks/useFileExplorer.ts`.
 - ⚙️ Path-traversal safety (`vault::path::resolve`) + atomic writes (write-tmp → fsync → rename) on every Rust write path.
+- ⚙️ **`portable-pty` PTY backend** (MVP-3.5) — Rust crate that spawns `zsh -i -l` PTY processes for the embedded terminal surface. Paired with `xterm.js` 5.5 on the frontend. `src-tauri/src/term/`.
+- ⚙️ **Login-shell PATH capture** (MVP-3.5) — `/bin/zsh -ilc env` run at startup; result merged into the Tauri process environment so `claude` and user-installed binaries resolve in the PTY. `src-tauri/src/env_bootstrap.rs`.
 
 (File watching landed in MVP-1b; settings persistence, vault switcher UI, and the uninitialized-folder splash landed in MVP-1c. GitHub Pages workflow removal, FSA infrastructure deletion, and macOS Tauri CI job all landed in MVP-1d — see §12.4. MVP-1e: history sidecar I/O ported to Tauri; FirstRunHero/seedSampleVault retired; FSA layer fully gone — `vaultConfig.ts` and `renameSidecar` orphans flagged for MVP-1f cleanup.)
 
@@ -606,7 +608,7 @@ Reads the `graphify-out/graph.json` produced by the external `graphify` CLI and 
 |---|---|
 | **localStorage** (per-scope) | Explorer sort prefs, filter, collapse state; split ratio; pane layout; "Don't ask me again" flags; diagram drafts; per-diagram viewport; doc-properties collapse state. |
 | **IndexedDB** (`knowledge-base` / `handles`) | File System Access API directory handle (+ scope ID). |
-| **`tauri-plugin-store` JSON file** (app config dir, MVP-1c) | Last-opened vault path, MRU-5 recents list, `ui.claudeChat.height` (px, default 320), `claude.permissionMode` (`"acceptEdits" \| "default"`, default `"acceptEdits"`). Managed by `src-tauri/src/settings/` + `src/app/knowledge_base/infrastructure/settingsStore.ts`. |
+| **`tauri-plugin-store` JSON file** (app config dir, MVP-1c) | Last-opened vault path, MRU-5 recents list, `ui.claudeDrawer.height` (px, default 320; serde alias `ui.claudeChat.height` for backwards compat), `claude.surface` (`"terminal" \| "chat"`, default `"terminal"`), `claude.permissionMode` (`"acceptEdits" \| "default"`, default `"acceptEdits"`). Managed by `src-tauri/src/settings/` + `src/app/knowledge_base/infrastructure/settingsStore.ts`. |
 | **Disk (vault)** | `*.json` diagrams, `*.md` documents, `.<name>.history.json` sidecars, `.archdesigner/config.json`, `.archdesigner/_links.json`, `.archdesigner/cross-references.json`, `.kb/attachment-links.json`. |
 
 ### 7.1 Workspace-Scoped Attachment Links Store
@@ -814,7 +816,35 @@ Click-to-place + keyboard editing for `.alphatex` tabs. Single-track scope. Lazy
 
 ---
 
-## 11.x Claude Chat Surface (MVP-2)
+## 11.y Claude Terminal Surface (MVP-3.5, primary)
+
+Embedded PTY terminal running `zsh -i -l` in the active vault directory with `claude` auto-launched. Replaces the chat drawer as the default Claude UI surface. Backed by `portable-pty` (Rust) + `xterm.js` 5.5 (frontend).
+
+### 11.y.1 Embedded terminal
+
+- ✅ **PTY session** — `zsh -i -l` spawned inside the active vault directory; `claude` auto-launched on session open. PTY persists across drawer toggles; vault switch sends Ctrl-C + `cd <newPath>` + `claude\n` in-place (same PTY, same scrollback). `src/app/knowledge_base/features/terminal/TerminalSurface.tsx`, `hooks/useTerminalSession.ts`, `hooks/useTerminalResize.ts`.
+  - Backed by Rust `term_open` / `term_write` / `term_resize` / `term_close` in `src-tauri/src/term/`.
+- ✅ **Login-shell PATH inheritance** — `/bin/zsh -ilc env` capture at app boot merges the user's dotfile-defined PATH into the Tauri process so `claude` (and any user-installed binaries) resolve correctly. `src-tauri/src/env_bootstrap.rs`.
+
+### 11.y.2 Drawer + surface picker
+
+- ✅ **`<TerminalDrawer>`** — bottom-anchored drawer (same chrome as `ClaudeChatDrawer`) that renders `<TerminalSurface>` when `isOpen`. Escape closes. `src/app/knowledge_base/features/terminal/TerminalDrawer.tsx`.
+- ✅ **`<ClaudeDrawer>` surface picker** — reads `claude.surface` from `SurfaceContext` and renders `TerminalDrawer` (default) or `ClaudeChatDrawer` (parked secondary). `src/app/knowledge_base/features/claude/ClaudeDrawer.tsx`, `features/claude/SurfaceContext.tsx`.
+
+### 11.y.3 Surface toggle command
+
+- ✅ **"Toggle Claude surface (Terminal ↔ Chat)"** — `CommandRegistry` palette entry with id `claude.toggleSurface` under the Claude group. Flips `claude.surface` between `'terminal'` and `'chat'` and persists via `settingsStore`. `src/app/knowledge_base/features/terminal/registerSurfaceCommand.ts`.
+
+### 11.y.4 Footer button rename
+
+- ✅ **`<DrawerToggleButton>`** (formerly `ChatToggleButton`) — renamed to reflect the surface-agnostic role. Pulses (`animate-pulse`) only when `surface='chat'` AND streaming AND the drawer is closed; never pulses on the terminal surface. `src/app/knowledge_base/shell/footer/DrawerToggleButton.tsx`.
+- ✅ **`<ClaudeStatusLine>` removed from Footer** — the status-line chip (idle/not-installed/api-key-warning) is no longer rendered in the Footer; status is visible directly in the embedded terminal. `src/app/knowledge_base/shell/Footer.tsx`.
+
+---
+
+## 11.x Claude Chat Surface (MVP-2, secondary — parked)
+
+> **Note (MVP-3.5):** The terminal surface (§11.y) is now the default. The chat surface remains functional and is accessible via the "Toggle Claude surface" command palette entry. The sub-sections below describe the chat surface in its parked state.
 
 Bottom-overlay conversational AI panel that runs a long-lived `claude -p` subprocess via a Tauri sidecar and streams structured events to the front-end via an IPC channel.
 
