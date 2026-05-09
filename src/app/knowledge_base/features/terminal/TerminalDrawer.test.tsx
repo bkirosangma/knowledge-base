@@ -43,10 +43,28 @@ describe("TerminalDrawer", () => {
     vi.mocked(useChat).mockReturnValue(makeChatState());
   });
 
-  it("TERM-14.2-01: renders nothing when isOpen=false", () => {
+  it("TERM-14.2-01: stays mounted but hidden when isOpen=false (xterm scrollback persists)", async () => {
     vi.mocked(useChat).mockReturnValue(makeChatState({ isOpen: false }));
     const { container } = render(<TerminalDrawer vaultPath={null} />);
-    expect(container).toBeEmptyDOMElement();
+    // The drawer DOM persists (xterm + listener stay alive) but is hidden
+    // via display:none + aria-hidden. Use direct query because display:none
+    // removes the element from the accessibility tree (which is the point —
+    // the user can't see or focus it).
+    const drawer = container.querySelector('[aria-label="Claude terminal drawer"]');
+    expect(drawer).toBeInTheDocument();
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+    expect(drawer as HTMLElement).toHaveStyle({ display: "none" });
+    // TerminalSurface stays mounted so the xterm.js instance + scrollback
+    // survive drawer toggles. findByTestId awaits the next/dynamic load.
+    expect(await screen.findByTestId("terminal-surface")).toBeInTheDocument();
+  });
+
+  it("TERM-14.2-05: drops aria-hidden + flex display when isOpen=true", async () => {
+    vi.mocked(useChat).mockReturnValue(makeChatState({ isOpen: true }));
+    render(<TerminalDrawer vaultPath={null} />);
+    const region = await screen.findByRole("region", { name: "Claude terminal drawer" });
+    expect(region).toHaveAttribute("aria-hidden", "false");
+    expect(region).toHaveStyle({ display: "flex" });
   });
 
   it("TERM-14.2-02: renders region 'Claude terminal drawer' when isOpen=true", () => {
