@@ -31,6 +31,12 @@ notify = "=6.1.1"
 notify-debouncer-full = "=0.3.2"
 portable-pty = "0.8"
 tauri-plugin-store = "=2.4.3"
+# Required at build time because the debug-only `test_support` module is
+# compiled into dev binaries (gated by `cfg(debug_assertions)`, not
+# `cfg(test)`); release builds don't reference it but the crate still
+# resolves. Also kept in [dev-dependencies] so integration tests can use it
+# unchanged.
+tempfile = "3"
 
 [dev-dependencies]
 tempfile = "3"
