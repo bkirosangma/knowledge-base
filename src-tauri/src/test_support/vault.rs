@@ -117,9 +117,12 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 /// `app.handle().exit(0)`, which still doesn't run the leaked destructor
 /// — only OS-level cleanup runs after that. Adding a `temp_vault_destroy`
 /// command is a follow-up once we have data on tempdir leakage.
+///
+/// The body lives on `impl_make_temp_vault` below so the test_server
+/// (`src-tauri/src/bin/test_server.rs`, MVP-4.x phase 3.C) can dispatch
+/// the same logic without going through the Tauri command-macro path.
 #[cfg(debug_assertions)]
-#[tauri::command]
-pub async fn make_temp_vault(
+pub async fn impl_make_temp_vault(
     fixture: Option<String>,
     initialized: Option<bool>,
 ) -> Result<String, String> {
@@ -135,4 +138,13 @@ pub async fn make_temp_vault(
     // follow-up tracked above.
     std::mem::forget(v);
     Ok(path)
+}
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn make_temp_vault(
+    fixture: Option<String>,
+    initialized: Option<bool>,
+) -> Result<String, String> {
+    impl_make_temp_vault(fixture, initialized).await
 }

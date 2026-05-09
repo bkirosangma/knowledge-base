@@ -5,12 +5,24 @@ use crate::term::pty::{close as pty_close, spawn as pty_spawn};
 use crate::term::TermState;
 use tauri::{AppHandle, State};
 
-#[tauri::command]
-pub async fn term_open(
+// ---------------------------------------------------------------------------
+// Inner-impl functions
+// ---------------------------------------------------------------------------
+//
+// See `vault/commands.rs` header comment for the rationale of the
+// impl-fn + thin-wrapper split. `impl_term_open` keeps a concrete
+// `AppHandle` because `pty::spawn` emits production Tauri events directly
+// on it (see `term/pty.rs`). The test_server dispatcher (Phase 3.C.1)
+// therefore cannot invoke this path without a real Tauri runtime —
+// `term_open`/`term_write`/`term_resize`/`term_close` are returned as
+// "unsupported in test_server" by the dispatcher; none of the four
+// proof-set specs touch the terminal.
+
+pub async fn impl_term_open(
+    state: &TermState,
     vault_path: String,
     rows: u16,
     cols: u16,
-    state: State<'_, TermState>,
     app: AppHandle,
 ) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
@@ -33,8 +45,7 @@ pub async fn term_open(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(), String> {
+pub async fn impl_term_write(state: &TermState, bytes: Vec<u8>) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
     let session = guard
         .as_mut()
@@ -47,8 +58,7 @@ pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn term_resize(rows: u16, cols: u16, state: State<'_, TermState>) -> Result<(), String> {
+pub async fn impl_term_resize(state: &TermState, rows: u16, cols: u16) -> Result<(), String> {
     let guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
     // Silent no-op when no session — `useTerminalResize`'s ResizeObserver
     // fires on mount before `term_open` lands; a missing PTY is benign here
@@ -69,11 +79,40 @@ pub async fn term_resize(rows: u16, cols: u16, state: State<'_, TermState>) -> R
     Ok(())
 }
 
-#[tauri::command]
-pub async fn term_close(state: State<'_, TermState>) -> Result<(), String> {
+pub async fn impl_term_close(state: &TermState) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
     if let Some(session) = guard.take() {
         pty_close(session);
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tauri command wrappers
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn term_open(
+    vault_path: String,
+    rows: u16,
+    cols: u16,
+    state: State<'_, TermState>,
+    app: AppHandle,
+) -> Result<(), String> {
+    impl_term_open(state.inner(), vault_path, rows, cols, app).await
+}
+
+#[tauri::command]
+pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(), String> {
+    impl_term_write(state.inner(), bytes).await
+}
+
+#[tauri::command]
+pub async fn term_resize(rows: u16, cols: u16, state: State<'_, TermState>) -> Result<(), String> {
+    impl_term_resize(state.inner(), rows, cols).await
+}
+
+#[tauri::command]
+pub async fn term_close(state: State<'_, TermState>) -> Result<(), String> {
+    impl_term_close(state.inner()).await
 }
