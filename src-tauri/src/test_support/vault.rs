@@ -26,8 +26,7 @@ fn write_vault_config(root: &Path, name: &str) -> Result<(), String> {
     let body = format!(
         "{{\"version\":\"1.0\",\"name\":\"{name}\",\"created\":\"{now}\",\"lastOpened\":\"{now}\"}}\n"
     );
-    std::fs::write(cfg_dir.join("config.json"), body)
-        .map_err(|e| format!("write config: {e}"))?;
+    std::fs::write(cfg_dir.join("config.json"), body).map_err(|e| format!("write config: {e}"))?;
     Ok(())
 }
 
