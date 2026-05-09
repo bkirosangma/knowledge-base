@@ -1,16 +1,13 @@
 name: CI
 
-# Gates every PR (and push to main) on five parallel jobs. The e2e job
-# was dropped in MVP-4 after tauri-plugin-webdriver 0.2.1 appeared to
-# fail to bind :4444 across 4 headless-CI configurations (macOS
-# WKWebView; Ubuntu WebKitGTK + xvfb; +dbus; +AT-SPI). MVP-4.x Phase 1
-# read the plugin source and found the real cause: the plugin's
-# DEFAULT_PORT is :4445, not :4444 — the bind was succeeding silently
-# while Playwright polled the wrong port. Fixed in commit 0dbe626 by
-# pinning the plugin to :4444 via init_with_port(4444). With that
-# unblocked, this job is restored so the four MVP-4 proof-set specs
-# (vault_picker, uninitialized_splash, document_create, rename_propagation)
-# run real assertions on every PR push.
+# Five parallel jobs. Phase 3.C: e2e is chromium + next dev + a Rust
+# test_server on :1421 wrapped by scripts/run-e2e.sh — no GTK / WebKitGTK
+# / xvfb / dbus / AT-SPI. The four MVP-4 proof-set specs (vault_picker,
+# uninitialized_splash, document_create, rename_propagation) run real
+# assertions on every PR push against test_server's HTTP invoke surface.
+# tauri-plugin-webdriver was dropped in MVP-4.x Phase 3.C Task 5 — the
+# init_with_port(4444) fix from 0dbe626 stays in git history as the
+# upstream-bug-found-and-fixed artifact, but the plugin itself is gone.
 
 on:
   pull_request:
@@ -161,16 +158,14 @@ jobs:
         run: npm run tauri -- build --debug --no-bundle
 
   e2e:
-    name: End-to-end tests (xvfb-wrapped)
+    name: End-to-end tests
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 15
 
-    # Restored in MVP-4.x Phase 3.A. Runs `npm run test:e2e`, which
-    # boots `npm run tauri:dev` under Playwright's webServer (the
-    # config probes :4444/status — matches the post-fix plugin port).
-    # xvfb provides a headless X display; dbus-run-session + at-spi2-core
-    # give WebKitGTK the AT-SPI bus it expects so it doesn't error
-    # before the WebDriver session attaches.
+    # MVP-4.x e2e harness: test_server (axum :1421) + next dev + chromium.
+    # No GTK / WebKitGTK / xvfb / dbus / AT-SPI deps — chromium only.
+    # See docs/superpowers/plans/2026-05-09-tauri-mvp4x-real-e2e-ci-plan.md
+    # for the architecture rationale.
 
     steps:
       - uses: actions/checkout@v4
@@ -188,13 +183,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
 
-      - name: Install Tauri Linux system dependencies
-        # Same set as the rust-checks job — webkit2gtk + GTK + system libs
-        # Tauri links against on Linux. Plus xvfb for headless X, plus
-        # dbus-x11 + at-spi2-core so WebKitGTK doesn't error trying to
-        # reach the AT-SPI bus.
+      - name: Install Tauri Linux deps
+        # Same set rust-checks uses — required to LINK the crate (axum
+        # itself doesn't need them, but the lib crate transitively pulls
+        # them in via the Tauri tree even when we only build test_server).
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -204,17 +198,9 @@ jobs:
             librsvg2-dev \
             libsoup-3.0-dev \
             libxdo-dev \
-            pkg-config \
-            libssl-dev \
-            xvfb \
-            dbus-x11 \
-            at-spi2-core
+            libssl-dev
 
-      - name: Install dependencies
-        # Use `npm install` (not `npm ci`) to match the four existing jobs.
-        # The lockfile drifts under newer-npm-locally / older-npm-in-CI;
-        # `npm install` reconciles silently while `npm ci` rejects strictly.
-        # Tracked as a separate cleanup; not in MVP-4.x scope.
+      - name: Install npm dependencies
         run: npm install --prefer-offline
 
       - name: Cache Playwright browsers
@@ -223,13 +209,21 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browsers (chromium only)
         run: npx playwright install --with-deps chromium
 
-      - name: End-to-end tests (xvfb-wrapped)
-        run: xvfb-run -a dbus-run-session -- npm run test:e2e
-        env:
-          KB_E2E_BACKEND: webdriver
+      - name: Pre-build test_server
+        # Avoid `cargo run --bin test_server` cold-compile inside the
+        # webServer.command (which has a 180s readiness timeout).
+        run: cd src-tauri && cargo build --bin test_server
+
+      - name: End-to-end tests (proof set)
+        run: |
+          npx playwright test \
+            e2e/vault_picker.spec.ts \
+            e2e/uninitialized_splash.spec.ts \
+            e2e/document_create.spec.ts \
+            e2e/rename_propagation.spec.ts
 
       - name: Upload Playwright report on failure
         if: failure()
