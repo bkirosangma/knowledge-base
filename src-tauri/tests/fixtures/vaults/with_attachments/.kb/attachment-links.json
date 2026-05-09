@@ -1,0 +1,6 @@
+[
+  {"entityType":"node","entityId":"node-1","docPath":"notes/attached.md"},
+  {"entityType":"node","entityId":"node-2","docPath":"notes/attached.kbjson"},
+  {"entityType":"tab","entityId":"tab-1","docPath":"notes/attached.alphatex"},
+  {"entityType":"node","entityId":"node-keep","docPath":"keep.md"}
+]
