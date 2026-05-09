@@ -1,9 +1,12 @@
 import { MessageCircle } from "lucide-react";
 import { useChat } from "../../features/claude/ChatContext";
+import { useSurface } from "../../features/claude/SurfaceContext";
 
-export function ChatToggleButton() {
+export function DrawerToggleButton() {
   const { toggle, isOpen, isStreaming } = useChat();
-  const pulse = isStreaming && !isOpen ? "animate-pulse" : "";
+  const { surface } = useSurface();
+  const shouldPulse = surface === "chat" && isStreaming && !isOpen;
+  const pulse = shouldPulse ? "animate-pulse" : "";
 
   // Three visual states:
   //   active (drawer open) → filled accent (button looks "pressed")
@@ -16,12 +19,12 @@ export function ChatToggleButton() {
   return (
     <button
       type="button"
-      aria-label={isOpen ? "Close chat" : "Open chat"}
+      aria-label={isOpen ? "Close Claude" : "Open Claude"}
       onClick={toggle}
       className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer transition-colors ${stateClass}`}
     >
       <MessageCircle className={`size-4 ${pulse}`} />
-      <span>Chat</span>
+      <span>Open Claude</span>
     </button>
   );
 }

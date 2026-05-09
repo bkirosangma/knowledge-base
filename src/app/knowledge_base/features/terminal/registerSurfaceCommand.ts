@@ -4,16 +4,12 @@ import { useMemo } from "react";
 import { useRegisterCommands } from "../../shared/context/CommandRegistry";
 import {
   getClaudeSurface,
-  setClaudeSurface,
-  type ClaudeSurface,
 } from "../../infrastructure/settingsStore";
+import { useSurface } from "../claude/SurfaceContext";
 
-interface Props {
-  /** Notifies parent when the surface flips so it re-reads the setting. */
-  onSurfaceChange?: (next: ClaudeSurface) => void;
-}
+export function RegisterSurfaceCommand() {
+  const { setSurface } = useSurface();
 
-export function RegisterSurfaceCommand({ onSurfaceChange }: Props) {
   const commands = useMemo(
     () => [
       {
@@ -22,13 +18,11 @@ export function RegisterSurfaceCommand({ onSurfaceChange }: Props) {
         group: "Claude",
         run: async () => {
           const current = await getClaudeSurface();
-          const next: ClaudeSurface = current === "terminal" ? "chat" : "terminal";
-          await setClaudeSurface(next);
-          onSurfaceChange?.(next);
+          await setSurface(current === "terminal" ? "chat" : "terminal");
         },
       },
     ],
-    [onSurfaceChange],
+    [setSurface],
   );
 
   useRegisterCommands(commands);

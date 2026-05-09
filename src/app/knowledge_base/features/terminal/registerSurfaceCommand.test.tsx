@@ -7,7 +7,12 @@ vi.mock("../../infrastructure/settingsStore", () => ({
   setClaudeSurface: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../claude/SurfaceContext", () => ({
+  useSurface: vi.fn(),
+}));
+
 import { getClaudeSurface, setClaudeSurface } from "../../infrastructure/settingsStore";
+import { useSurface } from "../claude/SurfaceContext";
 import { RegisterSurfaceCommand } from "./registerSurfaceCommand";
 import {
   CommandRegistryProvider,
@@ -16,7 +21,7 @@ import {
 
 /** Helper: renders RegisterSurfaceCommand inside a provider and returns
  *  the live command list via a sibling consumer component. */
-function renderWithRegistry(onSurfaceChange?: (s: string) => void) {
+function renderWithRegistry() {
   let capturedCommands: ReturnType<typeof useCommandRegistry>["commands"] = [];
 
   function Consumer() {
@@ -27,7 +32,7 @@ function renderWithRegistry(onSurfaceChange?: (s: string) => void) {
 
   const result = render(
     <CommandRegistryProvider>
-      <RegisterSurfaceCommand onSurfaceChange={onSurfaceChange as never} />
+      <RegisterSurfaceCommand />
       <Consumer />
     </CommandRegistryProvider>,
   );
@@ -39,6 +44,7 @@ describe("RegisterSurfaceCommand", () => {
   beforeEach(() => {
     vi.mocked(getClaudeSurface).mockResolvedValue("terminal");
     vi.mocked(setClaudeSurface).mockResolvedValue(undefined);
+    vi.mocked(useSurface).mockReturnValue({ surface: "terminal", setSurface: vi.fn() });
   });
 
   it("TERM-14.3-01: command appears in registry with id 'claude.toggleSurface'", () => {
@@ -51,32 +57,37 @@ describe("RegisterSurfaceCommand", () => {
 
   it("TERM-14.3-02: run flips setting from terminal to chat", async () => {
     vi.mocked(getClaudeSurface).mockResolvedValue("terminal");
+    const setSurface = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useSurface).mockReturnValue({ surface: "terminal", setSurface });
     const { getCommands } = renderWithRegistry();
     const cmd = getCommands().find((c) => c.id === "claude.toggleSurface");
     await act(async () => {
       await cmd?.run();
     });
-    expect(setClaudeSurface).toHaveBeenCalledWith("chat");
+    expect(setSurface).toHaveBeenCalledWith("chat");
   });
 
   it("TERM-14.3-03: run flips setting from chat to terminal", async () => {
     vi.mocked(getClaudeSurface).mockResolvedValue("chat");
+    const setSurface = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useSurface).mockReturnValue({ surface: "chat", setSurface });
     const { getCommands } = renderWithRegistry();
     const cmd = getCommands().find((c) => c.id === "claude.toggleSurface");
     await act(async () => {
       await cmd?.run();
     });
-    expect(setClaudeSurface).toHaveBeenCalledWith("terminal");
+    expect(setSurface).toHaveBeenCalledWith("terminal");
   });
 
-  it("TERM-14.3-04: onSurfaceChange callback fires after flip", async () => {
+  it("TERM-14.3-04: setSurface is called with the new value after flip", async () => {
     vi.mocked(getClaudeSurface).mockResolvedValue("terminal");
-    const onSurfaceChange = vi.fn();
-    const { getCommands } = renderWithRegistry(onSurfaceChange);
+    const setSurface = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useSurface).mockReturnValue({ surface: "terminal", setSurface });
+    const { getCommands } = renderWithRegistry();
     const cmd = getCommands().find((c) => c.id === "claude.toggleSurface");
     await act(async () => {
       await cmd?.run();
     });
-    expect(onSurfaceChange).toHaveBeenCalledWith("chat");
+    expect(setSurface).toHaveBeenCalledWith("chat");
   });
 });

@@ -5,8 +5,8 @@ vi.mock("./hooks/useSkillBootstrap", () => ({
   useSkillBootstrap: vi.fn().mockReturnValue({ justInstalled: false, done: true, error: null }),
 }));
 
-vi.mock("../../infrastructure/settingsStore", () => ({
-  getClaudeSurface: vi.fn().mockResolvedValue("terminal"),
+vi.mock("./SurfaceContext", () => ({
+  useSurface: vi.fn().mockReturnValue({ surface: "terminal", setSurface: vi.fn() }),
 }));
 
 vi.mock("./ClaudeChatDrawer", () => ({
@@ -27,12 +27,12 @@ vi.mock("./components/SkillInstallToast", () => ({
 }));
 
 import { useSkillBootstrap } from "./hooks/useSkillBootstrap";
-import { getClaudeSurface } from "../../infrastructure/settingsStore";
+import { useSurface } from "./SurfaceContext";
 import { ClaudeDrawer } from "./ClaudeDrawer";
 
 describe("ClaudeDrawer", () => {
   beforeEach(() => {
-    vi.mocked(getClaudeSurface).mockResolvedValue("terminal");
+    vi.mocked(useSurface).mockReturnValue({ surface: "terminal", setSurface: vi.fn() });
     vi.mocked(useSkillBootstrap).mockReturnValue({
       justInstalled: false,
       done: true,
@@ -40,21 +40,17 @@ describe("ClaudeDrawer", () => {
     });
   });
 
-  it("TERM-14.4-01: default surface 'terminal' renders TerminalDrawer", async () => {
-    vi.mocked(getClaudeSurface).mockResolvedValue("terminal");
-    const { findByTestId } = render(<ClaudeDrawer vaultPath={null} />);
-    // TerminalDrawer stub is rendered immediately (initial state = 'terminal')
+  it("TERM-14.4-01: default surface 'terminal' renders TerminalDrawer", () => {
+    vi.mocked(useSurface).mockReturnValue({ surface: "terminal", setSurface: vi.fn() });
+    render(<ClaudeDrawer vaultPath={null} />);
     expect(screen.getByTestId("terminal-drawer")).toBeInTheDocument();
-    // Await async state update from getClaudeSurface (still 'terminal')
-    await findByTestId("terminal-drawer");
     expect(screen.queryByTestId("claude-chat-drawer")).toBeNull();
   });
 
-  it("TERM-14.4-02: surface 'chat' renders ClaudeChatDrawer", async () => {
-    vi.mocked(getClaudeSurface).mockResolvedValue("chat");
-    const { findByTestId } = render(<ClaudeDrawer vaultPath={null} />);
-    // Wait for useEffect to resolve getClaudeSurface → 'chat'
-    await findByTestId("claude-chat-drawer");
+  it("TERM-14.4-02: surface 'chat' renders ClaudeChatDrawer", () => {
+    vi.mocked(useSurface).mockReturnValue({ surface: "chat", setSurface: vi.fn() });
+    render(<ClaudeDrawer vaultPath={null} />);
+    expect(screen.getByTestId("claude-chat-drawer")).toBeInTheDocument();
     expect(screen.queryByTestId("terminal-drawer")).toBeNull();
   });
 
