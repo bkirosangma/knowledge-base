@@ -205,11 +205,14 @@ test.describe("Explorer recents and unsaved (EXPL-2.8 / 2.9)", () => {
     // Walk up to the row's button container; ExplorerPanel applies
     // `bg-blue-50` on the row when leftPaneFile === path.
     const activeBg = await treeBRow.evaluate((el) => {
-      let n: HTMLElement | null = el;
-      while (n && !n.className.includes("bg-blue-50") && !n.className.includes("from-blue-50")) {
+      let n: Element | null = el;
+      while (n) {
+        const cls = (n as HTMLElement).className;
+        const s = typeof cls === "string" ? cls : "";
+        if (s.includes("bg-blue-50") || s.includes("from-blue-50")) return true;
         n = n.parentElement;
       }
-      return Boolean(n);
+      return false;
     });
     expect(activeBg).toBe(true);
 
