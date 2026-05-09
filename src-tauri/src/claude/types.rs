@@ -20,14 +20,38 @@ pub struct ClaudeUserMessage {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ClaudeEvent {
-    MessageStart { turn: u64, model: Option<String> },
-    PartialText { turn: u64, delta: String },
-    ToolUse { turn: u64, tool: String, input: serde_json::Value },
-    ToolResult { turn: u64, tool: String, output: serde_json::Value },
-    HookEvent { name: String, payload: serde_json::Value },
-    MessageEnd { turn: u64, usage: Option<TokenUsage> },
-    Error { message: String },
-    Crashed { reason: String },
+    MessageStart {
+        turn: u64,
+        model: Option<String>,
+    },
+    PartialText {
+        turn: u64,
+        delta: String,
+    },
+    ToolUse {
+        turn: u64,
+        tool: String,
+        input: serde_json::Value,
+    },
+    ToolResult {
+        turn: u64,
+        tool: String,
+        output: serde_json::Value,
+    },
+    HookEvent {
+        name: String,
+        payload: serde_json::Value,
+    },
+    MessageEnd {
+        turn: u64,
+        usage: Option<TokenUsage>,
+    },
+    Error {
+        message: String,
+    },
+    Crashed {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

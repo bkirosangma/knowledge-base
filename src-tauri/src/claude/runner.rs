@@ -1,4 +1,8 @@
-use crate::claude::{crash::CrashTracker, parser, types::{ClaudeEvent, ClaudeUserMessage}};
+use crate::claude::{
+    crash::CrashTracker,
+    parser,
+    types::{ClaudeEvent, ClaudeUserMessage},
+};
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -35,10 +39,16 @@ impl Runner {
     /// has changed since the live subprocess was spawned, the subprocess is
     /// killed and respawned (turn counter + crash tracker preserved).
     /// `app` is captured by the stdout-drain task to emit events.
-    pub async fn ensure_alive(&mut self, app: AppHandle, vault_root: PathBuf, permission_mode: String)
-        -> Result<(), String>
-    {
-        let alive = self.child.as_mut().map_or(false, |c| c.try_wait().ok().flatten().is_none());
+    pub async fn ensure_alive(
+        &mut self,
+        app: AppHandle,
+        vault_root: PathBuf,
+        permission_mode: String,
+    ) -> Result<(), String> {
+        let alive = self
+            .child
+            .as_mut()
+            .map_or(false, |c| c.try_wait().ok().flatten().is_none());
         let vault_changed = self.vault_root.as_ref().map_or(true, |v| v != &vault_root);
         let mode_changed = self.permission_mode != permission_mode;
 
@@ -62,11 +72,14 @@ impl Runner {
         let mut cmd = Command::new("claude");
         cmd.arg("-p")
             .arg("--verbose")
-            .arg("--input-format").arg("stream-json")
-            .arg("--output-format").arg("stream-json")
+            .arg("--input-format")
+            .arg("stream-json")
+            .arg("--output-format")
+            .arg("stream-json")
             .arg("--include-partial-messages")
             .arg("--include-hook-events")
-            .arg("--permission-mode").arg(&permission_mode)
+            .arg("--permission-mode")
+            .arg(&permission_mode)
             .current_dir(&vault_root)
             .env_remove("ANTHROPIC_API_KEY")
             .stdin(std::process::Stdio::piped())
@@ -79,7 +92,10 @@ impl Runner {
             Err(e) => {
                 // Spawn failed — record crash, possibly break the loop.
                 if self.crash.record() {
-                    return Err(format!("claude: failing to start (3 crashes in 60s): {}", e));
+                    return Err(format!(
+                        "claude: failing to start (3 crashes in 60s): {}",
+                        e
+                    ));
                 }
                 return Err(format!("spawn failed: {}", e));
             }
@@ -128,15 +144,26 @@ impl Runner {
     }
 
     /// Push one message envelope onto stdin.
-    pub async fn send(&mut self, app: AppHandle, vault_root: PathBuf, message: ClaudeUserMessage)
-        -> Result<(), String>
-    {
+    pub async fn send(
+        &mut self,
+        app: AppHandle,
+        vault_root: PathBuf,
+        message: ClaudeUserMessage,
+    ) -> Result<(), String> {
         // Detect prior exit.
-        let still_alive = self.child.as_mut().map_or(false, |c| c.try_wait().ok().flatten().is_none());
+        let still_alive = self
+            .child
+            .as_mut()
+            .map_or(false, |c| c.try_wait().ok().flatten().is_none());
         if !still_alive {
             if self.child.is_some() {
                 let crashed_too_many = self.crash.record();
-                let _ = app.emit("claude_event", ClaudeEvent::Crashed { reason: "subprocess exited".into() });
+                let _ = app.emit(
+                    "claude_event",
+                    ClaudeEvent::Crashed {
+                        reason: "subprocess exited".into(),
+                    },
+                );
                 if crashed_too_many {
                     self.child = None;
                     self.stdin = None;
@@ -145,7 +172,8 @@ impl Runner {
             }
             self.child = None;
             self.stdin = None;
-            self.ensure_alive(app.clone(), vault_root, self.permission_mode.clone()).await?;
+            self.ensure_alive(app.clone(), vault_root, self.permission_mode.clone())
+                .await?;
         }
 
         self.turn += 1;
@@ -155,7 +183,10 @@ impl Runner {
         });
         let line = format!("{}\n", envelope);
         let stdin = self.stdin.as_mut().ok_or("no stdin")?;
-        stdin.write_all(line.as_bytes()).await.map_err(|e| e.to_string())?;
+        stdin
+            .write_all(line.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
         stdin.flush().await.map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -167,7 +198,11 @@ impl Runner {
 
     /// SIGINT to subprocess; keeps it alive for next turn.
     pub async fn interrupt(&mut self) -> Result<(), String> {
-        let pid = self.child.as_ref().and_then(|c| c.id()).ok_or("no subprocess")?;
+        let pid = self
+            .child
+            .as_ref()
+            .and_then(|c| c.id())
+            .ok_or("no subprocess")?;
         #[cfg(unix)]
         {
             unsafe {

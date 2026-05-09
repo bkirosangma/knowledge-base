@@ -24,7 +24,10 @@ fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
         let entry = entry?;
         let entry_name = entry.file_name();
         // Skip cache dirs that local dev environments accumulate.
-        if matches!(entry_name.to_str(), Some("__pycache__" | ".pytest_cache" | ".DS_Store")) {
+        if matches!(
+            entry_name.to_str(),
+            Some("__pycache__" | ".pytest_cache" | ".DS_Store")
+        ) {
             continue;
         }
         copy_recursive(&entry.path(), &dst.join(entry_name))?;
@@ -54,8 +57,10 @@ mod tests {
         copy_skill(&src, &dst).unwrap();
         assert!(dst.join("SKILL.md").exists());
         assert!(dst.join("commands/document.md").exists());
-        assert!(!dst.join("scripts/.pytest_cache").exists(),
-            "cache dirs must be skipped");
+        assert!(
+            !dst.join("scripts/.pytest_cache").exists(),
+            "cache dirs must be skipped"
+        );
     }
 
     #[test]

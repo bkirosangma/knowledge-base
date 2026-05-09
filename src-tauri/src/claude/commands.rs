@@ -1,4 +1,8 @@
-use crate::claude::{status, types::{ClaudeStatus, ClaudeUserMessage}, ClaudeState};
+use crate::claude::{
+    status,
+    types::{ClaudeStatus, ClaudeUserMessage},
+    ClaudeState,
+};
 use crate::settings::commands::read_settings;
 use crate::vault::VaultState;
 use std::path::PathBuf;

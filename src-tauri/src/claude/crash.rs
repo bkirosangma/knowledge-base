@@ -11,7 +11,9 @@ pub struct CrashTracker {
 
 impl CrashTracker {
     pub fn new() -> Self {
-        CrashTracker { timestamps: VecDeque::new() }
+        CrashTracker {
+            timestamps: VecDeque::new(),
+        }
     }
 
     /// Record a crash. Returns true if the threshold has been hit (caller should stop respawning).

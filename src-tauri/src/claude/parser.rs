@@ -33,7 +33,10 @@ fn parse_stream_event(event: &Value, current_turn: u64) -> Option<ClaudeEvent> {
                 .pointer("/message/model")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            Some(ClaudeEvent::MessageStart { turn: current_turn, model })
+            Some(ClaudeEvent::MessageStart {
+                turn: current_turn,
+                model,
+            })
         }
         "content_block_delta" => {
             // delta.type === "text_delta" → text chunk.
@@ -47,19 +50,28 @@ fn parse_stream_event(event: &Value, current_turn: u64) -> Option<ClaudeEvent> {
             if text.is_empty() {
                 return None;
             }
-            Some(ClaudeEvent::PartialText { turn: current_turn, delta: text.to_string() })
+            Some(ClaudeEvent::PartialText {
+                turn: current_turn,
+                delta: text.to_string(),
+            })
         }
         "message_delta" => {
             // Carries final usage on event.usage.
             let usage = event.get("usage").and_then(parse_usage);
-            Some(ClaudeEvent::MessageEnd { turn: current_turn, usage })
+            Some(ClaudeEvent::MessageEnd {
+                turn: current_turn,
+                usage,
+            })
         }
         "message_stop" => {
             // Sometimes the only signal of end (when message_delta wasn't emitted).
             // We emit MessageEnd with no usage; the result line (top-level "type":"result")
             // will follow with full usage + cost — but per the current ClaudeEvent shape,
             // usage gets aggregated by message_delta when present.
-            Some(ClaudeEvent::MessageEnd { turn: current_turn, usage: None })
+            Some(ClaudeEvent::MessageEnd {
+                turn: current_turn,
+                usage: None,
+            })
         }
         // content_block_start / content_block_stop — structural; ignore.
         _ => None,
@@ -76,7 +88,11 @@ fn parse_assistant_line(v: &Value, current_turn: u64) -> Option<ClaudeEvent> {
             // We can only emit one event per call; if multiple tool_uses are in one assistant line,
             // they get coalesced by the caller (drain task) re-invoking parse_line per JSON line.
             // In practice, a single assistant line carries one block at a time.
-            return Some(ClaudeEvent::ToolUse { turn: current_turn, tool, input });
+            return Some(ClaudeEvent::ToolUse {
+                turn: current_turn,
+                tool,
+                input,
+            });
         }
     }
     None
@@ -89,9 +105,17 @@ fn parse_user_line(v: &Value, current_turn: u64) -> Option<ClaudeEvent> {
         if block.get("type").and_then(Value::as_str) == Some("tool_result") {
             // Tool name isn't directly on the result; tool_use_id links it. For MVP-2,
             // we surface "" as the tool name and let the frontend pair via order.
-            let tool = block.get("tool_use_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let tool = block
+                .get("tool_use_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let output = block.get("content").cloned().unwrap_or(Value::Null);
-            return Some(ClaudeEvent::ToolResult { turn: current_turn, tool, output });
+            return Some(ClaudeEvent::ToolResult {
+                turn: current_turn,
+                tool,
+                output,
+            });
         }
     }
     None
@@ -108,10 +132,17 @@ fn parse_result_line(v: &Value, current_turn: u64) -> Option<ClaudeEvent> {
             Some(u)
         }
         (Some(u), None) => Some(u),
-        (None, Some(c)) => Some(TokenUsage { input_tokens: 0, output_tokens: 0, cost_usd: Some(c) }),
+        (None, Some(c)) => Some(TokenUsage {
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: Some(c),
+        }),
         (None, None) => None,
     };
-    Some(ClaudeEvent::MessageEnd { turn: current_turn, usage })
+    Some(ClaudeEvent::MessageEnd {
+        turn: current_turn,
+        usage,
+    })
 }
 
 fn parse_system_line(v: &Value) -> Option<ClaudeEvent> {
@@ -120,8 +151,15 @@ fn parse_system_line(v: &Value) -> Option<ClaudeEvent> {
     if !subtype.starts_with("hook_") {
         return None;
     }
-    let name = v.get("hook_name").and_then(Value::as_str).unwrap_or("unknown").to_string();
-    Some(ClaudeEvent::HookEvent { name, payload: v.clone() })
+    let name = v
+        .get("hook_name")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+        .to_string();
+    Some(ClaudeEvent::HookEvent {
+        name,
+        payload: v.clone(),
+    })
 }
 
 /// Parse a usage object from event.usage or result.usage. Both share the field shape:
@@ -158,7 +196,10 @@ mod tests {
         let line = r#"{"type":"stream_event","event":{"type":"message_start"}}"#;
         let e = parse_line(line, 1);
         match e {
-            Some(ClaudeEvent::MessageStart { turn: 1, model: None }) => {}
+            Some(ClaudeEvent::MessageStart {
+                turn: 1,
+                model: None,
+            }) => {}
             other => panic!("unexpected: {:?}", other),
         }
     }
@@ -321,14 +362,29 @@ mod tests {
         }
 
         assert_eq!(message_starts, 1, "expected exactly one MessageStart");
-        assert_eq!(partial_texts, vec!["p".to_string(), "ong".to_string()],
-            "expected two text deltas spelling 'pong'");
+        assert_eq!(
+            partial_texts,
+            vec!["p".to_string(), "ong".to_string()],
+            "expected two text deltas spelling 'pong'"
+        );
         // message_delta + message_stop + result line all map to MessageEnd.
-        assert!(message_ends >= 2, "expected at least 2 MessageEnd events, got {}", message_ends);
-        assert!(hook_events >= 4, "expected hook lifecycle events, got {}", hook_events);
+        assert!(
+            message_ends >= 2,
+            "expected at least 2 MessageEnd events, got {}",
+            message_ends
+        );
+        assert!(
+            hook_events >= 4,
+            "expected hook lifecycle events, got {}",
+            hook_events
+        );
         assert_eq!(tool_uses, 0, "no tool_use blocks in this transcript");
         assert_eq!(tool_results, 0, "no tool_result blocks in this transcript");
         let cost = last_cost_usd.expect("result line should carry cost_usd");
-        assert!((cost - 0.10246749).abs() < 1e-6, "cost_usd from result line: {}", cost);
+        assert!(
+            (cost - 0.10246749).abs() < 1e-6,
+            "cost_usd from result line: {}",
+            cost
+        );
     }
 }

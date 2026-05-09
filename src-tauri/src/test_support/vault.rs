@@ -24,7 +24,10 @@ impl TempVault {
         std::fs::create_dir_all(&kb).map_err(|e| format!("mkdir .kb: {e}"))?;
         std::fs::write(kb.join("config.json"), b"{\"version\":1}\n")
             .map_err(|e| format!("write config: {e}"))?;
-        Ok(Self { root, _guard: guard })
+        Ok(Self {
+            root,
+            _guard: guard,
+        })
     }
 
     /// Tempdir with NO `.kb/config.json` — `vault_set_root` will treat
@@ -35,7 +38,10 @@ impl TempVault {
             .path()
             .canonicalize()
             .map_err(|e| format!("canonicalize: {e}"))?;
-        Ok(Self { root, _guard: guard })
+        Ok(Self {
+            root,
+            _guard: guard,
+        })
     }
 
     /// Tempdir seeded by recursively copying `tests/fixtures/vaults/<name>`.
@@ -56,7 +62,10 @@ impl TempVault {
             return Err(format!("fixture not found: {}", src.display()));
         }
         copy_dir_recursive(&src, &root)?;
-        Ok(Self { root, _guard: guard })
+        Ok(Self {
+            root,
+            _guard: guard,
+        })
     }
 
     pub fn write(&self, rel: &str, content: &str) -> Result<(), String> {

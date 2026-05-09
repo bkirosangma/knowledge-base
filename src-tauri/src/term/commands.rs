@@ -48,11 +48,7 @@ pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(
 }
 
 #[tauri::command]
-pub async fn term_resize(
-    rows: u16,
-    cols: u16,
-    state: State<'_, TermState>,
-) -> Result<(), String> {
+pub async fn term_resize(rows: u16, cols: u16, state: State<'_, TermState>) -> Result<(), String> {
     let guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
     let session = guard
         .as_ref()

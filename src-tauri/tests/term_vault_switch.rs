@@ -5,9 +5,7 @@ use std::io::Write;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-use knowledge_base_lib::term::pty::{
-    close as pty_close, restart_in_new_vault, spawn_with_channel,
-};
+use knowledge_base_lib::term::pty::{close as pty_close, restart_in_new_vault, spawn_with_channel};
 use knowledge_base_lib::test_support::TempVault;
 
 async fn drain_until(
