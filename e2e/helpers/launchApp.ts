@@ -1,33 +1,23 @@
 // e2e/helpers/launchApp.ts
 //
-// Boots the app for an e2e spec. Two backends:
-// - 'webdriver' (default in CI): the tauri-plugin-webdriver-driven Tauri
-//   webview. The Tauri-side make_temp_vault command is callable from
-//   spec code via `page.evaluate(() => window.__TAURI__.invoke(...))`.
-// - 'nextdev' (fallback): plain `next dev` against the existing
-//   FSA-mock fixture. `setVaultPath()` throws here.
+// Boots the app for an MVP-4.x e2e spec. Single backend post-MVP-4.x:
+// chromium against `next dev`, with the Tauri invoke surface shimmed
+// to test_server (axum on :1421) via Playwright's addInitScript.
+//
+// The legacy `currentBackend()` switch + `KB_E2E_BACKEND` env var are
+// gone — there is only one backend now. Specs that previously gated
+// `test.skip(currentBackend() === "nextdev", …)` install the shim
+// via `test.beforeEach(installShim)` instead.
 
 import type { Page } from "@playwright/test";
 
-export type Backend = "webdriver" | "nextdev";
-
-export function currentBackend(): Backend {
-  const raw = process.env.KB_E2E_BACKEND ?? "webdriver";
-  if (raw !== "webdriver" && raw !== "nextdev") {
-    throw new Error(`Unknown KB_E2E_BACKEND: ${raw}`);
-  }
-  return raw;
-}
+import { installShim } from "./tauriShim";
 
 export async function setVaultPath(page: Page, vaultPath: string): Promise<void> {
-  if (currentBackend() === "webdriver") {
-    await page.evaluate(async (path) => {
-      // @ts-expect-error - Tauri injects __TAURI__ at runtime
-      await window.__TAURI__.invoke("vault_set_root", { path });
-    }, vaultPath);
-  } else {
-    // The nextdev fallback uses the existing FSA mock; no setVaultPath
-    // semantics. Specs that depend on real vault paths skip in this mode.
-    throw new Error("setVaultPath only valid under KB_E2E_BACKEND=webdriver");
-  }
+  await page.evaluate(async (path) => {
+    // @ts-expect-error - shim installs __TAURI__ via addInitScript
+    await window.__TAURI__.invoke("vault_set_root", { path });
+  }, vaultPath);
 }
+
+export { installShim };
