@@ -1,15 +1,37 @@
+use std::path::PathBuf;
+
+use crate::term::pty::{close as pty_close, spawn as pty_spawn};
 use crate::term::TermState;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn term_open(
-    _vault_path: String,
-    _rows: u16,
-    _cols: u16,
-    _state: State<'_, TermState>,
-    _app: AppHandle,
+    vault_path: String,
+    rows: u16,
+    cols: u16,
+    state: State<'_, TermState>,
+    app: AppHandle,
 ) -> Result<(), String> {
-    Err("not implemented".into())
+    let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
+
+    let vault_root = PathBuf::from(&vault_path);
+    if !vault_root.is_dir() {
+        return Err(format!("vault path is not a directory: {vault_path}"));
+    }
+
+    if guard.is_some() {
+        // Vault-switch handling lands in Task 5. For now, idempotent same-
+        // vault case: drop the request silently (the existing session is fine).
+        let session = guard.as_ref().unwrap();
+        if session.vault_root == vault_root {
+            return Ok(());
+        }
+        return Err("vault-switch not yet implemented (Task 5)".into());
+    }
+
+    let session = pty_spawn(vault_root, rows, cols, app)?;
+    *guard = Some(session);
+    Ok(())
 }
 
 #[tauri::command]
@@ -27,6 +49,10 @@ pub async fn term_resize(
 }
 
 #[tauri::command]
-pub async fn term_close(_state: State<'_, TermState>) -> Result<(), String> {
-    Err("not implemented".into())
+pub async fn term_close(state: State<'_, TermState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
+    if let Some(session) = guard.take() {
+        pty_close(session);
+    }
+    Ok(())
 }
