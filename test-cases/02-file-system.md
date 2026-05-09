@@ -187,19 +187,19 @@ Collapsible "Recents" group above the file tree showing the last 10 opened files
 
 - **EXPL-2.8-01** 🧪 **Opening a file adds it to Recents** — clicking a file in the explorer causes it to appear in the Recents group. _(e2e: `e2e/explorerSearch.spec.ts`)_
 - **EXPL-2.8-02** 🧪 **Recents shows most recent first** — after opening alpha then beta, beta appears above alpha in the Recents list. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.8-03** ❌ **Recents deduplicates by path** — opening the same file twice results in only one entry in Recents. _(Playwright)_
-- **EXPL-2.8-04** ❌ **Recents capped at 10 entries** — after opening 11 distinct files, the 11th-oldest is dropped from the list. _(Playwright)_
-- **EXPL-2.8-05** ❌ **Recents persists across page reload** — localStorage `kb-recents` is read on mount; entries survive a hard refresh. _(Playwright)_
-- **EXPL-2.8-06** ❌ **Recents group hidden when empty** — on first load with no localStorage entry, the Recents header does not render. _(Playwright)_
-- **EXPL-2.8-07** ❌ **Recents collapse toggle hides entries** — clicking the Recents header arrow collapses the list; clicking again expands it. _(Playwright)_
+- **EXPL-2.8-03** 🧪 **Recents deduplicates by path** — opening the same file twice results in only one entry in Recents. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-04** 🧪 **Recents capped at 10 entries** — after opening 11 distinct files, the 11th-oldest is dropped from the list. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-05** 🧪 **Recents persists across page reload** — localStorage `kb-recents` is read on mount; entries survive a hard refresh. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-06** 🧪 **Recents group hidden when empty** — on first load with no localStorage entry, the Recents header does not render. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-07** 🧪 **Recents collapse toggle hides entries** — clicking the Recents header arrow collapses the list; clicking again expands it. _(e2e: `e2e/explorer_recents.spec.ts`)_
 
 ## 2.9 Explorer Unsaved Group (UX Phase 1)
 
 "Unsaved changes" group showing files with in-memory drafts (dirty state). Always visible when non-empty; no collapse.
 
 - **EXPL-2.9-01** 🧪 **Unsaved group shows dirty files** — after making an edit in a diagram, the file appears in the "Unsaved changes" group. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.9-02** ❌ **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(Playwright)_
-- **EXPL-2.9-03** ❌ **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(Playwright)_
+- **EXPL-2.9-02** 🧪 **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.9-03** 🧪 **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(e2e: `e2e/explorer_recents.spec.ts`)_
 
 ## 2.10 Vault Path Persistence (MVP-1c)
 
