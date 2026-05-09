@@ -2,10 +2,12 @@ import { test, expect } from "@playwright/test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath, currentBackend } from "./helpers/launchApp";
+import { setVaultPath, installShim } from "./helpers/launchApp";
 
 test.describe("rename propagation (proof set)", () => {
-  test.skip(currentBackend() === "nextdev", "needs Tauri webdriver backend");
+  test.beforeEach(async ({ page }) => {
+    await installShim(page);
+  });
 
   test("renaming a.md to c.md rewrites the [[a]] in b.md to [[c]]", async ({ page }) => {
     const vault = await makeTempVault({ fixture: "with_links" });

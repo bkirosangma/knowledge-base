@@ -11,21 +11,10 @@ fn main() {
     knowledge_base_lib::env_bootstrap::merge_login_shell_path();
     let vault: VaultState = Arc::new(Vault::default());
     let watcher: WatcherState = Arc::new(Watcher::default());
-    // `mut` is only used by the debug-only `.plugin(...)` re-assignment below; in
-    // release the binding is never mutated, so silence the (correct but noisy)
-    // unused_mut warning rather than splitting the binding across cfgs.
-    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
-    let mut builder = tauri::Builder::default()
+    // Production bundles do not register tauri-plugin-webdriver — replaced by test_server (MVP-4.x).
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build());
-
-    // tauri-plugin-webdriver is compiled into release bundles (~200KB) but only
-    // registered in debug builds; the WebDriver port is a dev-only test seam used
-    // by Playwright in MVP-4 Task 10. Production never opens it.
-    #[cfg(debug_assertions)]
-    {
-        builder = builder.plugin(tauri_plugin_webdriver::init());
-    }
 
     builder
         .manage(vault)

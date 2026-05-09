@@ -1,14 +1,14 @@
 use crate::skill::install::copy_skill;
 use crate::skill::types::SkillStatus;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 fn target_path(name: &str) -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or_else(|| "no home directory".to_string())?;
     Ok(home.join(".claude").join("skills").join(name))
 }
 
-fn bundled_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
+fn bundled_path<R: Runtime>(app: &AppHandle<R>, name: &str) -> Result<PathBuf, String> {
     let resource_dir = app
         .path()
         .resource_dir()
@@ -34,10 +34,23 @@ fn bundled_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     Ok(prod) // production-style path; install will error with a clear message
 }
 
-#[tauri::command]
-pub async fn skill_status(name: String, app: AppHandle) -> Result<SkillStatus, String> {
+// ---------------------------------------------------------------------------
+// Inner-impl functions
+// ---------------------------------------------------------------------------
+//
+// See `vault/commands.rs` header for the impl-fn split rationale.
+//
+// Both skill impl-fns need an `AppHandle` for `app.path().resource_dir()`.
+// The test_server has no Tauri runtime; the dispatcher therefore rejects
+// `skill_status` / `skill_install_from_bundle` as "unsupported in
+// test_server". The proof-set specs do not touch the skills surface.
+
+pub async fn impl_skill_status<R: Runtime>(
+    name: String,
+    app: &AppHandle<R>,
+) -> Result<SkillStatus, String> {
     let target = target_path(&name)?;
-    let bundled = bundled_path(&app, &name)?;
+    let bundled = bundled_path(app, &name)?;
     let installed = target.join("SKILL.md").exists();
     Ok(SkillStatus {
         installed,
@@ -46,10 +59,12 @@ pub async fn skill_status(name: String, app: AppHandle) -> Result<SkillStatus, S
     })
 }
 
-#[tauri::command]
-pub async fn skill_install_from_bundle(name: String, app: AppHandle) -> Result<(), String> {
+pub async fn impl_skill_install_from_bundle<R: Runtime>(
+    name: String,
+    app: &AppHandle<R>,
+) -> Result<(), String> {
     let target = target_path(&name)?;
-    let bundled = bundled_path(&app, &name)?;
+    let bundled = bundled_path(app, &name)?;
     if !bundled.join("SKILL.md").exists() {
         return Err(format!(
             "bundled skill source missing at {}",
@@ -58,6 +73,20 @@ pub async fn skill_install_from_bundle(name: String, app: AppHandle) -> Result<(
     }
     copy_skill(&bundled, &target).map_err(|e| format!("copy failed: {e}"))?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tauri command wrappers
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn skill_status(name: String, app: AppHandle) -> Result<SkillStatus, String> {
+    impl_skill_status(name, &app).await
+}
+
+#[tauri::command]
+pub async fn skill_install_from_bundle(name: String, app: AppHandle) -> Result<(), String> {
+    impl_skill_install_from_bundle(name, &app).await
 }
 
 #[cfg(test)]
