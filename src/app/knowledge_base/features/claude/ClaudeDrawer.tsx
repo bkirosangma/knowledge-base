@@ -19,6 +19,13 @@ export function ClaudeDrawer({ vaultPath }: Props) {
     <>
       <RegisterSurfaceCommand />
       {skillBootstrap.justInstalled && <SkillInstallToast show />}
+      {skillBootstrap.error !== null && (
+        <SkillInstallToast
+          show
+          tone="error"
+          message={`Skill install failed: ${skillBootstrap.error}`}
+        />
+      )}
       {surface === "terminal" ? (
         <TerminalDrawer vaultPath={vaultPath} />
       ) : (

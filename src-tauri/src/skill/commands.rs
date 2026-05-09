@@ -14,7 +14,24 @@ fn bundled_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
         .resource_dir()
         .map_err(|e| format!("resource_dir: {e}"))?;
     // Tauri prefixes parent-of-srcTauri resources with `_up_`.
-    Ok(resource_dir.join("_up_").join("skills").join(name))
+    let prod = resource_dir.join("_up_").join("skills").join(name);
+    if prod.join("SKILL.md").exists() {
+        return Ok(prod);
+    }
+    // Dev-mode fallback: tauri dev's resource_dir doesn't include bundled
+    // resources. CARGO_MANIFEST_DIR is the workspace's src-tauri/ at compile
+    // time. Resolve from there.
+    #[cfg(debug_assertions)]
+    {
+        let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("skills")
+            .join(name);
+        if dev.join("SKILL.md").exists() {
+            return Ok(dev);
+        }
+    }
+    Ok(prod) // production-style path; install will error with a clear message
 }
 
 #[tauri::command]

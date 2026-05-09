@@ -97,7 +97,7 @@ export function ClaudeChatDrawer() {
         <div className="flex-1 min-h-0"><SetupScreen /></div>
       ) : (
         <>
-          <MessageList turns={turns} />
+          <MessageList turns={turns} isStreaming={isStreaming} />
           <Composer onSend={send} onInterrupt={interrupt} isStreaming={isStreaming} />
           <SkillsSheet open={skillsOpen} onClose={() => setSkillsOpen(false)} onRun={onRunSkill} />
         </>

@@ -22,8 +22,13 @@ vi.mock("../terminal/registerSurfaceCommand", () => ({
 }));
 
 vi.mock("./components/SkillInstallToast", () => ({
-  SkillInstallToast: ({ show }: { show: boolean }) =>
-    show ? <div data-testid="skill-install-toast" /> : null,
+  SkillInstallToast: ({ show, tone }: { show: boolean; tone?: string }) =>
+    show ? (
+      <div
+        data-testid={`skill-install-toast-${tone ?? "success"}`}
+        role={tone === "error" ? "alert" : "status"}
+      />
+    ) : null,
 }));
 
 import { useSkillBootstrap } from "./hooks/useSkillBootstrap";
@@ -61,7 +66,7 @@ describe("ClaudeDrawer", () => {
       error: null,
     });
     render(<ClaudeDrawer vaultPath={null} />);
-    expect(screen.getByTestId("skill-install-toast")).toBeInTheDocument();
+    expect(screen.getByTestId("skill-install-toast-success")).toBeInTheDocument();
   });
 
   it("TERM-14.4-04: SkillInstallToast not shown when justInstalled=false", () => {
@@ -71,6 +76,17 @@ describe("ClaudeDrawer", () => {
       error: null,
     });
     render(<ClaudeDrawer vaultPath={null} />);
-    expect(screen.queryByTestId("skill-install-toast")).toBeNull();
+    expect(screen.queryByTestId("skill-install-toast-success")).toBeNull();
+  });
+
+  it("SKILLS-13.1-10: renders error toast when skillBootstrap.error is set", () => {
+    vi.mocked(useSkillBootstrap).mockReturnValue({
+      justInstalled: false,
+      done: true,
+      error: "permission denied",
+    });
+    render(<ClaudeDrawer vaultPath={null} />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByTestId("skill-install-toast-error")).toBeInTheDocument();
   });
 });

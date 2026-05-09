@@ -6,9 +6,10 @@ import { PartialMessageStream } from "./PartialMessageStream";
 
 interface MessageListProps {
   turns: ChatTurn[];
+  isStreaming: boolean;
 }
 
-export function MessageList({ turns }: MessageListProps) {
+export function MessageList({ turns, isStreaming }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   // Jump instantly on the first render after mount (drawer open with prior
   // turns) so users don't see a smooth-scroll animation. Subsequent turn
@@ -24,8 +25,20 @@ export function MessageList({ turns }: MessageListProps) {
 
   if (turns.length === 0) {
     return (
-      <div className="flex flex-1 min-h-0 items-center justify-center px-4 text-sm text-mute">
-        Start a conversation with Claude. Vault context is delivered via the working directory.
+      <div className="flex flex-col flex-1 min-h-0 items-center justify-center px-4 gap-2">
+        {isStreaming ? (
+          <div
+            className="flex items-center gap-2 text-xs text-mute"
+            data-testid="thinking-indicator"
+          >
+            <span className="animate-pulse">●●●</span>
+            <span>Claude is thinking…</span>
+          </div>
+        ) : (
+          <span className="text-sm text-mute">
+            Start a conversation with Claude. Vault context is delivered via the working directory.
+          </span>
+        )}
       </div>
     );
   }
@@ -40,7 +53,22 @@ export function MessageList({ turns }: MessageListProps) {
           {t.role === "assistant" && t.isStreaming && <PartialMessageStream isStreaming />}
         </MessageBubble>
       ))}
+      {isStreaming && latestTurnIsEmpty(turns) && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-xs text-mute"
+          data-testid="thinking-indicator"
+        >
+          <span className="animate-pulse">●●●</span>
+          <span>Claude is thinking…</span>
+        </div>
+      )}
       <div ref={endRef} />
     </div>
   );
+}
+
+function latestTurnIsEmpty(turns: ChatTurn[]): boolean {
+  const last = turns.at(-1);
+  if (!last || last.role !== "assistant") return true; // user just sent
+  return last.text.trim().length === 0 && last.toolUses.length === 0;
 }
