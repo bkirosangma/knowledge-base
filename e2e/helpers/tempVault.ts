@@ -19,8 +19,14 @@ export interface TempVaultHandle {
   cleanup: () => Promise<void>;
 }
 
-export async function makeTempVault(opts?: { fixture?: string }): Promise<TempVaultHandle> {
-  const path = await invoke<string>("make_temp_vault", { fixture: opts?.fixture ?? null });
+export async function makeTempVault(opts?: {
+  fixture?: string;
+  initialized?: boolean;
+}): Promise<TempVaultHandle> {
+  const path = await invoke<string>("make_temp_vault", {
+    fixture: opts?.fixture ?? null,
+    initialized: opts?.initialized ?? true,
+  });
   return {
     path,
     cleanup: async () => {

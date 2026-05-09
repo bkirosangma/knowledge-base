@@ -27,6 +27,17 @@ impl TempVault {
         Ok(Self { root, _guard: guard })
     }
 
+    /// Tempdir with NO `.kb/config.json` — `vault_set_root` will treat
+    /// it as uninitialized.
+    pub fn fresh_uninitialized() -> Result<Self, String> {
+        let guard = TempDir::new().map_err(|e| format!("tempdir: {e}"))?;
+        let root = guard
+            .path()
+            .canonicalize()
+            .map_err(|e| format!("canonicalize: {e}"))?;
+        Ok(Self { root, _guard: guard })
+    }
+
     /// Tempdir seeded by recursively copying `tests/fixtures/vaults/<name>`.
     /// Fixture must exist; missing fixture is an error.
     pub fn from_fixture(name: &str) -> Result<Self, String> {
@@ -99,9 +110,14 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 /// command is a follow-up once we have data on tempdir leakage.
 #[cfg(debug_assertions)]
 #[tauri::command]
-pub async fn make_temp_vault(fixture: Option<String>) -> Result<String, String> {
+pub async fn make_temp_vault(
+    fixture: Option<String>,
+    initialized: Option<bool>,
+) -> Result<String, String> {
+    let init = initialized.unwrap_or(true);
     let v = match fixture {
         Some(name) => TempVault::from_fixture(&name)?,
+        None if !init => TempVault::fresh_uninitialized()?,
         None => TempVault::fresh()?,
     };
     let path = v.root.to_string_lossy().to_string();
