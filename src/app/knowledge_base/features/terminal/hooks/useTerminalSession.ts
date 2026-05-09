@@ -53,7 +53,13 @@ export function useTerminalSession({ vaultPath, term, fitAddon, isOpen }: Option
 
     const dataDisposable = term.onData((data) => {
       const bytes = Array.from(new TextEncoder().encode(data));
-      void tauriBridge.termWrite(bytes);
+      // term_write stays strict on the Rust side — a "no live term session"
+      // rejection here means a real keystroke was lost (Effect 2 below
+      // opens the PTY on isOpen=true, so this is normally only reachable
+      // in a narrow drawer-toggle race). Catch the rejection so it doesn't
+      // bubble as an unhandled FileSystemError; the user will see the
+      // missing input and can re-type.
+      tauriBridge.termWrite(bytes).catch(() => {});
     });
 
     return () => {
@@ -73,6 +79,10 @@ export function useTerminalSession({ vaultPath, term, fitAddon, isOpen }: Option
       // Container detached or measurement failed; backend will use whatever
       // term.rows/cols currently report.
     }
-    void tauriBridge.termOpen(vaultPath, term.rows, term.cols);
+    // term_open is the one call that should genuinely fail loudly — but we
+    // still catch so a transient lock-contention rejection doesn't surface
+    // as a runtime FileSystemError. The next isOpen / vaultPath flip
+    // re-fires this effect.
+    tauriBridge.termOpen(vaultPath, term.rows, term.cols).catch(() => {});
   }, [term, vaultPath, isOpen, fitAddon]);
 }

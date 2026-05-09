@@ -19,7 +19,11 @@ export function useTerminalResize(
       timer = setTimeout(() => {
         try {
           fitAddon.fit();
-          void tauriBridge.termResize(term.rows, term.cols);
+          // term_resize is a silent no-op on the Rust side when no PTY is
+          // open yet (ResizeObserver fires before term_open lands), but the
+          // promise can still reject for unrelated reasons (lock contention,
+          // post-close races) — swallow rather than crash the page.
+          tauriBridge.termResize(term.rows, term.cols).catch(() => {});
         } catch {
           // Container detached during the timeout; ignore.
         }
