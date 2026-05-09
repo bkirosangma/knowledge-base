@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
-**Last updated:** 2026-05-09 (MVP-3 merged via PR #155 (`726904b` on `main`), MVP-3.5 merged via PR #156 (`678a9d8` on `main`), MVP-4 merged via PR #157 (`072f807` on `main`), and MVP-4.x ready-for-review on PR #158 (3 consecutive clean CI runs verified on `feat/tauri-mvp4x-real-e2e-ci`).
+**Last updated:** 2026-05-09 (MVP-3 merged via PR #155 (`726904b` on `main`), MVP-3.5 merged via PR #156 (`678a9d8` on `main`), MVP-4 merged via PR #157 (`072f807` on `main`), and MVP-4.x merged via PR #158 (`6903077` on `main`).
 
 MVP-3 — Rust `src-tauri/src/skill/{mod,commands,bundle}.rs` (`skill_status`, `skill_install_from_bundle`); `tauri.conf.json` `bundle.resources` ships `skills/knowledge-base/**`; frontend `useSkillBootstrap`, `SkillInstallToast`, slash-command palette in `Composer`, Skills sheet (`SkillsSheet` + `SkillCard` + `VaultFilePicker`), `UninitializedVaultSplash` "Initialize with full template" third action. Total Tauri commands: 22.
 
@@ -124,8 +124,8 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | **MVP-3** | Skill bootstrap + `/kb` invocation | `docs/superpowers/plans/2026-05-09-tauri-mvp3-skills-kb-invocation-plan.md` | ✅ Merged via PR #155 (`726904b` on `main`). |
 | **MVP-3.5** | Embedded terminal as primary Claude surface | `docs/superpowers/plans/2026-05-09-tauri-mvp35-embedded-terminal-plan.md` (spec at `docs/superpowers/specs/2026-05-09-tauri-mvp35-embedded-terminal-design.md`) | ✅ Merged via PR #156 (`678a9d8` on `main`). |
 | **MVP-4** | Test infrastructure on the new shell | `docs/superpowers/plans/2026-05-09-tauri-mvp4-test-infra-plan.md` | ✅ Merged via PR #157 (`072f807` on `main`). e2e dropped from CI per MVP-4.x split. |
-| **MVP-4.x** | Real Playwright e2e in CI (no manual smoke) | `docs/superpowers/plans/2026-05-09-tauri-mvp4x-real-e2e-ci-plan.md` | ✅ Ready-for-review on PR #158 (`feat/tauri-mvp4x-real-e2e-ci`). 5/5 CI jobs green on 3 consecutive runs (`73c0edd`, `861e334`, plus the closeout commit). Path 3 (custom IPC harness) landed; Paths 1+2 ruled out (Phase 1 found a real upstream port bug in `tauri-plugin-webdriver 0.2.1` but the plugin itself was the wrong tool — `@playwright/test` speaks CDP, not WebDriver). |
-| **MVP-5** | Promote previously-blocked test cases | _not yet written; due after MVP-4.x merges_ | ⏳ Not started. |
+| **MVP-4.x** | Real Playwright e2e in CI (no manual smoke) | `docs/superpowers/plans/2026-05-09-tauri-mvp4x-real-e2e-ci-plan.md` | ✅ Merged via PR #158 (`6903077` on `main`). Path 3 (custom IPC harness) landed; Paths 1+2 ruled out (Phase 1 found a real upstream port bug in `tauri-plugin-webdriver 0.2.1` but the plugin itself was the wrong tool — `@playwright/test` speaks CDP, not WebDriver). |
+| **MVP-5** | Promote previously-blocked test cases | _plan pending; in-flight on `feat/tauri-mvp5-test-promotion`_ | 🚧 Active. Branch cut from `main` at `6903077`. Plan-writing dispatched. |
 
 ### Implementation
 
@@ -333,20 +333,19 @@ These are non-negotiable; don't relitigate them mid-MVP.
 
 ## Next Action
 
-**MVP-4.x is ready-for-review on PR #158.** 5/5 CI jobs green on 3 consecutive runs (`73c0edd`, `861e334`, plus the closeout commit). Path 3 (custom IPC harness) shipped; the e2e harness exercises React + real Rust commands on every PR push for the four proof-set specs. **Wait for review + merge** before kicking off MVP-5.
+**MVP-4.x merged via PR #158 (`6903077` on `main`).** Post-merge cleanup done; `feat/tauri-mvp5-test-promotion` cut from `main`; this doc is being updated on that branch alongside the first MVP-5 commit. **MVP-5 kicks off now** — write the plan to systematically sweep ❌ → ✅ / 🟡 / 🧪 across the 8 test-cases buckets, using the harness MVP-4.x just shipped.
 
-**Once PR #158 merges:**
+**Bootstrap (already run for this branch):**
 
 ```bash
 cd "/Users/kiro/My Projects/knowledge-base"
-git checkout main && git pull --ff-only          # confirm MVP-4.x merge SHA on main
-git branch -vv | grep mvp4x                       # confirm [origin/...: gone]
-git branch -D feat/tauri-mvp4x-real-e2e-ci        # remote auto-deletes on squash-merge
+git checkout main && git pull --ff-only          # 6903077 present
+git branch -D feat/tauri-mvp4x-real-e2e-ci       # remote auto-deleted; [origin/...: gone] verified
 git remote prune origin
-git checkout -b feat/tauri-mvp5-test-promotion    # next branch
+git checkout -b feat/tauri-mvp5-test-promotion   # ← you are here
 ```
 
-**MVP-5 plan-writing brief (run via `superpowers:writing-plans`; output `docs/superpowers/plans/2026-05-XX-tauri-mvp5-test-promotion-plan.md`):**
+**MVP-5 plan-writing brief (run via `superpowers:writing-plans`; output `docs/superpowers/plans/2026-05-09-tauri-mvp5-test-promotion-plan.md`):**
 
 - **Goal:** Systematic ❌ → ✅ / 🟡 / 🧪 sweep across the 8 sweep-target buckets in `test-cases/`. Now that the MVP-4.x harness is live, scenarios that were blocked on the FSA-picker (`showDirectoryPicker` user gesture) can be reframed as test_server-driven Playwright assertions and promoted off the ❌ list.
 - **Sweep target files:** `test-cases/01-app-shell.md`, `02-file-system.md`, `04-document.md`, `05-links-and-graph.md`, `06-shared-hooks.md`, `06-svg-editor.md`, `07-persistence.md`, `11-tabs.md`. Per `test-cases/README.md`, each `❌` case needs an inspect-and-flip pass: assess whether the case is now feasible under the new harness, write the spec, flip the marker.
