@@ -65,6 +65,7 @@
 - **SHELL-1.3-08** ✅ **Reset App confirmation** — `ConfirmPopover` with destructive variant wraps the Reset button; Escape dismisses without resetting; confirmed in `Footer.test.tsx`.
 - **SHELL-1.3-09** ✅ **"Last synced N s ago" chip is visible (KB-041)** — Footer renders a small `data-testid="last-synced-chip"` element when wrapped by `FileWatcherProvider`; reads `useFileWatcher().lastSyncedAt` and displays `"Last synced 0s ago"` immediately after mount. _(Footer.test.tsx)_
 - **SHELL-1.3-10** ✅ **Chip ticks up once per second (KB-041)** — after one second of real time, the chip text re-renders to `"Last synced 1s ago"`; after another second `"Last synced 2s ago"`. _(Footer.test.tsx, fake timers)_
+- **SHELL-1.3-11** ✅ **Footer no longer renders ClaudeStatusLine (MVP-3.5)** — after the terminal-surface pivot, `<ClaudeStatusLine>` is absent from `<Footer>`; status is surfaced directly in the embedded terminal. _(unit: `Footer.test.tsx`)_
 
 Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/ToolbarContext.test.tsx): pane-count (1 vs 2), focus propagation, mixed-type active-pane derivation, pane-type fallback to `"diagram"` when left is null.
 
@@ -88,8 +89,12 @@ Also covered in [ToolbarContext.test.tsx](../src/app/knowledge_base/shell/Toolba
 - **SHELL-1.4-16** ✅ **`openFile` writes anchor onto the active `PaneEntry`** — calling `openFile(path, "document", { anchor: "intro" })` results in `activeEntry.anchor === "intro"`. Wiki-link MVP 3 plumbing for `[[doc.md#section]]`. _(unit: `PaneManager.test.tsx`)_
 - **SHELL-1.4-17** ✅ **`openFile` defaults anchor to `null`** — calling `openFile(path, "document")` (no opts) or `openFile(path, "document", {})` leaves `activeEntry.anchor === null`, so a stale anchor never bleeds into a fresh navigation. _(unit: `PaneManager.test.tsx`)_
 - **SHELL-1.4-18** ✅ **Subsequent navigation without anchor resets the entry's anchor** — after `openFile(path, "document", { anchor: "intro" })` then `openFile(path, "document")`, `activeEntry.anchor === null`. Each navigation produces a fresh entry, so an old `#section` cannot persist. _(unit: `PaneManager.test.tsx`)_
-- **SHELL-1.4-19** 🟡 **Footer renders chat toggle button on the left edge** — the chat toggle (MessageCircle icon) is the left-most footer slot, present on every page with an open vault. _(unit: `ChatToggleButton.test`)_
-- **SHELL-1.4-20** 🟡 **Chat toggle icon pulses when drawer is closed and a stream is in flight** — `animate-pulse` class applied to the toggle icon while `isStreaming && !isOpen`; static once the drawer is open. _(unit: `ChatToggleButton.test "pulses while streaming and closed"`)_
+- **SHELL-1.4-19** 🟡 **Footer renders drawer toggle button on the left edge** — `<DrawerToggleButton>` (renamed from `ChatToggleButton` in MVP-3.5) is the left-most footer slot, present on every page with an open vault. _(unit: `DrawerToggleButton.test.tsx`)_
+- **SHELL-1.4-20** 🟡 **Drawer toggle icon pulses when drawer is closed and a stream is in flight on chat surface** — `animate-pulse` class applied to the icon while `isStreaming && !isOpen && surface === 'chat'`; never pulses on terminal surface. _(unit: `DrawerToggleButton.test.tsx`)_
+- **SHELL-1.4-21** ✅ **DrawerToggleButton renders with "Open Claude" accessible label** — the button has an accessible name matching `/open claude/i`. _(unit: `DrawerToggleButton.test.tsx`; see TERM-14.6)_
+- **SHELL-1.4-22** ✅ **DrawerToggleButton pulses on streaming when surface='chat'** — `animate-pulse` applied when `isStreaming && !isOpen && surface === 'chat'`. _(unit: `DrawerToggleButton.test.tsx`; see TERM-14.6)_
+- **SHELL-1.4-23** ✅ **DrawerToggleButton does NOT pulse when drawer is open** — `animate-pulse` absent when `isOpen=true` regardless of streaming state or surface. _(unit: `DrawerToggleButton.test.tsx`; see TERM-14.6)_
+- **SHELL-1.4-24** ✅ **DrawerToggleButton does NOT pulse when surface='terminal'** — `animate-pulse` absent when `surface='terminal'` even while streaming and drawer is closed. _(unit: `DrawerToggleButton.test.tsx`; see TERM-14.6)_
 
 ## 1.5 Contexts (Toolbar / Footer)
 

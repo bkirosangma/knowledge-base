@@ -1,5 +1,7 @@
 # 12 — Claude Chat
 
+> **Note (MVP-3.5):** The chat surface is now the **secondary** surface. The default is the embedded terminal — see `test-cases/14-terminal.md` and `Features.md` §11.y. Cases below cover the chat surface in its parked state (still functional, accessible via the "Toggle Claude surface" command palette entry).
+
 ## CHAT-12.1 — drawer open/close + state
 
 - CHAT-12.1-01: 🟡 When the user clicks the chat toggle button, the drawer slides up over PaneManager. (unit: ChatToggleButton.test "toggles drawer when clicked"; ClaudeChatDrawer.test "renders message list + composer when open")
@@ -17,6 +19,10 @@
 - CHAT-12.2-04: 🟡 When `message_end` arrives, the streaming cursor disappears. (unit: PartialMessageStream.test "renders nothing when not streaming"; useClaudeSession.test "marks turn ended on message_end")
 - CHAT-12.2-05: 🟡 When `tool_use` arrives, a collapsible block renders inside the assistant bubble showing the tool name. (unit: ToolUseBlock.test "renders tool name and is collapsed by default"; MessageList.test "renders tool-use blocks inside assistant turn")
 - CHAT-12.2-06: 🟡 When the tool-use block is clicked, it expands to show the JSON input (and output if present). (unit: ToolUseBlock.test "expands on click"; ToolUseBlock.test "renders output when provided + expanded")
+- CHAT-12.2-07: ✅ When streaming starts and no turns exist yet, a "Claude is thinking…" pulsing-dot row appears. (unit: MessageList.test "CHAT-12.2-07: shows thinking indicator while streaming with no turns")
+- CHAT-12.2-08: ✅ When not streaming, the thinking indicator is absent even with an empty turns list. (unit: MessageList.test "CHAT-12.2-08: hides thinking indicator when not streaming (empty turns)")
+- CHAT-12.2-09: ✅ Once the assistant turn has rendered content (non-empty text or tool blocks), the thinking indicator is hidden. (unit: MessageList.test "CHAT-12.2-09: hides thinking indicator once assistant turn has content")
+- CHAT-12.2-10: ✅ When streaming and the latest turn is a user turn (no assistant reply yet), the thinking indicator shows. (unit: MessageList.test "CHAT-12.2-10: shows thinking indicator when latest turn is user (no assistant reply yet)")
 
 ## CHAT-12.3 — composer
 

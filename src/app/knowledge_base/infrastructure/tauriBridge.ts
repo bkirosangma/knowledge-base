@@ -68,6 +68,10 @@ export interface SkillStatus {
   bundledPath: string;
 }
 
+export type TermEventPayload =
+  | { kind: 'data'; bytes: number[] }
+  | { kind: 'exit' };
+
 async function call<T>(
   cmd: string,
   args: Record<string, unknown>,
@@ -157,6 +161,33 @@ export const tauriBridge = {
     handler: (event: ClaudeEvent) => void,
   ): Promise<() => void> {
     return listenEvent<ClaudeEvent>("claude_event", handler);
+  },
+
+  // -- Terminal --
+
+  /** Open a PTY terminal in the given vault directory. */
+  termOpen(vaultPath: string, rows: number, cols: number): Promise<void> {
+    return call<void>("term_open", { vaultPath, rows, cols }, vaultPath);
+  },
+
+  /** Write bytes to the terminal's stdin. */
+  termWrite(bytes: number[]): Promise<void> {
+    return call<void>("term_write", { bytes }, "");
+  },
+
+  /** Notify the PTY of a resize. */
+  termResize(rows: number, cols: number): Promise<void> {
+    return call<void>("term_resize", { rows, cols }, "");
+  },
+
+  /** Close the terminal PTY. */
+  termClose(): Promise<void> {
+    return call<void>("term_close", {}, "");
+  },
+
+  /** Subscribe to term_event payloads. Returns an unsubscribe function. */
+  subscribeTermEvent(handler: (e: TermEventPayload) => void): Promise<() => void> {
+    return listenEvent<TermEventPayload>("term_event", handler);
   },
 
   // -- Skills --

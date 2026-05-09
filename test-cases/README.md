@@ -23,6 +23,7 @@ Human-readable catalogue of every scenario we care about covering, split by feat
 | 11 | `TAB` | Guitar Tabs (`.alphatex`, `TabEngine`, `TabRepository`, viewer + editor) | [11-tabs.md](11-tabs.md) |
 | 12 | `CHAT` | Claude Chat Surface (drawer, session, composer, status line, crash recovery, permission mode) | [12-claude-chat.md](12-claude-chat.md) |
 | 13 | `SKILLS` / `SLASH` / `VAULTPICK` | Skills (bootstrap, slash-command palette, Skills sheet, vault file picker, init-with-template) | [13-skills.md](13-skills.md) |
+| 14 | `TERM` / `SHELL` / `SETTINGS` | Terminal surface (embedded PTY, drawer, surface toggle, ClaudeDrawer picker, settings migration, footer cleanup) | [14-terminal.md](14-terminal.md) |
 
 ---
 

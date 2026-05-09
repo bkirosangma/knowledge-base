@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useChat } from "./ChatContext";
 import { useClaudeStatus } from "./hooks/useClaudeStatus";
-import { useSkillBootstrap } from "./hooks/useSkillBootstrap";
 import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import { DrawerResizeHandle } from "./components/DrawerResizeHandle";
 import { SetupScreen } from "./components/SetupScreen";
-import { SkillInstallToast } from "./components/SkillInstallToast";
 import { SkillsSheet } from "./skills/SkillsSheet";
 import type { SlashCommand } from "./slash/slashCommands";
 import {
@@ -18,7 +16,6 @@ import {
 export function ClaudeChatDrawer() {
   const { isOpen, height, turns, isStreaming, errorMessage, send, interrupt, close, setHeight } = useChat();
   const { status } = useClaudeStatus();
-  const skillBootstrap = useSkillBootstrap("knowledge-base");
   const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>("acceptEdits");
   const [skillsOpen, setSkillsOpen] = useState(false);
 
@@ -64,7 +61,6 @@ export function ClaudeChatDrawer() {
       aria-label="Claude chat"
     >
       <DrawerResizeHandle initialHeight={height} onResize={setHeight} />
-      {skillBootstrap.justInstalled && <SkillInstallToast show />}
       <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-xs">
         <span className="text-mute">Claude</span>
         <div className="flex items-center gap-2">
@@ -101,7 +97,7 @@ export function ClaudeChatDrawer() {
         <div className="flex-1 min-h-0"><SetupScreen /></div>
       ) : (
         <>
-          <MessageList turns={turns} />
+          <MessageList turns={turns} isStreaming={isStreaming} />
           <Composer onSend={send} onInterrupt={interrupt} isStreaming={isStreaming} />
           <SkillsSheet open={skillsOpen} onClose={() => setSkillsOpen(false)} onRun={onRunSkill} />
         </>

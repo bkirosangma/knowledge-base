@@ -29,6 +29,7 @@ libc = "0.2"
 # Exact pins: plan validated against these versions; bump deliberately in MVP-1d cleanup.
 notify = "=6.1.1"
 notify-debouncer-full = "=0.3.2"
+portable-pty = "0.8"
 tauri-plugin-store = "=2.4.3"
 
 [dev-dependencies]

@@ -1,5 +1,7 @@
 # Test Cases — Skills
 
+> **Note (MVP-3.5):** Skill bootstrap fires regardless of which surface is active (terminal or chat). The cases below apply to both surfaces. Default surface is now the embedded terminal — see `test-cases/14-terminal.md`.
+
 > Mirrors §11.x (Claude Chat Surface, MVP-3 additions) of [Features.md](../Features.md). See [README.md](README.md) for ID scheme and coverage markers.
 
 Skill bootstrap (install-on-first-launch), `/kb` invocation surfaces (slash-command palette in the composer, Skills sheet, vault file picker), and the "Initialize with full template" action that the splash + vault-switcher dropdown surface. MVP-3 surface — see `Features.md` §11.x for the feature catalogue.
@@ -17,6 +19,9 @@ Implemented by `useSkillBootstrap` (per-session module-level guard) + `SkillInst
 - **SKILLS-13.1-05** ✅ **Toast appears with the install message** — `SkillInstallToast` renders the install confirmation message when `show=true`. _(unit: `SkillInstallToast.test.tsx`)_
 - **SKILLS-13.1-06** ✅ **Toast auto-dismisses after 3 seconds** — after mounting with `show=true`, the component calls `onDismiss` after 3000 ms. _(unit: `SkillInstallToast.test.tsx`)_
 - **SKILLS-13.1-07** ✅ **Toast does not render when show=false** — `SkillInstallToast` renders nothing when `show=false`. _(unit: `SkillInstallToast.test.tsx`)_
+- **SKILLS-13.1-08** ✅ **Error-tone toast renders with role=alert** — `SkillInstallToast` with `tone="error"` renders `role="alert"` (not `role="status"`) so screen readers announce it urgently. _(unit: `SkillInstallToast.test.tsx`)_
+- **SKILLS-13.1-09** ✅ **Error-tone toast still auto-dismisses after 3 s** — the auto-dismiss timer applies regardless of `tone`. _(unit: `SkillInstallToast.test.tsx`)_
+- **SKILLS-13.1-10** ✅ **ClaudeDrawer renders error toast when `skillBootstrap.error` is set** — when `useSkillBootstrap` returns a non-null error, the error-variant `SkillInstallToast` is rendered. _(unit: `ClaudeDrawer.test.tsx`)_
 
 ## SKILLS-13.2 Slash-command palette
 

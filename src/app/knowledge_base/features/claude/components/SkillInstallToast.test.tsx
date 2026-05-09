@@ -23,4 +23,16 @@ describe("SkillInstallToast", () => {
     render(<SkillInstallToast show={false} />);
     expect(screen.queryByRole("status")).toBeNull();
   });
+
+  it("SKILLS-13.1-08: error tone renders role=alert with red styling", () => {
+    render(<SkillInstallToast show tone="error" message="boom" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("boom");
+  });
+
+  it("SKILLS-13.1-09: error tone still auto-dismisses after 3 s", () => {
+    render(<SkillInstallToast show tone="error" message="boom" />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

@@ -6,13 +6,15 @@ export interface VaultSettings {
 }
 
 export interface UiSettings {
-  claudeChat: { height: number };
+  claudeDrawer: { height: number };
 }
 
 export type ClaudePermissionMode = "acceptEdits" | "default";
+export type ClaudeSurface = "terminal" | "chat";
 
 export interface ClaudeSettings {
   permissionMode: ClaudePermissionMode;
+  surface?: ClaudeSurface;
 }
 
 export interface Settings {
@@ -52,18 +54,28 @@ export async function pushRecent(path: string): Promise<void> {
   await writeSettings({ ...s, vault: { ...s.vault, recents: next } });
 }
 
-export async function setClaudeChatHeight(height: number): Promise<void> {
+export async function setClaudeDrawerHeight(height: number): Promise<void> {
   const s = await getSettings();
   await writeSettings({
     ...s,
-    ui: { ...s.ui, claudeChat: { ...s.ui.claudeChat, height } },
+    ui: { ...s.ui, claudeDrawer: { ...s.ui.claudeDrawer, height } },
   });
 }
 
-export async function getClaudeChatHeight(): Promise<number> {
+export async function getClaudeDrawerHeight(): Promise<number> {
   const s = await getSettings();
-  const h = s.ui.claudeChat.height;
+  const h = s.ui.claudeDrawer?.height;
   return typeof h === "number" && h > 0 ? h : 320;
+}
+
+export async function getClaudeSurface(): Promise<ClaudeSurface> {
+  const s = await getSettings();
+  return s.claude?.surface === "chat" ? "chat" : "terminal";
+}
+
+export async function setClaudeSurface(surface: ClaudeSurface): Promise<void> {
+  const s = await getSettings();
+  await writeSettings({ ...s, claude: { ...s.claude, surface } });
 }
 
 export async function getClaudePermissionMode(): Promise<ClaudePermissionMode> {

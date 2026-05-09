@@ -240,6 +240,8 @@ Existing app surfaces (PaneManager, file explorer, Claude chat drawer) are not m
 
 ## 7. MVP-2 — Claude subprocess integration
 
+> **Pivot note (2026-05-09):** Manual smoke after MVP-3 surfaced that the custom chat surface re-implements what `claude`'s native TUI already does well. **MVP-3.5 demotes this design to the secondary surface behind a settings toggle** (`claude.surface: 'terminal' | 'chat'`, default `'terminal'`) and embeds a real `zsh -i -l` PTY running `claude` as the primary surface. The MVP-2 implementation below remains accurate for the chat surface; it is no longer the default user experience. See `docs/superpowers/specs/2026-05-09-tauri-mvp35-embedded-terminal-design.md` for the pivot rationale, architecture, and the three small fixes that ship alongside to keep the chat surface usable when toggled to.
+
 ### 7.1 Subprocess strategy
 
 One long-lived `claude -p` per app session. Spawned on first message, kept alive across turns via `--input-format stream-json`.

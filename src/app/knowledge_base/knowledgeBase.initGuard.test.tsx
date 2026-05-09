@@ -50,17 +50,19 @@ vi.mock("./features/search/searchWorkerClient", () => ({
 vi.mock("./infrastructure/settingsStore", () => ({
   getSettings: vi.fn(async () => ({
     vault: { lastPath: "/Users/x/empty", recents: [] },
-    ui: { claudeChat: { height: 320 } },
+    ui: { claudeDrawer: { height: 320 } },
     claude: {},
   })),
   getRecents: vi.fn(async () => []),
   setLastPath: vi.fn(async () => undefined),
   pushRecent: vi.fn(async () => undefined),
   clearLastPath: vi.fn(async () => undefined),
-  setClaudeChatHeight: vi.fn(async () => undefined),
-  getClaudeChatHeight: vi.fn(async () => 320),
+  setClaudeDrawerHeight: vi.fn(async () => undefined),
+  getClaudeDrawerHeight: vi.fn(async () => 320),
   getClaudePermissionMode: vi.fn(async () => "acceptEdits"),
   setClaudePermissionMode: vi.fn(async () => undefined),
+  getClaudeSurface: vi.fn(async () => "terminal"),
+  setClaudeSurface: vi.fn(async () => undefined),
 }));
 
 import KnowledgeBase from "./knowledgeBase";

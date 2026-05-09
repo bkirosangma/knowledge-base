@@ -3,10 +3,12 @@
 use knowledge_base_lib::claude::{commands as claude_commands, ClaudeState};
 use knowledge_base_lib::settings::commands as settings_commands;
 use knowledge_base_lib::skill::commands as skill_commands;
+use knowledge_base_lib::term::commands as term_commands;
 use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherState};
 use std::sync::Arc;
 
 fn main() {
+    knowledge_base_lib::env_bootstrap::merge_login_shell_path();
     let vault: VaultState = Arc::new(Vault::default());
     let watcher: WatcherState = Arc::new(Watcher::default());
     tauri::Builder::default()
@@ -15,6 +17,7 @@ fn main() {
         .manage(vault)
         .manage(watcher)
         .manage(ClaudeState::new())
+        .manage(knowledge_base_lib::term::TermState::new())
         .invoke_handler(tauri::generate_handler![
             commands::vault_pick,
             commands::vault_set_root,
@@ -38,6 +41,10 @@ fn main() {
             claude_commands::claude_reset,
             skill_commands::skill_status,
             skill_commands::skill_install_from_bundle,
+            term_commands::term_open,
+            term_commands::term_write,
+            term_commands::term_resize,
+            term_commands::term_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

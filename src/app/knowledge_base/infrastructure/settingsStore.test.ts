@@ -12,8 +12,8 @@ const invokeMock = vi.hoisted(() =>
       if (state.storeState === null) {
         return {
           vault: { lastPath: null, recents: [] },
-          ui: { claudeChat: { height: 320 } },
-          claude: { permissionMode: "acceptEdits" },
+          ui: { claudeDrawer: { height: 320 } },
+          claude: { permissionMode: "acceptEdits", surface: "terminal" },
         };
       }
       return state.storeState;
@@ -34,8 +34,9 @@ import {
   clearLastPath,
   pushRecent,
   getRecents,
-  setClaudeChatHeight,
-  getClaudeChatHeight,
+  setClaudeDrawerHeight,
+  getClaudeDrawerHeight,
+  getClaudeSurface,
   getClaudePermissionMode,
   setClaudePermissionMode,
   RECENTS_MAX,
@@ -51,8 +52,8 @@ describe("settingsStore.getSettings", () => {
     const s = await getSettings();
     expect(s).toEqual({
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 320 } },
-      claude: { permissionMode: "acceptEdits" },
+      ui: { claudeDrawer: { height: 320 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
     });
     expect(invokeMock).toHaveBeenCalledWith("settings_read", {});
   });
@@ -60,12 +61,12 @@ describe("settingsStore.getSettings", () => {
   it("returns persisted state once it's been written", async () => {
     state.storeState = {
       vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
-      ui: { claudeChat: { height: 480 } },
-      claude: { permissionMode: "acceptEdits" },
+      ui: { claudeDrawer: { height: 480 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
     };
     const s = await getSettings();
     expect(s.vault.lastPath).toBe("/Users/x/v");
-    expect(s.ui.claudeChat.height).toBe(480);
+    expect(s.ui.claudeDrawer.height).toBe(480);
   });
 });
 
@@ -90,8 +91,8 @@ describe("settingsStore mutations", () => {
   it("clearLastPath nulls vault.lastPath", async () => {
     state.storeState = {
       vault: { lastPath: "/old", recents: [] },
-      ui: { claudeChat: { height: 320 } },
-      claude: { permissionMode: "acceptEdits" },
+      ui: { claudeDrawer: { height: 320 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
     };
     await clearLastPath();
     expect(invokeMock).toHaveBeenCalledWith(
@@ -122,33 +123,66 @@ describe("settingsStore mutations", () => {
     expect(recents).not.toContain("/a"); // pushed out by the cap
   });
 
-  it("setClaudeChatHeight writes ui.claudeChat.height", async () => {
-    await setClaudeChatHeight(456);
+  it("setClaudeDrawerHeight writes ui.claudeDrawer.height", async () => {
+    await setClaudeDrawerHeight(456);
     expect(invokeMock).toHaveBeenCalledWith(
       "settings_write",
       expect.objectContaining({
         settings: expect.objectContaining({
-          ui: expect.objectContaining({ claudeChat: { height: 456 } }),
+          ui: expect.objectContaining({ claudeDrawer: { height: 456 } }),
         }),
       }),
     );
   });
 
   // SETTINGS-8-01
-  it("getClaudeChatHeight returns 320 by default", async () => {
-    const h = await getClaudeChatHeight();
+  it("getClaudeDrawerHeight returns 320 by default", async () => {
+    const h = await getClaudeDrawerHeight();
     expect(h).toBe(320);
   });
 
   // SETTINGS-8-02
-  it("getClaudeChatHeight returns the stored value when present", async () => {
+  it("getClaudeDrawerHeight returns the stored value when present", async () => {
     state.storeState = {
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 500 } },
+      ui: { claudeDrawer: { height: 500 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
+    };
+    const h = await getClaudeDrawerHeight();
+    expect(h).toBe(500);
+  });
+
+  // SETTINGS-9-01
+  it("getClaudeSurface defaults to terminal when surface is absent", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "acceptEdits" },
     };
-    const h = await getClaudeChatHeight();
-    expect(h).toBe(500);
+    const surface = await getClaudeSurface();
+    expect(surface).toBe("terminal");
+  });
+
+  // SETTINGS-9-02
+  it("getClaudeDrawerHeight returns new claudeDrawer key when present", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeDrawer: { height: 400 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
+    };
+    const h = await getClaudeDrawerHeight();
+    expect(h).toBe(400);
+  });
+
+  // SETTINGS-9-03
+  it("getClaudeDrawerHeight defaults to 320 when claudeDrawer height is absent", async () => {
+    state.storeState = {
+      vault: { lastPath: null, recents: [] },
+      ui: { claudeDrawer: { height: 0 } },
+      claude: { permissionMode: "acceptEdits", surface: "terminal" },
+    };
+    const h = await getClaudeDrawerHeight();
+    expect(h).toBe(320);
   });
 
   // SETTINGS-8-03
@@ -161,7 +195,7 @@ describe("settingsStore mutations", () => {
   it("getClaudePermissionMode returns default when stored as default", async () => {
     state.storeState = {
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "default" },
     };
     const mode = await getClaudePermissionMode();
@@ -185,7 +219,7 @@ describe("settingsStore mutations", () => {
   it("setClaudePermissionMode(acceptEdits) writes the value to settings", async () => {
     state.storeState = {
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "default" },
     };
     await setClaudePermissionMode("acceptEdits");
