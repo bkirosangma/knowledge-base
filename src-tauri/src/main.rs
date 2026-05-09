@@ -22,9 +22,16 @@ fn main() {
     // tauri-plugin-webdriver is compiled into release bundles (~200KB) but only
     // registered in debug builds; the WebDriver port is a dev-only test seam used
     // by Playwright in MVP-4 Task 10. Production never opens it.
+    //
+    // The plugin's DEFAULT_PORT is 4445 (see tauri-plugin-webdriver 0.2.1 src/lib.rs:19);
+    // our Playwright readiness probe and the rest of the e2e harness are pinned to
+    // :4444 (playwright.config.ts `webServer.url`). MVP-4's CI rollout failed for this
+    // exact reason — the plugin bound 4445 silently while Playwright's webServer block
+    // waited 180 s for 4444. `init_with_port(4444)` aligns the plugin to our fixed port
+    // contract; the readiness check is the source of truth, not the plugin's default.
     #[cfg(debug_assertions)]
     {
-        builder = builder.plugin(tauri_plugin_webdriver::init());
+        builder = builder.plugin(tauri_plugin_webdriver::init_with_port(4444));
     }
 
     builder
