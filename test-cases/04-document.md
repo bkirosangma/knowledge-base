@@ -83,8 +83,8 @@
 - **DOC-4.3-35** ❌ **Cursor exits rawBlock → re-parses via markdown-it.** Same.
 - **DOC-4.3-36** 🚫 **LRU cache hit skips parse.** Cache is module-private inside `markdownReveal`; integration-only.
 - **DOC-4.3-37** 🚫 **LRU cap = 64.** Same.
-- **DOC-4.3-38** ❌ **Enter in rawBlock splits with smart list-item handling.** Keyboard handler on live editor.
-- **DOC-4.3-39** ❌ **Backspace at rawBlock start merges with previous block's rightmost textblock.** Same.
+- **DOC-4.3-38** ❌ **Enter in rawBlock splits with smart list-item handling.** Keyboard handler on live editor. _(note: see MVP-5 follow-up — keymap closes over `this.editor` and `view.dispatch`; jsdom can't reliably propagate keydown into the ProseMirror keymap from the public component surface, and MarkdownEditor doesn't expose an editor ref.)_
+- **DOC-4.3-39** ❌ **Backspace at rawBlock start merges with previous block's rightmost textblock.** Same. _(note: see MVP-5 follow-up — same constraint as DOC-4.3-38; keymap binding requires editor instance access.)_
 - **DOC-4.3-40** ❌ **rawSwap meta flag suppresses serialize.** Transaction-level meta inside live dispatcher — integration.
 
 ### 4.3.e FolderPicker (`FolderPicker.tsx`)
@@ -149,12 +149,12 @@
 - **DOC-4.5-10** 🚫 **`toggleRawSyntax` detects `*` vs `**`.** Same — module-private.
 - **DOC-4.5-11** 🚫 **Heading in rawBlock toggles `# ` prefix (`toggleRawBlockType`).** Module-private helper.
 - **DOC-4.5-12** ✅ **List / blockquote / code block buttons toggle block type** — `MarkdownEditor.test.tsx` covers bullet list, numbered list, blockquote, and code block — each button click produces the corresponding block structure (`<ul><li>`, `<ol><li>`, `<blockquote>`, `<pre><code>`).
-- **DOC-4.5-13** ❌ **Force-exit rawBlock before structural commands.** Live editor.
+- **DOC-4.5-13** ❌ **Force-exit rawBlock before structural commands.** Live editor. _(note: see MVP-5 follow-up — requires placing the cursor inside a rawBlock then clicking a structural toolbar button; MarkdownEditor doesn't expose an editor ref and JSDOM can't drive the cursor into a rawBlock without one.)_
 - **DOC-4.5-14** ✅ **`getActiveRawFormats` — bold detected in rawBlock** — the pure string-parsing core was extracted to `rawBlockHelpers.computeActiveRawFormatsAt(text, cursor)` and is exhaustively tested in `rawBlockHelpers.test.ts` (bold / italic / strike / code / triple-asterisk / nested / plain / outside). The editor-coupled wrapper in `MarkdownEditor.tsx` delegates to this helper.
 - **DOC-4.5-15** ✅ **`getRawHeadingLevel` — detects `#{N}` prefix** — extracted as `rawBlockHelpers.parseHeadingPrefix(text)`; tests cover levels 1–6, 7+ rejection, missing-space rejection, empty input, and tab separator.
 - **DOC-4.5-16** ✅ **`isRawBlockquote` — detects `> ` prefix** — extracted as `rawBlockHelpers.hasBlockquotePrefix(text)`; tests cover `> ` / `>` without space / internal `> ` / empty input.
 - **DOC-4.5-17** ✅ **Horizontal rule button inserts `<hr>`** — `MarkdownEditor.test.tsx` asserts `<hr>` appears in the ProseMirror output after clicking the Horizontal rule button.
-- **DOC-4.5-18** ❌ **Link button with text selected wraps selection.** Live editor.
+- **DOC-4.5-18** ❌ **Link button with text selected wraps selection.** Live editor. _(note: see MVP-5 follow-up — requires `editor.commands.setTextSelection({from, to})` on the live editor; JSDOM Selection doesn't propagate to ProseMirror and MarkdownEditor doesn't expose an editor ref.)_
 - **DOC-4.5-19** 🟡 **Link button with empty selection inserts empty link** — popover flow is covered by DOC-4.7 (`LinkEditorPopover.test.tsx`); the button → popover wiring is integration.
 - **DOC-4.5-20** ✅ **Table picker shows 8×8 grid.** — opening the `TablePicker` renders 64 cells. _(TablePicker.test.tsx)_
 - **DOC-4.5-21** ✅ **Hovering cell shows "N × M table".** — `mouseEnter` on a cell sets the label; `mouseLeave` resets to "Select size". _(TablePicker.test.tsx)_
