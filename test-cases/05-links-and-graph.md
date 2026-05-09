@@ -8,7 +8,7 @@
 
 ## 5.1 Wiki-Link Rename Propagation
 
-- **LINK-5.1-01** ✅ **Rename updates matching `[[name]]`** — rename `foo.md` → `bar.md` → every document containing `[[foo]]` now contains `[[bar]]`. (Covered by DOC-4.8-10 in `wikiLinkParser.test.ts`.)
+- **LINK-5.1-01** ✅ **Rename updates matching `[[name]]`** — rename `foo.md` → `bar.md` → every document containing `[[foo]]` now contains `[[bar]]`. (Covered by DOC-4.8-10 in `wikiLinkParser.test.ts`; full-stack flow also asserted by `e2e/rename_propagation.spec.ts`.)
 - **LINK-5.1-02** ✅ **Rename preserves `#section`** — `[[foo#auth]]` → `[[bar#auth]]`. (DOC-4.8-10.)
 - **LINK-5.1-03** ✅ **Rename preserves custom display** — `[[foo|Login]]` → `[[bar|Login]]`. (DOC-4.8-10.)
 - **LINK-5.1-04** ✅ **Rename preserves display + section** — `[[foo#auth|Login]]` → `[[bar#auth|Login]]`. (DOC-4.8-10.)
@@ -44,7 +44,7 @@
 
 > These cases are integration-level: they assert the full chain (explorer → `useFileActions` → `updateWikiLinkPaths` → link index → pane state).
 
-- **LINK-5.4-01** 🧪 **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
+- **LINK-5.4-01** 🧪 **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. The on-disk side of the propagation chain (rename `a.md` → `c.md` rewrites `[[a]]` to `[[c]]` inside `b.md`) is also asserted in `e2e/rename_propagation.spec.ts` (proof set). _(e2e: `e2e/fileExplorerOps.spec.ts`, `e2e/rename_propagation.spec.ts`)_
 - **LINK-5.4-02** ❌ **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state.)
 - **LINK-5.4-03** ❌ **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution.)
 - **LINK-5.4-04** ✅ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered by LINK-5.4-04 test in `useLinkIndex.test.ts`.)

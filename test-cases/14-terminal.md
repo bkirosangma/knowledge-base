@@ -12,7 +12,7 @@ Implemented by `useTerminalSession` + `TerminalSurface`. Rust side: `term_open` 
 
 - **TERM-14.1-01** ✅ **skips open when vaultPath null** — `useTerminalSession` does not call `termOpen` when `vaultPath` is null. _(unit: `useTerminalSession.test.ts`)_
 - **TERM-14.1-02** ✅ **skips open when term null** — `useTerminalSession` does not call `termOpen` when the xterm `Terminal` instance is null. _(unit: `useTerminalSession.test.ts`)_
-- **TERM-14.1-03** ✅ **calls termOpen with rows/cols once both ready** — once both `vaultPath` and `term` are non-null, `termOpen` is called with the terminal's rows + cols. _(unit: `useTerminalSession.test.ts`)_
+- **TERM-14.1-03** ✅ **calls termOpen with rows/cols once both ready** — once both `vaultPath` and `term` are non-null, `termOpen` is called with the terminal's rows + cols. Rust-side echo round-trip + resize + close are exercised against a real PTY in `term_pty_integration.rs`. _(unit: `useTerminalSession.test.ts`; integration: `src-tauri/tests/term_pty_integration.rs`)_
 - **TERM-14.1-04** ✅ **re-opens on vaultPath change** — changing `vaultPath` causes `useTerminalSession` to call `termOpen` again with the new path. _(unit: `useTerminalSession.test.ts`)_
 - **TERM-14.1-05** ✅ **renders the container with role="region"** — `TerminalSurface` renders a container element with `role="region"`. _(unit: `TerminalSurface.test.tsx`)_
 
@@ -65,4 +65,4 @@ See also `test-cases/01-app-shell.md` §1.3 and §1.4 for the primary cases. Cas
 
 ## TERM-14.7 Vault-switch behavior
 
-- **TERM-14.7-01** 🚫 **Real PTY in-place restart on vault change** — deferred to MVP-4 integration coverage. Rust-level `shell_escape` safety is covered by 3 cargo unit tests in `src-tauri/src/term/pty.rs`. End-to-end vault-switch-with-PTY-alive test needs `tauri-plugin-webdriver`.
+- **TERM-14.7-01** ✅ **Real PTY in-place restart on vault change** — `restart_in_new_vault` keeps the same `PtySession` alive, sends the Ctrl-C + `cd <newPath>` + `claude\n` byte sequence, and `pwd` reports the new vault root after the restart. Rust-level `shell_escape` safety is covered by 3 cargo unit tests in `src-tauri/src/term/pty.rs`. _(integration: `src-tauri/tests/term_vault_switch.rs`)_
