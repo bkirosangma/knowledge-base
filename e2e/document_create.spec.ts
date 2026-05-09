@@ -9,11 +9,10 @@ test.describe("document create → file on disk (proof set)", () => {
     await installShim(page);
   });
 
-  test("creating a document via the explorer context menu writes the file to the vault tempdir", async ({ page }) => {
-    // Use the `with_links` fixture so the tree has at least one existing
-    // file we can right-click to open the parent-dir context menu —
-    // ExplorerPanel's "New → Document" affordance is gated behind that
-    // context menu (see explorer/ExplorerPanel.tsx ~L676).
+  test("clicking the explorer header's New Document button writes the file to the vault tempdir", async ({ page }) => {
+    // `with_links` fixture has a.md + b.md so the tree isn't empty (an
+    // empty tree would surface the empty-state CTA instead of the
+    // header buttons).
     const vault = await makeTempVault({ fixture: "with_links" });
 
     await page.goto("/");
@@ -21,19 +20,24 @@ test.describe("document create → file on disk (proof set)", () => {
     await expect(page.locator('[data-testid="knowledge-base"]')).toBeVisible();
     await expect(page.getByTestId("explorer-tree")).toBeVisible();
 
-    // Right-click the existing a.md to open the context menu.
-    await page.getByTestId("explorer-tree").getByText("a.md").first().click({ button: "right" });
-
-    // Hover/click "New" to open the submenu, then click "Document".
-    // ExplorerPanel uses onMouseEnter/Leave for the submenu — Playwright
-    // hover is reliable here.
-    await page.getByRole("button", { name: "New" }).hover();
-    await page.getByRole("button", { name: "Document" }).click();
+    // Click the explorer header's "New Document" button. The aria-label
+    // includes the selected-folder suffix when a folder is selected;
+    // we use a regex to match "New Document" or "New Document in <name>".
+    // (The folder-context "New → Document" submenu in ExplorerPanel
+    // requires a folder right-click, not a file right-click — using
+    // the header button is the load-bearing affordance the spec exercises.)
+    await page.getByRole("button", { name: /^New Document( in .+)?$/ }).click();
 
     // createDocument auto-generates "untitled.md" (or "untitled-2.md" if
-    // collision) — see useFileExplorer.ts createDocument. No prompt UI.
+    // collision) — see useFileExplorer.ts createDocument. The new file
+    // immediately enters inline-rename mode so the visible label is an
+    // input's value, not text. Match by treeitem name (an aria-label
+    // composite) which the page renders for the new row regardless of
+    // rename-mode state.
     await expect(
-      page.getByTestId("explorer-tree").getByText(/^untitled(-\d+)?\.md$/),
+      page
+        .getByTestId("explorer-tree")
+        .getByRole("treeitem", { name: /^untitled(-\d+)?\.md/ }),
     ).toBeVisible({ timeout: 5000 });
 
     // Confirm on disk. We don't know the exact suffix, so check the

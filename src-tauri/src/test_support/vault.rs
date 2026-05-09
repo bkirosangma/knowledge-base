@@ -11,27 +11,45 @@ pub struct TempVault {
     _guard: TempDir,
 }
 
+/// Writes `.archdesigner/config.json` at `root` matching the shape
+/// `vaultConfigRepoTauri::isValidVaultConfig` expects (4 string
+/// fields: version, name, created, lastOpened). The frontend's
+/// init-guard reads this path and routes to the explorer when the
+/// config validates; an empty or wrong-shape config falls through
+/// to the "uninitialized" splash.
+fn write_vault_config(root: &Path, name: &str) -> Result<(), String> {
+    let cfg_dir = root.join(".archdesigner");
+    std::fs::create_dir_all(&cfg_dir).map_err(|e| format!("mkdir .archdesigner: {e}"))?;
+    // Stable timestamp — fixtures are deterministic across runs and the
+    // frontend doesn't validate the time format past "is a string".
+    let now = "2026-01-01T00:00:00.000Z";
+    let body = format!(
+        "{{\"version\":\"1.0\",\"name\":\"{name}\",\"created\":\"{now}\",\"lastOpened\":\"{now}\"}}\n"
+    );
+    std::fs::write(cfg_dir.join("config.json"), body)
+        .map_err(|e| format!("write config: {e}"))?;
+    Ok(())
+}
+
 impl TempVault {
-    /// Empty tempdir with `.kb/config.json` pre-seeded so
-    /// `vault_set_root` treats it as initialized.
+    /// Empty tempdir with `.archdesigner/config.json` pre-seeded so
+    /// `vaultConfigRepoTauri.read()` validates and the frontend mounts
+    /// the explorer.
     pub fn fresh() -> Result<Self, String> {
         let guard = TempDir::new().map_err(|e| format!("tempdir: {e}"))?;
         let root = guard
             .path()
             .canonicalize()
             .map_err(|e| format!("canonicalize: {e}"))?;
-        let kb = root.join(".kb");
-        std::fs::create_dir_all(&kb).map_err(|e| format!("mkdir .kb: {e}"))?;
-        std::fs::write(kb.join("config.json"), b"{\"version\":1}\n")
-            .map_err(|e| format!("write config: {e}"))?;
+        write_vault_config(&root, "fresh")?;
         Ok(Self {
             root,
             _guard: guard,
         })
     }
 
-    /// Tempdir with NO `.kb/config.json` — `vault_set_root` will treat
-    /// it as uninitialized.
+    /// Tempdir with NO `.archdesigner/config.json` — the frontend's
+    /// init-guard surfaces the UninitializedVaultSplash.
     pub fn fresh_uninitialized() -> Result<Self, String> {
         let guard = TempDir::new().map_err(|e| format!("tempdir: {e}"))?;
         let root = guard
@@ -45,7 +63,11 @@ impl TempVault {
     }
 
     /// Tempdir seeded by recursively copying `tests/fixtures/vaults/<name>`.
-    /// Fixture must exist; missing fixture is an error.
+    /// Fixture must exist; missing fixture is an error. If the copied
+    /// tree lacks `.archdesigner/config.json` (older fixtures shipped
+    /// `.kb/config.json` for a never-exercised Rust-side check), one is
+    /// seeded automatically — keeps fixture content focused on the
+    /// markdown-link surface the spec exercises.
     pub fn from_fixture(name: &str) -> Result<Self, String> {
         let guard = TempDir::new().map_err(|e| format!("tempdir: {e}"))?;
         let root = guard
@@ -62,6 +84,9 @@ impl TempVault {
             return Err(format!("fixture not found: {}", src.display()));
         }
         copy_dir_recursive(&src, &root)?;
+        if !root.join(".archdesigner/config.json").exists() {
+            write_vault_config(&root, name)?;
+        }
         Ok(Self {
             root,
             _guard: guard,
