@@ -19,6 +19,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::claude::commands as claude_cmds;
+use crate::settings::store::Settings;
 use crate::test_support::vault as test_support_vault;
 use crate::vault::commands as vault_cmds;
 
@@ -167,8 +168,24 @@ pub async fn invoke_handler(
         "claude_reset" => unsupported("claude_reset"),
 
         // ----- settings (need AppHandle for tauri-plugin-store) ---------
-        "settings_read" => unsupported("settings_read"),
-        "settings_write" => unsupported("settings_write"),
+        // The frontend's mount path calls `settings_read` from several
+        // hooks (useFileExplorer, getRecents, getClaudeDrawerHeight,
+        // getClaudeSurface). Returning "unsupported" rejected all of
+        // them, leaving the explorer unmounted. The 4 proof-set specs
+        // never need to *persist* settings — they just need a default
+        // shape for the read path. Hand back `Settings::default()` with
+        // `vault.lastPath` synthesized from the test_server's current
+        // vault root (set by the prior `vault_set_root` invoke) so the
+        // mount-time boot effect (`useFileExplorer.tsx` line ~78)
+        // restores into the explorer. Writes accepted as no-op.
+        "settings_read" => {
+            let mut settings = Settings::default();
+            if let Some(root) = state.vault.root.read().await.clone() {
+                settings.vault.last_path = Some(root.to_string_lossy().to_string());
+            }
+            Ok(serde_json::to_value(settings).unwrap_or(Value::Null))
+        }
+        "settings_write" => Ok(Value::Null),
 
         // ----- skill (need AppHandle for resource_dir) ------------------
         "skill_status" => unsupported("skill_status"),
@@ -189,6 +206,18 @@ pub async fn invoke_handler(
                 .map(Value::String)
                 .map_err(|e| e.to_string())
         }
+
+        // ----- Tauri 2 event bridge stubs ------------------------------
+        // The high-level `@tauri-apps/api/event::listen` / `unlisten` go
+        // through `__TAURI_INTERNALS__.invoke('plugin:event|listen', ...)`
+        // — not a regular `#[tauri::command]`. The proof-set specs don't
+        // assert on event delivery, so we accept the registration with a
+        // numeric id (Tauri returns a u32 listener handle) and accept
+        // unlisten as a no-op. When future specs need real event delivery
+        // they should switch to consuming `/events` (SSE) directly via
+        // an EventSource registered in the shim.
+        "plugin:event|listen" => Ok(json!(0_u32)),
+        "plugin:event|unlisten" => Ok(Value::Null),
 
         _ => Err(format!("unknown command: {}", body.cmd)),
     };
