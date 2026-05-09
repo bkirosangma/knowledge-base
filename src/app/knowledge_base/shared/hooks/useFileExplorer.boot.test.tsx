@@ -16,7 +16,7 @@ vi.mock("../../infrastructure/settingsStore", () => ({
   pushRecent: vi.fn(async () => undefined),
   clearLastPath: vi.fn(async () => undefined),
   getRecents: vi.fn(async () => []),
-  setClaudeChatHeight: vi.fn(async () => undefined),
+  setClaudeDrawerHeight: vi.fn(async () => undefined),
 }));
 
 vi.spyOn(tauriBridgeModule.tauriBridge, "setRoot").mockResolvedValue();
@@ -59,7 +59,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
   it("restores lastPath and calls setRoot when the path is reachable", async () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/Users/x/v", recents: ["/Users/x/v"] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "acceptEdits" as const },
     });
     const { result } = renderHook(() => useFileExplorer(), { wrapper });
@@ -70,7 +70,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
   it("leaves vaultPath null when the store has no lastPath", async () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "acceptEdits" as const },
     });
     const { result } = renderHook(() => useFileExplorer(), { wrapper });
@@ -82,7 +82,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
   it("clears lastPath when setRoot rejects (canonicalize NotFound)", async () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: "/gone", recents: ["/gone"] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "acceptEdits" as const },
     });
     vi.mocked(tauriBridgeModule.tauriBridge.setRoot).mockRejectedValueOnce(
@@ -96,7 +96,7 @@ describe("useFileExplorer boot — settingsStore restore", () => {
   it("openFolder writes lastPath and pushes a recent on success", async () => {
     vi.mocked(settingsStore.getSettings).mockResolvedValue({
       vault: { lastPath: null, recents: [] },
-      ui: { claudeChat: { height: 320 } },
+      ui: { claudeDrawer: { height: 320 } },
       claude: { permissionMode: "acceptEdits" as const },
     });
     vi.mocked(tauriBridgeModule.tauriBridge.pick).mockResolvedValueOnce("/Users/x/new");

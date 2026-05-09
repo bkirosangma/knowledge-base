@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getClaudeChatHeight, setClaudeChatHeight } from "../../../infrastructure/settingsStore";
+import { getClaudeDrawerHeight, setClaudeDrawerHeight } from "../../../infrastructure/settingsStore";
 
 const MIN_HEIGHT = 120;
 const TOP_RESERVE = 80; // header + footer
@@ -17,7 +17,7 @@ export function useDrawerState() {
   const userSetRef = useRef(false);
 
   useEffect(() => {
-    void getClaudeChatHeight().then(h => {
+    void getClaudeDrawerHeight().then(h => {
       if (!userSetRef.current) setHeightState(clamp(h));
     });
   }, []);
@@ -26,7 +26,7 @@ export function useDrawerState() {
     userSetRef.current = true;
     const next = clamp(px);
     setHeightState(next);
-    await setClaudeChatHeight(next);
+    await setClaudeDrawerHeight(next);
   }, []);
 
   return {
