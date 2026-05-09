@@ -123,3 +123,68 @@ pub fn close(mut session: PtySession) {
     let _ = session.child.kill();
     session.reader_task.abort();
 }
+
+/// Send Ctrl-C + cd + claude\n to an existing session's writer. Updates
+/// vault_root in place. Caller holds the TermState lock.
+pub fn restart_in_new_vault(session: &mut PtySession, new_vault: PathBuf) -> Result<(), String> {
+    use std::io::Write;
+    // Step 1: Ctrl-C — exits claude, returns control to zsh.
+    session
+        .writer
+        .write_all(&[0x03])
+        .map_err(|e| format!("ctrl-c: {e}"))?;
+    session.writer.flush().ok();
+    // Step 2: small sleep so claude finishes flushing exit + zsh re-emits prompt.
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    // Step 3: cd to new vault.
+    let cd_line = format!("cd {}\n", shell_escape(&new_vault.display().to_string()));
+    session
+        .writer
+        .write_all(cd_line.as_bytes())
+        .map_err(|e| format!("cd: {e}"))?;
+    // Step 4: re-launch claude.
+    session
+        .writer
+        .write_all(b"claude\n")
+        .map_err(|e| format!("claude: {e}"))?;
+    session.writer.flush().ok();
+
+    session.vault_root = new_vault;
+    Ok(())
+}
+
+/// Quote a path for use in a shell command. Escapes single quotes by ending
+/// the quote, escaping the quote, and reopening it. Vault paths shouldn't
+/// contain wild characters but this is the safe shape.
+fn shell_escape(s: &str) -> String {
+    if !s.contains('\'') {
+        return format!("'{s}'");
+    }
+    format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shell_escape;
+
+    #[test]
+    fn shell_escape_basic() {
+        assert_eq!(shell_escape("/Users/kiro/notes"), "'/Users/kiro/notes'");
+    }
+
+    #[test]
+    fn shell_escape_with_spaces() {
+        assert_eq!(
+            shell_escape("/Users/kiro/My Vault"),
+            "'/Users/kiro/My Vault'"
+        );
+    }
+
+    #[test]
+    fn shell_escape_with_apostrophe() {
+        assert_eq!(
+            shell_escape("/Users/joe's vault"),
+            r"'/Users/joe'\''s vault'"
+        );
+    }
+}

@@ -20,14 +20,12 @@ pub async fn term_open(
         return Err(format!("vault path is not a directory: {vault_path}"));
     }
 
-    if guard.is_some() {
-        // Vault-switch handling lands in Task 5. For now, idempotent same-
-        // vault case: drop the request silently (the existing session is fine).
-        let session = guard.as_ref().unwrap();
+    if let Some(session) = guard.as_mut() {
         if session.vault_root == vault_root {
-            return Ok(());
+            return Ok(()); // same vault: idempotent no-op
         }
-        return Err("vault-switch not yet implemented (Task 5)".into());
+        // vault changed: restart in place
+        return crate::term::pty::restart_in_new_vault(session, vault_root);
     }
 
     let session = pty_spawn(vault_root, rows, cols, app)?;
