@@ -13,10 +13,28 @@ path = "src/lib.rs"
 name = "knowledge-base"
 path = "src/main.rs"
 
+# Debug-only HTTP harness re-invoking production command bodies for
+# Playwright e2e (MVP-4.x phase 3.C). Compiled in dev builds only — gated
+# by `#[cfg(debug_assertions)]` on the `test_server` module declaration in
+# `src/lib.rs`; never shipped in release bundles.
+[[bin]]
+name = "test_server"
+path = "src/bin/test_server.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# axum + tower-http + tokio-stream + futures are the test_server bin's
+# HTTP / SSE plumbing. Pulled into the lib's [dependencies] (rather than
+# guarded under [target.'cfg(...)' / dev-dependencies]) because a `[[bin]]`
+# target uses the same dep set as the rest of the crate; the test_server
+# is debug-only via the `#[cfg(debug_assertions)]` module gate, not
+# `[[bin]]` selection.
+axum = "0.7"
+futures = "0.3"
+tower-http = { version = "0.5", features = ["cors"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
