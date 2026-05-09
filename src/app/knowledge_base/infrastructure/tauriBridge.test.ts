@@ -5,7 +5,15 @@ import { FileSystemError } from "../domain/errors";
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
+const listenMock = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+
 import { tauriBridge } from "./tauriBridge";
+
+afterEach(() => {
+  invokeMock.mockReset();
+  listenMock.mockReset();
+});
 
 describe("tauriBridge", () => {
   afterEach(() => {
@@ -95,5 +103,123 @@ describe("watchStart / watchStop", () => {
       kind: "unknown",
       message: expect.stringContaining("No vault configured"),
     });
+  });
+});
+
+describe("claude bridge", () => {
+  it("claudeStatus invokes claude_status with no args", async () => {
+    invokeMock.mockResolvedValueOnce({ binary: "found", running: false });
+    const got = await tauriBridge.claudeStatus();
+    expect(invokeMock).toHaveBeenCalledWith("claude_status", {});
+    expect(got).toEqual({ binary: "found", running: false });
+  });
+
+  it("claudeSend invokes claude_send with the message wrapped under { message }", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    const message = { type: "user", text: "hello" } as never;
+    await tauriBridge.claudeSend(message);
+    expect(invokeMock).toHaveBeenCalledWith("claude_send", { message });
+  });
+
+  it("claudeInterrupt invokes claude_interrupt with no args", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.claudeInterrupt();
+    expect(invokeMock).toHaveBeenCalledWith("claude_interrupt", {});
+  });
+
+  it("claudeReset invokes claude_reset with no args", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.claudeReset();
+    expect(invokeMock).toHaveBeenCalledWith("claude_reset", {});
+  });
+
+  it("subscribeClaudeEvent registers a claude_event listener and forwards payloads", async () => {
+    const unlisten = vi.fn();
+    listenMock.mockResolvedValueOnce(unlisten);
+    const handler = vi.fn();
+
+    const returnedUnlisten = await tauriBridge.subscribeClaudeEvent(handler);
+
+    expect(listenMock).toHaveBeenCalledWith("claude_event", expect.any(Function));
+
+    // Drive the listener callback with a fake Tauri event envelope and confirm
+    // the handler receives the unwrapped payload.
+    const tauriCallback = listenMock.mock.calls[0][1] as (e: { payload: unknown }) => void;
+    tauriCallback({ payload: { kind: "ready" } });
+    expect(handler).toHaveBeenCalledWith({ kind: "ready" });
+
+    // The returned function is the underlying unlisten.
+    expect(returnedUnlisten).toBe(unlisten);
+    returnedUnlisten();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("skill bridge", () => {
+  it("skillStatus invokes skill_status with { name }", async () => {
+    invokeMock.mockResolvedValueOnce({
+      installed: true,
+      targetPath: "/t",
+      bundledPath: "/b",
+    });
+    const got = await tauriBridge.skillStatus("knowledge-base");
+    expect(invokeMock).toHaveBeenCalledWith("skill_status", { name: "knowledge-base" });
+    expect(got).toEqual({ installed: true, targetPath: "/t", bundledPath: "/b" });
+  });
+
+  it("skillInstallFromBundle invokes skill_install_from_bundle with { name }", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.skillInstallFromBundle("knowledge-base");
+    expect(invokeMock).toHaveBeenCalledWith("skill_install_from_bundle", {
+      name: "knowledge-base",
+    });
+  });
+});
+
+describe("terminal bridge", () => {
+  it("termOpen invokes term_open with { vaultPath, rows, cols }", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.termOpen("/vault", 24, 80);
+    expect(invokeMock).toHaveBeenCalledWith("term_open", {
+      vaultPath: "/vault",
+      rows: 24,
+      cols: 80,
+    });
+  });
+
+  it("termWrite invokes term_write with { bytes }", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.termWrite([104, 105]);
+    expect(invokeMock).toHaveBeenCalledWith("term_write", { bytes: [104, 105] });
+  });
+
+  it("termResize invokes term_resize with { rows, cols }", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.termResize(40, 120);
+    expect(invokeMock).toHaveBeenCalledWith("term_resize", { rows: 40, cols: 120 });
+  });
+
+  it("termClose invokes term_close with no args", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await tauriBridge.termClose();
+    expect(invokeMock).toHaveBeenCalledWith("term_close", {});
+  });
+
+  it("subscribeTermEvent registers a term_event listener and forwards payloads", async () => {
+    const unlisten = vi.fn();
+    listenMock.mockResolvedValueOnce(unlisten);
+    const handler = vi.fn();
+
+    const returnedUnlisten = await tauriBridge.subscribeTermEvent(handler);
+
+    expect(listenMock).toHaveBeenCalledWith("term_event", expect.any(Function));
+
+    const tauriCallback = listenMock.mock.calls[0][1] as (e: { payload: unknown }) => void;
+    tauriCallback({ payload: { kind: "data", bytes: [65] } });
+    expect(handler).toHaveBeenCalledWith({ kind: "data", bytes: [65] });
+
+    expect(returnedUnlisten).toBe(unlisten);
+    returnedUnlisten();
+    expect(unlisten).toHaveBeenCalledTimes(1);
   });
 });
