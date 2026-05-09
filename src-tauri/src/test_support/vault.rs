@@ -84,19 +84,19 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 
 /// Debug-only Tauri command. Takes an optional fixture name; when omitted,
 /// returns a `fresh()` tempdir. Returns the canonical absolute path so the
-/// frontend can pass it straight to `vault_set_root`. The TempDir guard is
-/// dropped on app shutdown — for an explicit cleanup hook see the trade-off
-/// note below.
+/// frontend can pass it straight to `vault_set_root`. The `TempDir` guard
+/// is leaked via `std::mem::forget` (see body, below) — there is no
+/// destructor-driven cleanup. The OS reaps `/tmp` between sessions; that
+/// is the only thing the directory's lifetime is bounded by.
 ///
 /// **Cleanup trade-off:** we deliberately do not register a
-/// `temp_vault_destroy(path)` command. The `TempDir` guard is dropped when
-/// the held `Vec` (see comment below) is itself dropped. Tests instead rely
-/// on:
-///   1. App shutdown clearing the guard vec, or
-///   2. The OS reaping `/tmp` between CI runs.
-/// If a single test needs eager cleanup, it can `term_close` and then exit
-/// via `app.handle().exit(0)` — adding a destroy command is a follow-up
-/// once we have data on tempdir leakage.
+/// `temp_vault_destroy(path)` command. Tests rely on the OS reaping
+/// `/tmp` between CI runs (Linux: `tmpfs` flushed on reboot or via
+/// `systemd-tmpfiles`; macOS: `/var/folders/.../T/` reaped on logout).
+/// If a single test needs eager cleanup it can exit via
+/// `app.handle().exit(0)`, which still doesn't run the leaked destructor
+/// — only OS-level cleanup runs after that. Adding a `temp_vault_destroy`
+/// command is a follow-up once we have data on tempdir leakage.
 #[cfg(debug_assertions)]
 #[tauri::command]
 pub async fn make_temp_vault(fixture: Option<String>) -> Result<String, String> {

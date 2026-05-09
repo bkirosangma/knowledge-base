@@ -18,6 +18,11 @@ fn main() {
         .manage(watcher)
         .manage(ClaudeState::new())
         .manage(knowledge_base_lib::term::TermState::new())
+        // The two `tauri::generate_handler!` lists below MUST stay in sync — when adding
+        // or removing a production command, edit BOTH branches. The macro can't accept
+        // `#[cfg]` attributes on its inner entries, so debug-only commands (currently
+        // just `make_temp_vault`) live only in the debug branch and the rest are
+        // mirrored verbatim. See MVP-4 plan Task 1.
         .invoke_handler({
             #[cfg(debug_assertions)]
             {

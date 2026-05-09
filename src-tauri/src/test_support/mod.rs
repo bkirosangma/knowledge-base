@@ -6,4 +6,10 @@
 
 pub mod vault;
 
-pub use vault::{make_temp_vault, TempVault};
+// `make_temp_vault` is intentionally not re-exported here — `tauri::generate_handler!`
+// resolves the macro-generated `__cmd__make_temp_vault` companion item at the same
+// module path as the `#[tauri::command]` attribute, so `main.rs` references
+// `test_support::vault::make_temp_vault` directly and a `pub use` re-export wouldn't
+// help. `TempVault` is re-exported because Rust callers (integration tests) consume
+// it via the short path.
+pub use vault::TempVault;
