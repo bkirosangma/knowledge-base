@@ -1,10 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath, currentBackend } from "./helpers/launchApp";
+import { setVaultPath } from "./helpers/launchApp";
 
 test.describe("uninitialized splash → init (proof set)", () => {
-  test.skip(currentBackend() === "nextdev", "needs Tauri webdriver backend");
-
   test("uninitialized vault renders the splash; clicking Initialize mounts the explorer", async ({ page }) => {
     const vault = await makeTempVault({ initialized: false });
 

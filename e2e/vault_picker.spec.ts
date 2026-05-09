@@ -1,10 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath, currentBackend } from "./helpers/launchApp";
+import { setVaultPath } from "./helpers/launchApp";
 
 test.describe("vault picker (proof set)", () => {
-  test.skip(currentBackend() === "nextdev", "needs Tauri webdriver backend");
-
   test("open vault → explorer renders tree", async ({ page }) => {
     const vault = await makeTempVault({ fixture: "empty" });
 

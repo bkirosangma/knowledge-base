@@ -2,11 +2,9 @@ import { test, expect } from "@playwright/test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath, currentBackend } from "./helpers/launchApp";
+import { setVaultPath } from "./helpers/launchApp";
 
 test.describe("document create → file on disk (proof set)", () => {
-  test.skip(currentBackend() === "nextdev", "needs Tauri webdriver backend");
-
   test("creating a document via the explorer context menu writes the file to the vault tempdir", async ({ page }) => {
     // Use the `with_links` fixture so the tree has at least one existing
     // file we can right-click to open the parent-dir context menu —
