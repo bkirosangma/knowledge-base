@@ -211,7 +211,11 @@ jobs:
             at-spi2-core
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
+        # Use `npm install` (not `npm ci`) to match the four existing jobs.
+        # The lockfile drifts under newer-npm-locally / older-npm-in-CI;
+        # `npm install` reconciles silently while `npm ci` rejects strictly.
+        # Tracked as a separate cleanup; not in MVP-4.x scope.
+        run: npm install --prefer-offline
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
