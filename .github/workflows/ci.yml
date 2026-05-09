@@ -40,21 +40,6 @@ jobs:
       - name: Unit + integration tests
         run: npm run test:run
 
-  # E2E job intentionally disabled in MVP-1a.
-  #
-  # The repository layer migrated from the File System Access API to Tauri's
-  # `invoke()` (see `src/app/knowledge_base/infrastructure/tauriBridge.ts`).
-  # The Playwright suite still boots `npm run dev` in vanilla Chromium and
-  # uses the FSA-shaped `e2e/fixtures/fsMock.ts`, so every spec now fails
-  # with `TypeError: Cannot read properties of undefined (reading 'invoke')`.
-  #
-  # Restoring e2e is MVP-4's deliverable: spin Playwright against
-  # `cargo tauri dev` via `tauri-plugin-webdriver` with `KB_CLAUDE_MODE=stub`
-  # (spec `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md`
-  # § 9). When MVP-4 lands, restore this job (port the steps below from git
-  # history at commit ad26115^) and switch the `runs-on` + setup to whatever
-  # MVP-4 picks for its driver host.
-
   build:
     name: Production build
     runs-on: ubuntu-22.04
@@ -81,7 +66,7 @@ jobs:
   tauri-build:
     name: Tauri debug bundle (macOS)
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     # Verifies the Rust crate compiles against the real macOS bundle surface.
     # Typecheck + Vitest run in the `checks` job above (Ubuntu) — duplicating
@@ -113,3 +98,33 @@ jobs:
 
       - name: Build Tauri (debug, no-bundle)
         run: npm run tauri -- build --debug --no-bundle
+
+      - name: Cargo fmt + clippy + test
+        run: |
+          cd src-tauri
+          cargo fmt -- --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests (Tauri webdriver)
+        env:
+          # Under the Task 11 fallback this becomes `nextdev`.
+          KB_E2E_BACKEND: webdriver
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
