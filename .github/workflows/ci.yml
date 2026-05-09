@@ -1,6 +1,6 @@
 name: CI
 
-# Gates every PR (and push to main) on typecheck + lint + test + build.
+# Gates every PR (and push to main) on five parallel jobs.
 
 on:
   pull_request:
@@ -43,7 +43,7 @@ jobs:
   build:
     name: Production build
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -63,17 +63,53 @@ jobs:
       - name: Build
         run: npm run build
 
+  rust-checks:
+    name: Rust fmt · clippy · test (Ubuntu)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    # Owns the Rust quality + integration tier on Linux. Rust compiles 3-5x
+    # faster on Ubuntu than macOS, and the watcher_rename_paired test
+    # (#[cfg(target_os = "linux")]) actually runs here instead of compiling
+    # to nothing.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install zsh (PTY integration tests spawn `zsh -i -l`)
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: cargo fmt --check
+        run: cd src-tauri && cargo fmt -- --check
+
+      - name: cargo clippy --all-targets
+        # Non-blocking on warnings (5 pre-MVP-4 lints; promote to `-D warnings`
+        # once cleared). See ade2d24 for the list.
+        run: cd src-tauri && cargo clippy --all-targets
+
+      - name: cargo test
+        # Runs unit (78) + term_pty_integration (3) + term_vault_switch (1)
+        # + watcher_integration (4) + watcher_rename_paired (1, linux-only)
+        # = 87 tests on Ubuntu (vs 86 on macOS where rename-paired is gated).
+        run: cd src-tauri && cargo test
+
   tauri-build:
     name: Tauri debug bundle (macOS)
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
-    # Verifies the Rust crate compiles against the real macOS bundle surface.
-    # Typecheck + Vitest run in the `checks` job above (Ubuntu) — duplicating
-    # them here costs ~3 min for no extra signal on a TypeScript/Vitest stack.
-    # `@tauri-apps/cli` is pulled by `npm install` (a precompiled per-platform
-    # binary, not a cargo crate), so we don't need `cargo install tauri-cli`
-    # (~7 min from-source build) — `npm run tauri` invokes that binary directly.
+    # Verifies the Rust crate compiles against the real macOS bundle surface
+    # (the release target). Quality + integration tier (cargo fmt/clippy/test)
+    # runs on Ubuntu in `rust-checks` for speed; this job is purely the
+    # macOS compile-clean signal.
 
     steps:
       - uses: actions/checkout@v4
@@ -99,17 +135,50 @@ jobs:
       - name: Build Tauri (debug, no-bundle)
         run: npm run tauri -- build --debug --no-bundle
 
-      - name: Cargo fmt + clippy + test
+  e2e:
+    name: E2E (Ubuntu Tauri webview)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    # Drives the 4 proof-set Playwright specs against a real Tauri webview
+    # (WebKitGTK) under xvfb. Hosted macos-latest's tauri-plugin-webdriver
+    # never binds :4444 (no graphical user, no accessibility prompt path) —
+    # the plugin's primary deps (gtk, glib, webkit2gtk) are Linux-native, so
+    # Linux is its natural runtime even though the release target is macOS.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Node version from .nvmrc
+        id: nvmrc
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nvmrc.outputs.version }}
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Tauri Linux deps + xvfb
         run: |
-          cd src-tauri
-          cargo fmt -- --check
-          # Clippy runs as a quality signal but does NOT fail on warnings —
-          # there are 5 pre-MVP-4 lints (`new_without_default` x2,
-          # `map_or` simplifications x3 in claude/parser.rs) that would
-          # block this PR if treated as errors. Tracked as a tech-debt
-          # follow-up; promote back to `-D warnings` once cleared.
-          cargo clippy --all-targets
-          cargo test
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libxdo-dev \
+            libssl-dev \
+            xvfb
+
+      - name: Install dependencies
+        run: npm install --prefer-offline
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -120,11 +189,18 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: End-to-end tests (Tauri webdriver)
+      # No explicit `tauri build` step — Playwright's webServer command is
+      # `npm run tauri:dev` (see playwright.config.ts), which triggers a
+      # different cargo invocation (`cargo run --no-default-features`) than
+      # `tauri build --debug`. Building twice would not share artifacts.
+      # The macOS `tauri-build` job verifies the release-shaped compile path.
+
+      - name: End-to-end tests (xvfb-wrapped)
         env:
-          # Under the Task 11 fallback this becomes `nextdev`.
           KB_E2E_BACKEND: webdriver
-        run: npm run test:e2e
+        run: |
+          xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24' \
+            npm run test:e2e
 
       - name: Upload Playwright report on failure
         if: failure()
