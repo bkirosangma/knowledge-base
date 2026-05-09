@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath } from "./helpers/launchApp";
+import { setVaultPath, installShim } from "./helpers/launchApp";
 
 test.describe("vault picker (proof set)", () => {
+  test.beforeEach(async ({ page }) => {
+    await installShim(page);
+  });
+
   test("open vault → explorer renders tree", async ({ page }) => {
     const vault = await makeTempVault({ fixture: "empty" });
 

@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { makeTempVault } from "./helpers/tempVault";
-import { setVaultPath } from "./helpers/launchApp";
+import { setVaultPath, installShim } from "./helpers/launchApp";
 
 test.describe("uninitialized splash → init (proof set)", () => {
+  test.beforeEach(async ({ page }) => {
+    await installShim(page);
+  });
+
   test("uninitialized vault renders the splash; clicking Initialize mounts the explorer", async ({ page }) => {
     const vault = await makeTempVault({ initialized: false });
 
