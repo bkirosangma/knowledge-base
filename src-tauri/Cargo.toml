@@ -31,6 +31,7 @@ notify = "=6.1.1"
 notify-debouncer-full = "=0.3.2"
 portable-pty = "0.8"
 tauri-plugin-store = "=2.4.3"
+tauri-plugin-webdriver = "0.2"
 # Required at build time because the debug-only `test_support` module is
 # compiled into dev binaries (gated by `cfg(debug_assertions)`, not
 # `cfg(test)`); release builds don't reference it but the crate still
