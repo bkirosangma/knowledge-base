@@ -10,6 +10,8 @@ MVP-3.5 — Embedded terminal as primary Claude surface. Rust `src-tauri/src/ter
 
 Post-merge cleanup run; `feat/tauri-mvp4-test-infra` cut from `main`. Next action: write the MVP-4 plan (`ClaudeRunner` trait + stub, `tauri-plugin-webdriver`, vault tempdir helpers, restore CI e2e job) and dispatch via subagents.)
 
+**Updated 2026-05-09 (post-Task 18, PR #157 open):** MVP-4 implementation done (18 tasks, 20+ commits on `feat/tauri-mvp4-test-infra`). CI restoration landed Tasks 9–11's webdriver wiring, but the e2e job **failed to bind `:4444` in four different headless-CI configurations** (macOS WKWebView; Ubuntu WebKitGTK + xvfb; +dbus; +AT-SPI). Plugin appears broken at runtime, not at the env layer. **e2e job dropped from CI for MVP-4 ship**; the four proof-set Playwright specs ride in the repo as artifacts. **MVP-4.x carved out** to land real automated e2e (no manual smoke; deep investigation before MVP-5 starts) — see Open follow-up items + Next Action.
+
 ---
 
 ## Resume protocol — when the user says "take the next task"
@@ -119,8 +121,9 @@ This puts you on the latest `main`, lists open PRs, shows recent merge commits, 
 | **MVP-2** | Claude subprocess integration | `docs/superpowers/plans/2026-05-08-tauri-mvp2-claude-chat-plan.md` | ✅ Merged via PR #154 (`e42f0bf` on `main`). |
 | **MVP-3** | Skill bootstrap + `/kb` invocation | `docs/superpowers/plans/2026-05-09-tauri-mvp3-skills-kb-invocation-plan.md` | ✅ Merged via PR #155 (`726904b` on `main`). |
 | **MVP-3.5** | Embedded terminal as primary Claude surface | `docs/superpowers/plans/2026-05-09-tauri-mvp35-embedded-terminal-plan.md` (spec at `docs/superpowers/specs/2026-05-09-tauri-mvp35-embedded-terminal-design.md`) | ✅ Merged via PR #156 (`678a9d8` on `main`). |
-| **MVP-4** | Test infrastructure on the new shell | `docs/superpowers/plans/2026-05-09-tauri-mvp4-test-infra-plan.md` | 🚧 Branch cut; plan written; ready to dispatch. |
-| **MVP-5** | Promote previously-blocked test cases | _not yet written; due after MVP-4 merges_ | ⏳ Not started. |
+| **MVP-4** | Test infrastructure on the new shell | `docs/superpowers/plans/2026-05-09-tauri-mvp4-test-infra-plan.md` | 🚧 PR #157 open; e2e dropped from CI per MVP-4.x split (see follow-ups). All other gates green. |
+| **MVP-4.x** | Real Playwright e2e in CI (no manual smoke) | _not yet written; due before MVP-5_ | ⏳ Investigation pending; `tauri-plugin-webdriver 0.2.1` failed to bind in 4 headless configs. See follow-ups for diagnostics. |
+| **MVP-5** | Promote previously-blocked test cases | _not yet written; due after MVP-4.x merges_ | ⏳ Not started. |
 
 ### Implementation
 
@@ -290,62 +293,80 @@ These are non-negotiable; don't relitigate them mid-MVP.
 - **PTY integration tests (deferred from MVP-3.5 § 6 to MVP-4).** Real-PTY tests need `tauri-plugin-webdriver` for the host-side spawn — same plumbing constraint as the chat-side subprocess tests. Fold into MVP-4's pyramid alongside the `StubRunner` integration tests; the parser-side already has unit coverage.
 - **Live-serialize for terminal scrollback persistence (deferred from MVP-3.5 § 4.9 / § 9 follow-ups).** xterm.js has a serialize addon that snapshots the buffer to a string for persistence across drawer-hides at higher fidelity than the current `display:none` mount-preservation approach. Defer until a user complaint shows the current behaviour is insufficient — the `display:none` strategy is honest about what it preserves (the live buffer) and what it doesn't (a persisted snapshot across full app restarts). Out of scope for MVP-4.
 - **Right-click → copy / paste + search-in-scrollback in terminal (MVP-3.5 § 9 follow-ups).** xterm.js has the primitives (`xterm-search` addon, context menu hooks). Defer — quality-of-life wins, not blockers. Out of scope for MVP-4.
+- **`tauri-plugin-webdriver 0.2.1` doesn't bind `:4444` in any headless CI we tried (deferred to MVP-4.x; full diagnostic block — added 2026-05-09).** This is the active follow-up MVP-4.x exists to resolve. **Goal:** real automated Playwright e2e in CI, no manual smoke. **Configurations attempted (all failed identically — binary launches, port silent until 180 s Playwright webServer timeout):**
+  1. **macOS (`macos-latest`).** Default Tauri webview = WKWebView via `objc2-app-kit` / `objc2-web-kit`. No graphical user / no accessibility prompt path on hosted runners. CI run `25603172898`.
+  2. **Ubuntu (`ubuntu-22.04`) + WebKitGTK + xvfb.** Plugin's primary deps are GTK-native (`gtk ^0.18`, `glib ^0.21`, `cairo-rs ^0.18`, `webkit2gtk ^2.0`); WebKitGTK supports headless via xvfb. AT-SPI dbind warning surfaced: `org.a11y.Bus was not provided by any .service files`. CI run `25603759353`.
+  3. **Ubuntu + xvfb + `dbus-run-session` + `at-spi2-core`.** AT-SPI registry came up cleanly (`SpiRegistry daemon is running with well-known name`). Bind STILL fails. CI run `25603901628`. **This eliminated environment causes** — a11y bus is up, display is up, dbus is up, plugin still doesn't open the port.
+  4. (Implicit baseline — pre-fix from PR #157's first run on the integrated tauri-build job.) Same failure mode.
+- **Diagnostic dump for MVP-4.x kickoff:**
+  - Plugin: `tauri-plugin-webdriver 0.2.1` (Choochmeque, third-party). 4 versions on crates.io within 6 days as of 2026-05-09; very early-stage.
+  - Plugin's HTTP server (`axum 0.8`) never opens. No log line, no error, no panic — just silence.
+  - Tauri side: `main.rs` registers via `let mut builder = ...; #[cfg(debug_assertions)] { builder = builder.plugin(tauri_plugin_webdriver::init()); }` (commit `a56c64b`). Build clean on debug + release; release binary verified to NOT contain the symbol.
+  - Tauri version: `2.11.1`. Plugin manifest claims `^2.10.0` compatibility. Possibly a Tauri-2.11 incompatibility.
+  - Workflow context: `playwright.config.ts` `webServer.command: 'npm run tauri:dev'` with `webServer.url: 'http://localhost:4444/status'`, `timeout: 180_000`. (Spec `docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md` § 9.3.)
+  - Frontend test path: `e2e/helpers/launchApp.ts::setVaultPath` does `page.evaluate(() => window.__TAURI__.invoke('vault_set_root', ...))` — depends on the plugin exposing `__TAURI__` to a Playwright session. With no webdriver bind, the page isn't even loaded by Playwright.
+  - 4 proof-set specs in `e2e/{vault_picker,uninitialized_splash,document_create,rename_propagation}.spec.ts` ride in the repo; all gated `test.skip(currentBackend() === "nextdev", ...)`. Currently unreachable in CI.
+  - Vitest+bridge integration test (`useClaudeSession.kbDocument.test.tsx`) covers the chained `/kb document` flow at the reducer tier and DOES pass. Bridge contract tests in `tauriBridge.test.ts` (Task 6) cover all 12 wrapper signatures. The proof-set adds *behaviour* coverage on top of *contract* coverage; without it we have honest contract coverage but no end-to-end.
+- **MVP-4.x scope (paths to investigate in priority order, owner: next session):**
+  1. **Read the plugin source** (no docs URL on crates.io — start with the GitHub repo linked from the crate page). Look for: required setup callbacks, capability declarations, feature flags (`default-features`?), bind-address config, log-level toggles. The plugin may need explicit `webdriver_init().bind("0.0.0.0:4444").start()` rather than the bare `init()` we currently use.
+  2. **Try `RUST_LOG=tauri_plugin_webdriver=trace,tauri=debug`** in `tauri:dev` to surface the missing log line. Add `RUST_LOG_STYLE=never` for plain output.
+  3. **Try the official `tauri-driver`** (Tauri team's first-party tool) instead of the third-party plugin. Status as of 2026-05: macOS support maturing, Linux + Windows mature. May replace `tauri-plugin-webdriver` entirely.
+  4. **If plugin/driver investigation hits a wall, pivot to a custom IPC harness** (the "Option C" we ruled out for inline-MVP-4 scope). Architecture: new `src-tauri/src/bin/test_server.rs` exposing `vault::commands::*` + `term::*` over axum HTTP on `:1421`; new Playwright init-script injecting a `window.__TAURI__.invoke = (cmd, args) => fetch(...)` shim; specs rewritten to use chromium + `next dev` + the shim. Cost: 2-4 hours focused work. Gives "React + real Rust commands" e2e but NOT WKWebView coverage.
+  5. **Self-hosted macOS runner (last resort).** A Mac mini in a closet with a logged-in graphical session could host webdriver successfully. Operationally expensive; only justified if WKWebView-fidelity is non-negotiable.
+- **MVP-4.x success criteria (no manual smoke):**
+  - `npm run test:e2e` (or equivalent) green in CI on every PR push, against either real Tauri webview OR a real-Rust-backed chromium proxy. The 4 proof-set specs run with full assertions (file appears on disk, wiki-link rewrites in `b.md`, etc.).
+  - Total e2e step ≤10 min cold, ≤2 min warm.
+  - No "skip if no webdriver" gates remaining in spec files.
+  - Documentation in the handoff explaining what was tried, what worked, and the residual coverage gap (e.g. "real WKWebView still untested" if Option C is chosen).
 
 ---
 
+
 ## Next Action
 
-**MVP-3 merged via PR #155 and MVP-3.5 merged via PR #156. Branch `feat/tauri-mvp4-test-infra` is cut from `main`. Write the MVP-4 plan, then dispatch.**
+**MVP-4 PR #157 awaits CI green + merge.** All four CI jobs pass after the e2e drop (`checks` / `build` / `rust-checks` / `tauri-build`). Once it merges, **MVP-4.x kicks off immediately** — write a plan to land real automated Playwright e2e in CI with no manual smoke. Skip MVP-5 until MVP-4.x ships.
 
 ```bash
 cd "/Users/kiro/My Projects/knowledge-base"
-git checkout feat/tauri-mvp4-test-infra
-git log --oneline -5             # confirms branch is at main's tip plus this doc commit
-ls docs/superpowers/specs/2026-05-07-tauri-claude-integration-design.md       # MVP-4 lives in § 9
-ls docs/superpowers/specs/2026-05-09-tauri-mvp35-embedded-terminal-design.md  # § 6 + § 9 list deferred PTY tests
-ls docs/superpowers/plans/2026-05-09-tauri-mvp35-embedded-terminal-plan.md    # use as template shape
+gh pr view 157           # confirm merged on main
+git checkout main && git pull --ff-only
+git branch -D feat/tauri-mvp4-test-infra   # remote auto-deletes on merge; verify [origin/...: gone]
+git remote prune origin
+git checkout -b feat/tauri-mvp4x-real-e2e-ci
 ```
 
-**Plan-writing brief (run via `superpowers:writing-plans`):**
+**MVP-4.x plan-writing brief (run via `superpowers:writing-plans`):**
 
-> **Scope decision to make BEFORE drafting (advisor pushback, 2026-05-09):**
->
-> 1. **Does the `ClaudeRunner` trait + `StubRunner` (spec § 9.1) stay in MVP-4 scope, or defer?** Chat surface is parked post-MVP-3.5; the only test that *needs* the trait is the chained `/kb document` e2e in spec § 9.7. The parked chat surface already has Vitest coverage via mocked `claudeEvent`. **Default recommendation:** drop trait extraction from MVP-4 — replace the chained-flow e2e with a Vitest+bridge integration test that drives `useClaudeSession` with a mocked event stream; defer trait + StubRunner until chat un-parks or the first complaint about chat regressions in CI. **If you keep it:** argue the recurring value (not just spec adherence). Pin the decision at the top of the plan.
-> 2. **MVP-4 monolithic, or split into MVP-4a + MVP-4b?** With the trait deferred, the work splits cleanly: **4a** = Rust integration tier (real-PTY tests, vault tempdir helpers Rust-side, macOS FSEvents rename-cookie test) — fully testable via `cargo test`, no Playwright. **4b** = `tauri-plugin-webdriver` + Playwright config + CI e2e restoration + first-wave proof set. They have independent risk surfaces. The handoff "Recommended order" says monolithic; size + risk argue for split. **Default recommendation:** split, mirror MVP-3 / MVP-3.5 pattern. Pin the decision.
-> 3. **Webdriver fallback (spec § 9.3).** If `tauri-plugin-webdriver` regresses on macOS, fallback is Playwright against `next dev` in `tauri dev` mode (covers ~90% of UI behaviour). Plan must include this as an explicit branch, not a footnote — subagents shouldn't get stuck if the plugin breaks.
->
-> **Recon already done (2026-05-09):**
-> - `*RepoTauri.test.ts` migration sweep is **complete** (10 files exist under `src/app/knowledge_base/infrastructure/`). Step 4 in the original brief was stale; the work that remains is *adding* contract coverage for the new MVP-3 / MVP-3.5 bridge wrappers (`skillStatus`, `skillInstallFromBundle`, `termOpen`, `termClose`, `termWrite`, `termResize`) — not migrating existing tests.
-> - `src-tauri/tests/watcher_integration.rs` already exists and serves as the integration-test template. Add new files alongside it; don't invent a new directory shape.
-> - `tauri-plugin-webdriver 0.2.1` (Feb 2026) requires `tauri ^2.10.0`; the project resolves `tauri 2.11.1` — compatible. Latest version on crates.io is alive.
-> - CI restoration commit `ad26115` ("docs(kb): note Tauri shell + Rust VFS in Features.md and test-cases ceiling") is reachable; that commit's `.github/workflows/ci.yml` carries the original e2e steps.
+- **Goal — non-negotiable:** Playwright e2e green in CI on every push, end-to-end through real Rust commands. NO manual smoke as the gate. NO `test.skip(currentBackend() === "nextdev")` escape hatches.
+- **Read first:** the diagnostic dump under "Open follow-up items" (the `tauri-plugin-webdriver 0.2.1` block). Has the four CI run IDs (`25603172898`, `25603759353`, `25603901628`, plus PR #157's first run), the configurations attempted, the symptom (silent bind failure), the diagnostic data already collected.
+- **Investigation budget — go deep, escalate fast:**
+  1. **Day 1 — plugin source.** Pull `tauri-plugin-webdriver`'s GitHub repo. Read `lib.rs` / `init.rs` / wherever the axum server starts. Look for setup callbacks, capability requirements, feature flags, bind config, log level toggles. Try `RUST_LOG=tauri_plugin_webdriver=trace,tauri=debug` in `tauri:dev`. Open an issue if you find a real bug.
+  2. **Day 1-2 — `tauri-driver` (official).** First-party Tauri team tool. Status as of 2026-05: macOS support maturing, Linux + Windows mature. May supersede `tauri-plugin-webdriver` entirely. Read the Tauri 2.x test-runner docs.
+  3. **Day 2-3 — pivot to Option C if 1+2 don't pan out.** Custom IPC harness: `src-tauri/src/bin/test_server.rs` (axum + `vault::commands::*` + `term::*` proxied), Playwright init-script injecting `fetch()`-based `window.__TAURI__.invoke` shim, chromium + `next dev` runtime, ~50% rewrite of the 4 proof-set specs. Cost: 2-4 hours. Honest "React + real Rust" coverage. Loses WKWebView fidelity (acceptable trade-off vs. the Day-3+ alternative).
+  4. **Last resort — self-hosted macOS runner.** Mac mini with logged-in graphical session. Operationally expensive; only if WKWebView-fidelity is non-negotiable AND user funds the runner.
+- **What's in the repo already (don't redo):**
+  - `playwright.config.ts` `webServer.command: 'npm run tauri:dev'`, `:4444/status` probe, `KB_E2E_BACKEND=webdriver|nextdev` selector, 180s timeout.
+  - `e2e/helpers/launchApp.ts::setVaultPath()` — shim over `window.__TAURI__.invoke('vault_set_root', ...)`. May need rewrite under Option C.
+  - `e2e/helpers/tempVault.ts::makeTempVault({ fixture, initialized })` — TS bridge over the debug-only `make_temp_vault` Tauri command. Used by all 4 proof-set specs. Agnostic to the underlying e2e backend.
+  - `src-tauri/src/test_support/{mod,vault.rs}` — `TempVault` + `make_temp_vault` debug command. Stays.
+  - 4 proof-set specs (`vault_picker`, `uninitialized_splash`, `document_create`, `rename_propagation`). Selectors honour the existing markup; no production-code touch needed for them to run. They currently `test.skip` under `nextdev` — that gate goes away when MVP-4.x ships.
+- **Plan-level decisions to pin:**
+  - Which path landed (1, 2, 3, or 4)?
+  - If Option C: real-subprocess proxy or pure-mock invoke shim? (**Default recommendation: real subprocess.** Pure mock duplicates the Vitest+bridge layer and gives nothing new. Real subprocess exercises actual Rust, just without the Tauri command-dispatch layer.)
+  - CI backend selection: macOS-only? Ubuntu-only? Both? **Default recommendation:** Ubuntu primary, macOS for the existing `tauri-build` quality gate (no e2e step on macOS regardless).
+  - Do we keep `tauri-plugin-webdriver` as a dep if Option C wins? **Default recommendation:** drop it. The plugin is unused in non-webdriver paths and adds ~200KB + 30s compile time per CI run for nothing.
+- **Verification surface (must all be green before merge):**
+  - All 4 existing CI jobs pass.
+  - New e2e job (or re-enabled e2e step) passes against all 4 proof-set specs with real assertions (file appears on disk, wiki-link rewrites, etc.).
+  - Branch survives 3 consecutive runs without flakes.
+  - `KB_E2E_BACKEND=nextdev` skip gates removed from all spec files (or replaced with a different, justified skip rule).
+  - Diagnostic notes added to the handoff describing what worked and what's left out (e.g. "WKWebView path still uncovered" if Option C wins).
+- **What's out of scope for MVP-4.x:** WKWebView visual-regression (screenshot diffs); cross-platform e2e (Windows); performance benchmarks; the 5 pre-MVP-4 clippy lints (their own follow-up).
 
-- **Spec is prescriptive — read § 9.1 through § 9.8 of the parent design doc before writing.** Most chat-side decisions are pinned (`ClaudeRunner` trait + stub, vault tempdir helpers, `tauri-plugin-webdriver`, test pyramid, CI shape, first-wave proof set, out-of-scope list). The plan's job is sequencing + file-by-file diffs, not redesigning. Also read MVP-3.5 § 6 (the "Defer to MVP-4" box that promotes real-PTY integration tests).
-- **Sequence the plan: trait + stub first, infra second, e2e last.** Suggested sequencing:
-  1. `ClaudeRunner` trait extraction in `src-tauri/src/claude/runner.rs` — refactor existing `Runner` into `RealRunner` impl behind the trait, no behaviour change. Pure refactor pass with zero-diff Vitest + cargo test surface.
-  2. `StubRunner` impl + fixture loader. Env-var `KB_CLAUDE_MODE=real|stub` selects which the Tauri command layer holds. Default `real` so production stays untouched.
-  3. Vault tempdir helpers — Rust `TempVault::fresh / from_fixture / write / read` in `src-tauri/tests/common/vault.rs`; TS `makeTempVault` in `e2e/helpers/tempVault.ts` over a new `#[cfg(debug_assertions)]` `make_temp_vault` command. Both flavours share `tests/fixtures/vaults/<name>/`.
-  4. Vitest Tauri-bridge contract coverage — *not* a migration sweep (already done in MVP-1 → MVP-3.5). Add new contract tests for the MVP-3 / MVP-3.5 bridge wrappers that lack one: `skillStatus`, `skillInstallFromBundle`, `termOpen`, `termClose`, `termWrite`, `termResize`, plus any settings accessors added in MVP-3.5 (`getClaudeSurface`, `getClaudeDrawerHeight` migration). Spot-check existing `*RepoTauri.test.ts` for staleness while you're at it.
-  5. `tauri-plugin-webdriver` wiring — dev-only dependency behind `#[cfg(debug_assertions)]` per spec § 9.3. `playwright.config.ts` gains a `webdriver` project that boots `cargo tauri dev` with `KB_CLAUDE_MODE=stub` (or unset, if trait deferred), waits for the WebDriver port at `localhost:4444`, runs the e2e specs. **Fallback branch:** if `tauri-plugin-webdriver 0.2.1+` fails to load on the project's `tauri 2.11.1`, fall back to Playwright against `next dev` in `tauri dev` mode (spec § 9.3); document the loss (no real webview) and proceed.
-  6. Capture-fixture CLI — `cargo run --bin capture-fixture -- --name <slug> "<prompt>"`. Pin in the plan whether this is interactive (one prompt at a time, REPL-style) or one-shot (CLI args only); spec § 11 invites this decision. Default recommendation: one-shot, scriptable, idempotent — cheaper to retry.
-  7. Restore CI e2e job — port the steps from `.github/workflows/ci.yml` at commit `ad26115` (last commit on `feat/tauri-mvp1a-scaffold` before the disable) onto the existing `macos-latest` `tauri-build` job. Single sequential macOS job per spec § 9.6: `nvm use && npm ci` → typecheck + lint → `cd src-tauri && cargo fmt --check && cargo clippy && cargo test` → `npm run test:run` → `cargo tauri build --debug` → `npm run test:e2e`.
-  8. First-wave e2e proof set per § 9.7 — at least one e2e per category to prove the pipeline: vault picker → app loads with fresh tempdir; uninitialized splash → click Initialize → app loads; create document → file appears on disk (assert via Node `fs` against tempdir, not just UI state); rename file → wiki-links propagate (`propagateRename`); `/kb document "Topic"` from chat → file appears (uses captured stub fixture; chains MVP-2 + MVP-3). Add at least one terminal e2e if achievable — see plan-level decision below.
-  9. macOS FSEvents rename-cookie test — promoted from the open-follow-ups list. Either a `notify` config that exposes FSEvents rename cookies, or a `#[cfg(target_os = "linux")]` companion test that strictly asserts the paired-rename shape.
-- **Plan-level decisions to pin explicitly:**
-  - **Capture-fixture CLI shape** — default recommendation: one-shot CLI (`cargo run --bin capture-fixture -- --name doc-topic-x "/kb document Topic X"`); cite interactive REPL alternative as deferred.
-  - **Terminal coverage tier — Rust integration, not Playwright e2e.** A `term_event` stream replay through `useTerminalSession` is a component test wearing e2e clothing; if MVP-4's whole point is honest fixtures against the real surface, real-PTY tests in `src-tauri/tests/term_pty.rs` (`cargo test`) earn more than a stub-replay Playwright spec. **Default recommendation:** Rust integration tier owns terminal coverage; Playwright proof set covers chat / vault / explorer flows only. If you keep terminal in Playwright too, frame it as a smoke test (drawer opens, `term_open` fires, no PTY assertion) — don't double-count.
-  - **Parked chat surface in the proof set** — keep one chat-flow e2e (the `/kb document` flow above already covers it) but don't expand the chat-surface coverage further. The terminal is the primary surface; the parked chat surface keeps its existing Vitest coverage.
-  - **`StubRunner` fixture matching strategy** — default: pre-load by name. Tests opt-in via `setStubFixture("doc-topic-x")`; tests that don't opt-in get a default `"Hi, I'm a stub"` response so accidental real-network calls are impossible.
-  - **`make_temp_vault` security** — only registered behind `#[cfg(debug_assertions)]`. Production bundles do not expose it. Same gate as `tauri-plugin-webdriver`.
-- **`KB_CLAUDE_MODE` propagation.** Default `real` in `tauri dev` and `tauri build` unless explicitly overridden. CI's e2e step sets `KB_CLAUDE_MODE=stub`. Document the env-var contract in the plan plus a `tauri-plugin-process` (or equivalent) read at boot.
-- **Rust trait migration risk.** `ClaudeRunner` is a small surface (4 methods) but `RealRunner` currently leans on Tokio task ownership for the stdout/stderr drain. The plan must show the boundary cleanly — a `Box<dyn ClaudeRunner>` held in `tauri::State` with the existing `Mutex` discipline. Spec § 9.1 sketches the trait; verify the lifetimes work for `EventStream` (likely a `tokio::sync::mpsc::Receiver` wrapper) before committing the plan.
-- **Out of scope for MVP-4 (§ 9.8).** Visual regression / screenshot diffs. Cross-platform e2e (macOS-only ships). Performance benchmarks. Continuous fixture refresh. Don't drift any of these in.
-- **Verification surface.** All eight items in the spec § 9.6 CI flow must be runnable locally too: typecheck + lint + cargo fmt + cargo clippy + cargo test + Vitest + Tauri debug build + Playwright via webdriver. Manual smoke (must be in plan): boot `npm run tauri dev` with `KB_CLAUDE_MODE=stub`, confirm chat surface holds the canned conversation; boot with `KB_CLAUDE_MODE=real`, confirm zero behaviour change vs. main; run the Playwright `webdriver` project locally, confirm the proof-set passes.
-- **Test pyramid restated.** Rust unit (`#[cfg(test)]` in `src-tauri/src/**`); Rust integration (`src-tauri/tests/*.rs`, hits the full Tauri command surface against `StubRunner`); Vitest unit/component (existing); Vitest Tauri-bridge contract (new layer for `*RepoTauri.test.ts`); Playwright e2e (full app via webdriver, tempdir vault, `StubRunner`). PTY tests live at the Rust integration tier — closest to the plumbing.
-- **Features.md / test-cases sweep.** No new product feature shipped here, so Features.md changes are limited to retiring `?` markers that the new pipeline confirms. `test-cases/`: flip status markers (❌ → 🟡 / 🧪) for every case the proof-set or the Vitest contract layer covers. New e2e specs reference cases by ID per `test-cases/` rules.
+**Then MVP-5:** the systematic ❌ → ✅ / 🟡 / 🧪 sweep across `test-cases/`, finally unblocked by a working e2e harness.
 
-**After plan lands on this branch:**
+**After MVP-4.x merges:**
 
-1. Commit the plan + this handoff edit alongside the first task's seed commit (no doc-only PRs).
-2. Dispatch via `superpowers:subagent-driven-development` — that's the default for this MVP per the project conventions.
-3. On PR merge, run the **Post-merge cleanup protocol** and move to MVP-5 (promote previously-blocked test cases).
+1. Run the **Post-merge cleanup protocol** (sync main, delete branch, etc.).
+2. Cut `feat/tauri-mvp5-test-promotion` from `main`.
+3. Update this handoff: mark MVP-4.x ✅ Resolved with PR #, populate Reference architecture, rewrite Next Action for MVP-5.
