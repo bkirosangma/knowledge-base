@@ -33,6 +33,10 @@ vi.mock("../../infrastructure/tauriBridge", () => ({
   },
 }));
 
+vi.mock("../claude/ChatContext", () => ({
+  useChat: () => ({ isOpen: true }),
+}));
+
 // CSS import needs a stub so jsdom doesn't choke.
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
