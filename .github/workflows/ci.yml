@@ -1,10 +1,16 @@
 name: CI
 
-# Gates every PR (and push to main) on four parallel jobs. The e2e job
-# was dropped in MVP-4 after tauri-plugin-webdriver 0.2.1 failed to bind
-# :4444 in 4 different headless-CI configurations (macOS WKWebView; Ubuntu
-# WebKitGTK + xvfb; +dbus; +AT-SPI). Tracking as MVP-4.x deferred — see
-# docs/superpowers/handoffs/2026-05-07-tauri-claude-integration.md.
+# Gates every PR (and push to main) on five parallel jobs. The e2e job
+# was dropped in MVP-4 after tauri-plugin-webdriver 0.2.1 appeared to
+# fail to bind :4444 across 4 headless-CI configurations (macOS
+# WKWebView; Ubuntu WebKitGTK + xvfb; +dbus; +AT-SPI). MVP-4.x Phase 1
+# read the plugin source and found the real cause: the plugin's
+# DEFAULT_PORT is :4445, not :4444 — the bind was succeeding silently
+# while Playwright polled the wrong port. Fixed in commit 0dbe626 by
+# pinning the plugin to :4444 via init_with_port(4444). With that
+# unblocked, this job is restored so the four MVP-4 proof-set specs
+# (vault_picker, uninitialized_splash, document_create, rename_propagation)
+# run real assertions on every PR push.
 
 on:
   pull_request:
@@ -153,4 +159,79 @@ jobs:
 
       - name: Build Tauri (debug, no-bundle)
         run: npm run tauri -- build --debug --no-bundle
+
+  e2e:
+    name: End-to-end tests (xvfb-wrapped)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+
+    # Restored in MVP-4.x Phase 3.A. Runs `npm run test:e2e`, which
+    # boots `npm run tauri:dev` under Playwright's webServer (the
+    # config probes :4444/status — matches the post-fix plugin port).
+    # xvfb provides a headless X display; dbus-run-session + at-spi2-core
+    # give WebKitGTK the AT-SPI bus it expects so it doesn't error
+    # before the WebDriver session attaches.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Node version from .nvmrc
+        id: nvmrc
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nvmrc.outputs.version }}
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri Linux system dependencies
+        # Same set as the rust-checks job — webkit2gtk + GTK + system libs
+        # Tauri links against on Linux. Plus xvfb for headless X, plus
+        # dbus-x11 + at-spi2-core so WebKitGTK doesn't error trying to
+        # reach the AT-SPI bus.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libxdo-dev \
+            pkg-config \
+            libssl-dev \
+            xvfb \
+            dbus-x11 \
+            at-spi2-core
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests (xvfb-wrapped)
+        run: xvfb-run -a dbus-run-session -- npm run test:e2e
+        env:
+          KB_E2E_BACKEND: webdriver
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
