@@ -126,7 +126,9 @@ cd src-tauri && cargo fmt --check && cargo clippy && cargo test
 
 ## Task 1: Vault tempdir helpers — Rust `test_support` module + `make_temp_vault` debug command
 
-**Goal:** Land a debug-only Rust module that owns tempdir creation for tests, plus the `#[cfg(debug_assertions)]` `make_temp_vault` Tauri command the TS helper will call. `tempfile = "3"` is **already** in `[dev-dependencies]` — no Cargo.toml change in this task. The module sits under `src-tauri/src/test_support/` (not `tests/common/`) so the same `TempVault` struct is reachable from both Rust integration tests and the runtime `make_temp_vault` command without `mod common;` boilerplate.
+**Goal:** Land a debug-only Rust module that owns tempdir creation for tests, plus the `#[cfg(debug_assertions)]` `make_temp_vault` Tauri command the TS helper will call. The module sits under `src-tauri/src/test_support/` (not `tests/common/`) so the same `TempVault` struct is reachable from both Rust integration tests and the runtime `make_temp_vault` command without `mod common;` boilerplate.
+
+> **Recon correction (post-implementation, applied in commit `21a8c67` + follow-up `1fee16a`):** The pre-plan recon asserted `tempfile = "3"` was already in `[dev-dependencies]` and "no Cargo.toml change" was needed. **Wrong on both counts.** A `cfg(debug_assertions)`-gated module compiles into the dev binary, not just the test binary, so `[dev-dependencies]` (which only resolves under `cargo test`) is insufficient. `tempfile` had to be promoted to `[dependencies]`. The promoted entry is the only one — the redundant `[dev-dependencies]` line that briefly existed in `21a8c67` was removed in `1fee16a` after the code review. Tasks 2-18 should treat `tempfile = "3"` as a regular dep already present in `[dependencies]`.
 
 **Files:**
 - Create: `src-tauri/src/test_support/mod.rs`
@@ -341,7 +343,10 @@ with:
                     term_commands::term_write,
                     term_commands::term_resize,
                     term_commands::term_close,
-                    knowledge_base_lib::test_support::make_temp_vault,
+                    knowledge_base_lib::test_support::vault::make_temp_vault,
+                    // ↑ note: full module path (`::vault::make_temp_vault`), not the `pub use`
+                    // re-export — `tauri::generate_handler!` resolves `__cmd__<name>` companion
+                    // items at the same module path as the `#[tauri::command]` attribute.
                 ]
             }
             #[cfg(not(debug_assertions))]
