@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::PathBuf;
 
 use crate::term::pty::{close as pty_close, spawn as pty_spawn};
@@ -35,17 +36,39 @@ pub async fn term_open(
 }
 
 #[tauri::command]
-pub async fn term_write(_bytes: Vec<u8>, _state: State<'_, TermState>) -> Result<(), String> {
-    Err("not implemented".into())
+pub async fn term_write(bytes: Vec<u8>, state: State<'_, TermState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
+    let session = guard
+        .as_mut()
+        .ok_or_else(|| "no live term session".to_string())?;
+    session
+        .writer
+        .write_all(&bytes)
+        .map_err(|e| format!("term write: {e}"))?;
+    session.writer.flush().ok();
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn term_resize(
-    _rows: u16,
-    _cols: u16,
-    _state: State<'_, TermState>,
+    rows: u16,
+    cols: u16,
+    state: State<'_, TermState>,
 ) -> Result<(), String> {
-    Err("not implemented".into())
+    let guard = state.0.lock().map_err(|e| format!("term lock: {e}"))?;
+    let session = guard
+        .as_ref()
+        .ok_or_else(|| "no live term session".to_string())?;
+    session
+        .master
+        .resize(portable_pty::PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| format!("term resize: {e}"))?;
+    Ok(())
 }
 
 #[tauri::command]
