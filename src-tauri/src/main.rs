@@ -7,6 +7,7 @@ use knowledge_base_lib::vault::{commands, Vault, VaultState, Watcher, WatcherSta
 use std::sync::Arc;
 
 fn main() {
+    knowledge_base_lib::env_bootstrap::merge_login_shell_path();
     let vault: VaultState = Arc::new(Vault::default());
     let watcher: WatcherState = Arc::new(Watcher::default());
     tauri::Builder::default()
