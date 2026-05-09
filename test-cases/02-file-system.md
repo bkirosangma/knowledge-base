@@ -177,9 +177,9 @@ Search input at the top of the ExplorerPanel for live file filtering. `data-test
 
 - **EXPL-2.7-01** 🧪 **Typing in search filters the file list** — entering a query shows only files whose path (case-insensitive) includes the query; non-matching files disappear. Nested paths (e.g. `notes/deep.md`) are discoverable by partial name. _(e2e: `e2e/explorerSearch.spec.ts`)_
 - **EXPL-2.7-02** 🧪 **Clearing the search restores the full tree** — clicking the ✕ clear button empties the query and the normal folder tree reappears. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.7-03** ❌ **⌘F focuses the explorer search input** — when focus is not already in an input/textarea/contenteditable, ⌘F prevents default browser find and focuses `[data-testid="explorer-search"]`. _(Playwright)_
-- **EXPL-2.7-04** ❌ **⌘F does not steal from active inputs** — when focus is inside an editor or input, ⌘F is a no-op (browser find bar may open normally). _(Playwright)_
-- **EXPL-2.7-05** ❌ **"Go to file…" command in palette** — the command palette (⌘K) lists a "Go to file…" entry in the Navigation group with shortcut ⌘F; running it focuses the explorer search. _(Playwright)_
+- **EXPL-2.7-03** 🧪 **⌘F focuses the explorer search input** — when focus is not already in an input/textarea/contenteditable, ⌘F prevents default browser find and focuses `[data-testid="explorer-search"]`. _(e2e: `e2e/explorer_search.spec.ts`)_
+- **EXPL-2.7-04** 🧪 **⌘F does not steal from active inputs** — when focus is inside an editor or input, ⌘F is a no-op (browser find bar may open normally). _(e2e: `e2e/explorer_search.spec.ts`)_
+- **EXPL-2.7-05** 🧪 **"Go to file…" command in palette** — the command palette (⌘K) lists a "Go to file…" entry in the Navigation group with shortcut ⌘F; running it focuses the explorer search. _(e2e: `e2e/explorer_search.spec.ts`)_
 
 ## 2.8 Explorer Recents (UX Phase 1)
 
