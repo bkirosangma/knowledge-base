@@ -84,8 +84,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Install zsh (PTY integration tests spawn `zsh -i -l`)
-        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install Tauri Linux deps + zsh
+        # gtk/gdk/glib/cairo/etc. are required just to LINK the crate —
+        # tauri-plugin-webdriver's transitive deps (gtk-sys, gdk-sys) pull
+        # them in even though we don't run the webview here. Same set the
+        # `e2e` job uses, minus xvfb (no runtime display needed for tests).
+        # zsh is required because PTY integration tests spawn `zsh -i -l`.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libxdo-dev \
+            libssl-dev \
+            zsh
 
       - name: cargo fmt --check
         run: cd src-tauri && cargo fmt -- --check
