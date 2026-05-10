@@ -1,5 +1,9 @@
 # Tauri + Claude Integration — Session Handoff
 
+> **⚠️ Epic ✅ Closed (2026-05-10).** All MVPs (1a → 1b → 1c → 1d → 1e → 2 → 3 → 3.5 → 4 → 4.x → 5) merged on `main`; post-epic PR #160 (WebKit local smoke + xterm WebKit-race fix) also merged. **Don't reopen this doc** — it stands as the historical record.
+>
+> **Residual carry-forward** (26 ❌ deferred test cases + 1 🟡 partial + 2 WebKit-only ⏭ skips) is tracked in **`docs/superpowers/handoffs/2026-05-10-test-cases-residual-followups.md`** — that doc is the live handoff for any follow-up work in this space.
+
 > **Purpose:** A pointer document so that an LLM session with no prior context can resume work on the Tauri + Claude Integration feature cleanly. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action**.
 
 **Last updated:** 2026-05-10 — **Tauri + Claude Integration epic ✅ Closed.** MVP-5 merged via PR #159 (`b4f5f71` on `main`). Post-epic follow-up PR #160 (`a3cee3f` on `main`) added Playwright's WebKit project as a local pre-release smoke for engine-fidelity coverage and fixed a real WebKit-only xterm-init race the smoke surfaced on first run. All MVPs (1a → 1b → 1c → 1d → 1e → 2 → 3 → 3.5 → 4 → 4.x → 5) merged on `main`. 26 deferred ❌ test cases carry forward as MVP-6+ candidates with inline `note:` annotations identifying their blockers. **No further "core epic" work is required**; future test-case promotions ship as discrete small PRs against `main`.
