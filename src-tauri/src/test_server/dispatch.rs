@@ -148,16 +148,29 @@ pub async fn invoke_handler(
                 .map(|_| Value::Null)
                 .map_err(|e| e.to_string())
         }
-        // vault_pick + vault_watch_start need a Tauri AppHandle; they no-op
-        // gracefully so the frontend's mount-time `vault_watch_start` call
-        // (FileWatcherContext) doesn't reject and break the proof-set
-        // specs.
+        // vault_pick still needs a real Tauri AppHandle (native dialog);
+        // it stays a hard-unsupported.
         "vault_pick" => unsupported("vault_pick"),
-        "vault_watch_start" => Ok(Value::Null),
-        "vault_watch_stop" => vault_cmds::impl_vault_watch_stop(&state.watcher)
-            .await
-            .map(|_| Value::Null)
-            .map_err(|e| e.to_string()),
+        // vault_watch_start runs the test-only `TestWatcher`, which mirrors
+        // production's debouncer wiring but emits `vault_change` through
+        // the `EventBus` (SSE on /events) instead of `app.emit`. If no
+        // vault has been set yet the call is a no-op so the frontend's
+        // mount-time call doesn't reject before `vault_set_root` lands.
+        "vault_watch_start" => match state.vault.root_or_error().await {
+            Ok(root) => state
+                .test_watcher
+                .start(root, state.events.clone())
+                .await
+                .map(|_| Value::Null),
+            Err(_) => Ok(Value::Null),
+        },
+        "vault_watch_stop" => {
+            state.test_watcher.stop().await;
+            vault_cmds::impl_vault_watch_stop(&state.watcher)
+                .await
+                .map(|_| Value::Null)
+                .map_err(|e| e.to_string())
+        }
 
         // ----- claude (status only — send/interrupt/reset need AppHandle)
         "claude_status" => claude_cmds::impl_claude_status()

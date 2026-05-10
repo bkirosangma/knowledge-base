@@ -8,11 +8,18 @@
 // __TAURI_INTERNALS__ at module-eval time (the bundler emits a static
 // reference; lazy patching after page.goto() is too late).
 //
-// listen() is currently a no-op stub: none of the 4 MVP-4.x proof-set
-// specs assert event-driven behaviour. The test_server scaffolds an
-// SSE endpoint at /events for future specs that do; swap this body
-// for an EventSource on TS + "/events" filtering by msg.event === name
-// when that day comes.
+// Two interception points:
+//   • `invoke(cmd, args)` for ordinary commands forwards to /invoke.
+//   • `invoke("plugin:event|listen", { event, handler })` is intercepted
+//     locally: the JS handler (an integer id from our `transformCallback`)
+//     is wired to a shared `EventSource` against TS + "/events" so SSE
+//     frames from the test_server's `EventBus` reach the right callback.
+//   • `invoke("plugin:event|unlisten", { eventId })` removes the listener.
+//
+// The `EventBus` is fed by the `TestWatcher` (parallel
+// notify_debouncer_full) on the Rust side — Playwright specs that
+// mutate files from node-side `fs` see the React tree refresh exactly
+// the way it does in production via `app.emit("vault_change", _)`.
 
 import type { Page } from "@playwright/test";
 
@@ -25,7 +32,35 @@ export const INIT_SCRIPT = `
 (function () {
   const TS = "${TEST_SERVER_URL}";
 
-  async function invoke(cmd, args) {
+  // ── Tauri callback registry ──────────────────────────────────────
+  // transformCallback(fn) stashes the JS handler and returns an id
+  // the backend can later use to call it back. Production Tauri stores
+  // these on window under generated names; for the test shim we keep
+  // them in a plain Map so the shape is local and deterministic.
+  const _callbacks = new Map();
+  let _nextCbId = 1;
+  function transformCallback(callback, once) {
+    const id = _nextCbId++;
+    _callbacks.set(id, function (payload) {
+      if (once) _callbacks.delete(id);
+      try { callback(payload); } catch (_e) { /* swallow per Tauri */ }
+    });
+    return id;
+  }
+
+  // ── Lazy shared EventSource ──────────────────────────────────────
+  let _source = null;
+  function _ensureSource() {
+    if (_source && _source.readyState !== 2 /* CLOSED */) return _source;
+    _source = new EventSource(TS + "/events");
+    return _source;
+  }
+
+  // ── Active SSE listeners (one per plugin:event|listen call) ──────
+  const _listeners = new Map();
+  let _nextListenerId = 1;
+
+  async function _invokeOverHttp(cmd, args) {
     const res = await fetch(TS + "/invoke", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -39,27 +74,54 @@ export const INIT_SCRIPT = `
     return body.value;
   }
 
-  // listen() returns an unlisten function. Tauri's @tauri-apps/api/event
-  // resolves an EventSource against /events; for the proof set we
-  // currently no-op (none of the 4 specs assert event-driven behaviour).
-  // When future specs need real event delivery, replace this body with
-  // an EventSource on TS + "/events" filtering by msg.event === name.
-  function listen(name, handler) {
-    return Promise.resolve(function unlisten() { /* no-op */ });
+  async function invoke(cmd, args) {
+    // Intercept Tauri's event-plugin listen/unlisten so SSE frames
+    // dispatch into the registered callback.
+    if (cmd === "plugin:event|listen") {
+      const eventName = args && args.event;
+      const handlerId = args && args.handler;
+      const cb = _callbacks.get(handlerId);
+      if (!eventName || typeof cb !== "function") return -1;
+
+      const source = _ensureSource();
+      const onSse = function (msg) {
+        let payload = null;
+        try {
+          const env = JSON.parse(msg.data);
+          payload = env && typeof env === "object" ? env.payload : null;
+        } catch (_e) { /* malformed frame */ }
+        cb({ event: eventName, payload, id: handlerId });
+      };
+      source.addEventListener(eventName, onSse);
+
+      const listenerId = _nextListenerId++;
+      _listeners.set(listenerId, { event: eventName, onSse });
+      return listenerId;
+    }
+
+    if (cmd === "plugin:event|unlisten") {
+      const listenerId = args && args.eventId;
+      const entry = _listeners.get(listenerId);
+      if (entry) {
+        _ensureSource().removeEventListener(entry.event, entry.onSse);
+        _listeners.delete(listenerId);
+      }
+      return null;
+    }
+
+    return _invokeOverHttp(cmd, args);
   }
 
-  // Tauri 2.x bridge contract: __TAURI_INTERNALS__.invoke(cmd, args).
-  // The high-level @tauri-apps/api/core wraps this with type cleanup.
+  // Tauri 2.x bridge contract: __TAURI_INTERNALS__.invoke / transformCallback.
   window.__TAURI_INTERNALS__ = {
     invoke,
-    transformCallback: function (cb) { return cb; },
+    transformCallback,
     metadata: { plugins: {} },
   };
 
   // Belt-and-suspenders: the legacy __TAURI__ namespace some code paths still read.
   window.__TAURI__ = {
     invoke,
-    event: { listen },
     core: { invoke },
   };
 })();
