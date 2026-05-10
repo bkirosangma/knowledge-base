@@ -25,16 +25,18 @@ test.describe("TAB-11.2-10 — re-open fidelity", () => {
   });
 
   test("TAB-11.2-10: re-opening song.alphatex re-renders identical canvas content", async ({ page, browserName }) => {
-    // WebKit-specific failure: xterm.js's @xterm/addon-fit calls
-    // `this._renderer.value.dimensions` before the renderer initializes,
-    // which crashes the page on WebKit. The crash is unrelated to the
-    // alphaTab tab-reopen behaviour this spec asserts — it surfaces
-    // because the embedded terminal shares the page lifecycle. Tracked
-    // as a known WebKit-engine fidelity gap from `npm run test:e2e:webkit`;
-    // chromium (CI gate) is unaffected.
+    // The spec's existing alphaTab-fragility caveat (header comment lines
+    // 14-16) extends to WebKit: the second-render path crashes the page
+    // ~33% of runs. The original `_renderer.value.dimensions` xterm crash
+    // that masked this earlier was fixed in `TerminalSurface.tsx` (defer
+    // xterm init until isOpen=true) — see PR #160's commit history. The
+    // remaining WebKit flake is alphaTab + WebKit GC/memory interaction
+    // on the second render, which is squarely in the spec's documented
+    // demote-to-🅑 escape hatch. Skipped on WebKit to keep
+    // `npm run test:e2e:webkit` clean; chromium gate (CI) is unaffected.
     test.skip(
       browserName === "webkit",
-      "xterm.js renderer crash on WebKit (npm run test:e2e:webkit known-failure)",
+      "alphaTab second-render crash on WebKit (npm run test:e2e:webkit known-flake; spec's demote-to-🅑 escape hatch)",
     );
 
     const vault = await makeTempVault({ fixture: "with_tab" });

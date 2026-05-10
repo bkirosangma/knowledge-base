@@ -22,8 +22,22 @@ export function TerminalSurface({ vaultPath }: Props) {
   const [fitAddon, setFitAddon] = useState<FitAddon | null>(null);
   const initOnce = useRef(false);
 
+  const termRef = useRef<Terminal | null>(null);
+
+  // Init effect: defer xterm Terminal creation until the drawer first
+  // becomes visible. Avoids fitting against a 0×0 container at boot (the
+  // previous behaviour fitted eagerly even when invisible) AND eliminates
+  // a WebKit race where `@xterm/addon-fit` reads
+  // `this._renderer.value.dimensions` before the renderer's lazy
+  // MutableDisposable resolves. Chromium tolerated the timing; WebKit
+  // crashed the page intermittently under full-suite load.
+  //
+  // No cleanup here — disposal is an unmount-only operation handled by a
+  // separate effect below. If `t.dispose()` were the cleanup of THIS
+  // effect, every isOpen-toggle would dispose+recreate the terminal,
+  // breaking MVP-3.5's buffer-persistence-across-drawer-hides guarantee.
   useEffect(() => {
-    if (!container || initOnce.current) return;
+    if (!container || initOnce.current || !isOpen) return;
     initOnce.current = true;
     const t = new Terminal({
       cursorBlink: true,
@@ -38,18 +52,21 @@ export function TerminalSurface({ vaultPath }: Props) {
     t.loadAddon(fa);
     t.loadAddon(wla);
     t.open(container);
-    // First fit() runs against whatever dims the container currently has —
-    // may be 0×0 if the drawer is closed at boot. useTerminalSession defers
-    // term_open until isOpen=true and re-fits there, so the spawned PTY
-    // gets correct cols/rows regardless of mount-time visibility.
     fa.fit();
+    termRef.current = t;
     setTerm(t);
     setFitAddon(fa);
+  }, [container, isOpen]);
 
+  // Unmount-only disposal. Reads from `termRef`, which is set by the init
+  // effect once xterm exists; `?.dispose()` is a no-op when the drawer
+  // was never opened during this component's lifetime.
+  useEffect(() => {
     return () => {
-      t.dispose();
+      termRef.current?.dispose();
+      termRef.current = null;
     };
-  }, [container]);
+  }, []);
 
   useTerminalSession({ vaultPath, term, fitAddon, isOpen });
   useTerminalResize(container, term, fitAddon);
