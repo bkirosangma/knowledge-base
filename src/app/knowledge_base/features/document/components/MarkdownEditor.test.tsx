@@ -453,6 +453,32 @@ describe('MarkdownEditor — heading copy-link icon (MVP-3 Task 6)', () => {
   })
 })
 
+// ── Focused state tracked (DOC-4.1-02) ─────────────────────────────────────
+
+describe('MarkdownEditor — focused state tracked (DOC-4.1-02)', () => {
+  it('DOC-4.1-02: ProseMirror surface tracks focused state via the .ProseMirror-focused class', async () => {
+    // The MarkdownEditor doesn't expose its Tiptap editor instance, so we
+    // observe focused state through the ProseMirror DOM. Tiptap reflects
+    // `editor.isFocused === true` by adding the `ProseMirror-focused`
+    // class to the contentEditable surface; that's the public observable.
+    // Note: jsdom's `fireEvent.focus` dispatches the focus event but does
+    // NOT move `document.activeElement`, so we assert against the class
+    // instead — that's the same signal Tiptap exposes externally.
+    const { container } = renderEditor({ content: 'paragraph' })
+    await waitFor(() => expect(proseMirror(container)).not.toBeNull())
+    const pm = proseMirror(container)
+
+    // Initially the editor must NOT carry the focused class.
+    expect(pm.classList.contains('ProseMirror-focused')).toBe(false)
+
+    await act(async () => { fireEvent.focus(pm) })
+    expect(pm.classList.contains('ProseMirror-focused')).toBe(true)
+
+    await act(async () => { fireEvent.blur(pm) })
+    expect(pm.classList.contains('ProseMirror-focused')).toBe(false)
+  })
+})
+
 // ── historyToken force-apply (undo/redo bypass) ─────────────────────────────
 
 describe('MarkdownEditor — historyToken forces content update', () => {
