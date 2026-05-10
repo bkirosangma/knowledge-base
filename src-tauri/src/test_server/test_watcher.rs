@@ -59,9 +59,8 @@ impl TestWatcher {
             old.forwarder.abort();
         }
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<
-            notify_debouncer_full::DebounceEventResult,
-        >();
+        let (tx, mut rx) =
+            tokio::sync::mpsc::unbounded_channel::<notify_debouncer_full::DebounceEventResult>();
 
         let mut debouncer = new_debouncer(
             Duration::from_millis(DEBOUNCE_MS),
