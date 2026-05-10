@@ -200,15 +200,15 @@ Typed command registry context (`CommandRegistry.tsx`) + `⌘K` palette overlay 
 - **SHELL-1.11-03** 🧪 **Typing filters results** — typing in the search input narrows the list by case-insensitive substring match; non-matching query shows "No matching commands". _(e2e: `e2e/commandPalette.spec.ts` CMD-1-02)_
 - **SHELL-1.11-04** 🧪 **Escape closes palette** — pressing Escape while palette is open → dialog dismissed. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-03)_
 - **SHELL-1.11-05** 🧪 **Enter executes command and closes** — navigating to a command with ↑/↓ and pressing Enter → command fires, palette closes. _(e2e: `e2e/commandPalette.spec.ts` CMD-1-05)_
-- **SHELL-1.11-06** ❌ **Backdrop click closes palette** — clicking outside the panel (on the semi-transparent backdrop) → palette closes.
-- **SHELL-1.11-07** ❌ **↑/↓ navigate rows** — pressing ArrowDown highlights the next row; ArrowUp highlights the previous; wraps at boundaries.
+- **SHELL-1.11-06** 🧪 **Backdrop click closes palette** — clicking outside the panel (on the semi-transparent backdrop) → palette closes. _(e2e: `e2e/command_palette.spec.ts`)_
+- **SHELL-1.11-07** 🧪 **↑/↓ navigate rows (clamps at boundaries)** — ArrowDown highlights the next row, ArrowUp the previous. **Production behaviour clamps**, not wraps (`Math.max(i-1, 0)` / `Math.min(i+1, n-1)` in `CommandPalette.tsx`); the case description's "wraps at boundaries" was aspirational and the spec asserts the clamp. _(e2e: `e2e/command_palette.spec.ts`)_
 - **SHELL-1.11-08** ✅ **useRegisterCommands no-ops outside provider** — calling `useRegisterCommands` in a component not wrapped by `CommandRegistryProvider` does not throw. _(covered implicitly by unit tests that render keyboard-shortcut hooks without provider)_
 - **SHELL-1.11-09** ✅ **useCommandRegistry returns stub outside provider** — calling `useCommandRegistry()` outside the provider returns empty fallback state without throwing. _(Header.test.tsx renders Header — which calls useCommandRegistry — without provider)_
-- **SHELL-1.11-10** ❌ **⌘K blocked inside contenteditable** — pressing `⌘K` while a Tiptap editor has focus → palette does NOT open.
-- **SHELL-1.11-11** ❌ **Diagram commands absent when no diagram open** — with only a document pane open, "Delete Selected" and diagram "Toggle Read / Edit Mode" commands do not appear in the palette.
-- **SHELL-1.11-12** ❌ **Diagram commands present when diagram open** — with a diagram pane open, "Delete Selected" (when a node is selected) and "Toggle Read / Edit Mode" appear.
-- **SHELL-1.11-13** ❌ **Document commands present when document open** — with a document pane open, document "Toggle Read / Edit Mode" appears in the palette.
-- **SHELL-1.11-14** ❌ **`when` guard hides Delete Selected when nothing selected** — with a diagram open but nothing selected, "Delete Selected" does not appear.
+- **SHELL-1.11-10** 🧪 **⌘K blocked inside contenteditable** — pressing `⌘K` while a Tiptap editor has focus → palette does NOT open. _(e2e: `e2e/command_palette.spec.ts` — flips the document into edit mode, clicks the ProseMirror, asserts the dialog stays absent.)_
+- **SHELL-1.11-11** 🧪 **Diagram commands absent when no diagram open** — with only a document pane open, "Delete Selected" and the diagram-group "Toggle Read / Edit Mode" command do not appear in the palette. _(e2e: `e2e/command_palette.spec.ts`)_
+- **SHELL-1.11-12** ❌ **Diagram commands present when diagram open** — with a diagram pane open, "Delete Selected" (when a node is selected) and "Toggle Read / Edit Mode" appear. _(MVP-5 follow-up: needs diagram-canvas pointer-event harness to seed a selected node — see DIAG-3.5/3.7 deferred drag geometry)_
+- **SHELL-1.11-13** 🧪 **Document commands present when document open** — with a document pane open, the document-group "Toggle Read / Edit Mode" entry appears in the palette. _(e2e: `e2e/command_palette.spec.ts`)_
+- **SHELL-1.11-14** 🧪 **`when` guard hides Delete Selected when nothing selected** — with an empty diagram open and nothing selected, "Delete Selected" filters to "No matching commands". _(e2e: `e2e/command_palette.spec.ts`)_
 
 ## 1.12 Shell Collapse — PaneTitle → PaneHeader (Phase 2 PR 2)
 
