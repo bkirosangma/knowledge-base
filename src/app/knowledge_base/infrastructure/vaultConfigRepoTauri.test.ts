@@ -293,6 +293,32 @@ describe("vaultConfigRepoTauri", () => {
   });
 
   describe("update", () => {
+    it("SHELL-1.13-08: update({ theme: 'dark' }) preserves name/version/created", async () => {
+      // Pre-seed config; call update({ theme: "dark" }); read back; assert
+      // theme is "dark" AND name/version/created are preserved verbatim.
+      const seed = {
+        version: "1.0",
+        name: "MVP-5 Vault",
+        created: "2026-04-01T00:00:00.000Z",
+        lastOpened: "2026-05-08T07:00:00.000Z",
+      };
+      bridge.readJson.mockResolvedValue(seed);
+      bridge.writeJson.mockResolvedValue(undefined);
+      const repo = createVaultConfigRepositoryTauri();
+
+      const updated = await repo.update({ theme: "dark" });
+
+      // Patch applied.
+      expect(updated.theme).toBe("dark");
+      // Untouched fields survive.
+      expect(updated.version).toBe(seed.version);
+      expect(updated.name).toBe(seed.name);
+      expect(updated.created).toBe(seed.created);
+      // The persisted payload mirrors the returned shape.
+      const [, value] = bridge.writeJson.mock.calls[0];
+      expect(value).toEqual({ ...seed, theme: "dark" });
+    });
+
     it("reads config, merges patch, and writes back", async () => {
       const currentConfig = {
         version: "1.0",
