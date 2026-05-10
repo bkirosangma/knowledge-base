@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme F item `SHELL-1.11-12` in progress on `fix/test-cases-shell-1.11-12-diagram-commands` — closes Theme F entirely; new e2e drives a vault with a single-node `diagram.json` seeded via `vault_write_json` through test_server, opens the diagram, selects the node, and asserts both `Toggle Read / Edit Mode` and `Delete Selected` appear in the palette under the `>Diagram` filter). Tracks **12 items**: 10 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme A item `SHELL-1.15-02` in progress on `fix/test-cases-shell-1.15-02-manifest-export` — same Vitest classifier shape as the already-shipped SHELL-1.15-03; pins `metadata.manifest === "${basePath}/manifest.json"` against the layout module's exported metadata. The "needs production-bundle e2e backend" framing was overestimated — the classifier asserts the *export*, not the rendered `<head>`, so no harness change required). Tracks **11 items**: 9 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -95,7 +95,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 
 | # | Theme | Cases | Status | PR(s) |
 |---|---|---|---|---|
-| **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (1 ✅ shipped, 4 ❌) | 🚧 Partial — `SHELL-1.15-03` ✅ | `SHELL-1.15-03` via `fix/test-cases-shell-1.15-03` |
+| **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (2 ✅ shipped, 3 ❌) | 🚧 In progress on `fix/test-cases-shell-1.15-02-manifest-export` — `SHELL-1.15-03`, `SHELL-1.15-02` ✅ | `SHELL-1.15-03`, `SHELL-1.15-02` |
 | **B** | Live-MarkdownEditor editor-ref access | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-editor-ref` (Path 1 — 4 unit-test promotions) + `fix/test-cases-doc-4.2-06-rescope` (re-scope) |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
@@ -103,7 +103,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (4 ✅ shipped) | 🚧 In progress on `fix/test-cases-shell-1.11-12-diagram-commands` — all four ✅ when this PR merges | `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 10 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 12 / 29 still tracked. 17 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`).
+**Open / total:** 9 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 11 / 29 still tracked. 18 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`).
 
 ---
 
@@ -113,12 +113,12 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 
 **Cases:**
 - `SHELL-1.15-01` ❌ Manifest serves at `/manifest.json` — Playwright `request.get('/manifest.json')` against the production-bundle public-dir handler.
-- `SHELL-1.15-02` ❌ Layout references manifest via `metadata.manifest` — `<head>` includes `<link rel="manifest" href="/manifest.json">`; needs production bundle.
+- `SHELL-1.15-02` ✅ Layout references manifest via `metadata.manifest` — Vitest classifier check in `src/app/layout.test.ts` asserts `metadata.manifest === "${basePath}/manifest.json"` (where `basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""`). Same shape as `SHELL-1.15-03` — the case's "needs production bundle" framing was wrong because the metadata export itself can be classifier-checked without rendering.
 - `SHELL-1.15-04` ❌ Service worker registered in production — `navigator.serviceWorker.register("/sw.js")` only fires under `NODE_ENV === "production"`.
 - `TAB-11.3-20` ❌ Service-worker cache hit on second load — `/soundfonts/sonivox.sf2` served from cache after first fetch.
 - `SHELL-1.15-03` ✅ `themeColor` lives in viewport export (Next 16) — Vitest classifier check shipped at `src/app/layout.test.ts` (asserts `viewport.themeColor` is a non-empty string and `metadata.themeColor` is undefined). Mocks `next/font/google` + globals so the layout module imports cleanly under jsdom.
 
-**Estimated shape:** 1–2 PRs. SHELL-1.15-03 can land as a quick unit test today; the other four cluster around the production-bundle backend, which is a small harness addition (~50–100 LOC + CI matrix tweak).
+**Estimated shape:** 1 PR remaining for the production-bundle harness, which still gates `SHELL-1.15-01`, `SHELL-1.15-04`, and `TAB-11.3-20`. The metadata-classifier sub-theme (`SHELL-1.15-03`, `SHELL-1.15-02`) is fully shipped via Vitest — no harness change required for assertions on the *exports* themselves.
 
 ---
 

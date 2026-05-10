@@ -29,3 +29,19 @@ describe('SHELL-1.15-03: app/layout.tsx Next 16 metadata classifier', () => {
     expect((mod.metadata as Record<string, unknown>).themeColor).toBeUndefined()
   })
 })
+
+// SHELL-1.15-02: The layout's exported metadata pins the PWA manifest at
+// `${basePath}/manifest.json`. Asserting on the export itself avoids
+// needing a production-bundle harness — the classifier shape mirrors
+// SHELL-1.15-03 above. Empty basePath in the unit-test env (no
+// `NEXT_PUBLIC_BASE_PATH`) means the literal value is `/manifest.json`.
+describe('SHELL-1.15-02: app/layout.tsx metadata.manifest', () => {
+  it('exposes a manifest reference on the metadata export', async () => {
+    const mod = await import('./layout')
+    expect(mod.metadata).toBeDefined()
+    const manifest = (mod.metadata as { manifest?: unknown }).manifest
+    expect(manifest).toBeTypeOf('string')
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+    expect(manifest).toBe(`${basePath}/manifest.json`)
+  })
+})
