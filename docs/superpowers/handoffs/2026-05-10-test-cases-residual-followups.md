@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme E quick-win `LINK-5.1-12` shipped on `fix/test-cases-link-5.1-12-rename-order` — case rewritten to match shipped index-first ordering; new Vitest assertion in `useFileExplorer.helpers.test.ts` covers the post-completion atomicity invariant). Tracks **26 items**: 24 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme D **fully shipped** as a single PR on `feat/test-cases-visual-hover` — 5 cases promoted in `e2e/visual_hover_focus.spec.ts` covering Tab focus-visible, Tab-driven tooltip, hover-driven tooltip, disabled-trigger suppression, and the folder context menu's "New ▸" submenu). Tracks **21 items**: 19 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -98,12 +98,12 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (1 ✅ shipped, 4 ❌) | 🚧 Partial — `SHELL-1.15-03` ✅ | `SHELL-1.15-03` via `fix/test-cases-shell-1.15-03` |
 | **B** | Live-MarkdownEditor editor-ref access | 5 | ❌ Open | — |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
-| **D** | Visual / hover / focus-visible assertions | 5 | ❌ Open | — |
+| **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 24 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 26 / 29 still tracked. 3 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`).
+**Open / total:** 19 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 21 / 29 still tracked. 8 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`).
 
 ---
 
@@ -161,14 +161,17 @@ Path 1 is preferred (smaller surface change; tests stay fast). Watch out: per `f
 
 **Blocker:** none structural — these are Playwright-viable Tab-focus / hover assertions deferred during MVP-5 to keep scope tight. They need real keyboard / pointer events on real DOM with `:focus-visible` / `:has(:focus-visible)` / `:has(:disabled)` CSS rules in play.
 
-**Cases:**
-- `SHELL-1.13-06` ❌ Visible focus ring on keyboard nav — Tab focus + computed-style assertion on `outline` / `box-shadow` using `var(--focus)`.
-- `SHELL-1.16-01` ❌ Tabbing to icon button surfaces tooltip — Tab-focus + `[role="tooltip"]` visibility.
-- `SHELL-1.16-02` ❌ Hover surfaces same bubble — `mouse.move()` + same assertion.
-- `SHELL-1.16-04` ❌ Disabled trigger suppresses bubble — `<button disabled>` + verify no `[role="tooltip"]`.
-- `FS-2.3-45` ❌ Folder context menu "New ▸" submenu — hover-triggered submenu position.
+**Cases (all ✅ shipped via `e2e/visual_hover_focus.spec.ts` on `feat/test-cases-visual-hover`):**
+- `SHELL-1.13-06` ✅ Visible focus ring — Tab-walks to the header theme toggle and asserts `box-shadow: 0 0 0 2px …`; mouse-driven click does not match.
+- `SHELL-1.16-01` ✅ Tab → tooltip — Tab focus on theme toggle flips bubble visibility/opacity.
+- `SHELL-1.16-02` ✅ Hover → tooltip — pointer hover on the command-palette trigger flips visibility from hidden → visible.
+- `SHELL-1.16-04` ✅ Disabled → no tooltip — opens a doc; PaneHeader Discard button mounts disabled; hover keeps `display: none` on the bubble.
+- `FS-2.3-45` ✅ Folder New ▸ submenu — right-click `drawings` folder; hover "New"; assert Diagram / Document / SVG / Folder items render.
 
-**Estimated shape:** 1 PR with 5 small specs; each is 10–30 LOC. Mirror existing chromium-only e2e patterns from MVP-5's promotions; no harness changes needed.
+**Implementation notes (for future themes):**
+- Tooltip-bubble locator: prefer `.kb-tooltip { has: trigger }` wrapper + `[role="tooltip"]` over the `aria-describedby` id — React's `useId()` output churns and CSS `#id` selectors require valid identifier syntax.
+- Focus-ring assertion: blur the active element before mouse-clicking the trigger so chromium's `:focus-visible` heuristic treats the click as fresh mouse-driven focus.
+- Tab-walk targeting: `theme-toggle` is the most reliable Tab-focus target post-vault-load; explorer-tree depth can swallow many Tab hops before chrome buttons see focus.
 
 ---
 
@@ -275,7 +278,7 @@ These are non-negotiable; don't relitigate them mid-work. Lifted from the closed
    - **Theme C** (test_server event-stream) unblocks 2 e2e promotions and is the foundation if the broader AppHandle expansion is ever attempted.
    - **Theme A** (production-bundle backend) unblocks 4 cases sharing the same harness gap.
 
-3. **Visual/hover sweep (Theme D)** — 5 cases, mostly mechanical Playwright specs. Good "warm-up" PR if returning to this work after a context break.
+3. ~~**Visual/hover sweep (Theme D)**~~ — **✅ Shipped 2026-05-10 via `feat/test-cases-visual-hover` (5/5 cases in one PR).**
 
 4. **Theme G (WebKit fidelity)** — defer until someone runs the local smoke and is annoyed, OR until WebKit pre-release becomes a hard release gate.
 
