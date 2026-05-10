@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme B fully shipped — `DOC-4.2-06` re-scoped on `fix/test-cases-doc-4.2-06-rescope` to assert the round-trip invariant on `markdownToHtml`/`htmlToMarkdown` rather than the disabled-checkbox-click behaviour that production never had). Tracks **16 items**: 14 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme F item `FS-2.3-49` shipped on `fix/test-cases-fs-2.3-49-empty-tree-context` — added Playwright case to `visual_hover_focus.spec.ts` asserting that a right-click below the last tree row surfaces the root folder context menu). Tracks **15 items**: 13 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -100,10 +100,10 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
-| **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
+| **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (1 ✅ shipped, 3 ❌) | 🚧 Partial — `FS-2.3-49` ✅ | `FS-2.3-49` via `fix/test-cases-fs-2.3-49-empty-tree-context` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 14 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 16 / 29 still tracked. 13 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`).
+**Open / total:** 13 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 15 / 29 still tracked. 14 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`).
 
 ---
 
@@ -202,7 +202,7 @@ Each is a one-off blocker that doesn't share a theme with the others.
 - `SHELL-1.13-05` ❌ `prefers-color-scheme` precedence — needs harness-level priming hook before page reload races `emulateMedia`. Playwright's `colorScheme` context option set before `page.goto()` should work; a single targeted spec.
 - `SHELL-1.11-12` ❌ Diagram commands present when diagram open — needs diagram-canvas pointer-event harness to seed a selected node. Overlaps with `DIAG-3.5/3.7` deferred drag-geometry work; if that lands first, this becomes trivial.
 - `TAB-11.4-06` ❌ End-to-end import flow — Playwright drives palette → file picker → `.gp` → `.alphatex` opens. Needs **file-picker mock** for OS-native open-file dialog (test_server doesn't proxy `showOpenFilePicker`). Small harness addition (~30–50 LOC) shared with any future file-import e2e work.
-- `FS-2.3-49` ❌ Right-click empty tree area — needs real mouse coordinates and `contextmenu` event on non-node targets. Could fold into Theme D if approached together; lands as ~10 LOC of Playwright `mouse.move` + `mouse.down` + `dispatchEvent`.
+- `FS-2.3-49` ✅ Right-click empty tree area — Playwright case appended to `e2e/visual_hover_focus.spec.ts`; right-click below the last tree row surfaces the same root folder context menu asserted by FS-2.3-45.
 
 **Estimated shape:** 4 small PRs, each independent; or fold `FS-2.3-49` into Theme D's PR.
 
