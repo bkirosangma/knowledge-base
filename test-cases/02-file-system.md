@@ -96,7 +96,7 @@
 - **FS-2.3-46** ✅ **Clicking a folder selects it** — folder row gets `bg-blue-50 text-blue-700` highlight after click; second click on same folder deselects it. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-47** ✅ **Header create buttons use selected folder as parent** — when `selectedFolderPath` is set, New Diagram / Document / Folder buttons pass that path instead of `''`. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-48** ✅ **Header breadcrumb when folder selected** — header shows `vault / folderName` text when a folder is selected; reverts to just vault name when deselected. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright _(MVP-5 follow-up: same family as FS-2.3-45)_
+- **FS-2.3-49** ✅ **Right-click empty tree area opens root context menu** — Playwright in `e2e/visual_hover_focus.spec.ts`. Right-click below the last tree row but inside the explorer scroll container; the `onContextMenu` branch (ExplorerPanel.tsx:549) dispatches a folder-typed menu with `path=""`, surfacing the same root "New ▸" trigger asserted by FS-2.3-45.
 - **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
 ### 2.3.h Create SVG Files

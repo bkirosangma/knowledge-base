@@ -216,4 +216,34 @@ test.describe("Theme D — visual / hover / focus-visible (Playwright)", () => {
 
     await vault.cleanup();
   });
+
+  test("FS-2.3-49: Right-clicking the empty area below the tree opens the root folder context menu", async ({ page }) => {
+    const vault = await openVault(page, "with_links");
+
+    // The scroll container around the tree wires `onContextMenu` (ExplorerPanel.tsx:549)
+    // and dispatches a folder-typed context menu with `path=""` whenever the
+    // event target isn't inside a `[data-tree-node]`. To hit that branch,
+    // right-click below the last visible tree row but still inside the
+    // scroll container's bounds.
+    const tree = page.getByTestId("explorer-tree");
+    await expect(tree).toBeVisible();
+    const treeBox = await tree.boundingBox();
+    if (!treeBox) throw new Error("explorer-tree has no bounding box");
+
+    // Centre the click horizontally over the tree, but vertically just
+    // below the last row. The scroll container extends past the tree's
+    // bottom edge — offsetting by a few pixels lands on empty space.
+    const x = treeBox.x + treeBox.width / 2;
+    const y = treeBox.y + treeBox.height + 24;
+    await page.mouse.move(x, y);
+    await page.mouse.click(x, y, { button: "right" });
+
+    // Same root menu shape as FS-2.3-45: a "New" trigger that gates the
+    // Diagram/Document/SVG/Folder submenu on hover. We assert the trigger
+    // is visible — the submenu mechanics are already covered by FS-2.3-45.
+    const newTrigger = page.getByRole("button", { name: /^New$/ });
+    await expect(newTrigger).toBeVisible();
+
+    await vault.cleanup();
+  });
 });
