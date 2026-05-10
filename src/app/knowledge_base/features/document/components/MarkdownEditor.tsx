@@ -9,6 +9,7 @@ import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
   type NodeViewProps,
+  type Editor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Heading } from "@tiptap/extension-heading";
@@ -105,6 +106,14 @@ interface MarkdownEditorProps {
    *  DOM — e.g. scroll-to-anchor on open — wait for a real readiness
    *  signal instead of `setTimeout(0)`. */
   onEditorReady?: () => void;
+  /** Imperative handle exposing the live Tiptap `Editor` instance to a
+   *  parent. Mainly useful for unit tests that need to drive selection,
+   *  keymap, or commands directly (DOC-4.3-38/39, DOC-4.5-13/18) since
+   *  the public component surface doesn't otherwise let callers position
+   *  the cursor inside a `rawBlock` or set a multi-character selection.
+   *  The component sets `current = editor` after init and clears it on
+   *  unmount; production callers should leave this unset. */
+  tiptapEditorRef?: React.MutableRefObject<Editor | null>;
 }
 
 
@@ -224,6 +233,7 @@ export default function MarkdownEditor({
   attachmentRepo = null,
   onImageError,
   onEditorReady,
+  tiptapEditorRef,
 }: MarkdownEditorProps) {
   const [isRawMode, setIsRawMode] = useState(false);
   const [rawContent, setRawContent] = useState(content);
@@ -598,6 +608,17 @@ export default function MarkdownEditor({
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyToken]);
+  // Mirror the live editor instance into the optional `tiptapEditorRef`
+  // handle. Used by unit tests that need to drive selection / keymap /
+  // commands directly (DOC-4.3-38/39, DOC-4.5-13/18). Production callers
+  // leave this prop unset, in which case the effect is a no-op.
+  useEffect(() => {
+    if (!tiptapEditorRef) return;
+    tiptapEditorRef.current = editor;
+    return () => {
+      tiptapEditorRef.current = null;
+    };
+  }, [editor, tiptapEditorRef]);
   // Sync editable state when readOnly prop changes (Tiptap's `editable` option
   // is only read at init — later changes require setEditable). When locking,
   // dispatch a no-op transaction so the markdownReveal plugin re-runs with the
