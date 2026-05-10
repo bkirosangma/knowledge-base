@@ -212,6 +212,32 @@ describe('propagateRename (HOOK-6.2-09)', () => {
     expect(dir.files.get('a.md')!.file.data).toBe('see [[b]] for context')
     expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('a.md', 'a2.md')
   })
+
+  it('LINK-5.1-12: rename leaves no lost-reference window — index points to new path AND every backlink file contains the new path', async () => {
+    // After a successful propagateRename, both effects must be observable
+    // together: the link-index has been updated to the new path AND every
+    // backlink file's wiki-link text has been rewritten on disk. The
+    // production ordering is index-first (so `renameDocumentInIndex`
+    // remaps the in-memory clone) followed by a `getBacklinksFor(oldPath)`
+    // walk that reads the pre-rename React-state snapshot to rewrite
+    // each source file. The practical user-facing invariant is the
+    // post-completion state — asserted here against multiple backlinks.
+    const dir = new MockDir()
+    dir.files.set('ref-1.md', new MockFileHandle('ref-1.md', new MockFile('see [[a]] for details')))
+    dir.files.set('ref-2.md', new MockFileHandle('ref-2.md', new MockFile('also [[a]] there')))
+    const lm = makeLinkManager({
+      getBacklinksFor: vi.fn().mockReturnValue([
+        { sourcePath: 'ref-1.md' },
+        { sourcePath: 'ref-2.md' },
+      ]),
+    })
+    await propagateRename(makeDocumentRepo(dir), 'a.md', 'b.md', lm)
+    expect(lm.renameDocumentInIndex).toHaveBeenCalledWith('a.md', 'b.md')
+    expect(dir.files.get('ref-1.md')!.file.data).toBe('see [[b]] for details')
+    expect(dir.files.get('ref-2.md')!.file.data).toBe('also [[b]] there')
+    expect(dir.files.get('ref-1.md')!.file.data).not.toMatch(/\[\[a\]\]/)
+    expect(dir.files.get('ref-2.md')!.file.data).not.toMatch(/\[\[a\]\]/)
+  })
 })
 
 // ── propagateMoveLinks (HOOK-6.2-11) ──────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme E quick-win `TAB-11.2-12` shipped on `fix/test-cases-tab-11.2-12-basename-fallback` — basename fallback added to `TabView` via new `paneTitleFor` helper at `src/app/knowledge_base/features/tab/paneTitle.ts`; e2e basename-fallback leg added). Tracks **27 items**: 25 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme E quick-win `LINK-5.1-12` shipped on `fix/test-cases-link-5.1-12-rename-order` — case rewritten to match shipped index-first ordering; new Vitest assertion in `useFileExplorer.helpers.test.ts` covers the post-completion atomicity invariant). Tracks **26 items**: 24 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -99,11 +99,11 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **B** | Live-MarkdownEditor editor-ref access | 5 | ❌ Open | — |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 | ❌ Open | — |
-| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (1 ✅ shipped, 6 ❌) | 🚧 Partial — `TAB-11.2-12` ✅ | `TAB-11.2-12` via `fix/test-cases-tab-11.2-12-basename-fallback` |
+| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 25 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 27 / 29 still tracked. 2 shipped (`SHELL-1.15-03`, `TAB-11.2-12`).
+**Open / total:** 24 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 26 / 29 still tracked. 3 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`).
 
 ---
 
@@ -178,7 +178,7 @@ These can't ship as test-only PRs — each requires a small touch in `src/app/kn
 
 **Cases:**
 - `LINK-5.1-10` ❌ **DnD-driven move** — production move is HTML5 drag-and-drop with `dataTransfer.getData("text/plain")`. Synthetic drops in headless Chromium return `""`. **Two paths:** (a) CDP-level real drag driver via Playwright; (b) production seam exposing `onMoveItem(sourcePath, targetPath)` directly via test_server. Path (b) is smaller. ~1 PR including production seam.
-- `LINK-5.1-12` ❌ **Backlinks-first rename order** — production `propagateRename` does index-first; case asserts the opposite. **Decision needed:** reorder production code (and test it), or rewrite the case to match shipped order. Trivial PR once decided.
+- `LINK-5.1-12` ✅ **Atomic-rename invariant shipped** — case rewritten to match the shipped index-first ordering (production updates the link-index first via `renameDocumentInIndex`, then walks the pre-rename `getBacklinksFor` snapshot to rewrite source files). New Vitest in `useFileExplorer.helpers.test.ts` asserts the post-completion invariant: index points to new path AND every backlink file contains the new path; no `[[oldPath]]` reference remains. No production code change.
 - `LINK-5.2-03` ❌ **Deleted doc's links become red pills** — production `deleteDocumentWithCleanup` strips `[[x]]` from disk; open editor doesn't reload. Needs **either** disabling the strip flow **or** wiring watcher-driven editor reload. Watcher reload is the more useful change (covers more scenarios) but bigger.
 - `LINK-5.4-03` ❌ Same constraint as `LINK-5.2-03`; ships in the same PR.
 - `TAB-11.2-12` ✅ **Basename-fallback leg shipped** — added `paneTitleFor` helper at `src/app/knowledge_base/features/tab/paneTitle.ts` (8 unit tests) consumed by `TabView`; pane title falls back to file basename when `\title` is absent or alphaTab returns the `"Untitled"` sentinel. New e2e leg in `e2e/tab_h1_derivation.spec.ts` asserts `pane-title` reads "untitled-no-title" for the existing fixture.
@@ -265,8 +265,8 @@ These are non-negotiable; don't relitigate them mid-work. Lifted from the closed
 
 **Pick any theme from the table.** They're independent — there's no required order. Recommended starting points by effort / payoff:
 
-1. **Quick wins (one-line PRs, ship today):**
-   - `LINK-5.1-12` — decide rename order (Theme E). Either reorder `propagateRename` or rewrite the case. Trivial either way.
+1. **Quick wins** — all three named ones are now shipped. Remaining work is harness-leverage (Theme B/C/A) or the visual-hover sweep (Theme D); see § 2 below.
+   - ~~`LINK-5.1-12` — decide rename order (Theme E).~~ **✅ Shipped 2026-05-10 via `fix/test-cases-link-5.1-12-rename-order`** (case rewritten to match shipped index-first ordering; new Vitest asserts post-completion atomicity).
    - ~~`TAB-11.2-12` — decide basename fallback (Theme E).~~ **✅ Shipped 2026-05-10 via `fix/test-cases-tab-11.2-12-basename-fallback`.**
    - ~~`SHELL-1.15-03` — Next 16 metadata-classifier unit test (Theme A sub-theme). Vitest assertion on `app/layout.tsx` exports.~~ **✅ Shipped 2026-05-10 via `fix/test-cases-shell-1.15-03`.**
 
