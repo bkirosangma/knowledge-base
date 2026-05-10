@@ -14,6 +14,7 @@
 pub mod dispatch;
 pub mod events;
 pub mod router;
+pub mod test_watcher;
 
 use std::sync::Arc;
 
@@ -30,12 +31,15 @@ pub struct TestServerState {
     pub claude: Arc<ClaudeState>,
     pub term: Arc<TermState>,
     /// Broadcast channel for Tauri events (vault_change, term_event, etc.)
-    /// re-emitted as SSE to connected /events subscribers. Currently
-    /// unused — production event sources are not yet wired through it
-    /// (the four proof-set specs assert no event-driven behaviour).
-    /// Future specs that need real event delivery can flip this on by
-    /// upgrading the dispatcher to call event-emitting impl-fn variants.
+    /// re-emitted as SSE to connected /events subscribers. As of MVP-5,
+    /// the watcher event-stream is wired through `TestWatcher` below;
+    /// other event sources (term_event, claude_event) remain on the
+    /// AppHandle path and are out of scope for the test_server.
     pub events: events::EventBus,
+    /// Test-only filesystem watcher. Started by `vault_watch_start`,
+    /// emits `VaultChangeEvent`s into `events`, picked up by Playwright
+    /// via the `tauriShim.ts` `EventSource` listener.
+    pub test_watcher: test_watcher::TestWatcher,
 }
 
 impl TestServerState {
@@ -46,6 +50,7 @@ impl TestServerState {
             claude: Arc::new(ClaudeState::new()),
             term: Arc::new(TermState::new()),
             events: events::EventBus::new(),
+            test_watcher: test_watcher::TestWatcher::default(),
         }
     }
 }

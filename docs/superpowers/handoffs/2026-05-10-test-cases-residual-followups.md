@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme A item `SHELL-1.15-04` in progress on `fix/test-cases-shell-1.15-04-sw-register` — Vitest in `src/app/knowledge_base/shell/ServiceWorkerRegister.test.tsx` toggles `NODE_ENV` via `vi.stubEnv` against a mocked `navigator.serviceWorker.register`; asserts production registers `/sw.js`, dev/test do not, and `NEXT_PUBLIC_BASE_PATH` prefixes the path. The "needs production-bundle e2e backend" framing was wrong by the same logic that retired SHELL-1.15-01 / 02 / 03 — the NODE_ENV gate is a runtime branch we can drive directly). Tracks **9 items**: 7 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme C item `SHELL-1.10-15` in progress on `fix/test-cases-shell-1.10-15-watcher-sse` — first real watcher-event-stream wiring. New `src-tauri/src/test_server/test_watcher.rs` runs a parallel `notify_debouncer_full` against the active vault root and emits `vault_change` envelopes through the existing `EventBus` → SSE on `/events`. `tauriShim.ts` rewrites `transformCallback` + `invoke("plugin:event|listen", …)` to wire SSE frames into the React handler that production calls via `app.emit`. `dispatch.rs` `vault_watch_start` now actually starts the watcher instead of no-oping. New `e2e/file_watcher_tree_update.spec.ts` writes/deletes a file via node `fs` and asserts the explorer tree picks up both within 5s. **TAB-11.2-08 is *not* covered** — TabView lacks `useFileWatcher` + `ConflictBanner` wiring in production today; promoting that case requires a small production change in a follow-up PR). Tracks **8 items**: 6 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -97,13 +97,13 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 |---|---|---|---|---|
 | **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (4 ✅ shipped, 1 ❌) | 🚧 In progress on `fix/test-cases-shell-1.15-04-sw-register` — `SHELL-1.15-01..04` ✅; only `TAB-11.3-20` remains | `SHELL-1.15-01`, `SHELL-1.15-02`, `SHELL-1.15-03`, `SHELL-1.15-04` |
 | **B** | Live-MarkdownEditor editor-ref access | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-editor-ref` (Path 1 — 4 unit-test promotions) + `fix/test-cases-doc-4.2-06-rescope` (re-scope) |
-| **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
+| **C** | `test_server` event-stream wiring (vault_watch_start) | 2 (1 ✅ shipped, 1 ❌) | 🚧 In progress on `fix/test-cases-shell-1.10-15-watcher-sse` — `SHELL-1.10-15` ✅; `TAB-11.2-08` deferred (needs prod TabView watcher wiring) | `SHELL-1.10-15` |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (4 ✅ shipped) | 🚧 In progress on `fix/test-cases-shell-1.11-12-diagram-commands` — all four ✅ when this PR merges | `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 7 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 9 / 29 still tracked. 20 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`).
+**Open / total:** 6 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 8 / 29 still tracked. 21 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`, `SHELL-1.10-15`).
 
 ---
 
@@ -152,10 +152,10 @@ Path 1 is preferred (smaller surface change; tests stay fast). Watch out: per `f
 > **Scope warning (carry-over from closed epic, line-flagged in PR #161):** The full AppHandle expansion (`settings_*`, `term_*`, `claude_*`, `skill_*` flows — ~10 cases beyond the 2 in this theme) was sized as **fresh-epic-shaped** in the closed-out handoff: "Would need a small plan since `dispatch.rs` will need a real `AppHandle` factory." If a future task touches more than just the watcher event stream, **stop and spin up a fresh handoff doc + spec/plan under `docs/superpowers/`**. Don't quietly extend this theme into an epic.
 
 **Cases (this theme is strictly the watcher event-stream; the broader AppHandle expansion is out of scope here):**
-- `SHELL-1.10-15` ❌ UI reacts to disk change within ~1 s — full e2e: open shell, mutate file from another process, observe tree update.
-- `TAB-11.2-08` ❌ External file change while pane is open triggers `ConflictBanner` — same hook subscription.
+- `SHELL-1.10-15` ✅ UI reacts to disk change within ~1 s — `e2e/file_watcher_tree_update.spec.ts` writes / deletes a file via node `fs` and asserts the tree picks up both. The wiring shipped in this PR: parallel `notify_debouncer_full` in `src-tauri/src/test_server/test_watcher.rs` → `EventBus.emit("vault_change", _)` → SSE `/events` → `tauriShim.ts` `transformCallback` + `invoke("plugin:event|listen", _)` interception → React's existing `FileWatcherContext.listen` → fanOut → `useFileExplorer.refresh()`.
+- `TAB-11.2-08` ❌ External file change while pane is open triggers `ConflictBanner` — needs production wiring first. TabView lacks both `useFileWatcher` subscription and a `ConflictBanner` mount today (DocumentView and DiagramView have both). Promotion shape is now: (1) add `useTabFileWatcher` mirroring `useDocumentFileWatcher` / `useDiagramFileWatcher`; (2) reload-vs-keep affordance via `ConflictBanner` in `TabView`; (3) e2e mirroring SHELL-1.10-15 but mutating an open `.alphatex` and asserting the banner. Out of scope for the SSE-wiring PR.
 
-**Estimated shape:** 1 PR. Add SSE producer in `events.rs` that subscribes to `Watcher` events and re-emits as `data:` frames; add Playwright `EventSource`-based listener in `e2e/helpers/tauriShim.ts`. ~150–200 LOC. Confirm both cases ride the same hook before scoping wider.
+**Estimated shape:** 1 PR remaining for `TAB-11.2-08` (production wiring + e2e), now that the watcher SSE bridge is shipped. The bridge work landed via a parallel watcher in `test_server` (no production code touched) — `Watcher::start` was *not* refactored to take an emitter trait, per the "production stays untouched" discipline of this portfolio.
 
 ---
 
