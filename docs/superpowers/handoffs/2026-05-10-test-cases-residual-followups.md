@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme F item `SHELL-1.13-05` shipped on `fix/test-cases-shell-1.13-05-color-scheme-priming` — new `e2e/theme_priming.spec.ts` uses `test.use({ colorScheme })` to provision the browser context's color-scheme emulation before `page.goto()` runs, eliminating the race noted in the case). Tracks **14 items**: 12 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme F item `TAB-11.4-06` in progress on `fix/test-cases-tab-11.4-06-file-picker-mock` — new `e2e/tab_gp_import.spec.ts` drives the palette command and uses Playwright's built-in `filechooser` event to satisfy the hidden `<input type="file">` in `useGpImport.pickFile`. Note: production never used `showOpenFilePicker`, so no custom mock layer is needed — case note rewritten to match). Tracks **13 items**: 11 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -100,10 +100,10 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
-| **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (2 ✅ shipped, 2 ❌) | 🚧 Partial — `FS-2.3-49`, `SHELL-1.13-05` ✅ | `FS-2.3-49`, `SHELL-1.13-05` |
+| **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (3 ✅ shipped, 1 ❌) | 🚧 In progress on `fix/test-cases-tab-11.4-06-file-picker-mock` — `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06` ✅ | `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 12 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 14 / 29 still tracked. 15 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`).
+**Open / total:** 11 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 13 / 29 still tracked. 16 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`).
 
 ---
 
@@ -201,10 +201,10 @@ Each is a one-off blocker that doesn't share a theme with the others.
 **Cases:**
 - `SHELL-1.13-05` ✅ `prefers-color-scheme` precedence — `e2e/theme_priming.spec.ts` uses `test.use({ colorScheme })` so the browser context provisions the emulation before `page.goto()` runs; both dark and light branches are asserted.
 - `SHELL-1.11-12` ❌ Diagram commands present when diagram open — needs diagram-canvas pointer-event harness to seed a selected node. Overlaps with `DIAG-3.5/3.7` deferred drag-geometry work; if that lands first, this becomes trivial.
-- `TAB-11.4-06` ❌ End-to-end import flow — Playwright drives palette → file picker → `.gp` → `.alphatex` opens. Needs **file-picker mock** for OS-native open-file dialog (test_server doesn't proxy `showOpenFilePicker`). Small harness addition (~30–50 LOC) shared with any future file-import e2e work.
+- `TAB-11.4-06` ✅ End-to-end import flow — `e2e/tab_gp_import.spec.ts` drives the palette command, sends bytes via Playwright's built-in `filechooser` event, and asserts the resulting `.alphatex` opens in a tab pane. Production uses a hidden `<input type="file">` + `input.click()` (not `showOpenFilePicker`), so no custom mock layer is needed — the case note's premise was wrong and was rewritten as part of the flip. Bytes are alphaTex disguised as `.gp7`; alphaTab's `ScoreLoader.buildImporters()` falls through GP3-5/Gpx/Gp7-8/MusicXml/Capella → `AlphaTexImporter`, so no real Guitar Pro fixture is needed.
 - `FS-2.3-49` ✅ Right-click empty tree area — Playwright case appended to `e2e/visual_hover_focus.spec.ts`; right-click below the last tree row surfaces the same root folder context menu asserted by FS-2.3-45.
 
-**Estimated shape:** 4 small PRs, each independent; or fold `FS-2.3-49` into Theme D's PR.
+**Estimated shape:** 1 PR remaining (`SHELL-1.11-12` — diagram-canvas pointer harness). The other three Theme F items shipped: `FS-2.3-49` folded into Theme D's PR, `SHELL-1.13-05` via `e2e/theme_priming.spec.ts`, `TAB-11.4-06` via `e2e/tab_gp_import.spec.ts`.
 
 ---
 
