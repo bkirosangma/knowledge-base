@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme B mostly shipped on `feat/test-cases-editor-ref` — `tiptapEditorRef` prop added to `MarkdownEditor`; 4 of 5 cases promoted via Vitest in `MarkdownEditor.tiptapEditorRef.test.tsx`. `DOC-4.2-06` remains ❌ pending the markdown-pipeline re-scope decision noted below.). Tracks **17 items**: 15 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme B fully shipped — `DOC-4.2-06` re-scoped on `fix/test-cases-doc-4.2-06-rescope` to assert the round-trip invariant on `markdownToHtml`/`htmlToMarkdown` rather than the disabled-checkbox-click behaviour that production never had). Tracks **16 items**: 14 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -96,14 +96,14 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | # | Theme | Cases | Status | PR(s) |
 |---|---|---|---|---|
 | **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (1 ✅ shipped, 4 ❌) | 🚧 Partial — `SHELL-1.15-03` ✅ | `SHELL-1.15-03` via `fix/test-cases-shell-1.15-03` |
-| **B** | Live-MarkdownEditor editor-ref access | 5 (4 ✅ shipped, 1 ❌ DOC-4.2-06 pending re-scope) | 🚧 Mostly Merged | `feat/test-cases-editor-ref` (Path 1 — `tiptapEditorRef` prop + 4 unit-test promotions) |
+| **B** | Live-MarkdownEditor editor-ref access | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-editor-ref` (Path 1 — 4 unit-test promotions) + `fix/test-cases-doc-4.2-06-rescope` (re-scope) |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 15 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 17 / 29 still tracked. 12 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`).
+**Open / total:** 14 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 16 / 29 still tracked. 13 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`).
 
 ---
 
@@ -133,7 +133,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 Path 1 is preferred (smaller surface change; tests stay fast). Watch out: per `feedback_tiptap_editable_reactivity.md` in MEMORY, Tiptap's `editable` prop is not reactive — make sure the ref lifecycle plays nicely with `useEditor`.
 
 **Cases:**
-- `DOC-4.2-06` ❌ **Still open** — Checkbox toggle updates markdown — task-item NodeView checkbox handler. (Production-behaviour mismatch noted: `markdownToHtml` outputs `<input type="checkbox" disabled>` instead of `taskItem`. Fix is **either** rework the markdown→HTML pipeline (markdown-it task-list plugin) **or** rescope the case. **Probably re-scope** — the task-list plugin would change persisted-disk markdown shape.)
+- `DOC-4.2-06` ✅ **Re-scoped to assert round-trip** — case rewritten to pin `markdownToHtml` → `htmlToMarkdown` round-trip preservation for `- [ ] / - [x]` entries; new Vitest in `markdownSerializer.test.ts`. Re-scope chosen over the markdown-it task-list plugin because adopting the plugin would change persisted disk shape — explicitly out-of-scope.
 - `DOC-4.3-38` ✅ Enter in rawBlock-in-listItem splits — Vitest in `MarkdownEditor.tiptapEditorRef.test.tsx`.
 - `DOC-4.3-39` ✅ Backspace at top-level rawBlock merges into previous textblock — same file.
 - `DOC-4.5-13` ✅ Force-exit rawBlock before structural commands — same file (uses `forceExitRawBlock` + `chain().toggleBulletList()` like the toolbar).

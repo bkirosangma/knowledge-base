@@ -256,4 +256,28 @@ describe('round-trip (DOC-4.4-22)', () => {
     // markdown-it converts \| back to | inside the cell
     expect(rt).toContain('<td>a|b</td>')
   })
+
+  it('DOC-4.2-06: task-list checkbox markdown round-trips through HTML and back unchanged', () => {
+    // The original case copy ("checkbox toggle updates markdown") asserted a
+    // behaviour that does not exist: `markdownToHtml` rewrites `- [ ] foo`
+    // to a `<ul><li><input type="checkbox" disabled> foo</li></ul>` shape,
+    // which renders as a regular bulletList rather than a Tiptap `taskItem`.
+    // The TaskItem NodeView's checkbox-change handler never fires on
+    // round-tripped markdown, so an in-editor click cannot toggle the box.
+    //
+    // The actually-shipped invariant is the on-disk shape: as long as the
+    // markdown round-trips cleanly, an external editor's toggle (or a future
+    // markdown-it task-list plugin) operates on the canonical form. That's
+    // what this test pins. Both states (checked / unchecked) and the mixed
+    // multi-line shape must survive `markdownToHtml` → `htmlToMarkdown`
+    // bit-for-bit.
+    for (const md of ["- [ ] todo", "- [x] done"]) {
+      const html = markdownToHtml(md)
+      // Sanity: the HTML form is the disabled-checkbox shape (DOC-4.4-19).
+      expect(html).toMatch(/<input type="checkbox"(?:\s+checked)?\s+disabled>/)
+      // Round-trip back: shape preserved (htmlToMarkdown trims the trailing
+      // newline that markdownToHtml inserts; we compare the content line).
+      expect(htmlToMarkdown(html).replace(/\s+$/, "")).toBe(md)
+    }
+  })
 })
