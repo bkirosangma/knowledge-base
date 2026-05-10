@@ -8,6 +8,8 @@ import userEvent from "@testing-library/user-event";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { FileWatcherProvider } from "../../shared/context/FileWatcherContext";
+import { ToastProvider } from "../../shell/ToastContext";
 import { PROPERTIES_COLLAPSED_KEY } from "../../shared/constants/paneStorage";
 
 const mountIntoMock = vi.fn();
@@ -74,7 +76,9 @@ function Wrap({ children, read = vi.fn().mockResolvedValue("\\title \"hi\"\n.") 
           tab: { read, write: vi.fn() }, tabRefs: null,
         }}
       >
-        {children}
+        <FileWatcherProvider vaultPath={null}>
+          <ToastProvider>{children}</ToastProvider>
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>
   );
@@ -159,7 +163,11 @@ describe("TabView", () => {
             tab: { read: vi.fn().mockResolvedValue("x"), write: vi.fn() }, tabRefs: null,
           }}
         >
-          <TabView filePath="bad.alphatex" />
+          <FileWatcherProvider vaultPath={null}>
+            <ToastProvider>
+              <TabView filePath="bad.alphatex" />
+            </ToastProvider>
+          </FileWatcherProvider>
         </StubRepositoryProvider>
       </StubShellErrorProvider>,
     );

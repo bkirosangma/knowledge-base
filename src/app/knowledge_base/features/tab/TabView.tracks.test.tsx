@@ -16,6 +16,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { FileWatcherProvider } from "../../shared/context/FileWatcherContext";
+import { ToastProvider } from "../../shell/ToastContext";
 import { TabView } from "./TabView";
 import type { TabViewProps } from "./TabView";
 import type { TabMetadata } from "../../domain/tabEngine";
@@ -113,7 +115,9 @@ function Wrap({ children }: { children: ReactNode }) {
           tabRefs: null,
         }}
       >
-        {children}
+        <FileWatcherProvider vaultPath={null}>
+          <ToastProvider>{children}</ToastProvider>
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>
   );
@@ -351,12 +355,16 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
             tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },
           }}
         >
-          <TabView
-            filePath="song.alphatex"
-            readOnly={false}
-            detachAttachmentsFor={detachAttachmentsFor}
-            withBatch={withBatch}
-          />
+          <FileWatcherProvider vaultPath={null}>
+            <ToastProvider>
+              <TabView
+                filePath="song.alphatex"
+                readOnly={false}
+                detachAttachmentsFor={detachAttachmentsFor}
+                withBatch={withBatch}
+              />
+            </ToastProvider>
+          </FileWatcherProvider>
         </StubRepositoryProvider>
       </StubShellErrorProvider>,
     );
@@ -420,12 +428,16 @@ describe("TabView.handleRemoveTrack attachment cleanup (TAB-011 T15)", () => {
             tabRefs: { read: tabRefsRead, write: vi.fn().mockResolvedValue(undefined) },
           }}
         >
-          <TabView
-            filePath="song.alphatex"
-            readOnly={false}
-            detachAttachmentsFor={detachAttachmentsFor}
-            withBatch={withBatch}
-          />
+          <FileWatcherProvider vaultPath={null}>
+            <ToastProvider>
+              <TabView
+                filePath="song.alphatex"
+                readOnly={false}
+                detachAttachmentsFor={detachAttachmentsFor}
+                withBatch={withBatch}
+              />
+            </ToastProvider>
+          </FileWatcherProvider>
         </StubRepositoryProvider>
       </StubShellErrorProvider>,
     );

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FileSystemError, classifyError } from "../../../domain/errors";
 import { serializeScoreToAlphatex } from "../../../infrastructure/alphaTexExporter";
 import { useRepositories } from "../../../shell/RepositoryContext";
+import { fnv1a } from "../../../shared/utils/historyPersistence";
 
 /** Debounce window in milliseconds — mirrors useDocumentContent. */
 const DRAFT_DEBOUNCE_MS = 500;
@@ -25,6 +26,12 @@ export interface UseTabContent {
   flush: () => Promise<void>;
   /** Surfaces tabRepo.write failures; dirty stays true on failure so callers can retry. */
   saveError: FileSystemError | null;
+
+  // Disk-state tracking for TAB-11.2-08 (`useTabFileWatcher`):
+  /** Last-known disk checksum, kept fresh on load + flush. Mirrors `useDocumentContent`. */
+  diskChecksumRef: React.RefObject<string>;
+  /** Update after a successful watcher reload to suppress duplicate prompts. */
+  updateDiskChecksum: (checksum: string) => void;
 }
 
 /**
@@ -46,16 +53,26 @@ export function useTabContent(path: string | null): UseTabContent {
   const [content, setContent] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<FileSystemError | null>(null);
 
+  // Disk-state tracking for the watcher hook (TAB-11.2-08).
+  // Kept as a ref (not state) because subscribers read it across renders
+  // without needing to re-render on change.
+  const diskChecksumRef = useRef<string>("");
+  const updateDiskChecksum = useCallback((checksum: string) => {
+    diskChecksumRef.current = checksum;
+  }, []);
+
   const load = useCallback(async (p: string | null) => {
     if (!p || !tab) {
       setContent(null);
       setLoadError(null);
+      diskChecksumRef.current = "";
       return;
     }
     try {
       const text = await tab.read(p);
       setContent(text);
       setLoadError(null);
+      diskChecksumRef.current = fnv1a(text);
     } catch (e) {
       setContent(null);
       setLoadError(e instanceof FileSystemError ? e : classifyError(e));
@@ -83,6 +100,10 @@ export function useTabContent(path: string | null): UseTabContent {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const text = await serializeScoreToAlphatex(s as any);
       await tab.write(path, text);
+      // Refresh the disk-checksum ref so the watcher's checkForChanges
+      // recognises the next vault_change for this path as our own write
+      // and bails before flagging a conflict.
+      diskChecksumRef.current = fnv1a(text);
       setDirty(false);
       setSaveError(null);
     } catch (err) {
@@ -121,5 +142,16 @@ export function useTabContent(path: string | null): UseTabContent {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
-  return { content, loadError, refresh, score, setScore, dirty, flush, saveError };
+  return {
+    content,
+    loadError,
+    refresh,
+    score,
+    setScore,
+    dirty,
+    flush,
+    saveError,
+    diskChecksumRef,
+    updateDiskChecksum,
+  };
 }

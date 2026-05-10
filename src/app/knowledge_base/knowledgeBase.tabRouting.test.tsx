@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "./shell/RepositoryContext";
 import { StubShellErrorProvider } from "./shell/ShellErrorContext";
+import { FileWatcherProvider } from "./shared/context/FileWatcherContext";
+import { ToastProvider } from "./shell/ToastContext";
 import { buildTabPaneContext, renderTabPaneEntry } from "./knowledgeBase.tabRouting.helper";
 
 vi.mock("./features/tab/hooks/useTabEngine", () => ({
@@ -30,7 +32,9 @@ function wrap(children: ReactNode) {
           tabRefs: null,
         }}
       >
-        {children}
+        <FileWatcherProvider vaultPath={null}>
+          <ToastProvider>{children}</ToastProvider>
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>
   );

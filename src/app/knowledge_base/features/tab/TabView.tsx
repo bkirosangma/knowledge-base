@@ -8,6 +8,9 @@ import { TabCanvas } from "./components/TabCanvas";
 import { TabToolbar } from "./components/TabToolbar";
 import PaneHeader from "../../shared/components/PaneHeader";
 import { useTabContent } from "./hooks/useTabContent";
+import { useTabFileWatcher } from "./hooks/useTabFileWatcher";
+import ConflictBanner from "../../shared/components/ConflictBanner";
+import { fnv1a } from "../../shared/utils/historyPersistence";
 import { useTabEngine } from "./hooks/useTabEngine";
 import { useSessionTempoBpm } from "./hooks/useSessionTempoBpm";
 import { useTabPlayback } from "./hooks/useTabPlayback";
@@ -106,7 +109,41 @@ export function TabView({
   withBatch,
 }: TabViewProps) {
   const { effectiveReadOnly, perFileReadOnly, toggleReadOnly } = useTabEditMode(filePath ?? null, readOnly ?? false);
-  const { content, loadError, score: tabScore, setScore: setTabScore, dirty, flush, refresh } = useTabContent(filePath);
+  const {
+    content, loadError, score: tabScore, setScore: setTabScore, dirty, flush, refresh,
+    diskChecksumRef, updateDiskChecksum,
+  } = useTabContent(filePath);
+  // TAB-11.2-08: external-change → ConflictBanner. Mirrors the
+  // DocumentView / DiagramView wiring (`useDocumentFileWatcher` /
+  // `useDiagramFileWatcher`) — `getContentFromDisk` reads the live disk
+  // text via `tabRepo`, `resetToContent` re-runs the existing refresh()
+  // flow + bumps the disk-checksum ref so subsequent vault_change events
+  // for our own write don't re-trigger the banner.
+  const { tab: tabRepoForWatcher } = useRepositories();
+  const getContentFromDisk = useCallback(async (): Promise<{ text: string; checksum: string } | null> => {
+    if (!filePath || !tabRepoForWatcher) return null;
+    try {
+      const text = await tabRepoForWatcher.read(filePath);
+      return { text, checksum: fnv1a(text) };
+    } catch {
+      return null;
+    }
+  }, [filePath, tabRepoForWatcher]);
+  const resetToContentForWatcher = useCallback((_text: string, checksum: string) => {
+    // The engine reloads from `content` via `useTabEngine`'s effect;
+    // refresh() is the existing path that re-reads from disk and updates
+    // `content` state. Bumping the disk-checksum ref tells the next
+    // checkForChanges that this checksum is now the "known disk state".
+    void refresh();
+    updateDiskChecksum(checksum);
+  }, [refresh, updateDiskChecksum]);
+  const { conflictContent, handleReloadFromDisk, handleKeepEdits } = useTabFileWatcher({
+    filePath: filePath ?? null,
+    dirty,
+    diskChecksumRef,
+    getContentFromDisk,
+    resetToContent: resetToContentForWatcher,
+  });
   const {
     status,
     error: engineError,
@@ -405,6 +442,12 @@ export function TabView({
             isDirty={dirty}
             onSave={() => { void flush(); }}
             onDiscard={() => { void refresh(); }}
+          />
+        )}
+        {conflictContent && (
+          <ConflictBanner
+            onReload={handleReloadFromDisk}
+            onKeep={handleKeepEdits}
           />
         )}
         <TabToolbar

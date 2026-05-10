@@ -13,6 +13,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { FileWatcherProvider } from "../../shared/context/FileWatcherContext";
+import { ToastProvider } from "../../shell/ToastContext";
 import { TabView } from "./TabView";
 import type { TabMetadata } from "../../domain/tabEngine";
 
@@ -105,7 +107,9 @@ function Wrap({ children }: { children: ReactNode }) {
           tabRefs: null,
         }}
       >
-        {children}
+        <FileWatcherProvider vaultPath={null}>
+          <ToastProvider>{children}</ToastProvider>
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>
   );
