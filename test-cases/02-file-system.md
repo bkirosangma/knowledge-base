@@ -7,7 +7,7 @@
 ## 2.1 Folder Picker
 
 - **FS-2.1-01** ✅ **`showDirectoryPicker` selection flow** — native dialog is bypassed in Playwright by an in-browser `page.addInitScript` that installs a mock `window.showDirectoryPicker` pointing at a seeded in-memory vault. `e2e/goldenPath.spec.ts` drives the full open-folder → explorer-populates sequence. _(Real production uses the native dialog; the mock proves the code path downstream of the picker works.)_
-- **FS-2.1-02** ❌ **`<input webkitdirectory>` fallback** — browser-specific UA fallback; requires Chromium or Firefox feature-detection. Playwright territory
+- **FS-2.1-02** 🚫 **`<input webkitdirectory>` fallback** — retired post-MVP-1a (Tauri shell uses `vault_pick`); `grep -r webkitdirectory src/` returns zero production usages.
 - **FS-2.1-03** ✅ **Directory handle persisted to IndexedDB** — covered by PERSIST-7.2-03 in `idbHandles.test.ts` (`saveDirHandle(handle, scopeId)` writes both to the `handles` store in the `knowledge-base` DB).
 - **FS-2.1-04** ✅ **Handle restored on reload** — covered by PERSIST-7.2-07 in `idbHandles.test.ts` (save → load round-trip returns the same handle + scope id).
 - **FS-2.1-05** ✅ **Scope ID is 8 hex chars** — `idbHandles.test.ts` ("mints a fresh scope id…" asserts `/^[0-9a-f]{8}$/i`).
@@ -92,11 +92,11 @@
 - **FS-2.3-42** 🟡 **Escape closes menu** — same wiring as ConfirmPopover; deferred with 40/41.
 - **FS-2.3-43** 🟡 **Click outside closes menu** — same.
 - **FS-2.3-44** ✅ **New Document button calls `onCreateDocument`** — `New Document` header button calls `onCreateDocument('')`; when a folder is selected it calls with the folder path. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-45** ❌ **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright
+- **FS-2.3-45** ❌ **Folder context menu "New ▸" submenu** — hover-triggered submenu with Diagram / Document / Folder entries; requires real mouse hover positioning — Playwright _(MVP-5 follow-up: viable e2e under harness, deferred to keep MVP-5 scoped — requires hover-driven submenu position assertions)_
 - **FS-2.3-46** ✅ **Clicking a folder selects it** — folder row gets `bg-blue-50 text-blue-700` highlight after click; second click on same folder deselects it. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-47** ✅ **Header create buttons use selected folder as parent** — when `selectedFolderPath` is set, New Diagram / Document / Folder buttons pass that path instead of `''`. _(ExplorerPanel.test.tsx)_
 - **FS-2.3-48** ✅ **Header breadcrumb when folder selected** — header shows `vault / folderName` text when a folder is selected; reverts to just vault name when deselected. _(ExplorerPanel.test.tsx)_
-- **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright
+- **FS-2.3-49** ❌ **Right-click empty tree area opens root context menu** — requires real mouse coordinates and contextmenu event on non-node targets; Playwright _(MVP-5 follow-up: same family as FS-2.3-45)_
 - **FS-2.3-50** 🚫 **Native context menu suppressed** — `preventDefault` on contextmenu across the whole tree; browser-level behavior, not testable in jsdom.
 
 ### 2.3.h Create SVG Files
@@ -127,10 +127,10 @@
 - **FS-2.3-69** ✅ **`collectAttachableFilePaths` returns `.kbjson` files in subtree** — `.kbjson` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
 - **FS-2.3-70** ✅ **`collectAttachableFilePaths` returns `.alphatex` files in subtree** — `.alphatex` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
 - **FS-2.3-71** ✅ **`collectAttachableFilePaths` returns empty array for unknown folder** — a `folderPath` that does not appear in the tree yields `[]` without throwing. _(fileTreeMatchers.test.ts)_
-- **FS-2.3-72** ❌ **Delete folder (bridge path) removes attachment rows for `.md` files inside** — when `handleConfirmAction` fires for a `delete-folder` action, `onBeforeDeleteFolder` is called before `fileExplorer.deleteFolder`, cleaning up all `.md` attachment rows in the subtree.
-- **FS-2.3-73** ❌ **Delete folder (bridge path) removes attachment rows for `.kbjson` files inside** — same path; `.kbjson` diagram-entity attachment rows are removed.
-- **FS-2.3-74** ❌ **Delete folder (bridge path) removes attachment rows for `.alphatex` files inside** — same path; tab attachment rows are removed.
-- **FS-2.3-75** ❌ **Delete folder (shell modal path) removes attachment rows for all attachable types in one `withBatch`** — the `onConfirm` handler in the shell modal calls `cleanupAttachmentsForFolder` before `fileExplorer.deleteFolder`; mixed-type folders produce a single flush.
+- **FS-2.3-72** 🧪 **Delete folder removes attachment rows for `.md` files inside** — when `handleConfirmAction` fires for a `delete-folder` action, `onBeforeDeleteFolder` is called before `fileExplorer.deleteFolder`, cleaning up all `.md` attachment rows in the subtree. _(e2e: `e2e/explorer_folder_delete_attachment_cleanup.spec.ts` — bridge + shell-modal paths converge through `useFileActions.handleConfirmAction`; e2e exercises the shell-modal path.)_
+- **FS-2.3-73** ❌ **Delete folder removes attachment rows for `.kbjson` files inside** — same path; `.kbjson` diagram-entity attachment rows are removed. _(MVP-5 follow-up: `vaultIndexRepoTauri.ts` extension filter only includes `.md`/`.json`/`.svg`/`.alphatex`, so `.kbjson` files never appear in the tree and `collectAttachableFilePaths` cannot reach them. Promotion needs production-side filter to add `.kbjson` — out of scope per Decision 5.)_
+- **FS-2.3-74** 🧪 **Delete folder removes attachment rows for `.alphatex` files inside** — same path; tab attachment rows are removed (`tabFileMatcher` matches by `entityType === "tab" && entityId === path`). _(e2e: `e2e/explorer_folder_delete_attachment_cleanup.spec.ts`)_
+- **FS-2.3-75** 🧪 **Delete folder (shell modal path) removes attachment rows for all attachable types in one `withBatch`** — the `onConfirm` handler in the shell modal calls `cleanupAttachmentsForFolder` before `fileExplorer.deleteFolder`; a mixed-type folder (`.md` + `.alphatex`) produces a single flush. _(e2e: `e2e/explorer_folder_delete_attachment_cleanup.spec.ts`)_
 - **FS-2.3-76** ✅ **`collectAttachableFilePaths` returns `.svg` files in subtree** — `.svg` files inside the target folder are included. _(fileTreeMatchers.test.ts)_
 - **FS-2.3-77** ✅ **`collectAttachableFilePaths` returns empty array for an empty tree** — empty input tree yields `[]`. _(fileTreeMatchers.test.ts)_
 
@@ -177,9 +177,9 @@ Search input at the top of the ExplorerPanel for live file filtering. `data-test
 
 - **EXPL-2.7-01** 🧪 **Typing in search filters the file list** — entering a query shows only files whose path (case-insensitive) includes the query; non-matching files disappear. Nested paths (e.g. `notes/deep.md`) are discoverable by partial name. _(e2e: `e2e/explorerSearch.spec.ts`)_
 - **EXPL-2.7-02** 🧪 **Clearing the search restores the full tree** — clicking the ✕ clear button empties the query and the normal folder tree reappears. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.7-03** ❌ **⌘F focuses the explorer search input** — when focus is not already in an input/textarea/contenteditable, ⌘F prevents default browser find and focuses `[data-testid="explorer-search"]`. _(Playwright)_
-- **EXPL-2.7-04** ❌ **⌘F does not steal from active inputs** — when focus is inside an editor or input, ⌘F is a no-op (browser find bar may open normally). _(Playwright)_
-- **EXPL-2.7-05** ❌ **"Go to file…" command in palette** — the command palette (⌘K) lists a "Go to file…" entry in the Navigation group with shortcut ⌘F; running it focuses the explorer search. _(Playwright)_
+- **EXPL-2.7-03** 🧪 **⌘F focuses the explorer search input** — when focus is not already in an input/textarea/contenteditable, ⌘F prevents default browser find and focuses `[data-testid="explorer-search"]`. _(e2e: `e2e/explorer_search.spec.ts`)_
+- **EXPL-2.7-04** 🧪 **⌘F does not steal from active inputs** — when focus is inside an editor or input, ⌘F is a no-op (browser find bar may open normally). _(e2e: `e2e/explorer_search.spec.ts`)_
+- **EXPL-2.7-05** 🧪 **"Go to file…" command in palette** — the command palette (⌘K) lists a "Go to file…" entry in the Navigation group with shortcut ⌘F; running it focuses the explorer search. _(e2e: `e2e/explorer_search.spec.ts`)_
 
 ## 2.8 Explorer Recents (UX Phase 1)
 
@@ -187,19 +187,19 @@ Collapsible "Recents" group above the file tree showing the last 10 opened files
 
 - **EXPL-2.8-01** 🧪 **Opening a file adds it to Recents** — clicking a file in the explorer causes it to appear in the Recents group. _(e2e: `e2e/explorerSearch.spec.ts`)_
 - **EXPL-2.8-02** 🧪 **Recents shows most recent first** — after opening alpha then beta, beta appears above alpha in the Recents list. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.8-03** ❌ **Recents deduplicates by path** — opening the same file twice results in only one entry in Recents. _(Playwright)_
-- **EXPL-2.8-04** ❌ **Recents capped at 10 entries** — after opening 11 distinct files, the 11th-oldest is dropped from the list. _(Playwright)_
-- **EXPL-2.8-05** ❌ **Recents persists across page reload** — localStorage `kb-recents` is read on mount; entries survive a hard refresh. _(Playwright)_
-- **EXPL-2.8-06** ❌ **Recents group hidden when empty** — on first load with no localStorage entry, the Recents header does not render. _(Playwright)_
-- **EXPL-2.8-07** ❌ **Recents collapse toggle hides entries** — clicking the Recents header arrow collapses the list; clicking again expands it. _(Playwright)_
+- **EXPL-2.8-03** 🧪 **Recents deduplicates by path** — opening the same file twice results in only one entry in Recents. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-04** 🧪 **Recents capped at 10 entries** — after opening 11 distinct files, the 11th-oldest is dropped from the list. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-05** 🧪 **Recents persists across page reload** — localStorage `kb-recents` is read on mount; entries survive a hard refresh. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-06** 🧪 **Recents group hidden when empty** — on first load with no localStorage entry, the Recents header does not render. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.8-07** 🧪 **Recents collapse toggle hides entries** — clicking the Recents header arrow collapses the list; clicking again expands it. _(e2e: `e2e/explorer_recents.spec.ts`)_
 
 ## 2.9 Explorer Unsaved Group (UX Phase 1)
 
 "Unsaved changes" group showing files with in-memory drafts (dirty state). Always visible when non-empty; no collapse.
 
 - **EXPL-2.9-01** 🧪 **Unsaved group shows dirty files** — after making an edit in a diagram, the file appears in the "Unsaved changes" group. _(e2e: `e2e/explorerSearch.spec.ts`)_
-- **EXPL-2.9-02** ❌ **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(Playwright)_
-- **EXPL-2.9-03** ❌ **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(Playwright)_
+- **EXPL-2.9-02** 🧪 **Unsaved group hidden when clean** — when no files are dirty, the "Unsaved changes" header does not render. _(e2e: `e2e/explorer_recents.spec.ts`)_
+- **EXPL-2.9-03** 🧪 **Clicking an Unsaved entry opens the file** — clicking a path in the Unsaved group routes to that file in the editor. _(e2e: `e2e/explorer_recents.spec.ts`)_
 
 ## 2.10 Vault Path Persistence (MVP-1c)
 

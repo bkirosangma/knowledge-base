@@ -8,6 +8,7 @@ vi.mock("../../infrastructure/tauriBridge", () => ({
 }));
 
 import { tauriBridge } from "../../infrastructure/tauriBridge";
+import { FileSystemError } from "../../domain/errors";
 import {
   fnv1a,
   historyFileName,
@@ -89,6 +90,74 @@ describe("HIST-5.4: readHistoryFile", () => {
     readText.mockResolvedValueOnce("not json");
     const result = await readHistoryFile("notes.md");
     expect(result).toBeNull();
+  });
+
+  it("HIST-5.4-04: legacy fallback fires on generic (non not-found) read error", async () => {
+    // New-style sidecar read rejects with a non-`not-found` error (e.g. permission/io);
+    // the catch deliberately widens beyond `not-found` so a corrupt new-style sidecar can
+    // fall back to a legacy sidecar that may still parse cleanly.
+    const data: HistoryFile<string> = {
+      checksum: "abc",
+      currentIndex: 0,
+      savedIndex: 0,
+      entries: [{ id: 0, description: "loaded", timestamp: 1, snapshot: "legacy" }],
+    };
+    readText
+      .mockRejectedValueOnce(new FileSystemError("permission", "Permission denied"))
+      .mockResolvedValueOnce(JSON.stringify(data));
+    const result = await readHistoryFile<string>("notes.md");
+    expect(result).toEqual(data);
+    expect(readText).toHaveBeenNthCalledWith(1, ".notes.md.history.json");
+    expect(readText).toHaveBeenNthCalledWith(2, ".notes.history.json");
+  });
+
+  it("HIST-5.4-04: legacy fallback fires on malformed new-style JSON", async () => {
+    // New-style sidecar exists but contains corrupt JSON; the legacy sidecar parses cleanly.
+    const data: HistoryFile<string> = {
+      checksum: "abc",
+      currentIndex: 0,
+      savedIndex: 0,
+      entries: [{ id: 0, description: "loaded", timestamp: 1, snapshot: "legacy" }],
+    };
+    readText
+      .mockResolvedValueOnce("{ corrupt: json")
+      .mockResolvedValueOnce(JSON.stringify(data));
+    const result = await readHistoryFile<string>("notes.md");
+    expect(result).toEqual(data);
+    expect(readText).toHaveBeenNthCalledWith(1, ".notes.md.history.json");
+    expect(readText).toHaveBeenNthCalledWith(2, ".notes.history.json");
+  });
+
+  it("HIST-5.4-05: returns null when both new-style and legacy sidecars are absent", async () => {
+    readText
+      .mockRejectedValueOnce(new FileSystemError("not-found", "File not found"))
+      .mockRejectedValueOnce(new FileSystemError("not-found", "File not found"));
+    const result = await readHistoryFile("notes.md");
+    expect(result).toBeNull();
+    expect(readText).toHaveBeenCalledTimes(2);
+    expect(readText).toHaveBeenNthCalledWith(1, ".notes.md.history.json");
+    expect(readText).toHaveBeenNthCalledWith(2, ".notes.history.json");
+  });
+});
+
+describe("HIST-5.6: historyPersistence — Tauri routing", () => {
+  it("HIST-5.6-01: readHistoryFile reads via tauriBridge.readText (no FSA APIs)", async () => {
+    // Confirms the Tauri-routed path: the imported `tauriBridge.readText` is the only
+    // I/O surface used by `readHistoryFile`. No `FileSystemDirectoryHandle.getFileHandle`
+    // or `FileSystemFileHandle.getFile()` calls are made — the mocked module is the
+    // single source of truth and is invoked with the new-style sidecar name first.
+    readText.mockResolvedValueOnce(
+      JSON.stringify({
+        checksum: "abc",
+        currentIndex: 0,
+        savedIndex: 0,
+        entries: [],
+      } satisfies HistoryFile<string>),
+    );
+    await readHistoryFile<string>("docs/notes.md");
+    expect(readText).toHaveBeenCalledTimes(1);
+    expect(readText).toHaveBeenCalledWith("docs/.notes.md.history.json");
+    expect(readText).toHaveBeenCalledWith(historyFileName("docs/notes.md"));
   });
 });
 

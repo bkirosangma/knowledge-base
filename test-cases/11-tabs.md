@@ -31,18 +31,18 @@ Domain interfaces, FSA-backed repository, pane-type plumbing, placeholder view. 
 
 Replaces `TabViewStub` with a real `TabView` that mounts `AlphaTabEngine` and renders the score from disk. **All cases below start at ❌ — flip to ✅ / 🧪 in the same commit as the test lands.**
 
-- **TAB-11.2-01** ❌ **`TabView` lazy-loads the engine module on mount** — `next/dynamic({ ssr: false })` deferred import; the `@coderline/alphatab` chunk is not in the doc/diagram bundle. _(unit + bundle-size assertion.)_
+- **TAB-11.2-01** 🟡 **`TabView` lazy-loads the engine module on mount** — `AlphaTabEngine.mount()` calls `await import("@coderline/alphatab")`; no top-level static import of the package, keeping the chunk out of the doc/diagram bundle. _(unit: TabView.test.tsx — source-level lazy-load assertion against `infrastructure/alphaTabEngine.ts`; bundle-size leg verified manually via vite-bundle-visualizer.)_
 - **TAB-11.2-02** ✅ **`TabView` reads the file via `useRepositories().tab`** — opens an `.alphatex` file from the explorer → `TabRepository.read` is invoked exactly once with the vault-relative path. _(unit: TabView.test.tsx — "calls mountInto with the loaded file content".)_
 - **TAB-11.2-03** ✅ **`TabView` mounts `AlphaTabEngine` and loads the file content** — the engine's `mount()` is called with the host element; `session.load({ kind: "alphatex", text })` follows. _(unit: TabView.test.tsx — "renders the canvas host when status is 'ready'".)_
-- **TAB-11.2-04** ❌ **Canvas renders within 2 s on a fixture file** — the `"loaded"` event fires within the budget; assertion is wall-clock against a deterministic fixture under JSDOM-stub.
+- **TAB-11.2-04** 🧪 **Canvas renders within 2 s on a fixture file** — the `"loaded"` event fires within the budget; assertion is wall-clock against a deterministic fixture. _(playwright: `e2e/tab_h1_derivation.spec.ts` — "TAB-11.2-04: canvas mounts within 2s for fixture .alphatex".)_
 - **TAB-11.2-05** ✅ **Loading state visible until engine `"ready"` fires** — a `data-testid="tab-view-loading"` placeholder is mounted while async import + asset fetch are in flight. _(unit: TabView.test.tsx — "shows the loading placeholder while status is 'mounting'".)_
 - **TAB-11.2-06** ✅ **Engine module load failure renders an inline error pane** — when the dynamic import throws, the view shows a "Reload" button (mirrors the `GraphView` force-graph fallback). _(unit: TabView.test.tsx — "renders the engine-load-error pane with a Reload button" + "Reload button re-invokes mountInto".)_
 - **TAB-11.2-07** ✅ **Source parse failure surfaces via `ShellErrorBanner`** — malformed alphaTex routes through `useShellErrors().reportError`; same path the diagram repo uses today. _(unit: TabView.test.tsx — "source-parse errors route through useShellErrors".)_
-- **TAB-11.2-08** ❌ **External file change while pane is open triggers `ConflictBanner`** — the file-watcher signal is the same as docs/diagrams use; the tab pane subscribes through the existing hook.
+- **TAB-11.2-08** ❌ **External file change while pane is open triggers `ConflictBanner`** — the file-watcher signal is the same as docs/diagrams use; the tab pane subscribes through the existing hook. _(MVP-5 follow-up: needs test_server vault_watch_start event-stream wiring; future-MVP candidate)_
 - **TAB-11.2-09** ✅ **Closing the pane disposes the session** — `session.dispose()` runs in cleanup; subsequent re-open creates a fresh session (no audio context leak). _(unit: useTabEngine.test.tsx — "unmount triggers session.dispose via cleanup effect".)_
-- **TAB-11.2-10** ❌ **Re-opening the same file after close re-renders identically** — content + scroll position not in scope; just file content fidelity.
+- **TAB-11.2-10** 🧪 **Re-opening the same file after close re-renders identically** — content + scroll position not in scope; just file content fidelity. _(playwright: `e2e/tab_reopen_fidelity.spec.ts` — open `song.alphatex`, switch to a sibling, re-open the original; canvas innerHTML length matches within ±64 bytes for ID-suffix variance.)_
 - **TAB-11.2-11** 🟡 **Dark-mode toggle (⌘⇧L) flips the canvas without refresh** — `useObservedTheme()` feeds the engine's colour settings; canvas background, staff lines, and notes all swap on toggle. _(unit: TabView.test.tsx — implicit via session.render() call when theme changes; no visual snapshot.)_
-- **TAB-11.2-12** ❌ **Tab pane H1 derives from `\title` directive** — falls back to the file basename if `\title` is absent.
+- **TAB-11.2-12** 🟡 **Tab pane H1 derives from `\title` directive** — _(playwright: `e2e/tab_h1_derivation.spec.ts` — "with-title leg" asserts `pane-title` is "Greensleeves" when `\title "Greensleeves"` is present.)_ Basename-fallback leg is **not** implemented as written: when `\title` is absent, `scoreToMetadata` defaults `metadata.title` to `"Untitled"` rather than the file basename. _(MVP-5 follow-up: clarify intended fallback in product copy; either add a basename fallback in TabView or update the case to assert "Untitled".)_
 - **TAB-11.2-13** ✅ **Wiki-link parser recognises `// references:` lines in the kb-meta block** — `useLinkIndex.fullRebuild` parses `[[…]]` tokens from any line beginning with `// references:` in a `.alphatex` file. _(unit: `useLinkIndex.test.ts` — TAB-011 cases TAB-11.6-04..06.)_
 - **TAB-11.2-14** 🧪 **Open + render flow end-to-end** — Playwright drives a vault with one `.alphatex` fixture: open from explorer → canvas mounts → `data-testid="tab-view-canvas"` visible. Audio assertion is "AudioContext was created", not actual sound. _(e2e: e2e/tab.spec.ts.)_
 
@@ -71,7 +71,7 @@ Toolbar transport (play/pause/stop/tempo/loop), engine playback methods, SoundFo
 - **TAB-11.3-17** ✅ **`TabView` mounts the toolbar when status is `ready`** — _(unit: TabView.test.tsx.)_
 - **TAB-11.3-18** ✅ **`TabView` does not mount the toolbar in `engine-load-error` state** — _(unit: TabView.test.tsx.)_
 - **TAB-11.3-19** 🧪 **TabToolbar mounts alongside the canvas in a real browser** — Playwright opens an `.alphatex` file and confirms `tab-toolbar` testid + Play button are both visible. Click-and-verify of audio start was relaxed because alphatab's SoundFont/`playerReady` flow doesn't complete in headless Chromium within Playwright's timeout. _(e2e: e2e/tab.spec.ts.)_
-- **TAB-11.3-20** ❌ **Service-worker cache hit on second load** — `/soundfonts/sonivox.sf2` served from cache without a network request after first fetch. (Manual / future Lighthouse audit.)
+- **TAB-11.3-20** ❌ **Service-worker cache hit on second load** — `/soundfonts/sonivox.sf2` served from cache without a network request after first fetch. (Manual / future Lighthouse audit.) _(MVP-5 follow-up: needs production-bundle e2e backend for service-worker cache assertions)_
 
 ---
 
@@ -84,7 +84,7 @@ Palette command + hook + utility for converting Guitar Pro files (`.gp` / `.gp3.
 - **TAB-11.4-03** ✅ **`useGpImport.importBytes(file)` writes a sibling `.alphatex` and notifies onImported** — derives the new path from the basename (strips the GP extension). _(unit: useGpImport.test.tsx.)_
 - **TAB-11.4-04** ✅ **`.gp3` / `.gp4` / `.gp5` / `.gp7` extensions all map to `.alphatex` correctly** — _(unit: useGpImport.test.tsx.)_
 - **TAB-11.4-05** ✅ **Conversion + write failures route through `ShellErrorContext`** — onImported is NOT called on either failure path. _(unit: useGpImport.test.tsx.)_
-- **TAB-11.4-06** ❌ **End-to-end import flow** — Playwright drives the palette command, picks a `.gp` fixture, asserts the resulting `.alphatex` opens in a tab pane. Deferred — file-picker drive in headless Chromium requires a custom mock layer; the manual smoke in Task 3 step 4 is the verification ceiling for now.
+- **TAB-11.4-06** ❌ **End-to-end import flow** — Playwright drives the palette command, picks a `.gp` fixture, asserts the resulting `.alphatex` opens in a tab pane. Deferred — file-picker drive in headless Chromium requires a custom mock layer; the manual smoke in Task 3 step 4 is the verification ceiling for now. _(MVP-5 follow-up: needs Playwright file-picker mock for the OS-native open-file dialog — test_server doesn't proxy showOpenFilePicker)_
 
 ## 11.5 Properties panel (TAB-007)
 

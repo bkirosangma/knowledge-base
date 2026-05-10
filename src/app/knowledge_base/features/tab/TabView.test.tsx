@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { DocumentMeta } from "../document/types";
 import type { TabMetadata } from "../../domain/tabEngine";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -346,5 +348,41 @@ describe("TabView — cross-reference plumbing", () => {
       "tabs/song.alphatex",
       [{ from: "verse-1", to: "verse-one" }],
     );
+  });
+
+  // TAB-11.2-01: TabView lazy-loads the engine module on mount.
+  //
+  // The case requires that the `@coderline/alphatab` chunk is NOT pulled
+  // into the doc/diagram bundle — it should only land via a dynamic
+  // `import()` at engine-mount time. The lazy-load is implemented inside
+  // `infrastructure/alphaTabEngine.ts::AlphaTabEngine.mount()` (not via
+  // `next/dynamic`, which wraps the editor chunk for a different case).
+  //
+  // Asserting the bundle layout requires a build-time tool
+  // (vite-bundle-visualizer); per the plan's Step 3 escape, we verify
+  // the source-level invariant here and mark the case 🟡 (manual
+  // bundle-size leg). A static import would silently undo this and the
+  // assertion below catches it.
+  it("TAB-11.2-01: alphaTabEngine module references @coderline/alphatab only via dynamic import (lazy-load)", () => {
+    const enginePath = path.resolve(
+      __dirname,
+      "../../infrastructure/alphaTabEngine.ts",
+    );
+    const source = fs.readFileSync(enginePath, "utf8");
+
+    // Strip line comments so a JSDoc reference like `* dynamic import()`
+    // doesn't pollute the static-import scan.
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+      .join("\n");
+
+    // (a) No top-level static import of the alphatab package.
+    const staticImport = /^\s*import\s+[^;]*from\s+["']@coderline\/alphatab["']/m;
+    expect(code).not.toMatch(staticImport);
+
+    // (b) Dynamic import is present — this is the load-bearing edge that
+    //     keeps the chunk out of the doc/diagram bundle.
+    expect(code).toMatch(/import\(\s*["']@coderline\/alphatab["']\s*\)/);
   });
 });
