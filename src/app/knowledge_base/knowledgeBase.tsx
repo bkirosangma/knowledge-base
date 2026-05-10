@@ -549,6 +549,33 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     await propagateMoveLinks(repos.document, sourcePath, targetFolderPath, tree, linkManager);
   }, [fileExplorer.tree, linkManager, repos.document]);
 
+  // LINK-5.1-10 test seam. Production HTML5 DnD reads
+  // `dataTransfer.getData("text/plain")`, which headless Chromium gates
+  // to events from a real drag sequence — synthetic Playwright drops
+  // return "". Exposing the move chain on `window` for non-production
+  // builds lets the e2e drive `fileExplorer.moveItem` + `propagateMoveLinks`
+  // directly without a CDP-level drag driver. We bypass `diagramBridgeRef`
+  // (which `handleMoveItemWithLinks` consults) because it's only set when
+  // a diagram pane is open; the bridge's `handleMoveItem` is itself a
+  // passthrough to `fileExplorer.moveItem`, so calling that directly
+  // matches production's on-disk behaviour. Mirrors the NODE_ENV gate
+  // used by `ServiceWorkerRegister`; production builds drop this
+  // assignment via dead-code elimination.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    if (typeof window === "undefined") return;
+    const moveAndPropagate = async (sourcePath: string, targetFolderPath: string) => {
+      const tree = fileExplorer.tree;
+      await fileExplorer.moveItem(sourcePath, targetFolderPath);
+      if (!repos.document) return;
+      await propagateMoveLinks(repos.document, sourcePath, targetFolderPath, tree, linkManager);
+    };
+    (window as Window & { __kbE2EMoveItem?: (s: string, t: string) => Promise<void> }).__kbE2EMoveItem = moveAndPropagate;
+    return () => {
+      delete (window as Window & { __kbE2EMoveItem?: unknown }).__kbE2EMoveItem;
+    };
+  }, [fileExplorer, repos.document, linkManager]);
+
   // ─── Document read / reference / delete helpers (used by DiagramView) ───
   const readDocument = useCallback(async (docPath: string): Promise<string | null> => {
     if (!repos.document) return null;
