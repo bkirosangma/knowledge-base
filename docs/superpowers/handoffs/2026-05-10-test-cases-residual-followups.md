@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (handoff opened on `docs/test-cases-residual-handoff` after Tauri + Claude Integration epic closed via PR #161 (`44ac1d3` on `main`)). Tracks **29 items**: 26 ❌ deferred test-case promotions + 1 🟡 partial promotion (`TAB-11.2-12`) awaiting a product decision + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme A sub-theme `SHELL-1.15-03` shipped on `fix/test-cases-shell-1.15-03` — Vitest classifier check at `src/app/layout.test.ts`). Tracks **28 items**: 25 ❌ deferred test-case promotions + 1 🟡 partial promotion (`TAB-11.2-12`) awaiting a product decision + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -95,7 +95,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 
 | # | Theme | Cases | Status | PR(s) |
 |---|---|---|---|---|
-| **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 | ❌ Open | — |
+| **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (1 ✅ shipped, 4 ❌) | 🚧 Partial — `SHELL-1.15-03` ✅ | `SHELL-1.15-03` via `fix/test-cases-shell-1.15-03` |
 | **B** | Live-MarkdownEditor editor-ref access | 5 | ❌ Open | — |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 | ❌ Open | — |
@@ -103,7 +103,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 27 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 29 / 29 still tracked.
+**Open / total:** 26 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 28 / 29 still tracked. 1 shipped (`SHELL-1.15-03`).
 
 ---
 
@@ -116,7 +116,7 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 - `SHELL-1.15-02` ❌ Layout references manifest via `metadata.manifest` — `<head>` includes `<link rel="manifest" href="/manifest.json">`; needs production bundle.
 - `SHELL-1.15-04` ❌ Service worker registered in production — `navigator.serviceWorker.register("/sw.js")` only fires under `NODE_ENV === "production"`.
 - `TAB-11.3-20` ❌ Service-worker cache hit on second load — `/soundfonts/sonivox.sf2` served from cache after first fetch.
-- `SHELL-1.15-03` ❌ `themeColor` lives in viewport export (Next 16) — build-time classifier check; can ship as a Vitest/unit test asserting `app/layout.tsx` exports, no harness change needed (sub-theme of A but a one-line unit test).
+- `SHELL-1.15-03` ✅ `themeColor` lives in viewport export (Next 16) — Vitest classifier check shipped at `src/app/layout.test.ts` (asserts `viewport.themeColor` is a non-empty string and `metadata.themeColor` is undefined). Mocks `next/font/google` + globals so the layout module imports cleanly under jsdom.
 
 **Estimated shape:** 1–2 PRs. SHELL-1.15-03 can land as a quick unit test today; the other four cluster around the production-bundle backend, which is a small harness addition (~50–100 LOC + CI matrix tweak).
 
@@ -268,7 +268,7 @@ These are non-negotiable; don't relitigate them mid-work. Lifted from the closed
 1. **Quick wins (one-line PRs, ship today):**
    - `LINK-5.1-12` — decide rename order (Theme E). Either reorder `propagateRename` or rewrite the case. Trivial either way.
    - `TAB-11.2-12` — decide basename fallback (Theme E). Either patch `TabView` or rewrite the case to assert `"Untitled"`.
-   - `SHELL-1.15-03` — Next 16 metadata-classifier unit test (Theme A sub-theme). Vitest assertion on `app/layout.tsx` exports.
+   - ~~`SHELL-1.15-03` — Next 16 metadata-classifier unit test (Theme A sub-theme). Vitest assertion on `app/layout.tsx` exports.~~ **✅ Shipped 2026-05-10 via `fix/test-cases-shell-1.15-03`.**
 
 2. **Highest-leverage harness work (unblocks multiple cases):**
    - **Theme B** (editor-ref) unblocks 4 unit-test promotions with one production seam.
