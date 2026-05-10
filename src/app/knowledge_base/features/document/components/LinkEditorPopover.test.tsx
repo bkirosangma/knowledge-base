@@ -368,7 +368,11 @@ function WikiLinkHost({
   const editor = useEditor({
     extensions: [
       StarterKit,
-      WikiLink.configure({ existingDocPaths, onNavigate, onCreateDocument }),
+      WikiLink.configure({
+        getExistingDocPaths: () => existingDocPaths,
+        onNavigate,
+        onCreateDocument,
+      }),
     ],
     content: '<p>Start</p>',
     immediatelyRender: false,
