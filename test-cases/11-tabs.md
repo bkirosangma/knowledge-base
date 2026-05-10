@@ -31,7 +31,7 @@ Domain interfaces, FSA-backed repository, pane-type plumbing, placeholder view. 
 
 Replaces `TabViewStub` with a real `TabView` that mounts `AlphaTabEngine` and renders the score from disk. **All cases below start at ❌ — flip to ✅ / 🧪 in the same commit as the test lands.**
 
-- **TAB-11.2-01** ❌ **`TabView` lazy-loads the engine module on mount** — `next/dynamic({ ssr: false })` deferred import; the `@coderline/alphatab` chunk is not in the doc/diagram bundle. _(unit + bundle-size assertion.)_
+- **TAB-11.2-01** 🟡 **`TabView` lazy-loads the engine module on mount** — `AlphaTabEngine.mount()` calls `await import("@coderline/alphatab")`; no top-level static import of the package, keeping the chunk out of the doc/diagram bundle. _(unit: TabView.test.tsx — source-level lazy-load assertion against `infrastructure/alphaTabEngine.ts`; bundle-size leg verified manually via vite-bundle-visualizer.)_
 - **TAB-11.2-02** ✅ **`TabView` reads the file via `useRepositories().tab`** — opens an `.alphatex` file from the explorer → `TabRepository.read` is invoked exactly once with the vault-relative path. _(unit: TabView.test.tsx — "calls mountInto with the loaded file content".)_
 - **TAB-11.2-03** ✅ **`TabView` mounts `AlphaTabEngine` and loads the file content** — the engine's `mount()` is called with the host element; `session.load({ kind: "alphatex", text })` follows. _(unit: TabView.test.tsx — "renders the canvas host when status is 'ready'".)_
 - **TAB-11.2-04** ❌ **Canvas renders within 2 s on a fixture file** — the `"loaded"` event fires within the budget; assertion is wall-clock against a deterministic fixture under JSDOM-stub.
