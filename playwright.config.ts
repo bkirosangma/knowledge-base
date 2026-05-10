@@ -8,8 +8,18 @@ import { defineConfig, devices } from '@playwright/test'
 // processes side-by-side and traps SIGTERM. The readiness probe
 // targets test_server's /health endpoint — Playwright treats that
 // as the boot signal; next dev becomes ready ~3s after, well before
-// any spec actually navigates. The `KB_E2E_BACKEND` env switch is
-// gone — there is only one backend now.
+// any spec actually navigates.
+//
+// Two browser projects: `chromium` is the default (CI runs only this
+// project — fast, deterministic). `webkit` is opt-in via
+// `--project=webkit` and gives Apple WebKit engine fidelity locally
+// (CSS / DOM / JavaScriptCore) — useful as a pre-release smoke since
+// real Tauri WKWebView automation is not available today (tauri-driver
+// 2.0.6 source-level-rejects darwin; upstream PR tauri-apps/tauri#15295
+// documents Apple's lack of a DOM-aware WebDriver path into WKWebView
+// as an open design problem). Playwright's webkit binary is standalone
+// WebKit, NOT WKWebView — it catches engine bugs but NOT Tauri's IPC
+// bridge / preload / CSP. Manual smoke remains the gate for those.
 
 export default defineConfig({
   testDir: './e2e',
@@ -25,6 +35,11 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Register webkit so `--project=webkit` works for opt-in pre-release
+    // smokes. CI passes `--project=chromium` explicitly to keep the default
+    // run fast; the `npm run test:e2e:webkit` script in package.json is the
+    // local entry point for WebKit-engine fidelity.
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
     command: 'bash scripts/run-e2e.sh',

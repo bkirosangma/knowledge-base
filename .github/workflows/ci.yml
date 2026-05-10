@@ -218,8 +218,13 @@ jobs:
         run: cd src-tauri && cargo build --bin test_server
 
       - name: End-to-end tests (proof set)
+        # `--project=chromium` keeps CI's e2e fast and deterministic. The
+        # `webkit` project is registered alongside chromium for local
+        # pre-release smokes (`npm run test:e2e:webkit`); it surfaces Apple
+        # WebKit engine bugs that chromium would miss but is not gated in
+        # CI. See playwright.config.ts for context.
         run: |
-          npx playwright test \
+          npx playwright test --project=chromium \
             e2e/vault_picker.spec.ts \
             e2e/uninitialized_splash.spec.ts \
             e2e/document_create.spec.ts \
