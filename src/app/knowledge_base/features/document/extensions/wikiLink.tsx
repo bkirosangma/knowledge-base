@@ -20,12 +20,19 @@ export interface WikiLinkHoverPayload {
 export interface WikiLinkOptions {
   onNavigate?: (path: string, section?: string) => void;
   onCreateDocument?: (path: string) => void;
-  allDocPaths?: string[];
-  existingDocPaths?: Set<string>;
-  /** Directory of the current document, used to resolve relative wiki-link paths. */
-  currentDocDir?: string;
-  /** Full file tree, used to render the folder-picker when `[[` is triggered. */
-  tree?: TreeNode[];
+  // Tiptap's `useEditor({ extensions })` snapshots option values at mount
+  // time, and the extension instance held inside `editor.extensionManager`
+  // is NOT the same object the `addNodeView` factory's `this.options`
+  // refers to — so mutating one is invisible to the other (LINK-5.2-03 /
+  // LINK-5.4-03). Reads go through getters so the host can swap the
+  // underlying ref without touching the extension's option object.
+  getAllDocPaths?: () => string[] | undefined;
+  getExistingDocPaths?: () => Set<string> | undefined;
+  getCurrentDocDir?: () => string | undefined;
+  getTree?: () => TreeNode[] | undefined;
+  /** Mutable ref the host calls after updating the getter-backed values to
+   *  force every live NodeView to re-paint without a ProseMirror transaction. */
+  forceRepaint?: { current: () => void };
   /** Mouse entered a wiki-link DOM node. The host owns the 200ms delay timer
    *  + portal card; the extension just reports the hover. */
   onHover?: (payload: WikiLinkHoverPayload) => void;
@@ -53,10 +60,11 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     return {
       onNavigate: undefined,
       onCreateDocument: undefined,
-      allDocPaths: [],
-      existingDocPaths: new Set(),
-      currentDocDir: "",
-      tree: undefined,
+      getAllDocPaths: undefined,
+      getExistingDocPaths: undefined,
+      getCurrentDocDir: undefined,
+      getTree: undefined,
+      forceRepaint: undefined,
       onHover: undefined,
       onHoverEnd: undefined,
     };
@@ -90,7 +98,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     const path = node.attrs.path as string;
     const section = node.attrs.section as string | null;
     const display = node.attrs.display ?? (section ? `${path}#${section}` : path);
-    const exists = this.options.existingDocPaths?.has(
+    const exists = this.options.getExistingDocPaths?.()?.has(
       path.endsWith(".md") ? path : `${path}.md`
     );
 
@@ -139,7 +147,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       // Mirrors the order used by `handleNavigateWikiLink` in knowledgeBase.tsx
       // so rendering (blue/red) stays consistent with click behavior.
       const candidatesFor = (p: string): string[] => {
-        const dir = this.options.currentDocDir ?? "";
+        const dir = extOptions.getCurrentDocDir?.() ?? "";
         const list: string[] = [];
         // 1. Relative to current doc (default .md).
         list.push(resolveWikiLinkPath(p, dir));
@@ -158,7 +166,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       };
 
       const resolveExistingPath = (p: string): string | null => {
-        const set = this.options.existingDocPaths;
+        const set = extOptions.getExistingDocPaths?.();
         if (!set) return null;
         for (const c of candidatesFor(p)) if (set.has(c)) return c;
         return null;
@@ -222,7 +230,21 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           ? `Open ${kindLabel} ${path}`
           : `${path} (not found — click to create)`;
       };
-      paintFromAttrs(node);
+      // Track the most recent node so the host-triggered repaint
+      // (forceRepaint) can re-resolve against the latest existingDocPaths
+      // without needing a ProseMirror transaction. PM's NodeView.update()
+      // covers attribute changes; this covers external option/getter
+      // changes (LINK-5.2-03 / LINK-5.4-03).
+      let latestNode = node;
+      paintFromAttrs(latestNode);
+      const repaint = () => paintFromAttrs(latestNode);
+      const prevForceRepaint = extOptions.forceRepaint?.current;
+      if (extOptions.forceRepaint) {
+        extOptions.forceRepaint.current = () => {
+          prevForceRepaint?.();
+          repaint();
+        };
+      }
 
       // NB: no DOM click listener here — clicks are handled by the
       // `handleClickOn` prop in addProseMirrorPlugins so that list-item
@@ -262,6 +284,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         dom,
         update(updated) {
           if (updated.type.name !== "wikiLink") return false;
+          latestNode = updated;
           paintFromAttrs(updated);
           return true;
         },
@@ -269,6 +292,11 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           dom.removeEventListener("mouseenter", handleMouseEnter);
           dom.removeEventListener("mouseleave", handleMouseLeave);
           dom.removeAttribute("aria-describedby");
+          // Restore the previous link in the forceRepaint chain so destroyed
+          // NodeViews don't keep getting called after they're gone.
+          if (extOptions.forceRepaint) {
+            extOptions.forceRepaint.current = prevForceRepaint ?? (() => {});
+          }
         },
       };
     };
@@ -276,7 +304,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
   addProseMirrorPlugins() {
     const editor = this.editor;
-    // Capture options object reference — mutations (tree, currentDocDir, etc.) are visible via this ref
+    // Capture options object reference — getters read latest host state on call.
     const options = this.options;
     return [
       // Inline text editing AND navigation. DOM-level click handlers on atoms
@@ -306,8 +334,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             // click behavior agree.
             const path = node.attrs.path as string;
             const section = node.attrs.section as string | null;
-            const dir = options.currentDocDir ?? "";
-            const set = options.existingDocPaths ?? new Set<string>();
+            const dir = options.getCurrentDocDir?.() ?? "";
+            const set = options.getExistingDocPaths?.() ?? new Set<string>();
             const candidates: string[] = [];
             candidates.push(resolveWikiLinkPath(path, dir));
             if (!/\.[a-z0-9]+$/i.test(path)) {
@@ -384,7 +412,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         editor: this.editor,
         char: "[[",
         items: ({ query }) => {
-          const paths = options.allDocPaths ?? [];
+          const paths = options.getAllDocPaths?.() ?? [];
           // Empty query → picker mode; return single dummy to keep suggestion alive
           if (!query) return [""];
           const lower = query.toLowerCase();
@@ -442,7 +470,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           }
 
           function enterPickerMode() {
-            const tree = options.tree;
+            const tree = options.getTree?.();
             if (!tree || tree.length === 0) {
               // No tree available — fall back to flat list
               enterListMode();
@@ -454,7 +482,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
             reactRoot.render(
               <FolderPicker
                 tree={tree}
-                startPath={options.currentDocDir ?? ""}
+                startPath={options.getCurrentDocDir?.() ?? ""}
                 onSelect={(path) => commandFn?.({ id: path })}
               />
             );

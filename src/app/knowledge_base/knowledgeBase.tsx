@@ -576,6 +576,29 @@ function KnowledgeBaseInner({ onVaultPath }: { onVaultPath: (path: string | null
     };
   }, [fileExplorer, repos.document, linkManager]);
 
+  // LINK-5.2-03 / LINK-5.4-03 test seam. Mirrors the production
+  // explorer-delete chain (the shell-level confirm popover at the
+  // bottom of this component): `fileExplorer.deleteFile` + the link-
+  // index cleanup that drives `existingDocPaths` re-rendering, which
+  // is the load-bearing reactive signal for the "wiki-link flips to
+  // red pill" assertion. NODE_ENV-gated exactly like `__kbE2EMoveItem`
+  // above; production builds drop the assignment via dead-code
+  // elimination.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    if (typeof window === "undefined") return;
+    const deleteAndCleanupIndex = async (filePath: string) => {
+      await fileExplorer.deleteFile(filePath);
+      if (filePath.endsWith(".md")) {
+        await linkManager.removeDocumentFromIndex(filePath);
+      }
+    };
+    (window as Window & { __kbE2EDeleteFile?: (path: string) => Promise<void> }).__kbE2EDeleteFile = deleteAndCleanupIndex;
+    return () => {
+      delete (window as Window & { __kbE2EDeleteFile?: unknown }).__kbE2EDeleteFile;
+    };
+  }, [fileExplorer, linkManager]);
+
   // ─── Document read / reference / delete helpers (used by DiagramView) ───
   const readDocument = useCallback(async (docPath: string): Promise<string | null> => {
     if (!repos.document) return null;

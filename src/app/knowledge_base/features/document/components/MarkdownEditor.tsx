@@ -298,6 +298,21 @@ export default function MarkdownEditor({
   useEffect(() => {
     onEditorReadyRef.current = onEditorReady;
   }, [onEditorReady]);
+  // Wiki-link option refs: Tiptap snapshots option values when `useEditor`
+  // runs, and the extension instance held by `editor.extensionManager` is
+  // not the same object the `addNodeView` factory sees as `this.options`
+  // — so mutating options post-init never reaches the NodeView. Reads go
+  // through getters that close over these refs so a sibling file appearing
+  // or disappearing flips every live wiki-link pill in place
+  // (LINK-5.2-03 / LINK-5.4-03).
+  const existingDocPathsRef = useRef(existingDocPaths);
+  const allDocPathsRef = useRef(allDocPaths);
+  const treeRef = useRef(tree);
+  const currentDocDirRef = useRef(currentDocDir);
+  // Chain of paintFromAttrs callbacks; each live NodeView appends itself
+  // and restores the previous link on destroy. The host invokes
+  // `.current()` after refreshing the refs above.
+  const wikiForceRepaintRef = useRef<{ current: () => void }>({ current: () => {} });
   const prevBlockStartRef = useRef(-1);
 
   // ── Wiki-link hover preview (DOC-4.17) ────────────────────────────────
@@ -464,10 +479,11 @@ export default function MarkdownEditor({
       WikiLink.configure({
         onNavigate: onNavigateLink,
         onCreateDocument,
-        existingDocPaths,
-        allDocPaths,
-        tree,
-        currentDocDir,
+        getExistingDocPaths: () => existingDocPathsRef.current,
+        getAllDocPaths: () => allDocPathsRef.current,
+        getTree: () => treeRef.current,
+        getCurrentDocDir: () => currentDocDirRef.current,
+        forceRepaint: wikiForceRepaintRef.current,
         onHover: (p) => handleWikiHoverRef.current(p),
         onHoverEnd: () => handleWikiHoverEndRef.current(),
       }),
@@ -654,24 +670,29 @@ export default function MarkdownEditor({
   // Read mode always shows rich text; raw mode is only honored when editable.
   const showRaw = isRawMode && !readOnly;
 
-  // Update wiki-link extension options when doc paths or the current file
-  // change. Dispatching a no-op transaction re-invokes nodeView `update()`
-  // handlers so existence (blue/red) and relative-path resolution refresh.
+  // Refresh the wiki-link extension's view of the world. Reads inside
+  // the extension go through getters that close over the refs below, so
+  // we just update the refs and ping the forceRepaint chain — every
+  // live NodeView calls `paintFromAttrs` against the latest state and
+  // flips its blue/red pill class accordingly (LINK-5.2-03 / LINK-5.4-03).
+  // ProseMirror's `NodeView.update()` only fires on attribute changes, so
+  // option-level state needs this out-of-band repaint signal.
   //
-  // Microtask-deferred for the same flushSync reason as the effects above —
-  // the dispatch can re-mount wikiLink React node views.
+  // The empty `state.tr` dispatch is unrelated to wiki-link reactivity —
+  // it nudges other plugins (notably markdownReveal's appendTransaction)
+  // to reconsider the current cursor block. Removing it leaves
+  // markdownReveal idle until the next real transaction, which trips
+  // unit tests that grab the editor handle immediately after mount and
+  // expect rawBlock conversion to have run.
   useEffect(() => {
+    existingDocPathsRef.current = existingDocPaths;
+    allDocPathsRef.current = allDocPaths;
+    treeRef.current = tree;
+    currentDocDirRef.current = currentDocDir;
+    wikiForceRepaintRef.current.current();
     if (!editor) return;
     queueMicrotask(() => {
       if (editor.isDestroyed) return;
-      editor.extensionManager.extensions.forEach((ext) => {
-        if (ext.name === "wikiLink") {
-          ext.options.existingDocPaths = existingDocPaths;
-          ext.options.allDocPaths = allDocPaths;
-          ext.options.tree = tree;
-          ext.options.currentDocDir = currentDocDir;
-        }
-      });
       editor.view.dispatch(editor.state.tr);
     });
   }, [editor, existingDocPaths, allDocPaths, tree, currentDocDir]);
