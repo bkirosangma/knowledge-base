@@ -296,4 +296,37 @@ describe("public/sw.js — KB-044 app-shell cache", () => {
     const res = await h.asset("/__kb-cache/some/note.md");
     expect(res.status).toBe(504);
   });
+
+  // TAB-11.3-20: The SoundFont (`/soundfonts/sonivox.sf2`) is a multi-MB
+  // binary the alphaTab playback path fetches once per session. The
+  // service worker has a dedicated cache-first lane for it (sw.js
+  // `isSoundFont`); the second hit must serve from cache without
+  // touching the network. Mirrors SHELL-1.15-09's `_next/static`
+  // assertion — same lane shape, different URL prefix.
+  it("TAB-11.3-20: /soundfonts/*.sf2 is cached on first hit and served from cache afterwards", async () => {
+    await h.install();
+    const networkCalls: string[] = [];
+    h.setFetch(async (req) => {
+      const path = new URL(req.url).pathname;
+      networkCalls.push(path);
+      // Stand-in body for sonivox.sf2; size doesn't matter for the
+      // cache-hit assertion.
+      return new Response("FAKE-SF2-BYTES", {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      });
+    });
+    const path = "/soundfonts/sonivox.sf2";
+    const first = await h.asset(path);
+    expect(first.status).toBe(200);
+
+    // Second hit — must NOT reach the network.
+    h.setFetch(async () => {
+      throw new Error("network must not be called for cached SoundFont");
+    });
+    const second = await h.asset(path);
+    expect(second.status).toBe(200);
+    expect(await second.text()).toBe("FAKE-SF2-BYTES");
+    expect(networkCalls).toEqual([path]);
+  });
 });

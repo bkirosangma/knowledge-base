@@ -71,7 +71,7 @@ Toolbar transport (play/pause/stop/tempo/loop), engine playback methods, SoundFo
 - **TAB-11.3-17** ✅ **`TabView` mounts the toolbar when status is `ready`** — _(unit: TabView.test.tsx.)_
 - **TAB-11.3-18** ✅ **`TabView` does not mount the toolbar in `engine-load-error` state** — _(unit: TabView.test.tsx.)_
 - **TAB-11.3-19** 🧪 **TabToolbar mounts alongside the canvas in a real browser** — Playwright opens an `.alphatex` file and confirms `tab-toolbar` testid + Play button are both visible. Click-and-verify of audio start was relaxed because alphatab's SoundFont/`playerReady` flow doesn't complete in headless Chromium within Playwright's timeout. _(e2e: e2e/tab.spec.ts.)_
-- **TAB-11.3-20** ❌ **Service-worker cache hit on second load** — `/soundfonts/sonivox.sf2` served from cache without a network request after first fetch. (Manual / future Lighthouse audit.) _(MVP-5 follow-up: needs production-bundle e2e backend for service-worker cache assertions)_
+- **TAB-11.3-20** ✅ **Service-worker cache hit on second load** — Vitest in `src/app/knowledge_base/shell/serviceWorker.test.ts` exercises the SoundFont lane: install the SW, first fetch on `/soundfonts/sonivox.sf2` goes to network, second fetch is cache-only (network throws when called). Mirrors SHELL-1.15-09's `_next/static` assertion — same cache-first lane shape on the same handler, different URL prefix. The case's "needs production-bundle backend" framing was wrong — `sw.js` is a static asset with a deterministic fetch handler that the existing harness already covers. _(unit: `serviceWorker.test.ts`.)_
 
 ---
 
