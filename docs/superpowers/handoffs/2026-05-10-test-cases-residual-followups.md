@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme A sub-theme `SHELL-1.15-03` shipped on `fix/test-cases-shell-1.15-03` — Vitest classifier check at `src/app/layout.test.ts`). Tracks **28 items**: 25 ❌ deferred test-case promotions + 1 🟡 partial promotion (`TAB-11.2-12`) awaiting a product decision + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme E quick-win `TAB-11.2-12` shipped on `fix/test-cases-tab-11.2-12-basename-fallback` — basename fallback added to `TabView` via new `paneTitleFor` helper at `src/app/knowledge_base/features/tab/paneTitle.ts`; e2e basename-fallback leg added). Tracks **27 items**: 25 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -99,11 +99,11 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **B** | Live-MarkdownEditor editor-ref access | 5 | ❌ Open | — |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 | ❌ Open | — |
 | **D** | Visual / hover / focus-visible assertions | 5 | ❌ Open | — |
-| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 | ❌ Open / 🟡 partial | — |
+| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (1 ✅ shipped, 6 ❌) | 🚧 Partial — `TAB-11.2-12` ✅ | `TAB-11.2-12` via `fix/test-cases-tab-11.2-12-basename-fallback` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 | ❌ Open | — |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 26 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 28 / 29 still tracked. 1 shipped (`SHELL-1.15-03`).
+**Open / total:** 25 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 27 / 29 still tracked. 2 shipped (`SHELL-1.15-03`, `TAB-11.2-12`).
 
 ---
 
@@ -181,7 +181,7 @@ These can't ship as test-only PRs — each requires a small touch in `src/app/kn
 - `LINK-5.1-12` ❌ **Backlinks-first rename order** — production `propagateRename` does index-first; case asserts the opposite. **Decision needed:** reorder production code (and test it), or rewrite the case to match shipped order. Trivial PR once decided.
 - `LINK-5.2-03` ❌ **Deleted doc's links become red pills** — production `deleteDocumentWithCleanup` strips `[[x]]` from disk; open editor doesn't reload. Needs **either** disabling the strip flow **or** wiring watcher-driven editor reload. Watcher reload is the more useful change (covers more scenarios) but bigger.
 - `LINK-5.4-03` ❌ Same constraint as `LINK-5.2-03`; ships in the same PR.
-- `TAB-11.2-12` 🟡 **Basename-fallback leg** — `\title` leg ✅ on Chromium; basename-fallback leg fails because `scoreToMetadata` defaults to `"Untitled"`. **Decision needed:** add basename fallback in `TabView` (and ✅ the case) or rewrite the case to assert `"Untitled"` (and ✅). Trivial once decided.
+- `TAB-11.2-12` ✅ **Basename-fallback leg shipped** — added `paneTitleFor` helper at `src/app/knowledge_base/features/tab/paneTitle.ts` (8 unit tests) consumed by `TabView`; pane title falls back to file basename when `\title` is absent or alphaTab returns the `"Untitled"` sentinel. New e2e leg in `e2e/tab_h1_derivation.spec.ts` asserts `pane-title` reads "untitled-no-title" for the existing fixture.
 - `FS-2.3-73` ❌ `.kbjson` filter — `vaultIndexRepoTauri.ts` extension filter doesn't include `.kbjson`. Promotion needs **production filter expansion**, then the e2e is straightforward. Out of scope per the closed epic's Decision 5; reopen only if attachment-cleanup behaviour for `.kbjson` is genuinely user-facing.
 - `DOC-4.2-06` ❌ overlap with Theme B — see notes there. (Counted in Theme B; not double-counted.)
 
@@ -267,7 +267,7 @@ These are non-negotiable; don't relitigate them mid-work. Lifted from the closed
 
 1. **Quick wins (one-line PRs, ship today):**
    - `LINK-5.1-12` — decide rename order (Theme E). Either reorder `propagateRename` or rewrite the case. Trivial either way.
-   - `TAB-11.2-12` — decide basename fallback (Theme E). Either patch `TabView` or rewrite the case to assert `"Untitled"`.
+   - ~~`TAB-11.2-12` — decide basename fallback (Theme E).~~ **✅ Shipped 2026-05-10 via `fix/test-cases-tab-11.2-12-basename-fallback`.**
    - ~~`SHELL-1.15-03` — Next 16 metadata-classifier unit test (Theme A sub-theme). Vitest assertion on `app/layout.tsx` exports.~~ **✅ Shipped 2026-05-10 via `fix/test-cases-shell-1.15-03`.**
 
 2. **Highest-leverage harness work (unblocks multiple cases):**

@@ -13,6 +13,7 @@ import { useSessionTempoBpm } from "./hooks/useSessionTempoBpm";
 import { useTabPlayback } from "./hooks/useTabPlayback";
 import { useTabEditMode } from "./hooks/useTabEditMode";
 import { TabProperties } from "./properties/TabProperties";
+import { paneTitleFor } from "./paneTitle";
 import type { DocumentMeta } from "../document/types";
 import type { AttachmentLink } from "../../domain/attachmentLinks";
 import { useTabSectionSync } from "./properties/useTabSectionSync";
@@ -399,7 +400,7 @@ export function TabView({
             filePath={filePath}
             readOnly={perFileReadOnly}
             onToggleReadOnly={toggleReadOnly}
-            title={metadata?.title}
+            title={paneTitleFor(filePath, metadata?.title)}
             hasActiveFile
             isDirty={dirty}
             onSave={() => { void flush(); }}

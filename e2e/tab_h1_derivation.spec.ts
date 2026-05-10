@@ -68,11 +68,28 @@ test.describe("TAB-11.2-04 / TAB-11.2-12 — alphaTab integration", () => {
     await vault.cleanup();
   });
 
-  // Note: the basename-fallback leg of TAB-11.2-12 is not exercised here.
-  // Reading the production path (TabView.tsx + scoreToMetadata in
-  // alphaTabEngine.ts) shows the fallback is `"Untitled"`, not the file
-  // basename — the case copy describes a product behaviour that doesn't
-  // currently exist. Demoted to 🅑 in test-cases/11-tabs.md with
-  // `note: see MVP-5 follow-up — basename-fallback not implemented; PaneHeader
-  // receives metadata.title which scoreToMetadata defaults to "Untitled"`.
+  test("TAB-11.2-12 (basename-fallback leg): pane title falls back to basename for untitled-no-title.alphatex", async ({ page }) => {
+    const vault = await makeTempVault({ fixture: "with_tab" });
+
+    await page.goto("/");
+    await setVaultPath(page, vault.path);
+    await expect(page.getByTestId("explorer-tree")).toBeVisible();
+
+    await page
+      .getByTestId("explorer-tree")
+      .getByRole("treeitem", { name: /^untitled-no-title\.alphatex/ })
+      .click();
+
+    // PaneHeader renders as soon as filePath is set; `paneTitleFor` falls
+    // back to the basename without extension when `metadata.title` is
+    // either undefined (engine still loading) or the alphaTab `"Untitled"`
+    // sentinel (engine finished but the source has no `\title` directive).
+    // We don't gate on canvas visibility here — the fallback applies
+    // regardless of whether the engine eventually loads.
+    await expect(page.getByTestId("pane-title")).toHaveText("untitled-no-title", {
+      timeout: 10000,
+    });
+
+    await vault.cleanup();
+  });
 });
