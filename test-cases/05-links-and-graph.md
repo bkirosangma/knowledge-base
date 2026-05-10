@@ -19,7 +19,7 @@
 - **LINK-5.1-09** 🧪 **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
 - **LINK-5.1-10** ❌ **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves.)
 - **LINK-5.1-11** ✅ **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (Covered by LINK-5.1-11 test in `useFileExplorer.helpers.test.ts`.)
-- **LINK-5.1-12** ❌ **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion.)
+- **LINK-5.1-12** 🅑 **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion.) _(MVP-5 sweep: see follow-up — production `propagateRename` currently does index-first then backlink writes; the case-as-worded "backlinks-first / no lost-reference window" claim asserts the opposite of the shipped order. Verifying it requires reordering production code, which is out of scope for the test-promotion sweep.)_
 
 ## 5.2 Wiki-Link Delete Propagation
 
