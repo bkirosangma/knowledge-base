@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme A item `TAB-11.3-20` in progress on `fix/test-cases-tab-11.3-20-soundfont-cache` — closes Theme A entirely. New Vitest in the existing `serviceWorker.test.ts` harness asserts the SoundFont lane in `public/sw.js` caches `/soundfonts/sonivox.sf2` on the first hit and serves the second hit from cache without touching the network. The case's "needs production-bundle e2e backend" framing was wrong by the same logic that retired SHELL-1.15-01..04 — the existing sw.js sandbox already covers the cache-first lanes; SoundFont is just another route under the same handler). Tracks **7 items**: 5 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme C item `TAB-11.2-08` in progress on `fix/test-cases-tab-11.2-08-conflict-banner` — closes Theme C entirely. New `useTabFileWatcher` hook (mirrors `useDocumentFileWatcher` / `useDiagramFileWatcher`) subscribes to `vault_change`; `TabView` mounts `ConflictBanner` when a dirty pane sees an external change, silently refreshes when clean. `useTabContent` extended minimally with `diskChecksumRef` so self-writes don't false-positive. Five-branch unit-test coverage in `useTabFileWatcher.test.tsx` mirroring DOC-4.15-01..05). Tracks **6 items**: 4 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -97,13 +97,13 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 |---|---|---|---|---|
 | **A** | Production-bundle e2e backend (PWA / SW / manifest) | 5 (5 ✅ shipped) | 🚧 In progress on `fix/test-cases-tab-11.3-20-soundfont-cache` — all five ✅ when this PR merges | `SHELL-1.15-01..04`, `TAB-11.3-20` |
 | **B** | Live-MarkdownEditor editor-ref access | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-editor-ref` (Path 1 — 4 unit-test promotions) + `fix/test-cases-doc-4.2-06-rescope` (re-scope) |
-| **C** | `test_server` event-stream wiring (vault_watch_start) | 2 (1 ✅ shipped, 1 ❌) | 🚧 In progress on `fix/test-cases-shell-1.10-15-watcher-sse` — `SHELL-1.10-15` ✅; `TAB-11.2-08` deferred (needs prod TabView watcher wiring) | `SHELL-1.10-15` |
+| **C** | `test_server` event-stream wiring (vault_watch_start) | 2 (2 ✅ shipped) | 🚧 In progress on `fix/test-cases-tab-11.2-08-conflict-banner` — both ✅ when this PR merges | `SHELL-1.10-15`, `TAB-11.2-08` |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
 | **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (4 ✅ shipped) | 🚧 In progress on `fix/test-cases-shell-1.11-12-diagram-commands` — all four ✅ when this PR merges | `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 5 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 7 / 29 still tracked. 22 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`, `SHELL-1.10-15`, `TAB-11.3-20`).
+**Open / total:** 4 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 6 / 29 still tracked. 23 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`, `SHELL-1.10-15`, `TAB-11.3-20`, `TAB-11.2-08`).
 
 ---
 
@@ -153,9 +153,9 @@ Path 1 is preferred (smaller surface change; tests stay fast). Watch out: per `f
 
 **Cases (this theme is strictly the watcher event-stream; the broader AppHandle expansion is out of scope here):**
 - `SHELL-1.10-15` ✅ UI reacts to disk change within ~1 s — `e2e/file_watcher_tree_update.spec.ts` writes / deletes a file via node `fs` and asserts the tree picks up both. The wiring shipped in this PR: parallel `notify_debouncer_full` in `src-tauri/src/test_server/test_watcher.rs` → `EventBus.emit("vault_change", _)` → SSE `/events` → `tauriShim.ts` `transformCallback` + `invoke("plugin:event|listen", _)` interception → React's existing `FileWatcherContext.listen` → fanOut → `useFileExplorer.refresh()`.
-- `TAB-11.2-08` ❌ External file change while pane is open triggers `ConflictBanner` — needs production wiring first. TabView lacks both `useFileWatcher` subscription and a `ConflictBanner` mount today (DocumentView and DiagramView have both). Promotion shape is now: (1) add `useTabFileWatcher` mirroring `useDocumentFileWatcher` / `useDiagramFileWatcher`; (2) reload-vs-keep affordance via `ConflictBanner` in `TabView`; (3) e2e mirroring SHELL-1.10-15 but mutating an open `.alphatex` and asserting the banner. Out of scope for the SSE-wiring PR.
+- `TAB-11.2-08` ✅ External file change while pane is open triggers `ConflictBanner` — new `useTabFileWatcher` hook (`src/app/knowledge_base/features/tab/hooks/useTabFileWatcher.ts`) mirrors `useDocumentFileWatcher` / `useDiagramFileWatcher` byte-for-byte where applicable, subscribes to `vault_change` via the existing `FileWatcherContext`. `TabView` mounts `ConflictBanner` when a dirty pane sees an external change, silently refreshes when clean. `useTabContent` extended minimally with `diskChecksumRef` (updated on load + flush) so self-writes don't false-positive. Five-branch unit-test coverage in `useTabFileWatcher.test.tsx` mirroring DOC-4.15-01..05.
 
-**Estimated shape:** 1 PR remaining for `TAB-11.2-08` (production wiring + e2e), now that the watcher SSE bridge is shipped. The bridge work landed via a parallel watcher in `test_server` (no production code touched) — `Watcher::start` was *not* refactored to take an emitter trait, per the "production stays untouched" discipline of this portfolio.
+**Estimated shape:** 0 PRs remaining — Theme C is fully shipped. SHELL-1.10-15 via the test_server SSE bridge + e2e; TAB-11.2-08 via a new production hook (`useTabFileWatcher`) + `ConflictBanner` mount + unit-test promotion (no e2e — driving a dirty alphaTab edit in Playwright is fragile; the unit-test pattern matches DOC-4.15-01..05).
 
 ---
 

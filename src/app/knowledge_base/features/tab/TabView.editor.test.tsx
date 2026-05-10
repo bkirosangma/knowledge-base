@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ReactNode } from "react";
 import { StubRepositoryProvider } from "../../shell/RepositoryContext";
 import { StubShellErrorProvider } from "../../shell/ShellErrorContext";
+import { FileWatcherProvider } from "../../shared/context/FileWatcherContext";
+import { ToastProvider } from "../../shell/ToastContext";
 import { TabView } from "./TabView";
 
 // Stub the lazy-loaded editor chunk so JSDOM doesn't need the real module.
@@ -105,7 +107,9 @@ function Wrap({
           tabRefs: tabRefs as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         }}
       >
-        {children}
+        <FileWatcherProvider vaultPath={null}>
+          <ToastProvider>{children}</ToastProvider>
+        </FileWatcherProvider>
       </StubRepositoryProvider>
     </StubShellErrorProvider>
   );
