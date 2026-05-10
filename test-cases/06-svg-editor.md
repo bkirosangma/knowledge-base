@@ -6,16 +6,16 @@ Test cases for the SVG editor pane (`SVGEditorView`, `SVGCanvas`, `SVGToolbar`, 
 
 | ID | Scenario | Status |
 |----|----------|--------|
-| SVG-6.1-01 | Right-click folder → New → SVG → creates `untitled.svg` and opens editor pane | ❌ |
-| SVG-6.1-02 | Hover on folder in explorer → New SVG icon button creates `untitled.svg` | ❌ |
-| SVG-6.1-03 | Click `.svg` file in explorer → opens SVG editor pane (not document or diagram pane) | ❌ |
+| SVG-6.1-01 | Right-click folder → New → SVG → creates `untitled.svg` and opens editor pane | 🧪 _(e2e: e2e/svg_create.spec.ts)_ |
+| SVG-6.1-02 | Hover on folder in explorer → New SVG icon button creates `untitled.svg` | 🧪 _(e2e: e2e/svg_create.spec.ts)_ |
+| SVG-6.1-03 | Click `.svg` file in explorer → opens SVG editor pane (not document or diagram pane) | 🧪 _(e2e: e2e/svg_create.spec.ts)_ |
 
 ## 6.2 Pane chrome
 
 | ID | Scenario | Status |
 |----|----------|--------|
 | SVG-6.2-01 | SVG editor pane shows PaneHeader with filename without `.svg` extension as title | ✅ |
-| SVG-6.2-02 | PaneHeader shows Save and Discard buttons when isDirty=true | ❌ |
+| SVG-6.2-02 | PaneHeader shows Save and Discard buttons when isDirty=true | 🧪 _(e2e: e2e/svg_pane_chrome.spec.ts)_ |
 | SVG-6.2-03 | Reload page → SVG editor pane is restored from saved pane layout | 🚫 (File System Access API) |
 
 ## 6.3 Toolbar
