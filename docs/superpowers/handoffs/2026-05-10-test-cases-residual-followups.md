@@ -2,7 +2,7 @@
 
 > **Purpose:** A pointer document so an LLM session with no prior context can resume work on the **portfolio of small follow-up PRs** carrying forward from the now-closed Tauri + Claude Integration epic. Read top-to-bottom, run the bootstrap commands, then jump to **Next Action** to pick a theme.
 
-**Last updated:** 2026-05-10 (Theme C item `TAB-11.2-08` in progress on `fix/test-cases-tab-11.2-08-conflict-banner` — closes Theme C entirely. New `useTabFileWatcher` hook (mirrors `useDocumentFileWatcher` / `useDiagramFileWatcher`) subscribes to `vault_change`; `TabView` mounts `ConflictBanner` when a dirty pane sees an external change, silently refreshes when clean. `useTabContent` extended minimally with `diskChecksumRef` so self-writes don't false-positive. Five-branch unit-test coverage in `useTabFileWatcher.test.tsx` mirroring DOC-4.15-01..05). Tracks **6 items**: 4 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
+**Last updated:** 2026-05-10 (Theme E item `LINK-5.1-10` in progress on `fix/test-cases-link-5.1-10-dnd-move` — promotes via NODE_ENV-gated window seam (`__kbE2EMoveItem`) instead of the deferred CDP drag driver. New `e2e/explorer_move_item.spec.ts` seeds the `with_links` fixture, calls the seam to move `a.md` into a `subfolder/`, and asserts via node-side `fs.readFile` that the file landed at the new path *and* `b.md`'s `[[a]]` reference rewrote to `[[subfolder/a]]`). Tracks **5 items**: 3 ❌ deferred test-case promotions + 0 🟡 + 2 WebKit-only ⏭ skips (`TAB-11.2-10`, `LINK-5.5-01`) from PR #160's local engine-fidelity smoke. **No epic shape; portfolio of independent small PRs.** Each item ships as a discrete PR against `main`.
 
 ---
 
@@ -99,11 +99,11 @@ The 26 ❌ + 1 🟡 deferrals cluster into **6 themes** by shared blocker. Each 
 | **B** | Live-MarkdownEditor editor-ref access | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-editor-ref` (Path 1 — 4 unit-test promotions) + `fix/test-cases-doc-4.2-06-rescope` (re-scope) |
 | **C** | `test_server` event-stream wiring (vault_watch_start) | 2 (2 ✅ shipped) | 🚧 In progress on `fix/test-cases-tab-11.2-08-conflict-banner` — both ✅ when this PR merges | `SHELL-1.10-15`, `TAB-11.2-08` |
 | **D** | Visual / hover / focus-visible assertions | 5 (5 ✅ shipped) | ✅ Merged | `feat/test-cases-visual-hover` (5/5 in one PR) |
-| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (2 ✅ shipped, 5 ❌) | 🚧 Partial — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅ | `TAB-11.2-12`, `LINK-5.1-12` |
+| **E** | Production-code adjustments (DnD, watcher reload, filters, etc.) | 7 (3 ✅ shipped, 4 ❌) | 🚧 In progress on `fix/test-cases-link-5.1-10-dnd-move` — `TAB-11.2-12` ✅, `LINK-5.1-12` ✅, `LINK-5.1-10` ✅ | `TAB-11.2-12`, `LINK-5.1-12`, `LINK-5.1-10` |
 | **F** | Single-case oddities (color-scheme priming, file-picker mock, etc.) | 4 (4 ✅ shipped) | 🚧 In progress on `fix/test-cases-shell-1.11-12-diagram-commands` — all four ✅ when this PR merges | `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12` |
 | **G** | WebKit fidelity (PR #160 local-smoke skips) | 2 | ⏭ Skip-guarded on Chromium-clean | — |
 
-**Open / total:** 4 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 6 / 29 still tracked. 23 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`, `SHELL-1.10-15`, `TAB-11.3-20`, `TAB-11.2-08`).
+**Open / total:** 3 / 27 deferred-promotion items + 2 / 2 WebKit-fidelity items. = 5 / 29 still tracked. 24 shipped (`SHELL-1.15-03`, `TAB-11.2-12`, `LINK-5.1-12`, `SHELL-1.13-06`, `SHELL-1.16-01`, `SHELL-1.16-02`, `SHELL-1.16-04`, `FS-2.3-45`, `DOC-4.3-38`, `DOC-4.3-39`, `DOC-4.5-13`, `DOC-4.5-18`, `DOC-4.2-06`, `FS-2.3-49`, `SHELL-1.13-05`, `TAB-11.4-06`, `SHELL-1.11-12`, `SHELL-1.15-02`, `SHELL-1.15-01`, `SHELL-1.15-04`, `SHELL-1.10-15`, `TAB-11.3-20`, `TAB-11.2-08`, `LINK-5.1-10`).
 
 ---
 
@@ -182,7 +182,7 @@ Path 1 is preferred (smaller surface change; tests stay fast). Watch out: per `f
 These can't ship as test-only PRs — each requires a small touch in `src/app/knowledge_base/` or a product decision before the test can be written or promoted.
 
 **Cases:**
-- `LINK-5.1-10` ❌ **DnD-driven move** — production move is HTML5 drag-and-drop with `dataTransfer.getData("text/plain")`. Synthetic drops in headless Chromium return `""`. **Two paths:** (a) CDP-level real drag driver via Playwright; (b) production seam exposing `onMoveItem(sourcePath, targetPath)` directly via test_server. Path (b) is smaller. ~1 PR including production seam.
+- `LINK-5.1-10` ✅ **DnD-driven move** — `e2e/explorer_move_item.spec.ts` seeds the `with_links` fixture, calls a NODE_ENV-gated window seam (`__kbE2EMoveItem` set in `KnowledgeBaseInner` only when `process.env.NODE_ENV !== "production"` — same NODE_ENV-gate pattern as `ServiceWorkerRegister`) to move `a.md` into a `subfolder/`, and asserts via node-side `fs.readFile` that `subfolder/a.md` exists *and* `b.md`'s `[[a]]` reference rewrote to `[[subfolder/a]]`. The seam bypasses HTML5 DnD's `dataTransfer.getData()` gating in headless Chromium without a CDP-level drag driver and without a separate test_server route — three lines in `KnowledgeBaseInner`, dropped by dead-code elimination in production builds.
 - `LINK-5.1-12` ✅ **Atomic-rename invariant shipped** — case rewritten to match the shipped index-first ordering (production updates the link-index first via `renameDocumentInIndex`, then walks the pre-rename `getBacklinksFor` snapshot to rewrite source files). New Vitest in `useFileExplorer.helpers.test.ts` asserts the post-completion invariant: index points to new path AND every backlink file contains the new path; no `[[oldPath]]` reference remains. No production code change.
 - `LINK-5.2-03` ❌ **Deleted doc's links become red pills** — production `deleteDocumentWithCleanup` strips `[[x]]` from disk; open editor doesn't reload. Needs **either** disabling the strip flow **or** wiring watcher-driven editor reload. Watcher reload is the more useful change (covers more scenarios) but bigger.
 - `LINK-5.4-03` ❌ Same constraint as `LINK-5.2-03`; ships in the same PR.
@@ -190,7 +190,7 @@ These can't ship as test-only PRs — each requires a small touch in `src/app/kn
 - `FS-2.3-73` ❌ `.kbjson` filter — `vaultIndexRepoTauri.ts` extension filter doesn't include `.kbjson`. Promotion needs **production filter expansion**, then the e2e is straightforward. Out of scope per the closed epic's Decision 5; reopen only if attachment-cleanup behaviour for `.kbjson` is genuinely user-facing.
 - `DOC-4.2-06` ❌ overlap with Theme B — see notes there. (Counted in Theme B; not double-counted.)
 
-**Estimated shape:** 4–5 PRs (LINK-5.1-12 + TAB-11.2-12 each one-line decision PRs; LINK-5.1-10, LINK-5.2-03+5.4-03, FS-2.3-73 each separate small PRs).
+**Estimated shape:** 2 PRs remaining (`LINK-5.2-03+5.4-03` need a product decision: disable strip flow vs. wire watcher-driven editor reload; `FS-2.3-73` is explicitly out-of-scope per closed epic Decision 5). LINK-5.1-12, TAB-11.2-12, LINK-5.1-10 all shipped.
 
 ---
 
