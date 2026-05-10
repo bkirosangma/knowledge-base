@@ -4,6 +4,11 @@ version = "0.1.0"
 description = "Knowledge Base desktop app"
 authors = ["Banchan Kiro A Sangma <bkirosangma@gmail.com>"]
 edition = "2021"
+# The crate ships two binaries (the app + the debug `test_server` harness for
+# Playwright). Without `default-run`, plain `cargo run` / `tauri dev` errors out
+# asking which binary to launch; the e2e script invokes `test_server`
+# explicitly via `cargo run --bin test_server`, so picking the app here is safe.
+default-run = "knowledge-base"
 
 [lib]
 name = "knowledge_base_lib"
