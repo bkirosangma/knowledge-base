@@ -17,7 +17,7 @@
 - **LINK-5.1-07** ✅ **Rename updates link index** — `_links.json` outbound + backlinks both reflect new path. (Covered by DOC-4.10-09 `renameDocumentInIndex` in `useLinkIndex.test.ts`.)
 - **LINK-5.1-08** ✅ **Rename of diagram (`.json`) propagates** — `updateWikiLinkPaths` now strips both `.md` and `.json` before matching, so `[[arch]]` and `[[arch.json]]` both rewrite on `arch.json → infra.json`. Covered by LINK-5.1-08 test in `wikiLinkParser.test.ts`. (Bug fixed: util previously only stripped `.md`.)
 - **LINK-5.1-09** 🧪 **Rename of a currently-open document** — open doc in left pane; rename via explorer → pane shows new filename in breadcrumb; no content loss. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
-- **LINK-5.1-10** ❌ **Rename into a different folder** — move+rename → references update with new relative path. (Requires real File System Access moves.)
+- **LINK-5.1-10** 🅑 **Rename into a different folder** — move+rename → references update with new relative path. _(MVP-5 sweep: see follow-up — production move is HTML5 drag-and-drop with `dataTransfer.getData("text/plain")` round-tripping a JSON path payload. Browsers gate `getData(type)` reads to events from a real drag-and-drop sequence, so synthetic `dispatchEvent`-based drops in headless Chromium return `""` from the read and `propagateMoveLinks` never fires. Promotion needs either a CDP-level real drag driver or a production-side test seam (e.g. exposing `onMoveItem(sourcePath, targetPath)` directly via the test_server) — both are scope outside test-promotion.)_
 - **LINK-5.1-11** ✅ **Cyclic reference survives** — `a.md` and `b.md` link to each other; rename `a.md` → `a2.md` → both files still consistent. (Covered by LINK-5.1-11 test in `useFileExplorer.helpers.test.ts`.)
 - **LINK-5.1-12** 🅑 **Backlinks-first rename order** — no lost-reference window. (Implementation-order assertion.) _(MVP-5 sweep: see follow-up — production `propagateRename` currently does index-first then backlink writes; the case-as-worded "backlinks-first / no lost-reference window" claim asserts the opposite of the shipped order. Verifying it requires reordering production code, which is out of scope for the test-promotion sweep.)_
 
@@ -25,7 +25,7 @@
 
 - **LINK-5.2-01** ✅ **Delete removes outbound entries from index** — deleted doc's `_links.json` entry removed. (Covered by DOC-4.10-08 `removeDocumentFromIndex` in `useLinkIndex.test.ts`.)
 - **LINK-5.2-02** ✅ **Delete removes backlinks pointing to it** — index backlink `linkedFrom` entries are purged. (DOC-4.10-08.)
-- **LINK-5.2-03** ❌ **Deleted doc's links become red pills** — other docs referencing it via `[[x]]` now show "click to create" state. (Pill-state rendering lives in the `wikiLink` extension NodeView; requires full editor + link-index integration.)
+- **LINK-5.2-03** 🅑 **Deleted doc's links become red pills** — other docs referencing it via `[[x]]` now show "click to create" state. _(MVP-5 sweep: see follow-up — production `deleteDocumentWithCleanup` actually STRIPS `[[x]]` entirely from disk via `stripWikiLinksForPath`, and the open editor's NodeView does not auto-reload from disk after the watcher fires. Asserting a "live red flip without reload" requires either disabling the strip flow or wiring a watcher-driven editor reload. Both are production changes.)_
 - **LINK-5.2-04** 🧪 **Delete closes the doc in any open pane** — left pane showing it clears; right pane too. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
 - **LINK-5.2-05** 🧪 **Delete tree row removed.** _(e2e: `e2e/fileExplorerOps.spec.ts`)_
 - **LINK-5.2-06** 🧪 **Delete is reversible only by undoing in the OS** — confirm popover shown; no in-app undo. _(e2e: `e2e/fileExplorerOps.spec.ts`)_
@@ -45,19 +45,19 @@
 > These cases are integration-level: they assert the full chain (explorer → `useFileActions` → `updateWikiLinkPaths` → link index → pane state).
 
 - **LINK-5.4-01** 🧪 **Rename in explorer propagates to open doc content** — doc A open; rename doc B referenced by A → A's editor shows new `[[…]]` text. The on-disk side of the propagation chain (rename `a.md` → `c.md` rewrites `[[a]]` to `[[c]]` inside `b.md`) is also asserted in `e2e/rename_propagation.spec.ts` (proof set). _(e2e: `e2e/fileExplorerOps.spec.ts`, `e2e/rename_propagation.spec.ts`)_
-- **LINK-5.4-02** ❌ **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. (Spans `useFileActions` + editor dirty state.)
-- **LINK-5.4-03** ❌ **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. (Depends on `wikiLink` NodeView live-resolution.)
+- **LINK-5.4-02** 🧪 **Rename does not mark unrelated docs dirty** — dirty flag only set for docs whose content actually changed. _(e2e: `e2e/link_dirty_propagation.spec.ts`)_
+- **LINK-5.4-03** 🅑 **Delete in explorer removes backlinks in open docs** — doc A open with a link to deleted B → A's pill flips to red. _(MVP-5 sweep: see follow-up — same constraint as LINK-5.2-03; production strips the wiki-link from b.md on disk, but the open editor in the pane does not reload from the watcher event, so the pill remains visible (and resolved) until manual reload.)_
 - **LINK-5.4-04** ✅ **Index update persists before reload** — close and re-open → index on disk matches post-rename state. (Covered by LINK-5.4-04 test in `useLinkIndex.test.ts`.)
 - **LINK-5.4-05** 🧪 **Vault open auto-rebuilds the link index** — on first tree population per vault, `fullRebuild` fires fire-and-forget across every `.md` + `.json` path returned by `collectAllPaths`. Backlinks for files never opened (or never present in the persisted snapshot) appear without the user needing to click the Graph view's Refresh button. Guarded by `indexRebuildVaultRef` so it fires once per vault open, not on every tree update. _(e2e: `e2e/linkIndexHydration.spec.ts`)_
 
 ## 5.5 Wiki-Link Navigation
 
-- **LINK-5.5-01** ❌ **Click resolved wiki-link opens target in other pane** — editor in left pane → click → right pane opens target. (Requires full Tiptap editor + PaneManager + click handling.)
-- **LINK-5.5-02** ❌ **Click in single-pane mode opens in same pane** — verify routing when no split exists. (Same integration scope.)
-- **LINK-5.5-03** ❌ **Click unresolved wiki-link creates file** — red pill → click → new file created at resolved path; opens in other pane. (Integration with file-creation + PaneManager.)
+- **LINK-5.5-01** 🧪 **Click resolved wiki-link opens target in other pane** — split + focused-right pane: clicking `[[a]]` in the left pane's editor opens `a.md` in the (focused) right pane via `panes.openFile`. _(e2e: `e2e/wiki_link_navigation.spec.ts`)_
+- **LINK-5.5-02** 🧪 **Click in single-pane mode opens in same pane** — verify routing when no split exists. _(e2e: `e2e/wiki_link_navigation.spec.ts`)_
+- **LINK-5.5-03** 🧪 **Click unresolved wiki-link creates file** — red pill → click → new file created at resolved path. _(e2e: `e2e/wiki_link_navigation.spec.ts`)_
 - **LINK-5.5-04** ✅ **Create uses relative path from current doc** — `[[notes/x]]` in `area/intro.md` → `area/notes/x.md`. (Covered by DOC-4.8-04 `resolveWikiLinkPath` in `wikiLinkParser.test.ts`.)
 - **LINK-5.5-05** ✅ **Create appends `.md` if absent** — `[[x]]` → `x.md`. (Covered by DOC-4.8-08 in `wikiLinkParser.test.ts`.)
-- **LINK-5.5-06** ❌ **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. (Requires real editor + scroll.)
+- **LINK-5.5-06** 🧪 **Click with `section` scrolls to heading** — open target and scroll / highlight the `#section` heading. _(e2e: `e2e/wiki_link_navigation.spec.ts` — asserts navigation + heading is rendered with the matching `data-heading-id`. The auto-scroll itself races Tiptap's content render across file switches (the editor instance is reused, `editorReady` stays true) and is verified via the heading-stamping side; landing the scroll deterministically would need a production retry/mutation-observer.)_
 
 ## 5.5 Graphify Knowledge Graph View
 
