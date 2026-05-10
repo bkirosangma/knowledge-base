@@ -20,14 +20,14 @@
 - **HIST-5.4-01** ✅ **readHistoryFile: returns null when history file does not exist** — `tauriBridge.readText` rejects with a `not-found` error; function swallows it and returns `null`.
 - **HIST-5.4-02** ✅ **readHistoryFile: parses and returns valid HistoryFile JSON** — file containing a valid `HistoryFile<T>` is round-tripped correctly.
 - **HIST-5.4-03** ✅ **readHistoryFile: returns null for malformed JSON** — `JSON.parse` throws; function returns `null`.
-- **HIST-5.4-04** ❌ **readHistoryFile: legacy fallback — tries pre-collision-fix sidecar name when new-name read or parse fails for any reason** — when the outer try (read primary + JSON.parse) throws — file absent, read error, OR malformed JSON — the function retries with `historyFileNameLegacy(filePath)` (strips the extension before inserting `.history.json`) and returns that content if found. Note: the catch deliberately widens beyond `not-found` so a corrupt new-style sidecar can fall back to a legacy sidecar that may still parse cleanly.
-- **HIST-5.4-05** ❌ **readHistoryFile: returns null when missing in both new and legacy paths** — when both the new-style and legacy sidecar names are absent, the function returns `null` without error.
+- **HIST-5.4-04** ✅ **readHistoryFile: legacy fallback — tries pre-collision-fix sidecar name when new-name read or parse fails for any reason** — when the outer try (read primary + JSON.parse) throws — file absent, read error, OR malformed JSON — the function retries with `historyFileNameLegacy(filePath)` (strips the extension before inserting `.history.json`) and returns that content if found. Note: the catch deliberately widens beyond `not-found` so a corrupt new-style sidecar can fall back to a legacy sidecar that may still parse cleanly. _(unit: `historyPersistence.test.ts`)_
+- **HIST-5.4-05** ✅ **readHistoryFile: returns null when missing in both new and legacy paths** — when both the new-style and legacy sidecar names are absent, the function returns `null` without error. _(unit: `historyPersistence.test.ts`)_
 - **HIST-5.5-01** ✅ **writeHistoryFile: creates and writes serialized HistoryFile JSON** — calls `tauriBridge.writeText(historyFileName(filePath), JSON.stringify(data))`.
 - **HIST-5.5-02** ✅ **writeHistoryFile: silently ignores write errors** — `tauriBridge.writeText` rejects (e.g. vault not mounted); function swallows the error and resolves without throwing.
 
 ## HIST-5.6 historyPersistence — Tauri routing (MVP-1e)
 
-- **HIST-5.6-01** ❌ **Sidecar reads route through `tauriBridge.readText`** — `readHistoryFile` calls `tauriBridge.readText(historyFileName(filePath))` and not any FSA `FileSystemDirectoryHandle` API; confirmed by mocking `tauriBridge` directly in unit tests.
+- **HIST-5.6-01** ✅ **Sidecar reads route through `tauriBridge.readText`** — `readHistoryFile` calls `tauriBridge.readText(historyFileName(filePath))` and not any FSA `FileSystemDirectoryHandle` API; confirmed by mocking `tauriBridge` directly in unit tests. _(unit: `historyPersistence.test.ts`)_
 
 ## HIST-6 useHistoryCore
 
