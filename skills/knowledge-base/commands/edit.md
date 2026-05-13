@@ -16,6 +16,22 @@ Edit an existing diagram JSON file. All modifications MUST go through this comma
 - **path** (string, required): Path to the diagram JSON file.
 - **change description** (string): What to add, remove, or modify.
 
+## Step 0: Mandatory Graphify Pre-Check (Awareness)
+
+Before reading the target diagram, before planning the change, run the **Mandatory Graphify Pre-Check** defined in `SKILL.md`. Use the target file's path AND the change description (when provided) as the topic — both signals matter, because the change may pull in concepts that don't appear in the file's current contents.
+
+Unlike generation commands, this pre-check is an **awareness step**, not a gate. The user has explicitly asked to edit this file, so STRONG matches do not short-circuit. Instead:
+
+- **STRONG match found** (a different file covers nearly the same concept) → surface it once before proceeding:
+
+  > Heads-up: this file overlaps strongly with `<other-path>`. Edits here may want to be made there too, or the two should be merged. Continuing the edit on `<target-path>` as requested.
+
+- **ADJACENT matches** → surface "this diagram is referenced by N other files: …" so the user knows the blast radius of structural changes (renamed nodes, deleted layers, etc.). If the change description suggests a rename or deletion, recommend running `/kb edit` on the dependents in a follow-up.
+
+- **NONE** → continue silently.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice).
+
 ## Step 1: Read and Parse
 
 Read the diagram JSON at the given path. Extract:

@@ -25,6 +25,22 @@ Transform an existing file to conform to knowledge-base skill conventions. Conte
 
 Never changed: prose, section order, heading hierarchy, file location, node coordinates, flow definitions, `---` horizontal rules in body.
 
+## Step 0: Mandatory Graphify Pre-Check (Awareness)
+
+Before running the transform script, run the **Mandatory Graphify Pre-Check** defined in `SKILL.md`. Use the **target path(s) — and their parent collection** as the topic; transforms reshape structure, so adjacent files in the same collection are the relevant context.
+
+This is an **awareness step**, not a gate. The user has explicitly asked to transform the file(s); a STRONG match doesn't short-circuit. Instead:
+
+- **STRONG match** for any target path (a sibling already conforms to the format you're transforming toward) → surface it once as a reference exemplar:
+
+  > Reference: `<sibling-path>` already follows the conformant format. The transform will bring `<target>` to the same shape.
+
+- **ADJACENT matches** within the collection → surface "these N siblings may also need transforming" so the user can decide whether to expand the glob. Do not auto-expand; respect the user's path argument.
+
+- **NONE** → continue silently.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice). When `--dry-run` is set the pre-check still runs — its output frames the dry-run report.
+
 ## Step 1: Run the transform script
 
 ```bash

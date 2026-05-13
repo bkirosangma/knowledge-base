@@ -19,6 +19,17 @@ The dispatcher passes:
 - **vaultConfig** — parsed `.archdesigner/config.json` (or `null`)
 - **gatheredContext** — compound intelligence context block assembled by SKILL.md
 
+## Step 0: Mandatory Graphify Pre-Check
+
+Before parsing arguments, before structural planning, before any LLM generation, run the **Mandatory Graphify Pre-Check** defined in `SKILL.md` against `<topic>`. SKILL.md owns the protocol; do not re-implement it here.
+
+Outcomes:
+- **STRONG match found** → stop. Surface the matching paths to the user via the SKILL.md dialog ("Open / Edit / Generate-new-anyway?") and wait for their choice. Do not generate a duplicate document.
+- **ADJACENT matches** → continue. Carry the matched paths in `gatheredContext.adjacentMatches` and weave them into the document's "Related" section in Step 5.
+- **NONE** → continue.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice in either case).
+
 ## Step 1: Parse Arguments
 
 1. The **topic** string is the subject of the document. It may be multiple words (e.g., `"Event sourcing patterns"`).
