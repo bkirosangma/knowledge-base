@@ -23,6 +23,17 @@ The dispatcher passes:
 - **vaultConfig** — parsed `.archdesigner/config.json` (or `null`)
 - **gatheredContext** — compound-intelligence block from SKILL.md
 
+## Step 0: Mandatory Graphify Pre-Check
+
+Before parsing arguments, before archetype selection, before any tab generation, run the **Mandatory Graphify Pre-Check** defined in `SKILL.md` against `<topic>`. SKILL.md owns the protocol; do not re-implement it here.
+
+Outcomes:
+- **STRONG match found** → stop. Surface the matching paths to the user via the SKILL.md dialog ("Open / Edit / Generate-new-anyway?") and wait for their choice. Do not regenerate the same tab.
+- **ADJACENT matches** → continue. Carry the matched paths in `gatheredContext.adjacentMatches`; weave them into the explanation doc as "See also" links (e.g. related riffs, parent song tabs, technique-study companions).
+- **NONE** → continue.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice in either case).
+
 ## Step 1: Parse Arguments
 
 1. **topic** is the song / riff / pattern name. Multi-word allowed.

@@ -17,6 +17,17 @@ The `<topic>` is a free-form string describing what to diagram (e.g., "Kubernete
 - **vault config** (object | null): Parsed `.archdesigner/config.json` if in a vault.
 - **gathered context** (object): The compound intelligence context assembled by SKILL.md before dispatching.
 
+## Step 0: Mandatory Graphify Pre-Check
+
+Before doing anything else (before archetype selection, before structural planning, before any LLM generation), run the **Mandatory Graphify Pre-Check** defined in `SKILL.md` against `<topic>`. SKILL.md owns the protocol; do not re-implement it here.
+
+Outcomes:
+- **STRONG match found** → stop. Surface the matching paths to the user via the SKILL.md dialog ("Open / Edit / Generate-new-anyway?") and wait for their choice. Do not generate a duplicate diagram.
+- **ADJACENT matches** → continue. Carry the matched paths in `gatheredContext.adjacentMatches`; weave them into the diagram's `documents.attached` list AND the "Related" section of the explanation doc you write in Step 4.
+- **NONE** → continue.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice). Step 1c below still runs — it is a secondary, layout-oriented graphify query, not a duplicate of the pre-check.
+
 ## Step 1: Detect Vault and Gather Context
 
 Vault detection is handled by SKILL.md before this command runs. Use the passed-in vault root and gathered context. Additionally, load vault-specific memory files:

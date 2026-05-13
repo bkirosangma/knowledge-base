@@ -29,6 +29,17 @@ Examples:
 
 ---
 
+## Step 0: Mandatory Graphify Pre-Check
+
+Before parsing arguments, before slug derivation, before invoking `kb_svg.py`, run the **Mandatory Graphify Pre-Check** defined in `SKILL.md` against `<topic>`. SKILL.md owns the protocol; do not re-implement it here.
+
+Outcomes:
+- **STRONG match found** → stop. Surface the matching paths to the user via the SKILL.md dialog ("Open / Edit / Generate-new-anyway?") and wait for their choice. Do not regenerate the same visualization.
+- **ADJACENT matches** → continue. Carry the matched paths in `gatheredContext.adjacentMatches`; weave them into the explanation doc you write in Step 5 (e.g. "See also" bullets pointing at related raga / fretboard / chord docs).
+- **NONE** → continue.
+
+The pre-check is skipped only when no vault is detected or no graphify index exists (SKILL.md emits the standard notice in either case).
+
 ## Step 1: Parse Arguments and Derive Slug
 
 1. The **topic** string describes what to visualize.
